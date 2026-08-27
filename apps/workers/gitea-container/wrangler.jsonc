@@ -19,7 +19,7 @@
 	"containers": [
 		{
 			"class_name": "GiteaContainer",
-			"image": "./Dockerfile",
+			"image": "docker.io/gitea/gitea:1.27.2-rootless",
 			"instance_type": "standard-2",
 			"max_instances": 1
 		}
