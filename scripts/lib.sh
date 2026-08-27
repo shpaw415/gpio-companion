@@ -225,6 +225,37 @@ EOF
 	fi
 }
 
+write_pairing_env() {
+	install -d -m 0755 "$CONFIG_DIR"
+	if [[ -f "$CONFIG_DIR/pairing.env" ]]; then
+		# shellcheck disable=SC1091
+		source "$CONFIG_DIR/pairing.env"
+		echo "pairing UUID: ${GPIO_COMPANION_PAIRING_UUID:-}"
+		echo "pairing key:  ${GPIO_COMPANION_PAIRING_KEY:-}"
+		return
+	fi
+	local uuid key
+	uuid="${GPIO_COMPANION_PAIRING_UUID:-}"
+	key="${GPIO_COMPANION_PAIRING_KEY:-}"
+	if [[ -z "$uuid" || -z "$key" ]]; then
+		eval "$(python3 - <<'PY'
+import secrets, uuid
+print(f"uuid={uuid.uuid4()}")
+print(f"key={secrets.token_urlsafe(24)}")
+PY
+)"
+	fi
+	umask 077
+	cat >"$CONFIG_DIR/pairing.env" <<EOF
+GPIO_COMPANION_PAIRING_UUID=$uuid
+GPIO_COMPANION_PAIRING_KEY=$key
+EOF
+	chmod 600 "$CONFIG_DIR/pairing.env"
+	echo "pairing UUID: $uuid"
+	echo "pairing key:  $key"
+	echo "enter these on the dashboard /pair page to bind this board to your account (Gitea)"
+}
+
 apply_runtime_config() {
 	local hardware="$1" token="$2" hostname="$3"
 	install -d -m 0755 "$CONFIG_DIR"
@@ -255,11 +286,13 @@ PY
 }
 
 write_secrets_file() {
-	local opencode_key="$1" gitea_token="$2"
+	local opencode_key="$1" gitea_url="$2" gitea_user="$3" gitea_token="$4"
 	install -d -m 0755 "$CONFIG_DIR"
 	umask 077
 	cat >"$CONFIG_DIR/secrets.env" <<EOF
 OPENCODE_API_KEY=$opencode_key
+GITEA_URL=$gitea_url
+GITEA_USERNAME=$gitea_user
 GITEA_TOKEN=$gitea_token
 EOF
 	chmod 600 "$CONFIG_DIR/secrets.env"
@@ -321,6 +354,7 @@ install_common() {
 	install_opencode
 	install_t3code
 	write_device_config "$hardware"
+	write_pairing_env
 	write_repo_metadata
 	install_gpio_companion_bin
 	sync_opencode_agent

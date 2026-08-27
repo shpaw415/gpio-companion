@@ -1,14 +1,29 @@
 import KeysForm from "@components/KeysForm";
+import Button from "@shpaw415/mui-lite/Button";
+import Stack from "@shpaw415/mui-lite/Stack";
+import Typography from "@shpaw415/mui-lite/Typography";
 
 export default function KeysPage() {
+	const giteaUrl = process.env.PUBLIC_GITEA_URL || process.env.GITEA_URL || "";
 	return (
-		<div className="container mx-auto px-4 py-16">
-			<h1 className="mb-4 font-bold text-4xl tracking-tight">Keys</h1>
-			<p className="mb-10 max-w-2xl text-lg text-slate-400">
-				OpenCode API key and Gitea token are assigned here and pushed to the
-				linked hardware. They are not collected at first-boot.
-			</p>
-			<KeysForm />
-		</div>
+		<Stack spacing={3}>
+			<Typography variant="h4" Element="h1">
+				Keys
+			</Typography>
+			<Typography color="secondary">
+				Create a Gitea account first, then send username and token to the Pi API
+				so the on-device agent can manage repos.
+			</Typography>
+			{giteaUrl ? (
+				<Button href={giteaUrl} variant="outlined">
+					Open Gitea and register
+				</Button>
+			) : (
+				<Typography color="secondary">
+					Set PUBLIC_GITEA_URL on the dashboard to link registration.
+				</Typography>
+			)}
+			<KeysForm giteaRegisterUrl={giteaUrl} />
+		</Stack>
 	);
 }

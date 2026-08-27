@@ -17,7 +17,9 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - T3 Code pairing is dashboard-managed
 - Repo updates run via `scripts/update-script.sh` on boot and every 24h (skills, preferences, device server)
 - Image first boot: `scripts/snapshot/gpio-companion-first-boot.sh` clones the repo and runs interactive first-setup
-- OpenCode API key and Gitea token are set from `apps/dashboard`, not first-setup
+- The user creates a Gitea account first, then Gitea URL/username/token are stored on this Pi through the bun device API (`PUT /v1/config/gitea`). Use those credentials to manage project repos. Do not invent a Gitea user.
+- OpenCode API key is also set via the device API (`PUT /v1/config/secrets`), not first-setup
+- Dashboard users sign in with openauthster-shared and pair this board using the first-setup pairing UUID and key
 - Before driving GPIO, load `opencode/skills/gpio-pinout-<hardware>/` (`raspberrypi` or `orangepi`)
 - When a PCB, breadboard, or technical-sheet task is done, push the files to that project's Gitea repo before you stop: `pcb/` (include `circuit.json` and `preview.svg` when possible), `breadboard/` (same), `technical/` (sheets). `git add`, commit, and `git push` to the project remote. The dashboard reads these paths.
 - This product brief is still raw beyond these locks

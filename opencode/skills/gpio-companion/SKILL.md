@@ -22,7 +22,7 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 
 - Vibe-code breadboards and PCBs with tscircuit
 - Show the user visual technical sheets and helpers
-- Keep each electronics project in Gitea
+- Keep each electronics project in Gitea using credentials from `/etc/gpio-companion/secrets.env` (`GITEA_URL`, `GITEA_USERNAME`, `GITEA_TOKEN`) set via the device API after the user created their Gitea account
 - When a PCB, breadboard, or technical-sheet task is finished, push to Gitea immediately:
   - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
   - `breadboard/circuit.json` + `breadboard/preview.svg`

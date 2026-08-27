@@ -93,6 +93,8 @@ install -d -m 0755 "$CONFIG_DIR"
 date -u +"%Y-%m-%dT%H:%M:%SZ" >"$MARKER"
 chmod 644 "$MARKER"
 
+write_pairing_env
+
 echo "first-setup complete"
-echo "set OpenCode and Gitea credentials from the dashboard"
-echo "t3code pairing stays on the dashboard"
+echo "pair this board on the dashboard /pair page with the UUID and key above"
+echo "OpenCode and Gitea credentials are set from the dashboard after pairing"

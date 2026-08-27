@@ -3,6 +3,17 @@ import {
 	POST as loadProject,
 	PUT as readFile,
 } from "@api/projects";
+import Alert from "@shpaw415/mui-lite/Alert";
+import Button from "@shpaw415/mui-lite/Button";
+import {
+	List,
+	ListItem,
+	ListItemButton,
+	ListItemText,
+} from "@shpaw415/mui-lite/List";
+import Paper from "@shpaw415/mui-lite/Paper";
+import Stack from "@shpaw415/mui-lite/Stack";
+import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import type { GiteaRepo, ProjectBundle } from "../lib/gitea.ts";
 import PcbViewer from "./PcbViewer.tsx";
@@ -44,39 +55,33 @@ export default function ProjectBrowser() {
 
 	if (!configured) {
 		return (
-			<p className="text-slate-400">
-				Set <code className="text-slate-200">GITEA_URL</code> and secret{" "}
-				<code className="text-slate-200">GITEA_TOKEN</code> on the Pages project
-				to list Gitea repos. Agent-pushed files live in{" "}
-				<code className="text-slate-200">pcb/</code>,{" "}
-				<code className="text-slate-200">breadboard/</code>, and{" "}
-				<code className="text-slate-200">technical/</code>.
-			</p>
+			<Alert severity="info">
+				Set GITEA_URL and secret GITEA_TOKEN on the Pages project to list Gitea
+				repos. Agent-pushed files live in pcb/, breadboard/, and technical/.
+			</Alert>
 		);
 	}
 
 	return (
 		<div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
-			<aside className="flex flex-col gap-2">
-				{repos.map((repo) => (
-					<button
-						className="rounded-xl border border-slate-800 px-4 py-3 text-left hover:border-blue-500/40"
-						key={repo.full_name}
-						onClick={() => void openRepo(repo)}
-						type="button"
-					>
-						<span className="block font-medium">{repo.name}</span>
-						<span className="font-mono text-slate-500 text-xs">
-							{repo.full_name}
-						</span>
-					</button>
-				))}
+			<Paper elevation={1}>
+				<List>
+					{repos.map((repo) => (
+						<ListItem key={repo.full_name} disablePadding>
+							<ListItemButton onClick={() => void openRepo(repo)}>
+								<ListItemText primary={repo.name} secondary={repo.full_name} />
+							</ListItemButton>
+						</ListItem>
+					))}
+				</List>
 				{repos.length === 0 ? (
-					<p className="text-slate-500 text-sm">No Gitea repos yet.</p>
+					<Typography color="secondary" className="p-4">
+						No Gitea repos yet.
+					</Typography>
 				) : null}
-			</aside>
-			<section className="flex flex-col gap-8">
-				{error ? <p className="text-red-400">{error}</p> : null}
+			</Paper>
+			<Stack spacing={3}>
+				{error ? <Alert severity="error">{error}</Alert> : null}
 				{bundle ? (
 					<>
 						<PcbViewer
@@ -89,9 +94,9 @@ export default function ProjectBrowser() {
 						<FileGroup title="Technical" files={bundle.technical} />
 					</>
 				) : (
-					<p className="text-slate-500">Select a project.</p>
+					<Typography color="secondary">Select a project.</Typography>
 				)}
-			</section>
+			</Stack>
 		</div>
 	);
 }
@@ -104,32 +109,34 @@ function FileGroup({
 	files: { name: string; path: string; download_url: string | null }[];
 }) {
 	return (
-		<div>
-			<h2 className="mb-3 font-semibold text-xl">{title}</h2>
+		<Paper className="p-4" elevation={1}>
+			<Typography variant="h6" className="mb-2">
+				{title}
+			</Typography>
 			{files.length === 0 ? (
-				<p className="text-slate-500 text-sm">No files in this folder.</p>
+				<Typography color="secondary" variant="body2">
+					No files in this folder.
+				</Typography>
 			) : (
-				<ul className="flex flex-col gap-2">
-					{files.map((file) => (
-						<li key={file.path}>
-							{file.download_url ? (
-								<a
-									className="font-mono text-blue-400 text-sm hover:underline"
-									href={file.download_url}
-									rel="noreferrer"
-									target="_blank"
-								>
-									{file.path}
-								</a>
-							) : (
-								<span className="font-mono text-slate-400 text-sm">
-									{file.path}
-								</span>
-							)}
-						</li>
-					))}
-				</ul>
+				<Stack spacing={1}>
+					{files.map((file) =>
+						file.download_url ? (
+							<Button
+								key={file.path}
+								href={file.download_url}
+								variant="text"
+								size="small"
+							>
+								{file.path}
+							</Button>
+						) : (
+							<Typography key={file.path} variant="body2">
+								{file.path}
+							</Typography>
+						),
+					)}
+				</Stack>
 			)}
-		</div>
+		</Paper>
 	);
 }

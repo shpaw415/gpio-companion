@@ -40,6 +40,9 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - On-device Bun API (`gpio-companion serve`, port 4150) sets runtime config after install
 - `cloudflared` replica is for the T3 Code tunnel; custom endpoint + token are applied at OS config time via the device API
 - T3 Code pairing, OpenCode API key, and Gitea token are managed from the dashboard, not first-setup
+- Dashboard is multi-user and authenticates with `openauthster-shared`
+- Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user
+- Gitea: the user creates an account on Gitea first; Pi/agent credentials (URL, username, token) are then set through the device bun API `PUT /v1/config/gitea`
 
 ## Capabilities and Constraints
 
@@ -59,9 +62,11 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - On-device updater `scripts/update-script.sh` pulls the repo, refreshes `opencode/skills` and `opencode/preferences`, and rebuilds/restarts the gpio-companion server when those trees change
 - Updater runs on boot and every 24h (`gpio-companion-update.timer`)
 - OS snapshot ships `scripts/snapshot/gpio-companion-first-boot.sh`: install git, clone this repo, run interactive `scripts/first-setup.sh`
-- First setup collects per-hardware choice and the cloudflared tunnel token/hostname; OpenCode API key and Gitea token are set from `apps/dashboard` (`PUT /v1/config/secrets` on the device)
+- First setup collects per-hardware choice and the cloudflared tunnel token/hostname
+- After the user registers on Gitea, dashboard Keys pushes Gitea URL/username/token to the Pi via `PUT /v1/config/gitea`; OpenCode key via `PUT /v1/config/secrets`
 - Dashboard app: `apps/dashboard` (Frame Master `cloudflare-nextjs`, Cloudflare Pages project `gpio-companion-dashboard`)
 - Dashboard `/projects` shows per-Gitea-repo `pcb/`, `breadboard/`, and `technical/` files plus a PCB viewer (`pcb/circuit.json` / `pcb/preview.svg`)
+- Pairing UUID/key are generated (or taken from env) at first-setup; `POST /v1/pairing/claim` on the device API completes the bind
 - When a PCB, breadboard, or technical-sheet task is done, the agent must `git push` those folders to the project Gitea repo
 - Per-hardware GPIO pinout skills: `opencode/skills/gpio-pinout-raspberrypi`, `opencode/skills/gpio-pinout-orangepi`
 

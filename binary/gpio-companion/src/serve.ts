@@ -1,11 +1,15 @@
 import {
 	type DeviceConfig,
+	mergeDeviceSecrets,
 	parseDeviceSecrets,
+	parsePairingClaim,
 	parseTunnelConfig,
+	publicPairing,
 	redactDeviceConfig,
 	secretsStatus,
 	VERSION,
 } from "gpio-companion";
+import { applyClaim, type PairingStore } from "./pairing.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
@@ -15,6 +19,7 @@ export type ServeOptions = {
 	hostname?: string;
 	store: ConfigStore;
 	secrets: SecretsStore;
+	pairing: PairingStore;
 	applyTunnel: ApplyTunnel;
 };
 
@@ -34,13 +39,18 @@ export function startDeviceApi(options: ServeOptions) {
 						request,
 						options.store,
 						options.secrets,
+						options.pairing,
 						options.applyTunnel,
 					),
 				);
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : "request failed";
-				return cors(Response.json({ error: message }, { status: 400 }));
+				const status =
+					message.includes("mismatch") || message.includes("already paired")
+						? 403
+						: 400;
+				return cors(Response.json({ error: message }, { status }));
 			}
 		},
 	});
@@ -50,6 +60,7 @@ export async function handleDeviceRequest(
 	request: Request,
 	store: ConfigStore,
 	secretsStore: SecretsStore,
+	pairingStore: PairingStore,
 	applyTunnel: ApplyTunnel,
 ): Promise<Response> {
 	const url = new URL(request.url);
@@ -57,6 +68,24 @@ export async function handleDeviceRequest(
 
 	if (request.method === "GET" && path === "/health") {
 		return json({ ok: true, version: VERSION });
+	}
+
+	if (request.method === "GET" && path === "/v1/pairing") {
+		const config = await store.read();
+		const pairing = await pairingStore.read();
+		return json({
+			...publicPairing(pairing),
+			hardware: config.hardware,
+			hostname: config.tunnel.hostname,
+		});
+	}
+
+	if (request.method === "POST" && path === "/v1/pairing/claim") {
+		const claim = parsePairingClaim(await readJson(request));
+		const current = await pairingStore.read();
+		const next = applyClaim(current, claim);
+		await pairingStore.write(next);
+		return json(publicPairing(next));
 	}
 
 	if (request.method === "GET" && path === "/v1/config") {
@@ -91,11 +120,23 @@ export async function handleDeviceRequest(
 
 	if (request.method === "PUT" && path === "/v1/config/secrets") {
 		const current = await secretsStore.read();
-		const patch = parseDeviceSecrets(await readJson(request));
-		const next = {
-			opencodeApiKey: patch.opencodeApiKey || current.opencodeApiKey,
-			giteaToken: patch.giteaToken || current.giteaToken,
-		};
+		const next = mergeDeviceSecrets(
+			current,
+			parseDeviceSecrets(await readJson(request)),
+		);
+		await secretsStore.write(next);
+		return json(secretsStatus(next));
+	}
+
+	if (request.method === "PUT" && path === "/v1/config/gitea") {
+		const current = await secretsStore.read();
+		const next = mergeDeviceSecrets(
+			current,
+			parseDeviceSecrets(await readJson(request)),
+		);
+		if (!next.giteaUrl || !next.giteaUsername || !next.giteaToken) {
+			throw new Error("giteaUrl, giteaUsername, and giteaToken are required");
+		}
 		await secretsStore.write(next);
 		return json(secretsStatus(next));
 	}
@@ -103,6 +144,7 @@ export async function handleDeviceRequest(
 	if (request.method === "GET" && path === "/v1/status") {
 		const config = await store.read();
 		const secrets = await secretsStore.read();
+		const pairing = await pairingStore.read();
 		return json({
 			hardware: config.hardware,
 			tunnel: {
@@ -110,6 +152,7 @@ export async function handleDeviceRequest(
 				hostname: config.tunnel.hostname,
 			},
 			secrets: secretsStatus(secrets),
+			pairing: publicPairing(pairing),
 			t3codePairing: "dashboard",
 		});
 	}
@@ -150,7 +193,7 @@ function json(body: unknown, status = 200): Response {
 function cors(response: Response): Response {
 	const headers = new Headers(response.headers);
 	headers.set("Access-Control-Allow-Origin", "*");
-	headers.set("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+	headers.set("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
 	headers.set("Access-Control-Allow-Headers", "content-type");
 	return new Response(response.body, {
 		status: response.status,

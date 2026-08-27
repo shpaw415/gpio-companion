@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { filePairingStore } from "./pairing.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
 import { fileConfigStore, tunnelEnvContents } from "./store.ts";
@@ -9,6 +10,7 @@ import { fileConfigStore, tunnelEnvContents } from "./store.ts";
 const dir = await mkdtemp(join(tmpdir(), "gpio-companion-"));
 const configPath = join(dir, "config.json");
 const secretsPath = join(dir, "secrets.env");
+const pairingPath = join(dir, "pairing.json");
 let applied = 0;
 
 const server = startDeviceApi({
@@ -16,6 +18,7 @@ const server = startDeviceApi({
 	hostname: "127.0.0.1",
 	store: fileConfigStore(configPath, "orangepi"),
 	secrets: fileSecretsStore(secretsPath),
+	pairing: filePairingStore(pairingPath, "pair-uuid", "pair-key"),
 	applyTunnel: async () => {
 		applied += 1;
 	},
@@ -84,6 +87,53 @@ describe("gpio-companion-bin", () => {
 		};
 		expect(body.opencodeApiKey).toBe(true);
 		expect(body.giteaToken).toBe(true);
-		expect(body.source).toBe("dashboard");
+		expect(body.source).toBe("device-api");
+	});
+
+	test("sets gitea credentials on the pi api", async () => {
+		const response = await fetch(`${server.url}v1/config/gitea`, {
+			method: "PUT",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				giteaUrl: "https://git.example.com",
+				giteaUsername: "ada",
+				giteaToken: "gitea-key",
+			}),
+		});
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { giteaReady: boolean };
+		expect(body.giteaReady).toBe(true);
+	});
+
+	test("claims pairing uuid-key as gitea account", async () => {
+		const denied = await fetch(`${server.url}v1/pairing/claim`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				uuid: "pair-uuid",
+				key: "wrong",
+				userId: "user-1",
+				email: "ada@gpio-companion.com",
+			}),
+		});
+		expect(denied.status).toBe(403);
+
+		const claimed = await fetch(`${server.url}v1/pairing/claim`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				uuid: "pair-uuid",
+				key: "pair-key",
+				userId: "user-1",
+				email: "ada@gpio-companion.com",
+			}),
+		});
+		expect(claimed.status).toBe(200);
+		const body = (await claimed.json()) as {
+			paired: boolean;
+			giteaLogin: string;
+		};
+		expect(body.paired).toBe(true);
+		expect(body.giteaLogin).toBe("ada");
 	});
 });

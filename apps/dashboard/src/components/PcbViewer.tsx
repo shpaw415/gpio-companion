@@ -1,3 +1,5 @@
+import Paper from "@shpaw415/mui-lite/Paper";
+import Typography from "@shpaw415/mui-lite/Typography";
 import { useMemo } from "react";
 
 type Props = {
@@ -18,49 +20,53 @@ export default function PcbViewer({
 
 	if (previewUrl) {
 		return (
-			<figure className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+			<Paper className="overflow-hidden" elevation={1}>
 				<img
 					alt={`${label} preview`}
 					className="w-full bg-white"
 					src={previewUrl}
 				/>
-				<figcaption className="px-4 py-2 text-slate-500 text-sm">
+				<Typography color="secondary" className="px-4 py-2">
 					{label}
-				</figcaption>
-			</figure>
+				</Typography>
+			</Paper>
 		);
 	}
 
 	if (embeddedSvg) {
 		return (
-			<figure className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+			<Paper className="overflow-hidden" elevation={1}>
 				<img
 					alt={`${label} preview`}
 					className="w-full bg-white"
 					src={`data:image/svg+xml;utf8,${encodeURIComponent(embeddedSvg)}`}
 				/>
-				<figcaption className="px-4 py-2 text-slate-500 text-sm">
+				<Typography color="secondary" className="px-4 py-2">
 					{label} PCB
-				</figcaption>
-			</figure>
+				</Typography>
+			</Paper>
 		);
 	}
 
 	if (circuitJsonText) {
 		return (
-			<div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-				<p className="mb-3 font-medium text-slate-200">{label} PCB</p>
-				<pre className="max-h-[32rem] overflow-auto rounded-xl bg-slate-900 p-4 font-mono text-slate-300 text-xs">
+			<Paper className="p-4" elevation={1}>
+				<Typography variant="subtitle1" className="mb-2">
+					{label} PCB
+				</Typography>
+				<pre className="max-h-[32rem] overflow-auto text-xs">
 					{circuitJsonText.slice(0, 8000)}
 				</pre>
-			</div>
+			</Paper>
 		);
 	}
 
 	return (
-		<p className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-500">
-			No {label} circuit.json or preview.svg in Gitea yet.
-		</p>
+		<Paper className="p-6" elevation={1}>
+			<Typography color="secondary">
+				No {label} circuit.json or preview.svg in Gitea yet.
+			</Typography>
+		</Paper>
 	);
 }
 

@@ -17,6 +17,15 @@ export {
 	type TunnelConfig,
 } from "./config.ts";
 export {
+	emptyPairingState,
+	giteaLoginFromEmail,
+	type PairingClaim,
+	type PairingPublic,
+	type PairingState,
+	parsePairingClaim,
+	publicPairing,
+} from "./pairing.ts";
+export {
 	BREADBOARD_CIRCUIT_JSON,
 	BREADBOARD_PREVIEW_SVG,
 	isProjectFileDir,
@@ -28,6 +37,7 @@ export {
 export {
 	type DeviceSecrets,
 	emptyDeviceSecrets,
+	mergeDeviceSecrets,
 	parseDeviceSecrets,
 	secretsStatus,
 } from "./secrets.ts";

@@ -23,6 +23,7 @@
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false,
 		"types": [
+			"bun",
 			"frame-master-plugin-image-optimizer/types",
 			"./worker-configuration.d.ts",
 			"frame-master-plugin-cloudflare-pages-dynamic-ssr/types",
@@ -56,6 +57,9 @@
 			"@next/client": [
 				"./node_modules/frame-master-plugin-apply-react/src/utils.ts",
 			],
+			"@hooks/*": [
+				"./src/hooks/*"
+			],
 			"@next/hooks/path": [
 				"./src/hooks/usePath.ts"
 			]
@@ -67,12 +71,22 @@
 		"./src/hooks",
 		"./src/actions",
 		"./src/lib",
+		"./src/hooks/useColorMode.tsx",
 		"./src/common.ts",
+		"./src/auth.ts",
 		"./src/action-utils",
 		".frame-master/frame-master-custom-type.d.ts"
 	],
 	"exclude": [
 		".frame-master",
-		"**/node_modules"
+		"**/node_modules",
+		"./src/auth.ts",
+		"./src/lib/auth/**",
+		"./src/hooks/useAuth.ts",
+		"./src/pages/login.tsx",
+		"./src/pages/callback.tsx",
+		"./src/pages/pair.tsx",
+		"./src/components/PairForm.tsx",
+		"./src/actions/api/pair.ts"
 	]
 }

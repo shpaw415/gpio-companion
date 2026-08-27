@@ -1,10 +1,22 @@
+import Alert from "@shpaw415/mui-lite/Alert";
+import Button from "@shpaw415/mui-lite/Button";
+import Paper from "@shpaw415/mui-lite/Paper";
+import Stack from "@shpaw415/mui-lite/Stack";
+import TextField from "@shpaw415/mui-lite/TextField";
+import Typography from "@shpaw415/mui-lite/Typography";
 import { type FormEvent, useState } from "react";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function KeysForm() {
+export default function KeysForm({
+	giteaRegisterUrl = "",
+}: {
+	giteaRegisterUrl?: string;
+}) {
 	const [deviceUrl, setDeviceUrl] = useState("");
 	const [opencodeApiKey, setOpencodeApiKey] = useState("");
+	const [giteaUrl, setGiteaUrl] = useState(giteaRegisterUrl);
+	const [giteaUsername, setGiteaUsername] = useState("");
 	const [giteaToken, setGiteaToken] = useState("");
 	const [status, setStatus] = useState<Status>("idle");
 	const [message, setMessage] = useState("");
@@ -20,16 +32,28 @@ export default function KeysForm() {
 		setStatus("loading");
 		setMessage("");
 		try {
-			const response = await fetch(`${origin}/v1/config/secrets`, {
-				method: "PUT",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ opencodeApiKey, giteaToken }),
-			});
-			if (!response.ok) {
-				throw new Error(`device responded ${response.status}`);
+			if (opencodeApiKey) {
+				const secrets = await fetch(`${origin}/v1/config/secrets`, {
+					method: "PUT",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ opencodeApiKey }),
+				});
+				if (!secrets.ok) {
+					throw new Error(`device secrets ${secrets.status}`);
+				}
+			}
+			if (giteaUrl || giteaUsername || giteaToken) {
+				const gitea = await fetch(`${origin}/v1/config/gitea`, {
+					method: "PUT",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ giteaUrl, giteaUsername, giteaToken }),
+				});
+				if (!gitea.ok) {
+					throw new Error(`device gitea ${gitea.status}`);
+				}
 			}
 			setStatus("success");
-			setMessage("saved on device");
+			setMessage("saved on the Pi API");
 			setOpencodeApiKey("");
 			setGiteaToken("");
 		} catch (error) {
@@ -39,48 +63,62 @@ export default function KeysForm() {
 	}
 
 	return (
-		<form className="flex max-w-xl flex-col gap-5" onSubmit={onSubmit}>
-			<label className="flex flex-col gap-2">
-				<span className="text-slate-300 text-sm">Device URL</span>
-				<input
-					className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-					placeholder="https://pi.example.com:4150"
-					value={deviceUrl}
-					onChange={(event) => setDeviceUrl(event.target.value)}
-				/>
-			</label>
-			<label className="flex flex-col gap-2">
-				<span className="text-slate-300 text-sm">OpenCode API key</span>
-				<input
-					className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-					type="password"
-					autoComplete="off"
-					value={opencodeApiKey}
-					onChange={(event) => setOpencodeApiKey(event.target.value)}
-				/>
-			</label>
-			<label className="flex flex-col gap-2">
-				<span className="text-slate-300 text-sm">Gitea token</span>
-				<input
-					className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-					type="password"
-					autoComplete="off"
-					value={giteaToken}
-					onChange={(event) => setGiteaToken(event.target.value)}
-				/>
-			</label>
-			<button
-				className="self-start rounded-full bg-blue-600 px-6 py-3 font-semibold disabled:opacity-50"
-				disabled={status === "loading"}
-				type="submit"
-			>
-				{status === "loading" ? "Saving…" : "Save to device"}
-			</button>
-			{message ? (
-				<p className={status === "error" ? "text-red-400" : "text-emerald-400"}>
-					{message}
-				</p>
-			) : null}
-		</form>
+		<Paper className="max-w-xl p-6" elevation={1}>
+			<form onSubmit={onSubmit}>
+				<Stack spacing={2}>
+					<TextField
+						label="Device URL"
+						placeholder="https://pi.example.com:4150"
+						value={deviceUrl}
+						onChange={(event) => setDeviceUrl(event.target.value)}
+						className="w-full"
+					/>
+					<TextField
+						label="OpenCode API key"
+						type="password"
+						autoComplete="off"
+						value={opencodeApiKey}
+						onChange={(event) => setOpencodeApiKey(event.target.value)}
+						className="w-full"
+					/>
+					<Typography variant="body2" color="secondary">
+						Gitea: register on Gitea, create a token, then save it to the Pi.
+					</Typography>
+					<TextField
+						label="Gitea URL"
+						placeholder="https://git.example.com"
+						value={giteaUrl}
+						onChange={(event) => setGiteaUrl(event.target.value)}
+						className="w-full"
+					/>
+					<TextField
+						label="Gitea username"
+						value={giteaUsername}
+						onChange={(event) => setGiteaUsername(event.target.value)}
+						className="w-full"
+					/>
+					<TextField
+						label="Gitea token"
+						type="password"
+						autoComplete="off"
+						value={giteaToken}
+						onChange={(event) => setGiteaToken(event.target.value)}
+						className="w-full"
+					/>
+					<Button
+						type="submit"
+						variant="contained"
+						disabled={status === "loading"}
+					>
+						{status === "loading" ? "Saving…" : "Save to Pi API"}
+					</Button>
+					{message ? (
+						<Alert severity={status === "error" ? "error" : "success"}>
+							{message}
+						</Alert>
+					) : null}
+				</Stack>
+			</form>
+		</Paper>
 	);
 }
