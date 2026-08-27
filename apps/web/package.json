@@ -1,0 +1,21 @@
+{
+	"name": "gpio-companion-web",
+	"private": true,
+	"type": "module",
+	"version": "0.0.0",
+	"description": "gpio-companion web app",
+	"license": "MIT",
+	"scripts": {
+		"dev": "bun run --hot src/index.ts",
+		"start": "bun run src/index.ts",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"gpio-companion": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"typescript": "catalog:"
+	}
+}

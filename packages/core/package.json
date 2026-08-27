@@ -1,0 +1,27 @@
+{
+	"name": "gpio-companion",
+	"type": "module",
+	"version": "0.0.0",
+	"description": "Shared gpio-companion library",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/shpaw415/gpio-companion.git",
+		"directory": "packages/core"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"src",
+		"package.json"
+	],
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"typescript": "catalog:"
+	}
+}
