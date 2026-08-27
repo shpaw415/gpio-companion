@@ -24,6 +24,16 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .env.test.local
 .env.production.local
 .env.local
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# wrangler / frame-master
+.wrangler
+.frame-master/build
+.frame-master/cf-actions-temp
+functions
+optimized
 
 # caches
 .eslintcache

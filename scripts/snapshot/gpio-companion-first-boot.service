@@ -1,0 +1,19 @@
+[Unit]
+Description=gpio-companion first-boot clone and interactive setup
+ConditionPathExists=!/etc/gpio-companion/first-setup-complete
+After=network-online.target getty@tty1.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+ExecStart=/usr/local/sbin/gpio-companion-first-boot
+
+[Install]
+WantedBy=multi-user.target

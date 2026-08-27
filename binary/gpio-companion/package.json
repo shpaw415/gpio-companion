@@ -3,7 +3,7 @@
 	"private": true,
 	"type": "module",
 	"version": "0.0.0",
-	"description": "gpio-companion standalone binary",
+	"description": "gpio-companion on-device binary and config API",
 	"license": "MIT",
 	"bin": {
 		"gpio-companion": "./src/index.ts"

@@ -1,0 +1,10 @@
+[Unit]
+Description=gpio-companion repo pull and agent update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/gpio-companion/update.env
+ExecStart=/usr/local/sbin/gpio-companion-update
+Nice=10

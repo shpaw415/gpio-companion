@@ -1,0 +1,15 @@
+[Unit]
+Description=gpio-companion cloudflared replica for t3code
+After=network-online.target gpio-companion.service
+Wants=network-online.target
+ConditionPathExists=/etc/gpio-companion/cloudflared.env
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/gpio-companion/cloudflared.env
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

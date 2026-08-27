@@ -1,0 +1,20 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "gpio-companion-dashboard",
+	"pages_build_output_dir": ".frame-master/build",
+	"compatibility_date": "2026-02-17",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"vars": {
+		"BUN_VERSION": "1.3.13",
+		"SKIP_DEPENDENCY_INSTALL": "true",
+		"GITEA_URL": ""
+	},
+	"kv_namespaces": [
+		{
+			"binding": "DYNAMIC_PAGE_KV",
+			"id": "<kv-binding-id>"
+		}
+	]
+}

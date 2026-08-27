@@ -7,7 +7,15 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!**/node_modules", "!**/dist", "!**/out", "!**/tmp"]
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/out",
+			"!**/tmp",
+			"!**/worker-configuration.d.ts",
+			"!**/.wrangler"
+		]
 	},
 	"formatter": {
 		"enabled": true,

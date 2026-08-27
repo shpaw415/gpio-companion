@@ -1,0 +1,43 @@
+{
+	"name": "gpio-companion-dashboard",
+	"private": true,
+	"version": "0.0.0",
+	"description": "gpio-companion Cloudflare Pages dashboard",
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@cloudflare/workers-types": "^4.20260519.1",
+		"wrangler": "^4.124.0",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@tailwindcss/cli": "^4.3.0",
+		"frame-master": "^4.0.0-beta.7",
+		"frame-master-plugin-apply-react": "^3.0.0",
+		"frame-master-plugin-assets-to-build": "^0.1.1",
+		"frame-master-plugin-auto-sitemap": "^0.1.0",
+		"frame-master-plugin-cloudflare-pages-dynamic-ssr": "^0.3.0",
+		"frame-master-plugin-cloudflare-pages-functions-action": "^4.0.0",
+		"frame-master-plugin-cloudflare-route-file-generator": "^0.1.2",
+		"frame-master-plugin-env-in-html": "^0.1.2",
+		"frame-master-plugin-image-optimizer": "^0.2.0",
+		"frame-master-plugin-node-polyfills": "^0.1.0",
+		"frame-master-plugin-react-to-html": "^1.0.7",
+		"frame-master-plugin-seo": "^0.1.1",
+		"frame-master-plugin-serve-from-build": "^1.1.1",
+		"frame-master-plugin-tailwind": "^2.0.0",
+		"gpio-companion": "workspace:*",
+		"frame-master-svg-to-jsx-loader": "^0.1.0",
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6",
+		"tailwindcss": "^4.3.0"
+	},
+	"scripts": {
+		"dev": "NODE_ENV=development bun frame-master start",
+		"build": "NODE_ENV=production bun frame-master build",
+		"build:dev": "NODE_ENV=development bun frame-master build",
+		"typecheck": "tsc --noEmit",
+		"deploy": "bun run build && wrangler pages deploy .frame-master/build --project-name gpio-companion-dashboard"
+	}
+}

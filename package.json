@@ -2,7 +2,7 @@
 	"name": "gpio-companion-monorepo",
 	"private": true,
 	"version": "0.0.0",
-	"description": "gpio-companion monorepo — apps, packages, and compiled binary",
+	"description": "On-device GPIO AI coworker — Armbian, tscircuit, Gitea, Bun, Arduino C",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/shpaw415/gpio-companion.git"
@@ -14,6 +14,8 @@
 	"workspaces": {
 		"packages": [
 			"apps/*",
+			"apps/workers/*",
+			"!apps/workers",
 			"packages/*",
 			"binary/*"
 		],
@@ -28,7 +30,17 @@
 		"lint": "biome check .",
 		"format": "biome check --write .",
 		"dev": "bun run --filter gpio-companion-web dev",
-		"compile": "bun run --filter gpio-companion-bin compile"
+		"dev:dashboard": "bun run --filter gpio-companion-dashboard dev",
+		"build:dashboard": "bun run --filter gpio-companion-dashboard build",
+		"deploy:dashboard": "bun run --filter gpio-companion-dashboard deploy",
+		"dev:gitea": "bun run --filter gitea-container dev",
+		"deploy:gitea": "bun run --filter gitea-container deploy",
+		"compile": "bun run --filter gpio-companion-bin compile",
+		"install:raspberrypi": "./scripts/install-raspberrypi.sh",
+		"install:orangepi": "./scripts/install-orangepi.sh",
+		"update": "./scripts/update-script.sh",
+		"first-setup": "./scripts/first-setup.sh",
+		"first-boot": "./scripts/snapshot/gpio-companion-first-boot.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.10"

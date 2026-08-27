@@ -13,10 +13,10 @@ The Gitea repo Dockerfile is a **source build** and needs the full Gitea tree. T
 ## Commands
 
 ```bash
-npm install
-npx wrangler types
-npm run dev
-npm run deploy
+bun install
+bun run cf-typegen
+bun run dev
+bun run deploy
 ```
 
 First request cold-starts Gitea (can take a minute). Complete the install wizard in the browser.

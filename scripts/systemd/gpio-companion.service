@@ -1,0 +1,18 @@
+[Unit]
+Description=gpio-companion device config API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gpio-companion serve
+Restart=on-failure
+RestartSec=3
+Environment=GPIO_COMPANION_CONFIG=/etc/gpio-companion/config.json
+Environment=GPIO_COMPANION_TUNNEL_ENV=/etc/gpio-companion/cloudflared.env
+Environment=GPIO_COMPANION_SECRETS=/etc/gpio-companion/secrets.env
+Environment=GPIO_COMPANION_PORT=4150
+Environment=GPIO_COMPANION_HARDWARE=raspberrypi
+
+[Install]
+WantedBy=multi-user.target

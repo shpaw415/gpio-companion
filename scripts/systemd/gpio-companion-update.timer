@@ -1,0 +1,11 @@
+[Unit]
+Description=gpio-companion update on boot and every 24h
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=24h
+Persistent=true
+Unit=gpio-companion-update.service
+
+[Install]
+WantedBy=timers.target
