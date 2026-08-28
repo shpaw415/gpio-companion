@@ -1,12 +1,15 @@
 {
 	"compilerOptions": {
-		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"lib": [
+			"ESNext",
+			"DOM",
+			"DOM.Iterable"
+		],
 		"target": "ESNext",
 		"module": "preserve",
 		"moduleDetection": "force",
 		"jsx": "react-jsx",
 		"allowJs": true,
-		"baseUrl": ".",
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
@@ -27,10 +30,18 @@
 			"@cloudflare/workers-types"
 		],
 		"paths": {
-			"@images/*": ["./images/*"],
-			"@static/*": ["./static/*"],
-			"@api/*": ["./src/actions/api/*"],
-			"@components/*": ["./src/components/*"],
+			"@images/*": [
+				"./images/*"
+			],
+			"@static/*": [
+				"./static/*"
+			],
+			"@api/*": [
+				"./src/actions/api/*"
+			],
+			"@components/*": [
+				"./src/components/*"
+			],
 			"@next/ssr": [
 				"./node_modules/frame-master-plugin-cloudflare-pages-dynamic-ssr/src/server/index.ts"
 			],
@@ -46,8 +57,12 @@
 			"@next/client": [
 				"./node_modules/frame-master-plugin-apply-react/src/utils.ts"
 			],
-			"@hooks/*": ["./src/hooks/*"],
-			"@next/hooks/path": ["./src/hooks/usePath.ts"]
+			"@hooks/*": [
+				"./src/hooks/*"
+			],
+			"@next/hooks/path": [
+				"./src/hooks/usePath.ts"
+			]
 		}
 	},
 	"include": [
@@ -62,5 +77,8 @@
 		"./src/action-utils",
 		".frame-master/frame-master-custom-type.d.ts"
 	],
-	"exclude": [".frame-master", "**/node_modules"]
+	"exclude": [
+		".frame-master",
+		"**/node_modules"
+	]
 }
