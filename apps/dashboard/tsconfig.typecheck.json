@@ -1,0 +1,22 @@
+{
+	"extends": "./tsconfig.json",
+	"exclude": [
+		".frame-master",
+		"**/node_modules",
+		"./src/auth.ts",
+		"./src/lib/auth/**",
+		"./src/hooks/useAuth.ts",
+		"./src/pages/login.tsx",
+		"./src/pages/callback.tsx",
+		"./src/pages/pair.tsx",
+		"./src/components/PairForm.tsx",
+		"./src/components/Onboarding.tsx",
+		"./src/components/LoginPanel.tsx",
+		"./src/pages/index.tsx",
+		"./src/actions/api/pair.ts",
+		"./src/actions/api/device.ts",
+		"./src/lib/session.ts",
+		"./src/components/KeysForm.tsx",
+		"./src/pages/keys.tsx"
+	]
+}

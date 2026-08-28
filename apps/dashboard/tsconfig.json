@@ -1,15 +1,12 @@
 {
 	"compilerOptions": {
-		"lib": [
-			"ESNext",
-			"DOM",
-			"DOM.Iterable"
-		],
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
 		"target": "ESNext",
 		"module": "preserve",
 		"moduleDetection": "force",
 		"jsx": "react-jsx",
 		"allowJs": true,
+		"baseUrl": ".",
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
 		"verbatimModuleSyntax": true,
@@ -30,39 +27,27 @@
 			"@cloudflare/workers-types"
 		],
 		"paths": {
-			"@images/*": [
-				"./images/*"
-			],
-			"@static/*": [
-				"./static/*"
-			],
-			"@api/*": [
-				"./src/actions/api/*"
-			],
-			"@components/*": [
-				"./src/components/*"
-			],
+			"@images/*": ["./images/*"],
+			"@static/*": ["./static/*"],
+			"@api/*": ["./src/actions/api/*"],
+			"@components/*": ["./src/components/*"],
 			"@next/ssr": [
-				"./node_modules/frame-master-plugin-cloudflare-pages-dynamic-ssr/src/server/index.ts",
+				"./node_modules/frame-master-plugin-cloudflare-pages-dynamic-ssr/src/server/index.ts"
 			],
 			"@next/ssr/revalidate": [
 				"./node_modules/frame-master-plugin-cloudflare-pages-dynamic-ssr/src/utils/revalidate.ts"
 			],
 			"@next/ssr/hooks": [
-				"./node_modules/frame-master-plugin-cloudflare-pages-dynamic-ssr/src/client/hooks.ts",
+				"./node_modules/frame-master-plugin-cloudflare-pages-dynamic-ssr/src/client/hooks.ts"
 			],
 			"@next/action/context": [
 				"./node_modules/frame-master-plugin-cloudflare-pages-functions-action/src/context.ts"
 			],
 			"@next/client": [
-				"./node_modules/frame-master-plugin-apply-react/src/utils.ts",
+				"./node_modules/frame-master-plugin-apply-react/src/utils.ts"
 			],
-			"@hooks/*": [
-				"./src/hooks/*"
-			],
-			"@next/hooks/path": [
-				"./src/hooks/usePath.ts"
-			]
+			"@hooks/*": ["./src/hooks/*"],
+			"@next/hooks/path": ["./src/hooks/usePath.ts"]
 		}
 	},
 	"include": [
@@ -77,23 +62,5 @@
 		"./src/action-utils",
 		".frame-master/frame-master-custom-type.d.ts"
 	],
-	"exclude": [
-		".frame-master",
-		"**/node_modules",
-		"./src/auth.ts",
-		"./src/lib/auth/**",
-		"./src/hooks/useAuth.ts",
-		"./src/pages/login.tsx",
-		"./src/pages/callback.tsx",
-		"./src/pages/pair.tsx",
-		"./src/components/PairForm.tsx",
-		"./src/components/Onboarding.tsx",
-		"./src/components/LoginPanel.tsx",
-		"./src/pages/index.tsx",
-		"./src/actions/api/pair.ts",
-		"./src/actions/api/device.ts",
-		"./src/lib/session.ts",
-		"./src/components/KeysForm.tsx",
-		"./src/pages/keys.tsx"
-	]
+	"exclude": [".frame-master", "**/node_modules"]
 }
