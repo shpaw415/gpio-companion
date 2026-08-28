@@ -88,7 +88,7 @@ const nodePolyfillPlugin = NodePolyfills();
 
 export default {
 	HTTPServer: {
-		port: 3000,
+		port: process.env.PORT ?? 3000,
 	},
 	pluginsOptions: {
 		skipRequirementsCheck: true,

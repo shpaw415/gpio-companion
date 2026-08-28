@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
 import { filePairingStore } from "./pairing.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -11,6 +12,7 @@ const dir = await mkdtemp(join(tmpdir(), "gpio-companion-"));
 const configPath = join(dir, "config.json");
 const secretsPath = join(dir, "secrets.env");
 const pairingPath = join(dir, "pairing.json");
+const keys = await generateDeviceKeyPair();
 let applied = 0;
 
 const server = startDeviceApi({
@@ -22,11 +24,41 @@ const server = startDeviceApi({
 	applyTunnel: async () => {
 		applied += 1;
 	},
+	deviceAuth: {
+		keyId: keys.keyId,
+		publicKeyPem: keys.publicKeyPem,
+	},
 });
 
 afterAll(() => {
 	server.stop();
 });
+
+async function deviceFetch(
+	path: string,
+	init: RequestInit = {},
+	signed = true,
+): Promise<Response> {
+	const method = (init.method ?? "GET").toUpperCase();
+	const body = typeof init.body === "string" ? init.body : "";
+	const auth = signed
+		? await signDeviceRequest({
+				privateKeyPem: keys.privateKeyPem,
+				keyId: keys.keyId,
+				method,
+				path: `/${path}`,
+				body,
+			})
+		: {};
+	return fetch(`${server.url}${path}`, {
+		...init,
+		headers: {
+			"content-type": "application/json",
+			...auth,
+			...(init.headers ?? {}),
+		},
+	});
+}
 
 describe("gpio-companion-bin", () => {
 	test("health", async () => {
@@ -36,10 +68,21 @@ describe("gpio-companion-bin", () => {
 		expect(body.ok).toBe(true);
 	});
 
+	test("rejects unsigned config writes", async () => {
+		const response = await deviceFetch(
+			"v1/config/secrets",
+			{
+				method: "PUT",
+				body: JSON.stringify({ opencodeApiKey: "oc-key" }),
+			},
+			false,
+		);
+		expect(response.status).toBe(401);
+	});
+
 	test("sets tunnel replica endpoint", async () => {
-		const response = await fetch(`${server.url}v1/config/tunnel`, {
+		const response = await deviceFetch("v1/config/tunnel", {
 			method: "PUT",
-			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				token: "tunnel-token",
 				hostname: "t3.gpio.example",
@@ -55,7 +98,7 @@ describe("gpio-companion-bin", () => {
 		expect(body.tunnel.hostname).toBe("t3.gpio.example");
 		expect(applied).toBe(1);
 
-		const status = await fetch(`${server.url}v1/status`);
+		const status = await deviceFetch("v1/status");
 		const statusBody = (await status.json()) as {
 			tunnel: { configured: boolean; hostname: string };
 			t3codePairing: string;
@@ -71,9 +114,8 @@ describe("gpio-companion-bin", () => {
 	});
 
 	test("stores dashboard secrets without echoing them", async () => {
-		const response = await fetch(`${server.url}v1/config/secrets`, {
+		const response = await deviceFetch("v1/config/secrets", {
 			method: "PUT",
-			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				opencodeApiKey: "oc-key",
 				giteaToken: "gitea-key",
@@ -91,9 +133,8 @@ describe("gpio-companion-bin", () => {
 	});
 
 	test("sets gitea credentials on the pi api", async () => {
-		const response = await fetch(`${server.url}v1/config/gitea`, {
+		const response = await deviceFetch("v1/config/gitea", {
 			method: "PUT",
-			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				giteaUrl: "https://git.example.com",
 				giteaUsername: "ada",
@@ -106,9 +147,8 @@ describe("gpio-companion-bin", () => {
 	});
 
 	test("claims pairing uuid-key as gitea account", async () => {
-		const denied = await fetch(`${server.url}v1/pairing/claim`, {
+		const denied = await deviceFetch("v1/pairing/claim", {
 			method: "POST",
-			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				uuid: "pair-uuid",
 				key: "wrong",
@@ -118,9 +158,8 @@ describe("gpio-companion-bin", () => {
 		});
 		expect(denied.status).toBe(403);
 
-		const claimed = await fetch(`${server.url}v1/pairing/claim`, {
+		const claimed = await deviceFetch("v1/pairing/claim", {
 			method: "POST",
-			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				uuid: "pair-uuid",
 				key: "pair-key",

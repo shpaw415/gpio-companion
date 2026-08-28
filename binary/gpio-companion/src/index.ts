@@ -1,4 +1,10 @@
-import { type HardwareId, isHardwareId, VERSION } from "gpio-companion";
+import {
+	DEFAULT_DEVICE_KEY_ID,
+	DEFAULT_DEVICE_PUBLIC_KEY_PEM,
+	type HardwareId,
+	isHardwareId,
+	VERSION,
+} from "gpio-companion";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -32,12 +38,21 @@ const pairingUuid = process.env.GPIO_COMPANION_PAIRING_UUID ?? "";
 const pairingKey = process.env.GPIO_COMPANION_PAIRING_KEY ?? "";
 const port = Number(process.env.GPIO_COMPANION_PORT ?? DEFAULT_PORT);
 
+const deviceKeyId =
+	process.env.GPIO_COMPANION_DEVICE_KEY_ID ?? DEFAULT_DEVICE_KEY_ID;
+const devicePublicKeyPem =
+	process.env.GPIO_COMPANION_DEVICE_PUBLIC_KEY ?? DEFAULT_DEVICE_PUBLIC_KEY_PEM;
+
 const server = startDeviceApi({
 	port,
 	store: fileConfigStore(configPath, hardware),
 	secrets: fileSecretsStore(secretsPath),
 	pairing: filePairingStore(pairingPath, pairingUuid, pairingKey),
 	applyTunnel: applyCloudflaredReplica(envPath),
+	deviceAuth: {
+		keyId: deviceKeyId,
+		publicKeyPem: devicePublicKeyPem,
+	},
 });
 
 console.log(

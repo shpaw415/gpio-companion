@@ -11,8 +11,8 @@ export default function KeysPage() {
 				Keys
 			</Typography>
 			<Typography color="secondary">
-				Create a Gitea account first, then send username and token to the Pi API
-				so the on-device agent can manage repos.
+				Create a Gitea account first, then send username and token to the paired
+				Pi through the dashboard (Ed25519-signed device API).
 			</Typography>
 			{giteaUrl ? (
 				<Button href={giteaUrl} variant="outlined">

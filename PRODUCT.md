@@ -41,7 +41,9 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - `cloudflared` replica is for the T3 Code tunnel; custom endpoint + token are applied at OS config time via the device API
 - T3 Code pairing, OpenCode API key, and Gitea token are managed from the dashboard, not first-setup
 - Dashboard is multi-user and authenticates with `openauthster-shared`
+- Dashboard home is a mui-lite stepper: sign in → pair Pi → Gitea setup → overview
 - Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user
+- Device API auth: dashboard signs requests with Ed25519 (`GPIO_COMPANION_DEVICE_PRIVATE_KEY`); the Pi verifies the bundled public key. Browser never calls the Pi. Pairing UUID/key remain required on claim.
 - Gitea: the user creates an account on Gitea first; Pi/agent credentials (URL, username, token) are then set through the device bun API `PUT /v1/config/gitea`
 
 ## Capabilities and Constraints
@@ -67,6 +69,8 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Dashboard app: `apps/dashboard` (Frame Master `cloudflare-nextjs`, Cloudflare Pages project `gpio-companion-dashboard`)
 - Dashboard `/projects` shows per-Gitea-repo `pcb/`, `breadboard/`, and `technical/` files plus a PCB viewer (`pcb/circuit.json` / `pcb/preview.svg`)
 - Pairing UUID/key are generated (or taken from env) at first-setup; `POST /v1/pairing/claim` on the device API completes the bind
+- Generate the dashboard/Pi Ed25519 pair with `bun run keys:device -- --write-public` (optional `--wrangler`); private key is never committed
+- Pi `gpio-companion serve` accepts unsigned `GET /health` only; all other device API routes require a valid dashboard Ed25519 signature
 - When a PCB, breadboard, or technical-sheet task is done, the agent must `git push` those folders to the project Gitea repo
 - Per-hardware GPIO pinout skills: `opencode/skills/gpio-pinout-raspberrypi`, `opencode/skills/gpio-pinout-orangepi`
 

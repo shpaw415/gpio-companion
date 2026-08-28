@@ -17,6 +17,24 @@ export {
 	type TunnelConfig,
 } from "./config.ts";
 export {
+	canonicalDevicePayload,
+	DEFAULT_DEVICE_MAX_SKEW_MS,
+	DEVICE_AUTH_HEADERS,
+	DEVICE_AUTH_VERSION,
+	DeviceAuthError,
+	type DeviceAuthHeaders,
+	type DeviceKeyPair,
+	devicePublicKeySource,
+	generateDeviceKeyPair,
+	normalizeDevicePath,
+	signDeviceRequest,
+	verifyDeviceRequest,
+} from "./device-auth.ts";
+export {
+	DEFAULT_DEVICE_KEY_ID,
+	DEFAULT_DEVICE_PUBLIC_KEY_PEM,
+} from "./device-public-key.ts";
+export {
 	emptyPairingState,
 	giteaLoginFromEmail,
 	type PairingClaim,

@@ -87,6 +87,13 @@
 		"./src/pages/callback.tsx",
 		"./src/pages/pair.tsx",
 		"./src/components/PairForm.tsx",
-		"./src/actions/api/pair.ts"
+		"./src/components/Onboarding.tsx",
+		"./src/components/LoginPanel.tsx",
+		"./src/pages/index.tsx",
+		"./src/actions/api/pair.ts",
+		"./src/actions/api/device.ts",
+		"./src/lib/session.ts",
+		"./src/components/KeysForm.tsx",
+		"./src/pages/keys.tsx"
 	]
 }

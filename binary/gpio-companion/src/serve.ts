@@ -1,4 +1,5 @@
 import {
+	DeviceAuthError,
 	type DeviceConfig,
 	mergeDeviceSecrets,
 	parseDeviceSecrets,
@@ -8,11 +9,17 @@ import {
 	redactDeviceConfig,
 	secretsStatus,
 	VERSION,
+	verifyDeviceRequest,
 } from "gpio-companion";
 import { applyClaim, type PairingStore } from "./pairing.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
+
+export type DeviceAuthConfig = {
+	keyId: string;
+	publicKeyPem: string;
+};
 
 export type ServeOptions = {
 	port?: number;
@@ -21,6 +28,7 @@ export type ServeOptions = {
 	secrets: SecretsStore;
 	pairing: PairingStore;
 	applyTunnel: ApplyTunnel;
+	deviceAuth: DeviceAuthConfig;
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -31,26 +39,31 @@ export function startDeviceApi(options: ServeOptions) {
 		hostname,
 		async fetch(request) {
 			if (request.method === "OPTIONS") {
-				return cors(new Response(null, { status: 204 }));
+				return new Response(null, { status: 204 });
 			}
 			try {
-				return cors(
-					await handleDeviceRequest(
-						request,
-						options.store,
-						options.secrets,
-						options.pairing,
-						options.applyTunnel,
-					),
+				return await handleDeviceRequest(
+					request,
+					options.store,
+					options.secrets,
+					options.pairing,
+					options.applyTunnel,
+					options.deviceAuth,
 				);
 			} catch (error) {
+				if (error instanceof DeviceAuthError) {
+					return Response.json(
+						{ error: error.message },
+						{ status: error.status },
+					);
+				}
 				const message =
 					error instanceof Error ? error.message : "request failed";
 				const status =
 					message.includes("mismatch") || message.includes("already paired")
 						? 403
 						: 400;
-				return cors(Response.json({ error: message }, { status }));
+				return Response.json({ error: message }, { status });
 			}
 		},
 	});
@@ -62,15 +75,28 @@ export async function handleDeviceRequest(
 	secretsStore: SecretsStore,
 	pairingStore: PairingStore,
 	applyTunnel: ApplyTunnel,
+	deviceAuth: DeviceAuthConfig,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
+	const method = request.method.toUpperCase();
+	const bodyText =
+		method === "GET" || method === "HEAD" ? "" : await request.text();
 
-	if (request.method === "GET" && path === "/health") {
+	if (method === "GET" && path === "/health") {
 		return json({ ok: true, version: VERSION });
 	}
 
-	if (request.method === "GET" && path === "/v1/pairing") {
+	await verifyDeviceRequest({
+		publicKeyPem: deviceAuth.publicKeyPem,
+		keyId: deviceAuth.keyId,
+		method,
+		path,
+		body: bodyText,
+		headers: request.headers,
+	});
+
+	if (method === "GET" && path === "/v1/pairing") {
 		const config = await store.read();
 		const pairing = await pairingStore.read();
 		return json({
@@ -80,20 +106,20 @@ export async function handleDeviceRequest(
 		});
 	}
 
-	if (request.method === "POST" && path === "/v1/pairing/claim") {
-		const claim = parsePairingClaim(await readJson(request));
+	if (method === "POST" && path === "/v1/pairing/claim") {
+		const claim = parsePairingClaim(parseJson(bodyText));
 		const current = await pairingStore.read();
 		const next = applyClaim(current, claim);
 		await pairingStore.write(next);
 		return json(publicPairing(next));
 	}
 
-	if (request.method === "GET" && path === "/v1/config") {
+	if (method === "GET" && path === "/v1/config") {
 		return json(redactDeviceConfig(await store.read()));
 	}
 
-	if (request.method === "PUT" && path === "/v1/config") {
-		const body = await readObject(request);
+	if (method === "PUT" && path === "/v1/config") {
+		const body = asObject(parseJson(bodyText));
 		const current = await store.read();
 		const next: DeviceConfig = {
 			hardware: current.hardware,
@@ -105,34 +131,34 @@ export async function handleDeviceRequest(
 		return persist(store, applyTunnel, next);
 	}
 
-	if (request.method === "PUT" && path === "/v1/config/tunnel") {
+	if (method === "PUT" && path === "/v1/config/tunnel") {
 		const current = await store.read();
 		const next: DeviceConfig = {
 			...current,
-			tunnel: parseTunnelConfig(await readJson(request)),
+			tunnel: parseTunnelConfig(parseJson(bodyText)),
 		};
 		return persist(store, applyTunnel, next);
 	}
 
-	if (request.method === "GET" && path === "/v1/config/secrets") {
+	if (method === "GET" && path === "/v1/config/secrets") {
 		return json(secretsStatus(await secretsStore.read()));
 	}
 
-	if (request.method === "PUT" && path === "/v1/config/secrets") {
+	if (method === "PUT" && path === "/v1/config/secrets") {
 		const current = await secretsStore.read();
 		const next = mergeDeviceSecrets(
 			current,
-			parseDeviceSecrets(await readJson(request)),
+			parseDeviceSecrets(parseJson(bodyText)),
 		);
 		await secretsStore.write(next);
 		return json(secretsStatus(next));
 	}
 
-	if (request.method === "PUT" && path === "/v1/config/gitea") {
+	if (method === "PUT" && path === "/v1/config/gitea") {
 		const current = await secretsStore.read();
 		const next = mergeDeviceSecrets(
 			current,
-			parseDeviceSecrets(await readJson(request)),
+			parseDeviceSecrets(parseJson(bodyText)),
 		);
 		if (!next.giteaUrl || !next.giteaUsername || !next.giteaToken) {
 			throw new Error("giteaUrl, giteaUsername, and giteaToken are required");
@@ -141,7 +167,7 @@ export async function handleDeviceRequest(
 		return json(secretsStatus(next));
 	}
 
-	if (request.method === "GET" && path === "/v1/status") {
+	if (method === "GET" && path === "/v1/status") {
 		const config = await store.read();
 		const secrets = await secretsStore.read();
 		const pairing = await pairingStore.read();
@@ -170,16 +196,15 @@ async function persist(
 	return json(redactDeviceConfig(config));
 }
 
-async function readJson(request: Request): Promise<unknown> {
+function parseJson(text: string): unknown {
 	try {
-		return await request.json();
+		return JSON.parse(text) as unknown;
 	} catch {
 		throw new Error("invalid json");
 	}
 }
 
-async function readObject(request: Request): Promise<Record<string, unknown>> {
-	const body = await readJson(request);
+function asObject(body: unknown): Record<string, unknown> {
 	if (body === null || typeof body !== "object" || Array.isArray(body)) {
 		throw new Error("body must be an object");
 	}
@@ -188,15 +213,4 @@ async function readObject(request: Request): Promise<Record<string, unknown>> {
 
 function json(body: unknown, status = 200): Response {
 	return Response.json(body, { status });
-}
-
-function cors(response: Response): Response {
-	const headers = new Headers(response.headers);
-	headers.set("Access-Control-Allow-Origin", "*");
-	headers.set("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
-	headers.set("Access-Control-Allow-Headers", "content-type");
-	return new Response(response.body, {
-		status: response.status,
-		headers,
-	});
 }

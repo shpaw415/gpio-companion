@@ -40,7 +40,8 @@
 		"install:orangepi": "./scripts/install-orangepi.sh",
 		"update": "./scripts/update-script.sh",
 		"first-setup": "./scripts/first-setup.sh",
-		"first-boot": "./scripts/snapshot/gpio-companion-first-boot.sh"
+		"first-boot": "./scripts/snapshot/gpio-companion-first-boot.sh",
+		"keys:device": "bun scripts/generate-device-keys.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.10"

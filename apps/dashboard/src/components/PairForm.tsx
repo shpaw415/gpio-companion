@@ -1,4 +1,4 @@
-import { GET as getPairing, POST as savePairing } from "@api/pair";
+import { POST as claimPairing, GET as getPairing } from "@api/pair";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -9,7 +9,11 @@ import { giteaLoginFromEmail } from "gpio-companion";
 import { type FormEvent, useEffect, useState } from "react";
 import { useAuthSession } from "../hooks/useAuth.ts";
 
-export default function PairForm() {
+export default function PairForm({
+	onComplete,
+}: {
+	onComplete?: (deviceUrl: string) => void;
+}) {
 	const session = useAuthSession();
 	const [deviceUrl, setDeviceUrl] = useState("");
 	const [uuid, setUuid] = useState("");
@@ -20,11 +24,10 @@ export default function PairForm() {
 	const [paired, setPaired] = useState("");
 
 	useEffect(() => {
-		const userId = session.data?.id;
-		if (!userId) {
+		if (!session.data?.id) {
 			return;
 		}
-		void getPairing(userId).then((result) => {
+		void getPairing().then((result) => {
 			if (result.paired) {
 				setPaired(result.device.giteaLogin);
 				setDeviceUrl(result.device.deviceUrl);
@@ -37,41 +40,24 @@ export default function PairForm() {
 
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
-		const userId = session.data?.id;
-		if (!userId) {
+		if (!session.data?.id) {
 			setError("sign in first");
 			return;
 		}
 		setError("");
 		setStatus("pairing…");
-		const origin = deviceUrl.replace(/\/+$/, "");
 		try {
-			const claim = await fetch(`${origin}/v1/pairing/claim`, {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
-					uuid,
-					key,
-					userId,
-					email: session.data?.email ?? "",
-					giteaLogin,
-				}),
-			});
-			if (!claim.ok) {
-				throw new Error(`device ${claim.status}`);
-			}
-			const body = (await claim.json()) as { giteaLogin: string };
-			await savePairing({
-				userId,
+			const body = await claimPairing({
+				deviceUrl,
 				uuid,
-				deviceUrl: origin,
-				giteaLogin: body.giteaLogin || giteaLogin,
-				email: session.data?.email ?? "",
-				claimedAt: new Date().toISOString(),
+				key,
+				giteaLogin,
 			});
-			setPaired(body.giteaLogin || giteaLogin);
+			setPaired(body.giteaLogin);
+			setDeviceUrl(body.deviceUrl);
 			setStatus("paired");
 			setKey("");
+			onComplete?.(body.deviceUrl);
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "pair failed");
