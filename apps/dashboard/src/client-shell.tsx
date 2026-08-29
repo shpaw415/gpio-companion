@@ -15,7 +15,6 @@ import {
 import { createClient, type PublicSession } from "./auth.ts";
 import { AuthCtx, AuthSessionCtx } from "./hooks/useAuth.ts";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
-import { syncAccessTokenCookie } from "./lib/auth/access-token-cookie.ts";
 import {
 	identityToPublicSession,
 	resolveUserIdentity,
@@ -86,11 +85,8 @@ function AuthProvider({ children }: { children: JSX.Element }) {
 				if (cancelled) {
 					return;
 				}
-				const token = (
-					client as { getToken?: () => string | null }
-				).getToken?.();
-				if (token) {
-					syncAccessTokenCookie(token);
+				if (client.getToken()) {
+					client.setTokenToCookie();
 				}
 				const identity = await resolveUserIdentity(client);
 				if (cancelled) {

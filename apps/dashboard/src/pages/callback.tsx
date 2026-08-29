@@ -5,7 +5,6 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth.ts";
-import { syncAccessTokenCookie } from "../lib/auth/access-token-cookie.ts";
 
 export default function AuthCallbackPage() {
 	const auth = useAuth();
@@ -22,9 +21,8 @@ export default function AuthCallbackPage() {
 				if (cancelled) {
 					return;
 				}
-				const token = (auth as { getToken?: () => string | null }).getToken?.();
-				if (token) {
-					syncAccessTokenCookie(token);
+				if (auth.getToken()) {
+					auth.setTokenToCookie();
 				}
 				window.location.assign("/");
 			})

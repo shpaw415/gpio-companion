@@ -5,7 +5,6 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth.ts";
-import { syncAccessTokenCookie } from "../lib/auth/access-token-cookie.ts";
 import { resolveUserIdentity } from "../lib/auth/identity.ts";
 
 export default function LoginPanel() {
@@ -21,9 +20,8 @@ export default function LoginPanel() {
 		try {
 			if (provider === "passkey") {
 				await auth.passkey.login();
-				const token = (auth as { getToken?: () => string | null }).getToken?.();
-				if (token) {
-					syncAccessTokenCookie(token);
+				if (auth.getToken()) {
+					auth.setTokenToCookie();
 				}
 				await resolveUserIdentity(auth);
 				window.location.assign("/");
