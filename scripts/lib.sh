@@ -76,7 +76,10 @@ install_apt_base() {
 		libusb-1.0-0-dev \
 		picocom \
 		usbutils \
-		udev
+		udev \
+		bluez \
+		python3-dbus \
+		python3-gi
 }
 
 install_node() {

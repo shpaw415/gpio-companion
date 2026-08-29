@@ -14,6 +14,7 @@ const secretsPath = join(dir, "secrets.env");
 const pairingPath = join(dir, "pairing.json");
 const keys = await generateDeviceKeyPair();
 let applied = 0;
+let wifiSsid = "";
 
 const server = startDeviceApi({
 	port: 0,
@@ -23,6 +24,10 @@ const server = startDeviceApi({
 	pairing: filePairingStore(pairingPath, "pair-uuid", "pair-key"),
 	applyTunnel: async () => {
 		applied += 1;
+	},
+	applyWifi: async (config) => {
+		wifiSsid = config.ssid;
+		return { ssid: config.ssid };
 	},
 	deviceAuth: {
 		keyId: keys.keyId,
@@ -144,6 +149,51 @@ describe("gpio-companion-bin", () => {
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as { giteaReady: boolean };
 		expect(body.giteaReady).toBe(true);
+	});
+
+	test("rejects unsigned wifi and uuid mismatch", async () => {
+		const unsigned = await deviceFetch(
+			"v1/config/wifi",
+			{
+				method: "PUT",
+				body: JSON.stringify({
+					ssid: "bench",
+					psk: "secret-pass",
+					uuid: "pair-uuid",
+				}),
+			},
+			false,
+		);
+		expect(unsigned.status).toBe(401);
+
+		const mismatch = await deviceFetch("v1/config/wifi", {
+			method: "PUT",
+			body: JSON.stringify({
+				ssid: "bench",
+				psk: "secret-pass",
+				uuid: "other-uuid",
+			}),
+		});
+		expect(mismatch.status).toBe(403);
+	});
+
+	test("applies signed wifi when pairing uuid matches", async () => {
+		const response = await deviceFetch("v1/config/wifi", {
+			method: "PUT",
+			body: JSON.stringify({
+				ssid: "bench",
+				psk: "secret-pass",
+				uuid: "pair-uuid",
+			}),
+		});
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			ssid: string;
+			connected: boolean;
+		};
+		expect(body.ssid).toBe("bench");
+		expect(body.connected).toBe(true);
+		expect(wifiSsid).toBe("bench");
 	});
 
 	test("claims pairing uuid-key as gitea account", async () => {

@@ -5,6 +5,7 @@ import {
 	isHardwareId,
 	VERSION,
 } from "gpio-companion";
+import { startBleBridge } from "./ble.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -15,6 +16,7 @@ import {
 	fileConfigStore,
 } from "./store.ts";
 import { applyCloudflaredReplica } from "./tunnel.ts";
+import { applyNetworkManagerWifi } from "./wifi.ts";
 
 const command = process.argv[2] ?? "serve";
 
@@ -49,10 +51,17 @@ const server = startDeviceApi({
 	secrets: fileSecretsStore(secretsPath),
 	pairing: filePairingStore(pairingPath, pairingUuid, pairingKey),
 	applyTunnel: applyCloudflaredReplica(envPath),
+	applyWifi: applyNetworkManagerWifi(),
 	deviceAuth: {
 		keyId: deviceKeyId,
 		publicKeyPem: devicePublicKeyPem,
 	},
+});
+
+startBleBridge({
+	pairingUuid,
+	hardware,
+	port: server.port ?? 4150,
 });
 
 console.log(

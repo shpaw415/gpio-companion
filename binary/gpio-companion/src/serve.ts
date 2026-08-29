@@ -5,7 +5,9 @@ import {
 	parseDeviceSecrets,
 	parsePairingClaim,
 	parseTunnelConfig,
+	parseWifiConfig,
 	publicPairing,
+	publicWifiStatus,
 	redactDeviceConfig,
 	secretsStatus,
 	VERSION,
@@ -15,6 +17,7 @@ import { applyClaim, type PairingStore } from "./pairing.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
+import type { ApplyWifi } from "./wifi.ts";
 
 export type DeviceAuthConfig = {
 	keyId: string;
@@ -28,6 +31,7 @@ export type ServeOptions = {
 	secrets: SecretsStore;
 	pairing: PairingStore;
 	applyTunnel: ApplyTunnel;
+	applyWifi?: ApplyWifi;
 	deviceAuth: DeviceAuthConfig;
 };
 
@@ -48,6 +52,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.secrets,
 					options.pairing,
 					options.applyTunnel,
+					options.applyWifi,
 					options.deviceAuth,
 				);
 			} catch (error) {
@@ -75,6 +80,7 @@ export async function handleDeviceRequest(
 	secretsStore: SecretsStore,
 	pairingStore: PairingStore,
 	applyTunnel: ApplyTunnel,
+	applyWifi: ApplyWifi | undefined,
 	deviceAuth: DeviceAuthConfig,
 ): Promise<Response> {
 	const url = new URL(request.url);
@@ -152,6 +158,19 @@ export async function handleDeviceRequest(
 		);
 		await secretsStore.write(next);
 		return json(secretsStatus(next));
+	}
+
+	if (method === "PUT" && path === "/v1/config/wifi") {
+		const wifi = parseWifiConfig(parseJson(bodyText));
+		const pairing = await pairingStore.read();
+		if (!pairing.uuid || wifi.uuid !== pairing.uuid) {
+			throw new Error("pairing uuid mismatch");
+		}
+		if (!applyWifi) {
+			throw new Error("wifi apply is not configured");
+		}
+		const result = await applyWifi(wifi);
+		return json(publicWifiStatus(result.ssid, true));
 	}
 
 	if (method === "PUT" && path === "/v1/config/gitea") {

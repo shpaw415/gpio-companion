@@ -10,8 +10,9 @@ export default function PairPage() {
 			</Typography>
 			<Typography color="secondary">
 				Enter the pairing UUID and key printed at Pi first-setup. This binds
-				your dashboard user to that board. Create a Gitea account first, then
-				set username and token on the Pi via Keys (device API).
+				your dashboard user to that board. No WiFi yet? Set it from{" "}
+				<a href="/wifi">WiFi over Bluetooth</a> (Chrome/Edge). Then create a
+				Gitea account and set username and token on the Pi via Keys.
 			</Typography>
 			<PairForm />
 		</Stack>

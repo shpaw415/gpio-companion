@@ -6,6 +6,21 @@ export function greet(from = PACKAGE_NAME): string {
 }
 
 export {
+	BLE_CHUNK_SIZE,
+	BLE_CMD_UUID,
+	BLE_DEVICE_NAME,
+	BLE_INFO_UUID,
+	BLE_SERVICE_UUID,
+	BLE_STATUS_UUID,
+	type BleInfo,
+	createBleAssembler,
+	createSignedEnvelope,
+	envelopeToRequest,
+	parseSignedEnvelope,
+	type SignedDeviceEnvelope,
+	splitBleFrames,
+} from "./ble.ts";
+export {
 	type DeviceConfig,
 	emptyDeviceConfig,
 	HARDWARE_IDS,
@@ -59,3 +74,8 @@ export {
 	parseDeviceSecrets,
 	secretsStatus,
 } from "./secrets.ts";
+export {
+	parseWifiConfig,
+	publicWifiStatus,
+	type WifiConfig,
+} from "./wifi.ts";

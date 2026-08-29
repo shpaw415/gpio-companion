@@ -21,6 +21,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - OpenCode API key is also set via the device API (`PUT /v1/config/secrets`), not first-setup
 - Dashboard users sign in with openauthster-shared and pair this board using the first-setup pairing UUID and key
 - The device API on this Pi only accepts Ed25519-signed calls from the gpio-companion dashboard (plus pairing UUID/key on claim). Do not expose unsigned config/secrets routes.
+- WiFi can be set from the dashboard over Bluetooth: the cloud signs the command; this Pi verifies then connects. Do not accept unsigned BLE WiFi writes.
 - Before driving GPIO, load `opencode/skills/gpio-pinout-<hardware>/` (`raspberrypi` or `orangepi`)
 - When a PCB, breadboard, or technical-sheet task is done, push the files to that project's Gitea repo before you stop: `pcb/` (include `circuit.json` and `preview.svg` when possible), `breadboard/` (same), `technical/` (sheets). `git add`, commit, and `git push` to the project remote. The dashboard reads these paths.
 - This product brief is still raw beyond these locks

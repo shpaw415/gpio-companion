@@ -1,9 +1,34 @@
-import { DEFAULT_DEVICE_KEY_ID, signDeviceRequest } from "gpio-companion";
+import {
+	createSignedEnvelope,
+	DEFAULT_DEVICE_KEY_ID,
+	type SignedDeviceEnvelope,
+	signDeviceRequest,
+} from "gpio-companion";
 
 export type DeviceSigningEnv = {
 	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
 	GPIO_COMPANION_DEVICE_KEY_ID?: string;
 };
+
+export async function signDeviceEnvelope(
+	env: DeviceSigningEnv,
+	method: string,
+	path: string,
+	body?: unknown,
+): Promise<SignedDeviceEnvelope> {
+	const privateKeyPem = env.GPIO_COMPANION_DEVICE_PRIVATE_KEY ?? "";
+	if (!privateKeyPem.trim()) {
+		throw new Error("GPIO_COMPANION_DEVICE_PRIVATE_KEY is not set");
+	}
+	const bodyText = body === undefined ? "" : JSON.stringify(body);
+	return createSignedEnvelope({
+		privateKeyPem,
+		keyId: env.GPIO_COMPANION_DEVICE_KEY_ID ?? DEFAULT_DEVICE_KEY_ID,
+		method,
+		path,
+		body: bodyText,
+	});
+}
 
 export async function signedDeviceFetch(
 	env: DeviceSigningEnv,

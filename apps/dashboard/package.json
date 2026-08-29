@@ -40,7 +40,7 @@
 		"dev": "NODE_ENV=development bun frame-master start",
 		"build": "NODE_ENV=production bun frame-master build",
 		"build:dev": "NODE_ENV=development bun frame-master build",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
 		"deploy": "bun run build && wrangler pages deploy .frame-master/build --project-name gpio-companion-dashboard"
 	}
 }
