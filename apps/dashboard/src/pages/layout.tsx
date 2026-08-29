@@ -13,6 +13,7 @@ const nav = [
 	{ href: "/", label: "Home" },
 	{ href: "/projects", label: "Projects" },
 	{ href: "/pair", label: "Pair" },
+	{ href: "/notifications", label: "Notify" },
 	{ href: "/wifi", label: "WiFi" },
 	{ href: "/keys", label: "Keys" },
 	{ href: "/login", label: "Sign in" },

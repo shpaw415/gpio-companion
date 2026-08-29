@@ -42,7 +42,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - T3 Code pairing, OpenCode API key, and Gitea token are managed from the dashboard, not first-setup
 - Dashboard is multi-user and authenticates with `openauthster-shared`
 - Dashboard home is a mui-lite stepper: sign in → pair Pi → Gitea setup → overview
-- Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user
+- Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user. UUID/key can be fetched over signed BLE (`GET /v1/pairing/credentials`, localhost-only). If the board is already owned, pairing is pending until the owner accepts a transfer in `/notifications`. Unpair/transfer revokes T3 Code auth and clears Gitea credentials on the Pi.
 - Device API auth: dashboard signs requests with Ed25519 (`GPIO_COMPANION_DEVICE_PRIVATE_KEY`); the Pi verifies the bundled public key. Browser never calls the Pi. Pairing UUID/key remain required on claim.
 - WiFi over Bluetooth: a logged-in dashboard user (Chrome/Edge) connects to the Pi GATT peripheral; the dashboard signs `PUT /v1/config/wifi` with timestamp/nonce; the Pi verifies then runs nmcli. Safari/iOS: sign-and-copy into LightBlue or nRF Connect as UTF-8 text (native gpio-companion app later). Ethernet/TTY still work.
 - Gitea: the user creates an account on Gitea first; Pi/agent credentials (URL, username, token) are then set through the device bun API `PUT /v1/config/gitea`

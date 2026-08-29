@@ -67,3 +67,37 @@ export function applyClaim(
 		claimedAt: new Date().toISOString(),
 	};
 }
+
+export function applyTransfer(
+	state: PairingState,
+	claim: PairingClaim,
+): PairingState {
+	if (!state.uuid || claim.uuid !== state.uuid) {
+		throw new Error("pairing uuid mismatch");
+	}
+	if (!pairingKeysMatch(state.key, claim.key)) {
+		throw new Error("pairing key mismatch");
+	}
+	return {
+		...state,
+		claimed: true,
+		userId: claim.userId,
+		email: claim.email,
+		giteaLogin: claim.giteaLogin,
+		claimedAt: new Date().toISOString(),
+	};
+}
+
+export function applyUnpair(
+	state: PairingState,
+	uuid: string,
+	key: string,
+): PairingState {
+	if (!state.uuid || uuid !== state.uuid) {
+		throw new Error("pairing uuid mismatch");
+	}
+	if (!pairingKeysMatch(state.key, key)) {
+		throw new Error("pairing key mismatch");
+	}
+	return emptyPairingState(state.uuid, state.key);
+}

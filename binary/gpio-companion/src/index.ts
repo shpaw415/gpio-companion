@@ -15,6 +15,7 @@ import {
 	DEFAULT_TUNNEL_ENV_PATH,
 	fileConfigStore,
 } from "./store.ts";
+import { revokeT3Authorization } from "./t3.ts";
 import { applyCloudflaredReplica } from "./tunnel.ts";
 import { applyNetworkManagerWifi } from "./wifi.ts";
 
@@ -52,6 +53,7 @@ const server = startDeviceApi({
 	pairing: filePairingStore(pairingPath, pairingUuid, pairingKey),
 	applyTunnel: applyCloudflaredReplica(envPath),
 	applyWifi: applyNetworkManagerWifi(),
+	revokeT3: revokeT3Authorization,
 	deviceAuth: {
 		keyId: deviceKeyId,
 		publicKeyPem: devicePublicKeyPem,

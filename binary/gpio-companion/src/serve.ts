@@ -2,8 +2,10 @@ import {
 	DeviceAuthError,
 	type DeviceConfig,
 	mergeDeviceSecrets,
+	pairingCredentials,
 	parseDeviceSecrets,
 	parsePairingClaim,
+	parsePairingUnpair,
 	parseTunnelConfig,
 	parseWifiConfig,
 	publicPairing,
@@ -13,7 +15,12 @@ import {
 	VERSION,
 	verifyDeviceRequest,
 } from "gpio-companion";
-import { applyClaim, type PairingStore } from "./pairing.ts";
+import {
+	applyClaim,
+	applyTransfer,
+	applyUnpair,
+	type PairingStore,
+} from "./pairing.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
@@ -32,6 +39,7 @@ export type ServeOptions = {
 	pairing: PairingStore;
 	applyTunnel: ApplyTunnel;
 	applyWifi?: ApplyWifi;
+	revokeT3?: () => Promise<void>;
 	deviceAuth: DeviceAuthConfig;
 };
 
@@ -53,6 +61,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.pairing,
 					options.applyTunnel,
 					options.applyWifi,
+					options.revokeT3,
 					options.deviceAuth,
 				);
 			} catch (error) {
@@ -65,7 +74,9 @@ export function startDeviceApi(options: ServeOptions) {
 				const message =
 					error instanceof Error ? error.message : "request failed";
 				const status =
-					message.includes("mismatch") || message.includes("already paired")
+					message.includes("mismatch") ||
+					message.includes("already paired") ||
+					message.includes("local-only")
 						? 403
 						: 400;
 				return Response.json({ error: message }, { status });
@@ -81,6 +92,7 @@ export async function handleDeviceRequest(
 	pairingStore: PairingStore,
 	applyTunnel: ApplyTunnel,
 	applyWifi: ApplyWifi | undefined,
+	revokeT3: (() => Promise<void>) | undefined,
 	deviceAuth: DeviceAuthConfig,
 ): Promise<Response> {
 	const url = new URL(request.url);
@@ -117,6 +129,31 @@ export async function handleDeviceRequest(
 		const current = await pairingStore.read();
 		const next = applyClaim(current, claim);
 		await pairingStore.write(next);
+		return json(publicPairing(next));
+	}
+
+	if (method === "GET" && path === "/v1/pairing/credentials") {
+		if (!isLoopback(url)) {
+			throw new Error("pairing credentials are local-only");
+		}
+		return json(pairingCredentials(await pairingStore.read()));
+	}
+
+	if (method === "POST" && path === "/v1/pairing/transfer") {
+		const claim = parsePairingClaim(parseJson(bodyText));
+		const current = await pairingStore.read();
+		const next = applyTransfer(current, claim);
+		await pairingStore.write(next);
+		await wipeOwnerSecrets(secretsStore, revokeT3);
+		return json(publicPairing(next));
+	}
+
+	if (method === "POST" && path === "/v1/pairing/unpair") {
+		const body = parsePairingUnpair(parseJson(bodyText));
+		const current = await pairingStore.read();
+		const next = applyUnpair(current, body.uuid, body.key);
+		await pairingStore.write(next);
+		await wipeOwnerSecrets(secretsStore, revokeT3);
 		return json(publicPairing(next));
 	}
 
@@ -232,4 +269,28 @@ function asObject(body: unknown): Record<string, unknown> {
 
 function json(body: unknown, status = 200): Response {
 	return Response.json(body, { status });
+}
+
+function isLoopback(url: URL): boolean {
+	return (
+		url.hostname === "127.0.0.1" ||
+		url.hostname === "localhost" ||
+		url.hostname === "::1"
+	);
+}
+
+async function wipeOwnerSecrets(
+	secretsStore: SecretsStore,
+	revokeT3: (() => Promise<void>) | undefined,
+): Promise<void> {
+	const current = await secretsStore.read();
+	await secretsStore.write({
+		...current,
+		giteaUrl: "",
+		giteaUsername: "",
+		giteaToken: "",
+	});
+	if (revokeT3) {
+		await revokeT3();
+	}
 }

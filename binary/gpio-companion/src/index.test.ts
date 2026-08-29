@@ -225,4 +225,49 @@ describe("gpio-companion-bin", () => {
 		expect(body.paired).toBe(true);
 		expect(body.giteaLogin).toBe("ada");
 	});
+
+	test("credentials are signed and include pairing key", async () => {
+		const response = await deviceFetch("v1/pairing/credentials");
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			uuid: string;
+			key: string;
+			paired: boolean;
+			userId: string;
+		};
+		expect(body.uuid).toBe("pair-uuid");
+		expect(body.key).toBe("pair-key");
+		expect(body.paired).toBe(true);
+		expect(body.userId).toBe("user-1");
+	});
+
+	test("transfers owner and unpairs", async () => {
+		const transferred = await deviceFetch("v1/pairing/transfer", {
+			method: "POST",
+			body: JSON.stringify({
+				uuid: "pair-uuid",
+				key: "pair-key",
+				userId: "user-2",
+				email: "bob@gpio-companion.com",
+			}),
+		});
+		expect(transferred.status).toBe(200);
+		const transferredBody = (await transferred.json()) as {
+			giteaLogin: string;
+			paired: boolean;
+		};
+		expect(transferredBody.paired).toBe(true);
+		expect(transferredBody.giteaLogin).toBe("bob");
+
+		const unpaired = await deviceFetch("v1/pairing/unpair", {
+			method: "POST",
+			body: JSON.stringify({
+				uuid: "pair-uuid",
+				key: "pair-key",
+			}),
+		});
+		expect(unpaired.status).toBe(200);
+		const unpairedBody = (await unpaired.json()) as { paired: boolean };
+		expect(unpairedBody.paired).toBe(false);
+	});
 });

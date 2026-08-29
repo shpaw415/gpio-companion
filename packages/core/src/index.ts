@@ -54,9 +54,12 @@ export {
 	emptyPairingState,
 	giteaLoginFromEmail,
 	type PairingClaim,
+	type PairingCredentials,
 	type PairingPublic,
 	type PairingState,
+	pairingCredentials,
 	parsePairingClaim,
+	parsePairingUnpair,
 	publicPairing,
 } from "./pairing.ts";
 export {

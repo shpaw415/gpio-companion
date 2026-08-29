@@ -8,7 +8,7 @@ HDMI/serial if you need the console. First boot clones the repo to `/opt/gpio-co
 
 Choose **raspberrypi** or **orangepi**. Optionally paste a Cloudflare tunnel token and hostname for T3 Code (skip if the host applies it later).
 
-**Write down** the printed **pairing UUID** and **pairing key**. You need both on `/pair`. They also live in `/etc/gpio-companion/pairing.env` (root).
+**Write down** the printed **pairing UUID** and **pairing key**, or pull them on `/pair` over Bluetooth (Chrome) / LightBlue paste (iOS). They also live in `/etc/gpio-companion/pairing.env` (root).
 
 ## 2. Network
 
@@ -39,7 +39,7 @@ Page `/pair` (or stepper step 2).
 | Pairing key | first-setup printout |
 | Gitea account | suggested from your email; must match the account you will create on Gitea |
 
-The dashboard **signs** the claim (you never call the Pi from the browser with a raw key for later APIs). The Pi checks UUID + key and binds your user. One board per user in the current KV model (`device:<your user id>`).
+The dashboard **signs** the claim. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
 
 ## 5. Gitea
 

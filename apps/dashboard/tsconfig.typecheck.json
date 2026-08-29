@@ -21,6 +21,9 @@
 		"./src/actions/api/wifi.ts",
 		"./src/components/WifiBleForm.tsx",
 		"./src/pages/wifi.tsx",
-		"./src/lib/web-bluetooth.ts"
+		"./src/lib/web-bluetooth.ts",
+		"./src/actions/api/notifications.ts",
+		"./src/components/NotificationCenter.tsx",
+		"./src/pages/notifications.tsx"
 	]
 }

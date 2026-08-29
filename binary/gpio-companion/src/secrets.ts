@@ -29,6 +29,8 @@ export function fileSecretsStore(
 			const cred = gitCredentialLine(secrets);
 			if (cred) {
 				await Bun.write(credPath, `${cred}\n`);
+			} else {
+				await Bun.write(credPath, "");
 			}
 		},
 	};

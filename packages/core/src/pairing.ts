@@ -48,6 +48,36 @@ export function parsePairingClaim(input: unknown): PairingClaim {
 	return { uuid, key, userId, email, giteaLogin };
 }
 
+export type PairingCredentials = {
+	uuid: string;
+	key: string;
+	paired: boolean;
+	userId: string;
+};
+
+export function pairingCredentials(state: PairingState): PairingCredentials {
+	return {
+		uuid: state.uuid,
+		key: state.key,
+		paired: state.claimed,
+		userId: state.claimed ? state.userId : "",
+	};
+}
+
+export function parsePairingUnpair(input: unknown): {
+	uuid: string;
+	key: string;
+} {
+	if (input === null || typeof input !== "object") {
+		throw new Error("unpair must be an object");
+	}
+	const record = input as Record<string, unknown>;
+	return {
+		uuid: requiredString(record.uuid, "uuid"),
+		key: requiredString(record.key, "key"),
+	};
+}
+
 export function publicPairing(state: PairingState): PairingPublic {
 	return {
 		uuid: state.uuid,
