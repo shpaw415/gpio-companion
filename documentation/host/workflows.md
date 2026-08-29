@@ -1,0 +1,68 @@
+# Host workflows
+
+## Ship a dashboard change
+
+1. Implement in `apps/dashboard` (and `packages/core` if signing/BLE envelope changed)
+2. `bun test` and `bun run typecheck`
+3. `bun run deploy:dashboard`
+4. If `packages/core` device-auth or the bundled public key changed, boards pick it up on the next updater run (or reboot timer)
+
+## Rotate device signing keys
+
+1. `bun run keys:device -- --write-public`
+2. Commit **only** `packages/core/src/device-public-key.ts` (never `.device-keys/`)
+3. `wrangler pages secret put GPIO_COMPANION_DEVICE_PRIVATE_KEY` with the new PEM
+4. Deploy dashboard
+5. Wait until Pis pull `main` (updater) **before** retiring the old private key, or they will 403 all signed calls
+
+There is no multi-key ring yet — rotation is cutover.
+
+## Help a user pair
+
+You cannot pair for them without their dashboard login. They need:
+
+- Device URL (tunnel or LAN `http://<pi>:4150` — after WiFi)
+- Pairing UUID + key from the Pi’s first-setup console / `pairing.env`
+
+Host debug on the board (SSH/serial):
+
+```sh
+curl -sS http://127.0.0.1:4150/health
+sudo systemctl status gpio-companion
+sudo journalctl -u gpio-companion -n 80 --no-pager
+# pairing UUID only (not the key) if they lost the printout — the key is in pairing.env mode 600
+sudo grep GPIO_COMPANION_PAIRING_UUID /etc/gpio-companion/pairing.env
+```
+
+Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.env` and they re-claim (existing claim is bound to `userId`).
+
+## WiFi / BLE support
+
+- Chrome/Edge: dashboard `/wifi` uses Web Bluetooth
+- iOS Safari: sign-and-copy → LightBlue or nRF Connect, UTF-8 JSON to command characteristic
+- Signed body UUID must match the Pi
+- `GPIO_COMPANION_BLE=0` disables advertising
+- `python3-dbus` / `python3-gi` / `bluez` missing → BLE skipped; Ethernet/TTY still valid
+
+## Secrets ownership
+
+| Secret | Where it lives | Who sets it |
+| --- | --- | --- |
+| Device Ed25519 private | Cloudflare Pages secret | Host |
+| Device Ed25519 public | git (`device-public-key.ts`) | Host commit |
+| OpenAuthster `AUTH_SECRET` | Pages secret | Host |
+| Pairing UUID/key | `/etc/gpio-companion/pairing.env` | First-setup on the Pi |
+| OpenCode API key | `/etc/gpio-companion/secrets.env` | User via dashboard Keys |
+| Gitea user token | same `secrets.env` | User via Keys after they register on Gitea |
+| Tunnel token | `cloudflared.env` | First-setup or signed `PUT /v1/config/tunnel` |
+| Dashboard `GITEA_TOKEN` | Pages secret | Host (read projects in the cloud UI) |
+
+Never put OpenCode or Gitea user tokens in the image.
+
+## Break-glass on a bricked network
+
+Physical console (HDMI/serial): first-setup TTY, Ethernet, or `nmcli` as root. BLE is only for users who can reach the **dashboard** (their phone/laptop has internet) while the Pi does not.
+
+## What not to invent
+
+Billing, gpio-companion.com subscription, Orange Pi SKU matrix, and a native iOS app are not locked. Host docs stop at the services and image paths above.

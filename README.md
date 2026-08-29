@@ -4,6 +4,8 @@ On-device AI coworker for GPIO boards (Orange Pi / Raspberry Pi): Armbian + Open
 
 Vision: `PRODUCT.md` (raw). Agent rules: `opencode/preferences`, `opencode/skills`.
 
+Operator deploy and image docs: `documentation/host/`. Desk user setup and daily workflows: `documentation/user/`.
+
 ```txt
 .
 ├── apps/                 # web app and workers
