@@ -44,7 +44,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Dashboard home is a mui-lite stepper: sign in → pair Pi → Gitea setup → overview
 - Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user
 - Device API auth: dashboard signs requests with Ed25519 (`GPIO_COMPANION_DEVICE_PRIVATE_KEY`); the Pi verifies the bundled public key. Browser never calls the Pi. Pairing UUID/key remain required on claim.
-- WiFi over Bluetooth: a logged-in dashboard user (Chrome/Edge, not Safari iOS) connects to the Pi GATT peripheral; the dashboard signs `PUT /v1/config/wifi` with timestamp/nonce; the Pi verifies then runs nmcli. Safari/iOS fallback is Ethernet or first-setup TTY.
+- WiFi over Bluetooth: a logged-in dashboard user (Chrome/Edge) connects to the Pi GATT peripheral; the dashboard signs `PUT /v1/config/wifi` with timestamp/nonce; the Pi verifies then runs nmcli. Safari/iOS: sign-and-copy into LightBlue or nRF Connect as UTF-8 text (native gpio-companion app later). Ethernet/TTY still work.
 - Gitea: the user creates an account on Gitea first; Pi/agent credentials (URL, username, token) are then set through the device bun API `PUT /v1/config/gitea`
 
 ## Capabilities and Constraints

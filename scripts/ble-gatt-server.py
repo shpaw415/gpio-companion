@@ -152,6 +152,17 @@ class CommandCharacteristic(Characteristic):
 	@dbus.service.method(GATT_CHRC, in_signature="aya{sv}")
 	def WriteValue(self, value, options):
 		self.buf.extend(bytes(value))
+		if not self.buf:
+			return
+		if self.buf[0] == 0x7B:
+			try:
+				payload = self.buf.decode("utf-8").strip()
+				json.loads(payload)
+				self.buf = bytearray()
+				self.on_payload(payload)
+			except (UnicodeDecodeError, json.JSONDecodeError):
+				return
+			return
 		if len(self.buf) < 4:
 			return
 		length = struct.unpack(">I", self.buf[:4])[0]

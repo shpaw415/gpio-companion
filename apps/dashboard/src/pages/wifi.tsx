@@ -11,7 +11,8 @@ export default function WifiPage() {
 			<Typography color="secondary">
 				The dashboard signs the WiFi command with the gpio-companion private key
 				and a timestamp. The Pi verifies it before connecting. Chrome or Edge
-				only.
+				can talk to the Pi directly. On iOS, sign and copy, then paste into
+				LightBlue or nRF Connect.
 			</Typography>
 			<WifiBleForm />
 		</Stack>

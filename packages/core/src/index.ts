@@ -15,6 +15,7 @@ export {
 	type BleInfo,
 	createBleAssembler,
 	createSignedEnvelope,
+	envelopeToPasteText,
 	envelopeToRequest,
 	parseSignedEnvelope,
 	type SignedDeviceEnvelope,

@@ -100,6 +100,10 @@ export function envelopeToRequest(
 	});
 }
 
+export function envelopeToPasteText(envelope: SignedDeviceEnvelope): string {
+	return JSON.stringify(envelope);
+}
+
 export function splitBleFrames(
 	payload: string,
 	mtu = BLE_CHUNK_SIZE,
@@ -126,6 +130,19 @@ export function createBleAssembler(): {
 			next.set(buf);
 			next.set(chunk, buf.length);
 			buf = next;
+			if (buf.length === 0) {
+				return null;
+			}
+			if (buf[0] === 0x7b) {
+				try {
+					const text = new TextDecoder().decode(buf).trim();
+					JSON.parse(text);
+					buf = new Uint8Array(0);
+					return text;
+				} catch {
+					return null;
+				}
+			}
 			if (buf.length < 4) {
 				return null;
 			}

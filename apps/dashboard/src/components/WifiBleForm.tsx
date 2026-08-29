@@ -5,6 +5,11 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import {
+	BLE_CMD_UUID,
+	BLE_DEVICE_NAME,
+	envelopeToPasteText,
+} from "gpio-companion";
 import { type FormEvent, useState } from "react";
 import { useAuthSession } from "../hooks/useAuth.ts";
 import {
@@ -14,6 +19,10 @@ import {
 
 type Status = "idle" | "connecting" | "sending" | "success" | "error";
 
+const LIGHTBLUE = "https://apps.apple.com/app/lightblue/id557428110";
+const NRF_CONNECT =
+	"https://apps.apple.com/app/nrf-connect-for-mobile/id1054366564";
+
 export default function WifiBleForm() {
 	const session = useAuthSession();
 	const supported = bluetoothSupported();
@@ -22,6 +31,7 @@ export default function WifiBleForm() {
 	const [uuid, setUuid] = useState("");
 	const [status, setStatus] = useState<Status>("idle");
 	const [message, setMessage] = useState("");
+	const [pasteText, setPasteText] = useState("");
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
@@ -36,15 +46,26 @@ export default function WifiBleForm() {
 
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
+		setMessage("");
 		if (!supported) {
-			setStatus("error");
-			setMessage(
-				"Web Bluetooth needs Chrome or Edge on desktop or Android. Safari on iOS cannot use Bluetooth or USB from the browser — use Ethernet, the Pi TTY, or Chrome on another device.",
-			);
+			setStatus("sending");
+			try {
+				const envelope = await signWifi({ uuid, ssid, psk });
+				const text = envelopeToPasteText(envelope);
+				setPasteText(text);
+				await navigator.clipboard.writeText(text).catch(() => undefined);
+				setStatus("success");
+				setMessage(
+					"signed command copied — paste it in LightBlue or nRF Connect",
+				);
+				setPsk("");
+			} catch (error) {
+				setStatus("error");
+				setMessage(error instanceof Error ? error.message : "sign failed");
+			}
 			return;
 		}
 		setStatus("connecting");
-		setMessage("");
 		try {
 			const ble = await connectGpioCompanionBle();
 			const boardUuid = ble.info.uuid || uuid;
@@ -83,9 +104,9 @@ export default function WifiBleForm() {
 				<Stack spacing={2}>
 					{supported ? null : (
 						<Alert severity="error">
-							This browser cannot use Web Bluetooth. Use Chrome or Edge
-							(desktop/Android). Safari on iOS has no Bluetooth or WebUSB — plug
-							Ethernet or run first-setup on the Pi TTY.
+							Safari on iOS cannot talk to the Pi from this page. Sign the WiFi
+							command here, then paste it as text in LightBlue or nRF Connect. A
+							native gpio-companion app will replace this later.
 						</Alert>
 					)}
 					<TextField
@@ -104,7 +125,11 @@ export default function WifiBleForm() {
 					/>
 					<TextField
 						label="Pairing UUID"
-						placeholder="read from the Pi over Bluetooth"
+						placeholder={
+							supported
+								? "read from the Pi over Bluetooth"
+								: "printed at Pi first-setup"
+						}
 						value={uuid}
 						onChange={(event) => setUuid(event.target.value)}
 						className="w-full"
@@ -118,8 +143,47 @@ export default function WifiBleForm() {
 							? "Connecting…"
 							: status === "sending"
 								? "Signing…"
-								: "Connect over Bluetooth"}
+								: supported
+									? "Connect over Bluetooth"
+									: "Sign and copy"}
 					</Button>
+					{supported ? null : (
+						<>
+							<Typography variant="body2" color="secondary">
+								1. Install{" "}
+								<Button href={LIGHTBLUE} variant="text">
+									LightBlue
+								</Button>{" "}
+								or{" "}
+								<Button href={NRF_CONNECT} variant="text">
+									nRF Connect
+								</Button>
+								.
+							</Typography>
+							<Typography variant="body2" color="secondary">
+								2. Connect to {BLE_DEVICE_NAME}, open the write characteristic{" "}
+								{BLE_CMD_UUID}, paste the signed JSON as UTF-8 text, send.
+							</Typography>
+						</>
+					)}
+					{pasteText ? (
+						<textarea
+							readOnly
+							className="w-full min-h-32 p-2 font-mono text-xs"
+							value={pasteText}
+						/>
+					) : null}
+					{pasteText ? (
+						<Button
+							type="button"
+							variant="outlined"
+							onClick={() => {
+								void navigator.clipboard.writeText(pasteText);
+							}}
+						>
+							Copy again
+						</Button>
+					) : null}
 					{message ? (
 						<Alert severity={status === "error" ? "error" : "success"}>
 							{message}
