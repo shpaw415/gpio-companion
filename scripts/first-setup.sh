@@ -57,6 +57,8 @@ echo "OpenCode API key and GitHub token are set from the dashboard, not this pro
 echo "T3 Code pairing is started from the dashboard after you claim this board."
 echo
 
+export GPIO_COMPANION_DASHBOARD_URL="${GPIO_COMPANION_DASHBOARD_URL:-https://gpio-companion.com}"
+
 hardware="${GPIO_COMPANION_HARDWARE:-}"
 if [[ -z "$hardware" ]]; then
 	local_default="$(guess_hardware)"
@@ -114,6 +116,8 @@ tunnel_id="$(TUNNEL_JSON="$tunnel_json" python3 -c 'import json,os; print(json.l
 apply_runtime_config "$hardware" "$tunnel_token" "$t3_hostname" "$api_hostname" "$tunnel_id"
 unset tunnel_token
 tunnel_token=""
+
+register_device_public_key
 
 install -d -m 0755 "$CONFIG_DIR"
 date -u +"%Y-%m-%dT%H:%M:%SZ" >"$MARKER"

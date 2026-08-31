@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GPIO_USER="${GPIO_USER:-${SUDO_USER:-root}}"
 CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
 BIN_DIR="${GPIO_COMPANION_BIN_DIR:-/usr/local/bin}"
+DEFAULT_DASHBOARD_URL="https://gpio-companion.com"
 
 die() {
 	echo "gpio-companion install: $*" >&2
@@ -174,7 +175,93 @@ write_repo_metadata() {
 GPIO_USER=$GPIO_USER
 GPIO_COMPANION_CONFIG_DIR=$CONFIG_DIR
 GPIO_COMPANION_BIN_DIR=$BIN_DIR
+GPIO_COMPANION_DASHBOARD_URL=$(dashboard_url)
 EOF
+}
+
+dashboard_url() {
+	local origin="${GPIO_COMPANION_DASHBOARD_URL:-$DEFAULT_DASHBOARD_URL}"
+	origin="${origin%/}"
+	printf '%s' "$origin"
+}
+
+device_auth_path() {
+	printf '%s' "${GPIO_COMPANION_DEVICE_AUTH:-$CONFIG_DIR/device-auth.json}"
+}
+
+write_device_auth_json() {
+	local src="$1" dest="$2"
+	python3 - "$src" "$dest" <<'PY'
+import json, os, sys
+src, dest = sys.argv[1], sys.argv[2]
+with open(src, encoding="utf-8") as handle:
+    data = json.load(handle)
+key_id = data.get("keyId")
+pem = data.get("publicKeyPem")
+if not isinstance(key_id, str) or not key_id.strip():
+    raise SystemExit(2)
+if not isinstance(pem, str) or "BEGIN PUBLIC KEY" not in pem:
+    raise SystemExit(2)
+pem = pem.strip() + "\n"
+out = {"keyId": key_id.strip(), "publicKeyPem": pem}
+tmp = f"{dest}.tmp"
+with open(tmp, "w", encoding="utf-8") as handle:
+    json.dump(out, handle, indent="\t")
+    handle.write("\n")
+os.replace(tmp, dest)
+PY
+}
+
+fetch_device_public_key() {
+	local url dest tmp
+	url="$(dashboard_url)/api/device-public-key"
+	dest="$(device_auth_path)"
+	install -d -m 0755 "$CONFIG_DIR"
+	tmp="$(mktemp)"
+	if ! curl -fsS --max-time 30 "$url" -o "$tmp"; then
+		rm -f "$tmp"
+		return 1
+	fi
+	if ! write_device_auth_json "$tmp" "$dest"; then
+		rm -f "$tmp"
+		return 2
+	fi
+	rm -f "$tmp"
+	chmod 644 "$dest"
+	return 0
+}
+
+register_device_public_key() {
+	local url
+	url="$(dashboard_url)/api/device-public-key"
+	echo "fetching device public key from $url"
+	if ! fetch_device_public_key; then
+		die "failed to fetch device public key from $url"
+	fi
+	if command -v systemctl >/dev/null; then
+		systemctl restart gpio-companion.service || true
+	fi
+}
+
+refresh_device_public_key() {
+	local dest before after url
+	url="$(dashboard_url)/api/device-public-key"
+	dest="$(device_auth_path)"
+	before=""
+	if [[ -f "$dest" ]]; then
+		before="$(cat "$dest")"
+	fi
+	if ! fetch_device_public_key; then
+		echo "gpio-companion update: device public key fetch failed, keeping current" >&2
+		return 1
+	fi
+	after="$(cat "$dest")"
+	if [[ "$before" == "$after" ]]; then
+		echo "gpio-companion update: device public key unchanged"
+		return 1
+	fi
+	echo "gpio-companion update: device public key updated from $url"
+	return 0
 }
 
 opencode_home() {

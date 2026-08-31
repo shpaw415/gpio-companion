@@ -1,6 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
 import {
 	DEFAULT_DEVICE_KEY_ID,
-	DEFAULT_DEVICE_PUBLIC_KEY_PEM,
 	type HardwareId,
 	isHardwareId,
 	VERSION,
@@ -11,6 +11,7 @@ import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
 import {
 	DEFAULT_CONFIG_PATH,
+	DEFAULT_DEVICE_AUTH_PATH,
 	DEFAULT_PORT,
 	DEFAULT_TUNNEL_ENV_PATH,
 	fileConfigStore,
@@ -41,10 +42,7 @@ const pairingUuid = process.env.GPIO_COMPANION_PAIRING_UUID ?? "";
 const pairingKey = process.env.GPIO_COMPANION_PAIRING_KEY ?? "";
 const port = Number(process.env.GPIO_COMPANION_PORT ?? DEFAULT_PORT);
 
-const deviceKeyId =
-	process.env.GPIO_COMPANION_DEVICE_KEY_ID ?? DEFAULT_DEVICE_KEY_ID;
-const devicePublicKeyPem =
-	process.env.GPIO_COMPANION_DEVICE_PUBLIC_KEY ?? DEFAULT_DEVICE_PUBLIC_KEY_PEM;
+const deviceAuth = loadDeviceAuth();
 
 const t3 = liveT3Controller();
 const server = startDeviceApi({
@@ -56,10 +54,7 @@ const server = startDeviceApi({
 	applyWifi: applyNetworkManagerWifi(),
 	t3,
 	revokeT3: () => t3.revoke(),
-	deviceAuth: {
-		keyId: deviceKeyId,
-		publicKeyPem: devicePublicKeyPem,
-	},
+	deviceAuth,
 });
 
 startBleBridge({
@@ -71,6 +66,37 @@ startBleBridge({
 console.log(
 	`gpio-companion device API on http://${server.hostname}:${server.port}`,
 );
+
+function loadDeviceAuth(): { keyId: string; publicKeyPem: string } {
+	const authPath =
+		process.env.GPIO_COMPANION_DEVICE_AUTH ?? DEFAULT_DEVICE_AUTH_PATH;
+	let keyId = process.env.GPIO_COMPANION_DEVICE_KEY_ID ?? DEFAULT_DEVICE_KEY_ID;
+	let publicKeyPem = process.env.GPIO_COMPANION_DEVICE_PUBLIC_KEY ?? "";
+	if (existsSync(authPath)) {
+		try {
+			const parsed = JSON.parse(readFileSync(authPath, "utf8")) as {
+				keyId?: unknown;
+				publicKeyPem?: unknown;
+			};
+			if (!process.env.GPIO_COMPANION_DEVICE_KEY_ID) {
+				if (typeof parsed.keyId === "string" && parsed.keyId.trim()) {
+					keyId = parsed.keyId.trim();
+				}
+			}
+			if (!process.env.GPIO_COMPANION_DEVICE_PUBLIC_KEY) {
+				if (
+					typeof parsed.publicKeyPem === "string" &&
+					parsed.publicKeyPem.trim()
+				) {
+					publicKeyPem = parsed.publicKeyPem;
+				}
+			}
+		} catch {
+			// keep env / defaults
+		}
+	}
+	return { keyId, publicKeyPem };
+}
 
 function readHardware(): HardwareId {
 	const value = process.env.GPIO_COMPANION_HARDWARE ?? "raspberrypi";

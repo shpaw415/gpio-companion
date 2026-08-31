@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	DeviceAuthError,
 	generateDeviceKeyPair,
+	publicKeyPemFromPrivateKey,
 	signDeviceRequest,
 	verifyDeviceRequest,
 } from "./device-auth.ts";
@@ -68,6 +69,25 @@ describe("device-auth", () => {
 				"expired device signature",
 			);
 		}
+	});
+
+	test("derives the public PEM from the private PEM", async () => {
+		const keys = await generateDeviceKeyPair();
+		const derived = await publicKeyPemFromPrivateKey(keys.privateKeyPem);
+		expect(derived).toBe(keys.publicKeyPem);
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/status",
+		});
+		await verifyDeviceRequest({
+			publicKeyPem: derived,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/status",
+			headers,
+		});
 	});
 
 	test("rejects a signature from another key", async () => {

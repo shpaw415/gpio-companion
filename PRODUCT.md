@@ -43,7 +43,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Dashboard is multi-user and authenticates with `openauthster-shared`
 - Dashboard home is a mui-lite stepper: sign in → pair Pi → GitHub setup → overview
 - Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user. UUID/key can be fetched over signed BLE (`GET /v1/pairing/credentials`, localhost-only). If the board is already owned, pairing is pending until the owner accepts a transfer in `/notifications`. Unpair/transfer revokes T3 Code auth and clears GitHub credentials on the Pi.
-- Device API auth: dashboard signs requests with Ed25519 (`GPIO_COMPANION_DEVICE_PRIVATE_KEY`); the Pi verifies the bundled public key. Browser never calls the Pi. Pairing UUID/key remain required on claim.
+- Device API auth: dashboard signs requests with Ed25519 (`GPIO_COMPANION_DEVICE_PRIVATE_KEY`); the Pi verifies the public key fetched from `GET /api/device-public-key` at first-setup (and on `scripts/update-script.sh`). Browser never calls the Pi. Pairing UUID/key remain required on claim.
 - WiFi over Bluetooth: a logged-in dashboard user (Chrome/Edge) connects to the Pi GATT peripheral; the dashboard signs `PUT /v1/config/wifi` with timestamp/nonce; the Pi verifies then runs nmcli. Safari/iOS: sign-and-copy into LightBlue or nRF Connect as UTF-8 text (native gpio-companion app later). Ethernet/TTY still work.
 - GitHub: the user uses their GitHub account; Pi/agent credentials (username, PAT) are set through the device bun API `PUT /v1/config/github`. Dashboard `/projects` uses the same token stored per user in KV.
 
@@ -63,26 +63,27 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Installs cloudflared, git, zip, unzip, bun, build-essential, node-gyp, GPIO libs, Arduino USB tooling, OpenCode, T3 Code
 - Device API `PUT /v1/config/tunnel` writes the cloudflared replica token and hostnames, then enables the replica
 - Device API `POST /v1/t3/start`, `GET /v1/t3/status`, and `POST /v1/t3/service-install` are signed dashboard routes for T3 Code pairing
-- On-device updater `scripts/update-script.sh` pulls the repo, refreshes `opencode/skills` and `opencode/preferences`, and rebuilds/restarts the gpio-companion server when those trees change
+- On-device updater `scripts/update-script.sh` pulls the repo, refreshes `opencode/skills` and `opencode/preferences`, fetches the dashboard device public key, and rebuilds/restarts the gpio-companion server when those trees or the registered public key change
 - Updater runs on boot and every 24h (`gpio-companion-update.timer`)
 - OS snapshot ships `scripts/snapshot/gpio-companion-first-boot.sh`: install git, clone this repo, run interactive `scripts/first-setup.sh`
-- First setup collects per-hardware choice and Cloudflare API token + account ID + zone ID, then creates the per-Pi tunnel (API token is not stored)
+- First setup collects per-hardware choice and Cloudflare API token + account ID + zone ID, then creates the per-Pi tunnel (API token is not stored) and registers the dashboard Ed25519 public key from `GET /api/device-public-key`
 - After the user has a GitHub PAT, dashboard Keys pushes username/token to the Pi via `PUT /v1/config/github` and stores them in dashboard KV; OpenCode key via `PUT /v1/config/secrets`
 - Dashboard app: `apps/dashboard` (Frame Master `cloudflare-nextjs`, Cloudflare Pages project `gpio-companion-dashboard`)
-- Dashboard `/projects` shows per-GitHub-repo `pcb/`, `breadboard/`, and `technical/` files plus a PCB viewer (`pcb/circuit.json` / `pcb/preview.svg`)
+- Dashboard `/projects` shows per-GitHub-repo `pcb/`, `breadboard/`, and `technical/` files plus a PCB viewer (`pcb/circuit.json` / `pcb/preview.svg`) and a breadboard viewer (`breadboard/diagram.json` Wokwi diagram + `@wokwi/elements`)
 - Pairing UUID/key are generated (or taken from env) at first-setup; `POST /v1/pairing/claim` on the device API completes the bind
-- Generate the dashboard/Pi Ed25519 pair with `bun run keys:device -- --write-public` (optional `--wrangler`); private key is never committed
+- Generate the dashboard Ed25519 pair with `bun run keys:device` (optional `--wrangler`); private key is never committed; Pis fetch the matching public key from the dashboard, not from git
 - Pi `gpio-companion serve` accepts unsigned `GET /health` only; all other device API routes require a valid dashboard Ed25519 signature
 - `PUT /v1/config/wifi` applies SSID/PSK only when the signed body UUID matches the Pi pairing UUID; BLE GATT (`scripts/ble-gatt-server.py`) forwards signed envelopes to localhost
 - When a PCB, breadboard, or technical-sheet task is done, the agent must `git push` those folders to the project GitHub repo
+- Breadboard plug maps are Wokwi `diagram.json` (`breadboard/diagram.json`) with a `gpio-companion-header` (physical pins 1–40); the dashboard renders the board, header, `@wokwi/elements` parts, and jumper wires
 - Per-hardware GPIO pinout skills: `opencode/skills/gpio-pinout-raspberrypi`, `opencode/skills/gpio-pinout-orangepi`
+- Breadboard agent skill: `opencode/skills/gpio-breadboard`
 
 **Open / not locked**
 
 - Exact image build and Orange Pi board SKUs (SoC GPIO lines resolved live; 40-pin power/GND map is in `opencode/skills/gpio-pinout-orangepi`)
 - How skills/preferences are versioned beyond git pull of this repo
-- Dashboard UX beyond hardware, keys, projects/PCB viewer, billing, pairing UI details, and gpio-companion.com stack
-- Breadboard visual helper format beyond `breadboard/circuit.json` and `preview.svg`
+- Dashboard UX beyond hardware, keys, projects/PCB/breadboard viewers, billing, pairing UI details, and gpio-companion.com stack
 - How far the agent may go unattended on GPIO/USB
 
 ## Product Principles

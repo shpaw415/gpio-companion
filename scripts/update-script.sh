@@ -43,6 +43,11 @@ echo "gpio-companion update: $before -> $after"
 
 sync_opencode_agent
 
+key_changed=0
+if refresh_device_public_key; then
+	key_changed=1
+fi
+
 paths_changed() {
 	local pattern="$1"
 	if [[ "$before" == "$after" ]]; then
@@ -61,6 +66,9 @@ if paths_changed '^(binary/gpio-companion/|packages/core/|scripts/systemd/gpio-c
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	fi
 	systemctl daemon-reload
+	systemctl restart gpio-companion.service
+elif [[ "$key_changed" -eq 1 ]]; then
+	echo "gpio-companion update: restarting server for new device public key"
 	systemctl restart gpio-companion.service
 fi
 

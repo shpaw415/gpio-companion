@@ -16,6 +16,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
+import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
 
 export default function ProjectBrowser() {
@@ -24,6 +25,7 @@ export default function ProjectBrowser() {
 	const [error, setError] = useState("");
 	const [bundle, setBundle] = useState<ProjectBundle | null>(null);
 	const [pcbJson, setPcbJson] = useState<string | null>(null);
+	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
 
 	useEffect(() => {
 		listProjects()
@@ -41,12 +43,22 @@ export default function ProjectBrowser() {
 	async function openRepo(repo: GithubRepo) {
 		setError("");
 		setPcbJson(null);
+		setBreadboardJson(null);
 		try {
 			const next = await loadProject(repo.owner, repo.name);
 			setBundle(next);
 			if (next.pcbCircuitJsonUrl) {
 				const file = await readFile(repo.owner, repo.name, "pcb/circuit.json");
 				setPcbJson(file.text);
+			}
+			const breadboardPath = next.breadboardDiagramUrl
+				? "breadboard/diagram.json"
+				: next.breadboardCircuitJsonUrl
+					? "breadboard/circuit.json"
+					: null;
+			if (breadboardPath) {
+				const file = await readFile(repo.owner, repo.name, breadboardPath);
+				setBreadboardJson(file.text);
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "failed to load project");
@@ -88,6 +100,10 @@ export default function ProjectBrowser() {
 							circuitJsonText={pcbJson}
 							label="PCB"
 							previewUrl={bundle.pcbPreviewUrl}
+						/>
+						<BreadboardViewer
+							diagramText={breadboardJson}
+							previewUrl={bundle.breadboardPreviewUrl}
 						/>
 						<FileGroup title="PCB" files={bundle.pcb} />
 						<FileGroup title="Breadboard" files={bundle.breadboard} />

@@ -2,18 +2,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	devicePublicKeySource,
-	generateDeviceKeyPair,
-} from "../packages/core/src/device-auth.ts";
+import { generateDeviceKeyPair } from "../packages/core/src/device-auth.ts";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(SCRIPT_DIR, "..");
 const DEFAULT_OUT = join(REPO_ROOT, ".device-keys");
-const PUBLIC_KEY_MODULE = join(
-	REPO_ROOT,
-	"packages/core/src/device-public-key.ts",
-);
 
 function arg(name: string): string | undefined {
 	const index = process.argv.indexOf(name);
@@ -29,7 +22,6 @@ function flag(name: string): boolean {
 
 const keyId = arg("--key-id") ?? "gpio-companion-v1";
 const outDir = arg("--out") ?? DEFAULT_OUT;
-const writePublic = flag("--write-public");
 const wrangler = flag("--wrangler");
 
 const keys = await generateDeviceKeyPair(keyId);
@@ -38,13 +30,6 @@ const privatePath = join(outDir, `${keyId}.private.pem`);
 const publicPath = join(outDir, `${keyId}.public.pem`);
 await writeFile(privatePath, keys.privateKeyPem, { mode: 0o600 });
 await writeFile(publicPath, keys.publicKeyPem, { mode: 0o644 });
-
-if (writePublic) {
-	await writeFile(
-		PUBLIC_KEY_MODULE,
-		devicePublicKeySource(keyId, keys.publicKeyPem),
-	);
-}
 
 if (wrangler) {
 	const child = Bun.spawn(
@@ -73,10 +58,8 @@ if (wrangler) {
 console.log(`key id: ${keyId}`);
 console.log(`private: ${privatePath}`);
 console.log(`public:  ${publicPath}`);
-if (writePublic) {
-	console.log(`module:  ${PUBLIC_KEY_MODULE}`);
-}
 console.log(
 	"set dashboard secret GPIO_COMPANION_DEVICE_PRIVATE_KEY from the private pem",
 );
+console.log("Pis fetch the public key from GET /api/device-public-key");
 console.log("or rerun with --wrangler");

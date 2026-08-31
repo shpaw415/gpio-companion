@@ -1,5 +1,6 @@
 import {
 	BREADBOARD_CIRCUIT_JSON,
+	BREADBOARD_DIAGRAM_JSON,
 	BREADBOARD_PREVIEW_SVG,
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
@@ -38,6 +39,7 @@ export type ProjectBundle = {
 	pcbPreviewUrl: string | null;
 	breadboardCircuitJsonUrl: string | null;
 	breadboardPreviewUrl: string | null;
+	breadboardDiagramUrl: string | null;
 };
 
 export function githubConfigured(
@@ -119,6 +121,7 @@ export async function loadProjectBundle(
 		pcbPreviewUrl: fileUrl(pcb, PCB_PREVIEW_SVG),
 		breadboardCircuitJsonUrl: fileUrl(breadboard, BREADBOARD_CIRCUIT_JSON),
 		breadboardPreviewUrl: fileUrl(breadboard, BREADBOARD_PREVIEW_SVG),
+		breadboardDiagramUrl: fileUrl(breadboard, BREADBOARD_DIAGRAM_JSON),
 	};
 }
 

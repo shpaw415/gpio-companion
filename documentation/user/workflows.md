@@ -20,10 +20,10 @@ One git repo per electronics project. When a PCB, breadboard, or technical-sheet
 | Directory | Expected files |
 | --- | --- |
 | `pcb/` | `circuit.json`, `preview.svg` when possible |
-| `breadboard/` | `circuit.json`, `preview.svg` when possible |
+| `breadboard/` | `diagram.json` (Wokwi plug map), optional `preview.svg` |
 | `technical/` | sheets |
 
-Dashboard `/projects` reads those paths (plus PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`). If the agent only left files on the Pi disk, the dashboard will look empty.
+Dashboard `/projects` reads those paths (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`). If the agent only left files on the Pi disk, the dashboard will look empty.
 
 ## Change WiFi later
 

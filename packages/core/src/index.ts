@@ -22,6 +22,30 @@ export {
 	splitBleFrames,
 } from "./ble.ts";
 export {
+	BREADBOARD_DIAGRAM_JSON,
+	BREADBOARD_PITCH,
+	BreadboardError,
+	type BreadboardStep,
+	breadboardPinOffset,
+	breadboardRows,
+	breadboardSize,
+	GPIO_COMPANION_HEADER_TYPE,
+	HEADER_PIN_COUNT,
+	headerPinOffset,
+	headerSize,
+	isBreadboardType,
+	type Point,
+	parseWokwiDiagram,
+	partOrigin,
+	rotatePoint,
+	splitEndpoint,
+	WOKWI_BREADBOARD_TYPES,
+	type WokwiConnection,
+	type WokwiDiagram,
+	type WokwiPart,
+	wirePath,
+} from "./breadboard.ts";
+export {
 	type DeviceConfig,
 	emptyDeviceConfig,
 	emptyTunnelConfig,
@@ -41,16 +65,13 @@ export {
 	DeviceAuthError,
 	type DeviceAuthHeaders,
 	type DeviceKeyPair,
-	devicePublicKeySource,
 	generateDeviceKeyPair,
 	normalizeDevicePath,
+	publicKeyPemFromPrivateKey,
 	signDeviceRequest,
 	verifyDeviceRequest,
 } from "./device-auth.ts";
-export {
-	DEFAULT_DEVICE_KEY_ID,
-	DEFAULT_DEVICE_PUBLIC_KEY_PEM,
-} from "./device-public-key.ts";
+export { DEFAULT_DEVICE_KEY_ID } from "./device-public-key.ts";
 export {
 	emptyPairingState,
 	loginFromEmail,

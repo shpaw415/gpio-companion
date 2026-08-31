@@ -109,6 +109,10 @@ export async function handleDeviceRequest(
 		return json({ ok: true, version: VERSION });
 	}
 
+	if (!deviceAuth.publicKeyPem.trim()) {
+		throw new DeviceAuthError("device public key not registered", 401);
+	}
+
 	await verifyDeviceRequest({
 		publicKeyPem: deviceAuth.publicKeyPem,
 		keyId: deviceAuth.keyId,

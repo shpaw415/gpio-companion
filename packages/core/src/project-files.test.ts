@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { BREADBOARD_DIAGRAM_JSON } from "./breadboard.ts";
 import {
 	isProjectFileDir,
 	PCB_CIRCUIT_JSON,
@@ -11,5 +12,6 @@ describe("project files", () => {
 		expect(isProjectFileDir("pcb")).toBe(true);
 		expect(isProjectFileDir("src")).toBe(false);
 		expect(PCB_CIRCUIT_JSON).toBe("pcb/circuit.json");
+		expect(BREADBOARD_DIAGRAM_JSON).toBe("breadboard/diagram.json");
 	});
 });

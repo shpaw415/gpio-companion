@@ -14,7 +14,7 @@ On first boot (no `/etc/gpio-companion/first-setup-complete`):
 
 Optional unit: `scripts/snapshot/gpio-companion-first-boot.service` on tty1 until the marker exists.
 
-Bake the **production public key** (`packages/core/src/device-public-key.ts`) into the tree the clone will get — usually `main` after you committed `--write-public`.
+The clone does **not** bake a production public key. First-setup fetches it from `GET ${GPIO_COMPANION_DASHBOARD_URL:-https://gpio-companion.com}/api/device-public-key` and writes `/etc/gpio-companion/device-auth.json`. The dashboard must already have `GPIO_COMPANION_DEVICE_PRIVATE_KEY` set.
 
 ## First-setup (what the script does)
 
@@ -26,13 +26,14 @@ Bake the **production public key** (`packages/core/src/device-public-key.ts`) in
 4. Generates pairing UUID + key into `/etc/gpio-companion/pairing.env` (mode 600) if unset
 5. Creates `gpio-<uuid>` on Cloudflare with `api-<slug>` → :4150 and `t3-<slug>` → :3773
 6. Writes `/etc/gpio-companion/config.json` and `cloudflared.env`, enables the replica
-7. Writes `/etc/gpio-companion/first-setup-complete`
+7. Fetches the dashboard Ed25519 public key into `/etc/gpio-companion/device-auth.json` (fails closed if the dashboard is unreachable)
+8. Writes `/etc/gpio-companion/first-setup-complete`
 
 It does **not** collect OpenCode or GitHub secrets. It does **not** run `t3 service install` (dashboard does that after T3 pairing).
 
 Prints pairing UUID/key plus `https://api-…` and `https://t3-…`. Treat that console output as a physical possession secret.
 
-Non-interactive: `GPIO_COMPANION_HARDWARE`, `GPIO_COMPANION_CF_API_TOKEN`, `GPIO_COMPANION_CF_ACCOUNT_ID`, `GPIO_COMPANION_CF_ZONE_ID`.
+Non-interactive: `GPIO_COMPANION_HARDWARE`, `GPIO_COMPANION_CF_API_TOKEN`, `GPIO_COMPANION_CF_ACCOUNT_ID`, `GPIO_COMPANION_CF_ZONE_ID`, optional `GPIO_COMPANION_DASHBOARD_URL` (default `https://gpio-companion.com`).
 
 Force re-run: `GPIO_COMPANION_FORCE_SETUP=1`.
 
@@ -59,6 +60,8 @@ Env the unit loads:
 - `GPIO_COMPANION_PAIRING=/etc/gpio-companion/pairing.json`
 - `EnvironmentFile=-/etc/gpio-companion/pairing.env` (`GPIO_COMPANION_PAIRING_UUID`, `GPIO_COMPANION_PAIRING_KEY`)
 - `GPIO_COMPANION_HARDWARE=raspberrypi|orangepi`
+
+The binary also reads `/etc/gpio-companion/device-auth.json` (`keyId`, `publicKeyPem`) written by first-setup / the updater.
 
 ## Device API (what you are exposing)
 
@@ -97,6 +100,7 @@ Script path: env `GPIO_COMPANION_BLE_SCRIPT`, else `/opt/gpio-companion/scripts/
 
 - `git fetch` + `reset --hard origin/<branch>` (`/etc/gpio-companion/branch` or `main`)
 - Copies `opencode/skills` and `opencode/preferences` into the device OpenCode config
-- Rebuilds/restarts `gpio-companion` if `binary/`, `packages/core/`, the unit file, or lockfile changed
+- Fetches `GET /api/device-public-key` and writes `/etc/gpio-companion/device-auth.json` if it changed
+- Rebuilds/restarts `gpio-companion` if `binary/`, `packages/core/`, the unit file, or lockfile changed, or if the registered public key changed
 
-Public-key rotations ship through this pull. Private-key rotations are **dashboard-only** (host workflow).
+Public-key rotations are **dashboard-only** (new Pages secret); Pis pick them up on the next updater run without a git commit. Fetch failure keeps the current file.

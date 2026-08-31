@@ -29,11 +29,12 @@ You do **not** sit at the GPIO bench. The on-device agent and the signed-in dash
 Dashboard (Cloudflare, private Ed25519)
     signs METHOD + PATH + timestamp + nonce + body hash
         → HTTP (after the Pi has a URL) or BLE envelope (no WiFi yet)
-Pi (bundled public key)
+Pi (public key from GET /api/device-public-key)
     verifies signature; pairing UUID/key still required on claim
 ```
 
 - Unsigned on the Pi: `GET /health` only
 - Private key: Cloudflare secret `GPIO_COMPANION_DEVICE_PRIVATE_KEY`
-- Public key: `packages/core/src/device-public-key.ts` (key id `gpio-companion-v1`)
+- Public key: fetched at first-setup onto `/etc/gpio-companion/device-auth.json` (key id `gpio-companion-v1`); refreshed by `scripts/update-script.sh`
+- Unsigned on the dashboard: `GET /api/device-public-key` (and `GET /api/health`)
 - Browser never holds the private key and never calls the Pi API directly for config

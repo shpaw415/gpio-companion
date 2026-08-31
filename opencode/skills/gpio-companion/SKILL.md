@@ -25,7 +25,7 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 - Keep each electronics project on GitHub using credentials from `/etc/gpio-companion/secrets.env` (`GITHUB_URL`, `GITHUB_USERNAME`, `GITHUB_TOKEN`) set via the device API after the user created a GitHub PAT. Git credential helper file: `/etc/gpio-companion/git-credentials` (config include `/etc/gpio-companion/gitconfig`).
 - When a PCB, breadboard, or technical-sheet task is finished, push to GitHub immediately:
   - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
-  - `breadboard/circuit.json` + `breadboard/preview.svg`
+  - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`
   - `technical/` sheets
   Then `git add`, commit, `git push` on the project remote (`https://github.com/<user>/<project>.git`). The dashboard viewer reads those paths.
 - Use Bun for HTTP, dashboards, and automation scripts

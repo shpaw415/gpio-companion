@@ -10,7 +10,7 @@ export default function ProjectsPage() {
 			</Typography>
 			<Typography color="secondary">
 				PCB, breadboard, and technical files the on-device agent pushed to
-				GitHub. Open a repo to view files and the PCB preview.
+				GitHub. Open a repo to view the PCB preview and breadboard wiring.
 			</Typography>
 			<ProjectBrowser />
 		</Stack>

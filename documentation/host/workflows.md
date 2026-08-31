@@ -5,15 +5,14 @@
 1. Implement in `apps/dashboard` (and `packages/core` if signing/BLE envelope changed)
 2. `bun test` and `bun run typecheck`
 3. `bun run deploy:dashboard`
-4. If `packages/core` device-auth or the bundled public key changed, boards pick it up on the next updater run (or reboot timer)
+4. Public-key rotation does **not** need a git commit; boards fetch `GET /api/device-public-key` on the next updater run (or `sudo gpio-companion-update`)
 
 ## Rotate device signing keys
 
-1. `bun run keys:device -- --write-public`
-2. Commit **only** `packages/core/src/device-public-key.ts` (never `.device-keys/`)
-3. `wrangler pages secret put GPIO_COMPANION_DEVICE_PRIVATE_KEY` with the new PEM
-4. Deploy dashboard
-5. Wait until Pis pull `main` (updater) **before** retiring the old private key, or they will 403 all signed calls
+1. `bun run keys:device`
+2. `wrangler pages secret put GPIO_COMPANION_DEVICE_PRIVATE_KEY` with the new PEM (never commit `.device-keys/`)
+3. Deploy dashboard if you also changed signing code; the public-key endpoint derives from the new secret immediately
+4. Wait until Pis run the updater (boot / 24h) or SSH `sudo gpio-companion-update`, or they will 403 all signed calls
 
 There is no multi-key ring yet — rotation is cutover.
 
@@ -49,7 +48,7 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 | Secret | Where it lives | Who sets it |
 | --- | --- | --- |
 | Device Ed25519 private | Cloudflare Pages secret | Host |
-| Device Ed25519 public | git (`device-public-key.ts`) | Host commit |
+| Device Ed25519 public | `/etc/gpio-companion/device-auth.json` | Pi fetches `GET /api/device-public-key` |
 | OpenAuthster `AUTH_SECRET` | Pages secret | Host |
 | Pairing UUID/key | `/etc/gpio-companion/pairing.env` | First-setup on the Pi |
 | OpenCode API key | `/etc/gpio-companion/secrets.env` | User via dashboard Keys |

@@ -31,12 +31,33 @@ export class DeviceAuthError extends Error {
 	}
 }
 
-export function devicePublicKeySource(
-	keyId: string,
-	publicKeyPem: string,
-): string {
-	const pem = `${publicKeyPem.trim()}\n`;
-	return `export const DEFAULT_DEVICE_KEY_ID = ${JSON.stringify(keyId)};\nexport const DEFAULT_DEVICE_PUBLIC_KEY_PEM =\n\t${JSON.stringify(pem)};\n`;
+export async function publicKeyPemFromPrivateKey(
+	privateKeyPem: string,
+): Promise<string> {
+	const privateKey = await crypto.subtle.importKey(
+		"pkcs8",
+		asBufferSource(pemToBytes(privateKeyPem)),
+		"Ed25519",
+		true,
+		["sign"],
+	);
+	const jwk = (await crypto.subtle.exportKey("jwk", privateKey)) as {
+		kty?: string;
+		crv?: string;
+		x?: string;
+	};
+	if (!jwk.x || jwk.kty !== "OKP" || jwk.crv !== "Ed25519") {
+		throw new Error("invalid ed25519 private key");
+	}
+	const publicKey = await crypto.subtle.importKey(
+		"jwk",
+		{ kty: "OKP", crv: "Ed25519", x: jwk.x },
+		"Ed25519",
+		true,
+		["verify"],
+	);
+	const spki = new Uint8Array(await crypto.subtle.exportKey("spki", publicKey));
+	return bytesToPem(spki, "PUBLIC KEY");
 }
 
 export async function generateDeviceKeyPair(

@@ -1,6 +1,6 @@
 # Deploy (host)
 
-Deploy order: **device keys → dashboard (auth + KV + secret) → tell users the URLs**. Boards can boot before a user has a GitHub PAT; they cannot accept signed dashboard commands until the public key on the image matches the private key you installed on Cloudflare.
+Deploy order: **device keys → dashboard (auth + KV + secret) → tell users the URLs**. Boards can boot before a user has a GitHub PAT; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
 
 ## Prerequisites
 
@@ -20,21 +20,20 @@ bun run typecheck
 Generate once per environment (staging vs production). Private PEM must never be committed.
 
 ```sh
-bun run keys:device -- --write-public
+bun run keys:device
 ```
 
 Writes:
 
 - `.device-keys/gpio-companion-v1.private.pem` (gitignored, mode 0600)
 - `.device-keys/gpio-companion-v1.public.pem`
-- `packages/core/src/device-public-key.ts` (committed public key the Pi binary trusts)
 
-Push the public-key commit **before** shipping images that must verify production signatures.
+Do **not** commit the public key. Pis register it at first-setup from `GET /api/device-public-key` (derived from this private secret).
 
 Upload the private key as a Pages secret (from `apps/dashboard`):
 
 ```sh
-bun run keys:device -- --write-public --wrangler
+bun run keys:device -- --wrangler
 ```
 
 Or:
