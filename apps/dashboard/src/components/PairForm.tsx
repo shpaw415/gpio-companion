@@ -21,7 +21,8 @@ import {
 import { type FormEvent, useEffect, useState } from "react";
 import { useAuthSession } from "../hooks/useAuth.ts";
 import {
-	bluetoothSupported,
+	bluetoothAvailable,
+	bluetoothChooserCancelled,
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
 
@@ -35,7 +36,7 @@ export default function PairForm({
 	onComplete?: (deviceUrl: string) => void;
 }) {
 	const session = useAuthSession();
-	const supported = bluetoothSupported();
+	const [bleReady, setBleReady] = useState(false);
 	const [deviceUrl, setDeviceUrl] = useState("");
 	const [uuid, setUuid] = useState("");
 	const [key, setKey] = useState("");
@@ -45,6 +46,10 @@ export default function PairForm({
 	const [pasteText, setPasteText] = useState("");
 	const [pairingUrl, setPairingUrl] = useState("");
 	const [t3Ready, setT3Ready] = useState(false);
+
+	useEffect(() => {
+		void bluetoothAvailable().then(setBleReady);
+	}, []);
 
 	useEffect(() => {
 		if (!session.data?.id) {
@@ -58,38 +63,59 @@ export default function PairForm({
 		});
 	}, [session.data?.id]);
 
+	async function applyCredentials(raw: string, infoDeviceUrl?: string) {
+		const body = JSON.parse(raw) as {
+			uuid?: string;
+			key?: string;
+			deviceUrl?: string;
+		};
+		if (!body.uuid || !body.key) {
+			throw new Error("device did not return pairing credentials");
+		}
+		setUuid(body.uuid);
+		setKey(body.key);
+		setDeviceUrl(
+			body.deviceUrl ||
+				infoDeviceUrl ||
+				publicDeviceUrl(tunnelHostnames(body.uuid).apiHostname),
+		);
+		setStatus("credentials loaded");
+	}
+
+	async function copySignedCommand(
+		envelope: Awaited<ReturnType<typeof signCredentials>>,
+		message = "copied — paste in LightBlue or nRF Connect, then read the status JSON",
+	) {
+		const text = envelopeToPasteText(envelope);
+		setPasteText(text);
+		await navigator.clipboard.writeText(text).catch(() => undefined);
+		setStatus(message);
+	}
+
 	async function retrieveCredentials() {
 		setError("");
-		setStatus("signing…");
+		setStatus("checking Bluetooth…");
 		try {
 			const envelope = await signCredentials();
-			if (!supported) {
-				const text = envelopeToPasteText(envelope);
-				setPasteText(text);
-				await navigator.clipboard.writeText(text).catch(() => undefined);
-				setStatus("copied — paste in LightBlue, then read the status JSON");
-				return;
+			const canBle = await bluetoothAvailable();
+			setBleReady(canBle);
+			if (canBle) {
+				setStatus("select a gpio-companion device…");
+				try {
+					const ble = await connectGpioCompanionBle();
+					setStatus("reading pairing…");
+					const raw = await ble.sendEnvelope(envelope);
+					ble.disconnect();
+					await applyCredentials(raw, ble.info.deviceUrl);
+					return;
+				} catch (caught) {
+					if (bluetoothChooserCancelled(caught)) {
+						setStatus("");
+						return;
+					}
+				}
 			}
-			setStatus("bluetooth…");
-			const ble = await connectGpioCompanionBle();
-			const raw = await ble.sendEnvelope(envelope);
-			ble.disconnect();
-			const body = JSON.parse(raw) as {
-				uuid?: string;
-				key?: string;
-				deviceUrl?: string;
-			};
-			if (!body.uuid || !body.key) {
-				throw new Error("device did not return pairing credentials");
-			}
-			setUuid(body.uuid);
-			setKey(body.key);
-			setDeviceUrl(
-				body.deviceUrl ||
-					ble.info.deviceUrl ||
-					publicDeviceUrl(tunnelHostnames(body.uuid).apiHostname),
-			);
-			setStatus("credentials loaded");
+			await copySignedCommand(envelope);
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "retrieve failed");
@@ -147,15 +173,29 @@ export default function PairForm({
 				return;
 			}
 			if ("needsBle" in body && body.needsBle && "envelope" in body) {
-				if (supported) {
-					const ble = await connectGpioCompanionBle();
-					await ble.sendEnvelope(body.envelope);
-					ble.disconnect();
+				const canBle = await bluetoothAvailable();
+				setBleReady(canBle);
+				if (canBle) {
+					try {
+						const ble = await connectGpioCompanionBle();
+						await ble.sendEnvelope(body.envelope);
+						ble.disconnect();
+					} catch (caught) {
+						if (bluetoothChooserCancelled(caught)) {
+							setStatus("");
+							return;
+						}
+						await copySignedCommand(
+							body.envelope,
+							"claim copied — paste in LightBlue or nRF Connect to finish on the Pi",
+						);
+						return;
+					}
 				} else {
-					const text = envelopeToPasteText(body.envelope);
-					setPasteText(text);
-					await navigator.clipboard.writeText(text).catch(() => undefined);
-					setStatus("claim copied — paste in LightBlue to finish on the Pi");
+					await copySignedCommand(
+						body.envelope,
+						"claim copied — paste in LightBlue or nRF Connect to finish on the Pi",
+					);
 					return;
 				}
 			}
@@ -193,26 +233,26 @@ export default function PairForm({
 					{paired ? <Alert severity="success">Paired as {paired}</Alert> : null}
 					<Button
 						type="button"
-						variant="outlined"
+						variant="contained"
 						onClick={() => void retrieveCredentials()}
 					>
-						{supported
-							? "Get pairing over Bluetooth"
-							: "Sign credentials command (iOS)"}
+						{bleReady
+							? "Connect over Bluetooth"
+							: "Sign Bluetooth pairing command"}
 					</Button>
-					{supported ? null : (
-						<Typography variant="body2" color="secondary">
-							Paste into{" "}
-							<Button href={LIGHTBLUE} variant="text">
-								LightBlue
-							</Button>{" "}
-							or{" "}
-							<Button href={NRF_CONNECT} variant="text">
-								nRF Connect
-							</Button>{" "}
-							→ {BLE_DEVICE_NAME} write {BLE_CMD_UUID}, then read status.
-						</Typography>
-					)}
+					<Typography variant="body2" color="secondary">
+						{bleReady
+							? "Checks Web Bluetooth, then asks you to select gpio-companion. If that fails, a signed command is copied for LightBlue or nRF Connect."
+							: "Web Bluetooth is unavailable. Paste the signed command into LightBlue or nRF Connect."}{" "}
+						<Button href={LIGHTBLUE} variant="text">
+							LightBlue
+						</Button>{" "}
+						or{" "}
+						<Button href={NRF_CONNECT} variant="text">
+							nRF Connect
+						</Button>{" "}
+						→ {BLE_DEVICE_NAME} write {BLE_CMD_UUID}, then read status.
+					</Typography>
 					<TextField
 						label="Device URL"
 						placeholder="https://api-<uuid>.gpio-companion.com (optional)"

@@ -22,6 +22,7 @@ type GattCharacteristic = {
 
 type BluetoothNav = Navigator & {
 	bluetooth?: {
+		getAvailability?(): Promise<boolean>;
 		requestDevice(options: {
 			filters: Array<{ namePrefix?: string; services?: string[] }>;
 			optionalServices?: string[];
@@ -40,6 +41,29 @@ type BluetoothNav = Navigator & {
 
 export function bluetoothSupported(): boolean {
 	return Boolean((navigator as BluetoothNav).bluetooth);
+}
+
+export async function bluetoothAvailable(): Promise<boolean> {
+	const bluetooth = (navigator as BluetoothNav).bluetooth;
+	if (!bluetooth) {
+		return false;
+	}
+	if (typeof bluetooth.getAvailability === "function") {
+		try {
+			return await bluetooth.getAvailability();
+		} catch {
+			return true;
+		}
+	}
+	return true;
+}
+
+export function bluetoothChooserCancelled(error: unknown): boolean {
+	if (!error || typeof error !== "object") {
+		return false;
+	}
+	const name = "name" in error ? String(error.name) : "";
+	return name === "NotFoundError" || name === "AbortError";
 }
 
 function decodeView(view: DataView): string {
@@ -81,7 +105,7 @@ export async function connectGpioCompanionBle(): Promise<{
 		const frames = splitBleFrames(JSON.stringify(envelope));
 		return new Promise<string>((resolve, reject) => {
 			const timer = setTimeout(() => {
-				reject(new Error("bluetooth wifi timed out"));
+				reject(new Error("bluetooth timed out"));
 			}, 30_000);
 			statusChar.addEventListener("characteristicvaluechanged", (event) => {
 				const target = event.target as { value?: DataView };

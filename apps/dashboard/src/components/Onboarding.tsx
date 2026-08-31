@@ -63,12 +63,19 @@ export default function Onboarding() {
 			</Stepper>
 			{step === 0 ? <LoginPanel /> : null}
 			{step === 1 ? (
-				<PairForm
-					onComplete={(url) => {
-						setDeviceUrl(url);
-						setPaired(true);
-					}}
-				/>
+				<Stack spacing={2}>
+					<Typography color="secondary">
+						Connect over Bluetooth to load Device URL, pairing UUID, and key. If
+						Web Bluetooth is unavailable, a signed command is copied for
+						LightBlue or nRF Connect.
+					</Typography>
+					<PairForm
+						onComplete={(url) => {
+							setDeviceUrl(url);
+							setPaired(true);
+						}}
+					/>
+				</Stack>
 			) : null}
 			{step === 2 ? (
 				<Stack spacing={2}>

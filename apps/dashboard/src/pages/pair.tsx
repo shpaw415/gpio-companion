@@ -9,11 +9,11 @@ export default function PairPage() {
 				Pair hardware
 			</Typography>
 			<Typography color="secondary">
-				Enter the pairing UUID and key printed at Pi first-setup. This binds
-				your dashboard user to that board, then starts T3 Code and shows the web
-				pairing URL. No WiFi yet? Set it from{" "}
-				<a href="/wifi">WiFi over Bluetooth</a> (Chrome/Edge). Then add a GitHub
-				PAT on Keys.
+				Connect over Bluetooth to load Device URL, pairing UUID, and key from
+				the Pi. If Web Bluetooth is unavailable, the dashboard signs a command
+				to paste in LightBlue or nRF Connect. Console printout still works. No
+				WiFi yet? Set it from <a href="/wifi">WiFi over Bluetooth</a>. Then add
+				a GitHub PAT on Keys.
 			</Typography>
 			<PairForm />
 		</Stack>
