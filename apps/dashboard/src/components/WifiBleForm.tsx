@@ -16,6 +16,7 @@ import {
 	bluetoothSupported,
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
+import CopyBlock from "./CopyBlock.tsx";
 
 type Status = "idle" | "connecting" | "sending" | "success" | "error";
 
@@ -167,22 +168,10 @@ export default function WifiBleForm() {
 						</>
 					)}
 					{pasteText ? (
-						<textarea
-							readOnly
-							className="w-full min-h-32 p-2 font-mono text-xs"
-							value={pasteText}
-						/>
-					) : null}
-					{pasteText ? (
-						<Button
-							type="button"
-							variant="outlined"
-							onClick={() => {
-								void navigator.clipboard.writeText(pasteText);
-							}}
-						>
-							Copy again
-						</Button>
+						<>
+							<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
+						</>
 					) : null}
 					{message ? (
 						<Alert severity={status === "error" ? "error" : "success"}>

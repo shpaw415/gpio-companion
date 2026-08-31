@@ -25,6 +25,7 @@ import {
 	bluetoothChooserCancelled,
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
+import CopyBlock from "./CopyBlock.tsx";
 
 const LIGHTBLUE = "https://apps.apple.com/app/lightblue/id557428110";
 const NRF_CONNECT =
@@ -291,11 +292,10 @@ export default function PairForm({
 						</Button>
 					) : null}
 					{pasteText ? (
-						<textarea
-							readOnly
-							className="w-full min-h-32 p-2 font-mono text-xs"
-							value={pasteText}
-						/>
+						<>
+							<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
+						</>
 					) : null}
 					{pairingUrl ? (
 						<Stack spacing={1}>
@@ -303,11 +303,7 @@ export default function PairForm({
 							<Button href={pairingUrl} variant="contained">
 								Open pairing URL
 							</Button>
-							<textarea
-								readOnly
-								className="w-full min-h-16 p-2 font-mono text-xs"
-								value={pairingUrl}
-							/>
+							<CopyBlock label="T3 pairing URL" value={pairingUrl} />
 							{t3Ready ? (
 								<Alert severity="success">T3 Code service installed</Alert>
 							) : (
