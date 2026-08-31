@@ -3,6 +3,7 @@ import json
 import os
 import struct
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -186,7 +187,6 @@ class Advertisement(dbus.service.Object):
 		return {
 			LE_AD: {
 				"Type": "peripheral",
-				"ServiceUUIDs": dbus.Array([SERVICE_UUID], signature="s"),
 				"LocalName": LOCAL_NAME,
 			}
 		}
@@ -195,17 +195,68 @@ class Advertisement(dbus.service.Object):
 	def GetAll(self, interface):
 		return self.get_properties()[LE_AD]
 
+	@dbus.service.method(PROP_IFACE, in_signature="ss", out_signature="v")
+	def Get(self, interface, prop):
+		return self.get_properties()[LE_AD][prop]
+
 	@dbus.service.method(LE_AD)
 	def Release(self):
 		pass
 
 
+def power_adapter(bus, path):
+	props = dbus.Interface(bus.get_object(BLUEZ, path), PROP_IFACE)
+	for key in ("Powered", "Discoverable"):
+		try:
+			props.Set("org.bluez.Adapter1", key, dbus.Boolean(True))
+		except dbus.exceptions.DBusException:
+			pass
+
+
 def find_adapter(bus):
 	om = dbus.Interface(bus.get_object(BLUEZ, "/"), OM_IFACE)
+	gatt = None
 	for path, ifaces in om.GetManagedObjects().items():
-		if GATT_MANAGER in ifaces:
+		if "org.bluez.Adapter1" in ifaces:
+			power_adapter(bus, path)
+		if GATT_MANAGER in ifaces and LE_AD_MANAGER in ifaces:
 			return path
-	return None
+		if GATT_MANAGER in ifaces:
+			gatt = path
+	return gatt
+
+
+def wait_adapter(bus):
+	adapter = None
+	for _ in range(20):
+		adapter = find_adapter(bus)
+		if adapter is None:
+			time.sleep(0.5)
+			continue
+		om = dbus.Interface(bus.get_object(BLUEZ, "/"), OM_IFACE)
+		ifaces = om.GetManagedObjects().get(adapter, {})
+		if LE_AD_MANAGER in ifaces:
+			return adapter
+		time.sleep(0.5)
+	return adapter
+
+
+def register_advertisement(ad_manager, ad):
+	error = None
+	for attempt in range(8):
+		try:
+			ad_manager.RegisterAdvertisement(ad.get_path(), {})
+			return
+		except dbus.exceptions.DBusException as exc:
+			error = exc
+			try:
+				ad_manager.UnregisterAdvertisement(ad.get_path())
+			except dbus.exceptions.DBusException:
+				pass
+			sys.stderr.write(f"gpio-companion ble: advertise retry {attempt}: {exc}\n")
+			time.sleep(0.5)
+	sys.stderr.write(f"gpio-companion ble: advertise failed: {error}\n")
+	sys.exit(1)
 
 
 def forward_envelope(payload, status_char):
@@ -237,7 +288,7 @@ def forward_envelope(payload, status_char):
 def main():
 	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 	bus = dbus.SystemBus()
-	adapter = find_adapter(bus)
+	adapter = wait_adapter(bus)
 	if adapter is None:
 		sys.stderr.write("gpio-companion ble: no bluetooth adapter\n")
 		sys.exit(0)
@@ -274,24 +325,14 @@ def main():
 	ad_manager = dbus.Interface(bus.get_object(BLUEZ, adapter), LE_AD_MANAGER)
 	ad = Advertisement(bus)
 
-	def on_error(_error):
-		sys.stderr.write("gpio-companion ble: register failed\n")
-		sys.exit(0)
-
-	service_manager.RegisterApplication(
-		app.get_path(), {}, reply_handler=lambda: None, error_handler=on_error
-	)
 	try:
-		ad_manager.RegisterAdvertisement(ad.get_path(), {})
-	except dbus.exceptions.DBusException:
-		sys.stderr.write("gpio-companion ble: advertise failed\n")
-		sys.exit(0)
-	try:
-		props = dbus.Interface(bus.get_object(BLUEZ, adapter), PROP_IFACE)
-		props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(True))
-		props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
-	except dbus.exceptions.DBusException:
-		pass
+		service_manager.RegisterApplication(app.get_path(), {})
+	except dbus.exceptions.DBusException as error:
+		sys.stderr.write(f"gpio-companion ble: register failed: {error}\n")
+		sys.exit(1)
+	register_advertisement(ad_manager, ad)
+	sys.stdout.write("gpio-companion ble: advertising\n")
+	sys.stdout.flush()
 	GLib.MainLoop().run()
 
 

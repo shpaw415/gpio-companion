@@ -89,7 +89,6 @@ export function startBleBridge(options: BleBridgeOptions): void {
 			console.log(`gpio-companion ble: exited ${code}`);
 		}
 	});
-	console.log("gpio-companion ble: advertising");
 }
 
 function installedBleScript(env: NodeJS.Dict<string>): string {

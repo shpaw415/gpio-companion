@@ -43,6 +43,7 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 - `GPIO_COMPANION_BLE=0` disables advertising
 - `python3-dbus` / `python3-gi` / `bluez` missing → BLE skipped; Ethernet/TTY still valid
 - GATT helper missing (`gpio-companion ble: script not found, skipping`) → install copies it to `/usr/local/lib/gpio-companion/ble-gatt-server.py`; unit sets `GPIO_COMPANION_BLE_SCRIPT`
+- `advertise failed: …` includes the BlueZ D-Bus error; leftover ads are unregistered and retried; name-only advert (Web Bluetooth filters `namePrefix`)
 
 ## Secrets ownership
 
