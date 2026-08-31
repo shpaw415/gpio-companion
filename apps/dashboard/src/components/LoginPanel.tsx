@@ -5,31 +5,21 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth.ts";
-import { resolveUserIdentity } from "../lib/auth/identity.ts";
 
 export default function LoginPanel() {
 	const auth = useAuth();
 	const [error, setError] = useState("");
 
-	async function start(provider: "google" | "password" | "passkey") {
+	async function start() {
 		if (!auth) {
 			setError("auth unavailable");
 			return;
 		}
 		setError("");
 		try {
-			if (provider === "passkey") {
-				await auth.passkey.login();
-				if (auth.getToken()) {
-					auth.setTokenToCookie();
-				}
-				await resolveUserIdentity(auth);
-				window.location.assign("/");
-				return;
-			}
 			await auth.login({
 				autoNavigate: true,
-				provider,
+				provider: "github",
 			});
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "login failed");
@@ -42,17 +32,11 @@ export default function LoginPanel() {
 				Sign in
 			</Typography>
 			<Typography color="secondary" align="center" className="mt-2 mb-6">
-				Sign in, then pair a Pi and set up GitHub.
+				Sign in with GitHub, then pair a Pi and set up a PAT.
 			</Typography>
 			<Stack spacing={2}>
-				<Button variant="outlined" onClick={() => void start("google")}>
-					Continue with Google
-				</Button>
-				<Button variant="outlined" onClick={() => void start("passkey")}>
-					Continue with passkey
-				</Button>
-				<Button variant="contained" onClick={() => void start("password")}>
-					Continue with email
+				<Button variant="contained" onClick={() => void start()}>
+					Continue with GitHub
 				</Button>
 			</Stack>
 			{error ? (

@@ -40,7 +40,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - On-device Bun API (`gpio-companion serve`, port 4150) sets runtime config after install
 - `cloudflared` replica is for the T3 Code tunnel; first-setup creates a per-Pi remotely-managed Cloudflare tunnel (API token + account ID + zone ID) with `api-<uuid>` (port 4150) and `t3-<uuid>` (port 3773) on `gpio-companion.com`
 - T3 Code pairing, OpenCode API key, and GitHub token are managed from the dashboard, not first-setup; after claim the dashboard runs `t3 start`, shows the web pairing URL, then `t3 service install`
-- Dashboard is multi-user and authenticates with `openauthster-shared`
+- Dashboard is multi-user and authenticates with `openauthster-shared` (GitHub login only)
 - Dashboard home is a mui-lite stepper: sign in → pair Pi → GitHub setup → overview
 - Hardware pairing: config-time `GPIO_COMPANION_PAIRING_UUID` + `GPIO_COMPANION_PAIRING_KEY` on the Pi; dashboard `/pair` claims the board for the signed-in user. UUID/key can be fetched over signed BLE (`GET /v1/pairing/credentials`, localhost-only). If the board is already owned, pairing is pending until the owner accepts a transfer in `/notifications`. Unpair/transfer revokes T3 Code auth and clears GitHub credentials on the Pi.
 - Device API auth: dashboard signs requests with Ed25519 (`GPIO_COMPANION_DEVICE_PRIVATE_KEY`); the Pi verifies the public key fetched from `GET /api/device-public-key` at first-setup (and on `scripts/update-script.sh`). Browser never calls the Pi. Pairing UUID/key remain required on claim.

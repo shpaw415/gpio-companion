@@ -13,7 +13,6 @@ This tree is for the person at the desk: Orange Pi or Raspberry Pi on the bench,
 ## What you have
 
 - A GPIO board running gpio-companion (Armbian, OpenCode, T3 Code)
-- A dashboard account (email / Google / passkey — whatever the host enabled)
-- Your GitHub account (pairing does not create one)
+- A GitHub account (dashboard sign-in is GitHub only; pairing does not create one)
 
 The agent on the Pi owns the OS, pins, and USB. You steer it from T3 Code / OpenCode and from the dashboard.

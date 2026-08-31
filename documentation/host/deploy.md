@@ -6,7 +6,7 @@ Deploy order: **device keys → dashboard (auth + KV + secret) → tell users th
 
 - Bun 1.2+ (1.3+ for the dashboard template)
 - Cloudflare account (Pages, KV, Wrangler)
-- An [openauthster](https://github.com/shpaw415) / OpenAuthster issuer the dashboard can use (`PUBLIC_AUTH_ISSUER`, `PUBLIC_AUTH_CLIENT_ID`, `AUTH_SECRET`)
+- An [openauthster](https://github.com/shpaw415) / OpenAuthster issuer the dashboard can use (`PUBLIC_AUTH_ISSUER`, `PUBLIC_AUTH_CLIENT_ID`, `AUTH_SECRET`). Enable the GitHub provider; dashboard `/login` only offers GitHub.
 - This repo cloned; `bun install` at the monorepo root
 
 ```sh

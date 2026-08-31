@@ -26,7 +26,7 @@ Ethernet and the Pi TTY (`nmcli`) always work.
 
 Dashboard `/` stepper: **Sign in → Pair Pi → GitHub → Overview**.
 
-Use `/login`. After OAuth/passkey you land on `/callback` then home.
+Use `/login`. Continue with GitHub; you land on `/callback` then home.
 
 ## 4. Pair the board
 
