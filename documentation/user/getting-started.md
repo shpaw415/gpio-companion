@@ -1,6 +1,6 @@
 # Getting started (user)
 
-Do this in order. OpenCode API key and GitHub token are **not** typed on the Pi; they come from the dashboard after pair.
+Do this in order. GitHub token is **not** typed on the Pi; it comes from dashboard Keys after pair. OpenCode uses a baked gpio-companion AI key and dashboard credits.
 
 ## 1. Power the board
 
@@ -44,8 +44,8 @@ The dashboard **signs** the claim, starts **T3 Code** (`t3 start`), and shows a 
 
 1. Use **your** GitHub account (create one if needed)
 2. Create a **classic PAT** with the `repo` scope at https://github.com/settings/tokens
-3. Dashboard **Keys**: GitHub username, token, optional OpenCode API key
-4. Save — the dashboard stores the token for `/projects` and signs `PUT /v1/config/github` and `PUT /v1/config/secrets` to **your** paired Pi
+3. Dashboard **Keys**: GitHub username and token (OpenCode uses `/credits`, not a pasted API key)
+4. Save — the dashboard stores the token for `/projects` and signs `PUT /v1/config/github` to **your** paired Pi
 
 The agent uses `/etc/gpio-companion/secrets.env` on the Pi. Tokens are not stored in the dashboard form after save.
 

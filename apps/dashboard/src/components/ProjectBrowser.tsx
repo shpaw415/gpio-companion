@@ -15,6 +15,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
@@ -30,8 +31,9 @@ export default function ProjectBrowser() {
 	useEffect(() => {
 		listProjects()
 			.then((result) => {
-				setConfigured(result.configured);
-				setRepos(result.repos);
+				const data = unwrapAction(result);
+				setConfigured(data.configured);
+				setRepos(data.repos);
 			})
 			.catch((err: unknown) => {
 				setError(
@@ -45,10 +47,12 @@ export default function ProjectBrowser() {
 		setPcbJson(null);
 		setBreadboardJson(null);
 		try {
-			const next = await loadProject(repo.owner, repo.name);
+			const next = unwrapAction(await loadProject(repo.owner, repo.name));
 			setBundle(next);
 			if (next.pcbCircuitJsonUrl) {
-				const file = await readFile(repo.owner, repo.name, "pcb/circuit.json");
+				const file = unwrapAction(
+					await readFile(repo.owner, repo.name, "pcb/circuit.json"),
+				);
 				setPcbJson(file.text);
 			}
 			const breadboardPath = next.breadboardDiagramUrl
@@ -57,7 +61,9 @@ export default function ProjectBrowser() {
 					? "breadboard/circuit.json"
 					: null;
 			if (breadboardPath) {
-				const file = await readFile(repo.owner, repo.name, breadboardPath);
+				const file = unwrapAction(
+					await readFile(repo.owner, repo.name, breadboardPath),
+				);
 				setBreadboardJson(file.text);
 			}
 		} catch (err) {

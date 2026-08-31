@@ -5,6 +5,7 @@ export function greet(from = PACKAGE_NAME): string {
 	return `hello from ${from}`;
 }
 
+export { hashAiKey } from "./ai-key.ts";
 export {
 	BLE_CHUNK_SIZE,
 	BLE_CMD_UUID,

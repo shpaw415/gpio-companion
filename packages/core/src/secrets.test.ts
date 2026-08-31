@@ -4,14 +4,14 @@ import { parseDeviceSecrets, secretsStatus } from "./secrets.ts";
 describe("device secrets", () => {
 	test("parses github credentials for the pi api", () => {
 		const secrets = parseDeviceSecrets({
-			opencodeApiKey: " oc ",
+			gpioAiKey: " ai ",
 			githubUsername: " ada ",
 			githubToken: " gh ",
 		});
 		expect(secrets.githubUsername).toBe("ada");
 		expect(secrets.githubUrl).toBe("https://github.com");
 		expect(secretsStatus(secrets)).toEqual({
-			opencodeApiKey: true,
+			gpioAiKey: true,
 			githubUsername: true,
 			githubToken: true,
 			githubUrl: true,

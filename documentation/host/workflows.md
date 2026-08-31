@@ -51,12 +51,12 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 | Device Ed25519 public | `/etc/gpio-companion/device-auth.json` | Pi fetches `GET /api/device-public-key` |
 | OpenAuthster `AUTH_SECRET` | Pages secret | Host |
 | Pairing UUID/key | `/etc/gpio-companion/pairing.env` | First-setup on the Pi |
-| OpenCode API key | `/etc/gpio-companion/secrets.env` | User via dashboard Keys |
+| GPIO AI key | `/etc/gpio-companion/secrets.env` (`GPIO_AI_KEY`) | First-setup; hashed on pair for `/api/ai/v1` |
 | GitHub user token | same `secrets.env` | User via Keys after they create a GitHub PAT |
 | Tunnel replica token | `cloudflared.env` | First-setup Cloudflare API (token itself is not stored) |
 | Cloudflare API token | console only | First-setup; never written to disk |
 
-Never put OpenCode or GitHub user tokens in the image.
+Never put Cloudflare or GitHub user tokens in the image. AI credits live in dashboard KV (`credits:<userId>`).
 
 ## Break-glass on a bricked network
 

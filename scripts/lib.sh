@@ -391,16 +391,81 @@ create_cloudflare_tunnel() {
 }
 
 write_secrets_file() {
-	local opencode_key="$1" github_user="$2" github_token="$3"
+	local ai_key="$1" github_user="$2" github_token="$3"
 	install -d -m 0755 "$CONFIG_DIR"
 	umask 077
 	cat >"$CONFIG_DIR/secrets.env" <<EOF
-OPENCODE_API_KEY=$opencode_key
+GPIO_AI_KEY=$ai_key
 GITHUB_URL=https://github.com
 GITHUB_USERNAME=$github_user
 GITHUB_TOKEN=$github_token
 EOF
 	chmod 600 "$CONFIG_DIR/secrets.env"
+}
+
+ensure_gpio_ai_key() {
+	install -d -m 0755 "$CONFIG_DIR"
+	local existing=""
+	if [[ -f "$CONFIG_DIR/secrets.env" ]]; then
+		existing="$(sed -n 's/^GPIO_AI_KEY=//p' "$CONFIG_DIR/secrets.env" | tail -n1)"
+	fi
+	if [[ -n "$existing" ]]; then
+		printf '%s' "$existing"
+		return
+	fi
+	local key
+	key="$(openssl rand -hex 32)"
+	if [[ -f "$CONFIG_DIR/secrets.env" ]]; then
+		if grep -q '^GPIO_AI_KEY=' "$CONFIG_DIR/secrets.env"; then
+			sed -i "s/^GPIO_AI_KEY=.*/GPIO_AI_KEY=$key/" "$CONFIG_DIR/secrets.env"
+		else
+			printf 'GPIO_AI_KEY=%s\n' "$key" >>"$CONFIG_DIR/secrets.env"
+		fi
+	else
+		write_secrets_file "$key" "" ""
+	fi
+	chmod 600 "$CONFIG_DIR/secrets.env"
+	printf '%s' "$key"
+}
+
+write_opencode_ai_provider() {
+	local key="$1"
+	local dest base
+	dest="$(opencode_home)"
+	base="${GPIO_COMPANION_AI_URL:-https://gpio-companion.com/api/ai/v1}"
+	install -d -m 0755 "$dest"
+	GPIO_AI_KEY="$key" GPIO_AI_URL="$base" GPIO_OPENCODE_JSON="$dest/opencode.json" python3 - <<'PY'
+import json, os
+from pathlib import Path
+path = Path(os.environ["GPIO_OPENCODE_JSON"])
+data = {}
+if path.exists():
+    try:
+        loaded = json.loads(path.read_text())
+        if isinstance(loaded, dict):
+            data = loaded
+    except json.JSONDecodeError:
+        data = {}
+provider = data.setdefault("provider", {})
+if not isinstance(provider, dict):
+    provider = {}
+    data["provider"] = provider
+provider["gpio-companion"] = {
+    "npm": "@ai-sdk/openai-compatible",
+    "name": "gpio-companion",
+    "options": {
+        "baseURL": os.environ["GPIO_AI_URL"],
+        "apiKey": os.environ["GPIO_AI_KEY"],
+    },
+    "models": {
+        "@cf/meta/llama-3.1-8b-instruct": {"name": "Llama 3.1 8B"},
+    },
+}
+path.write_text(json.dumps(data, indent="\t") + "\n")
+PY
+	if [[ "$GPIO_USER" != "root" ]]; then
+		chown -R "$GPIO_USER:$GPIO_USER" "$dest"
+	fi
 }
 
 install_gpio_companion_bin() {

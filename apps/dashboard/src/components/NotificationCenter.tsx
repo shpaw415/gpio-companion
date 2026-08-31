@@ -6,7 +6,9 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { unwrapAction } from "../lib/action.ts";
 
 type Item = {
 	uuid: string;
@@ -17,6 +19,7 @@ type Item = {
 
 export default function NotificationCenter() {
 	const session = useAuthSession();
+	const { run } = useActionError();
 	const [items, setItems] = useState<Item[]>([]);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
@@ -25,8 +28,10 @@ export default function NotificationCenter() {
 		if (!session.data?.id) {
 			return;
 		}
-		void listNotes().then((result) => {
-			setItems(result.items);
+		void run(listNotes()).then((result) => {
+			if (result) {
+				setItems(result.items);
+			}
 		});
 	}, [session.data?.id]);
 
@@ -64,9 +69,13 @@ export default function NotificationCenter() {
 									variant="contained"
 									onClick={() => {
 										void decideNote({ uuid: item.uuid, action: "accept" })
-											.then(async () => {
+											.then(async (result) => {
+												unwrapAction(result);
 												setMessage("transferred");
-												setItems((await listNotes()).items);
+												const next = await run(listNotes());
+												if (next) {
+													setItems(next.items);
+												}
 											})
 											.catch((caught: unknown) => {
 												setError(
@@ -83,9 +92,13 @@ export default function NotificationCenter() {
 									variant="outlined"
 									onClick={() => {
 										void decideNote({ uuid: item.uuid, action: "reject" })
-											.then(async () => {
+											.then(async (result) => {
+												unwrapAction(result);
 												setMessage("rejected");
-												setItems((await listNotes()).items);
+												const next = await run(listNotes());
+												if (next) {
+													setItems(next.items);
+												}
 											})
 											.catch((caught: unknown) => {
 												setError(

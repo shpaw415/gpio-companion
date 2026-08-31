@@ -119,6 +119,10 @@ tunnel_token=""
 
 register_device_public_key
 
+echo "baking gpio-companion AI proxy key for OpenCode..."
+ai_key="$(ensure_gpio_ai_key)"
+write_opencode_ai_provider "$ai_key"
+
 install -d -m 0755 "$CONFIG_DIR"
 date -u +"%Y-%m-%dT%H:%M:%SZ" >"$MARKER"
 chmod 644 "$MARKER"
@@ -127,5 +131,5 @@ echo "first-setup complete"
 echo "device API: https://${api_hostname}"
 echo "T3 Code:    https://${t3_hostname}"
 echo "pair this board on the dashboard /pair page with the UUID and key above"
-echo "OpenCode and GitHub credentials are set from the dashboard after pairing"
+echo "OpenCode uses gpio-companion credits (AI key baked on this Pi); GitHub PAT is set from Keys after pairing"
 echo "T3 Code pairing starts on the dashboard after claim"

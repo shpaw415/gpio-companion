@@ -12,6 +12,7 @@ import {
 } from "gpio-companion";
 import { type FormEvent, useState } from "react";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { unwrapAction } from "../lib/action.ts";
 import {
 	bluetoothSupported,
 	connectGpioCompanionBle,
@@ -51,7 +52,7 @@ export default function WifiBleForm() {
 		if (!supported) {
 			setStatus("sending");
 			try {
-				const envelope = await signWifi({ uuid, ssid, psk });
+				const envelope = unwrapAction(await signWifi({ uuid, ssid, psk }));
 				const text = envelopeToPasteText(envelope);
 				setPasteText(text);
 				await navigator.clipboard.writeText(text).catch(() => undefined);
@@ -72,11 +73,13 @@ export default function WifiBleForm() {
 			const boardUuid = ble.info.uuid || uuid;
 			setUuid(boardUuid);
 			setStatus("sending");
-			const envelope = await signWifi({
-				uuid: boardUuid,
-				ssid,
-				psk,
-			});
+			const envelope = unwrapAction(
+				await signWifi({
+					uuid: boardUuid,
+					ssid,
+					psk,
+				}),
+			);
 			const raw = await ble.sendEnvelope(envelope);
 			ble.disconnect();
 			let ok = true;

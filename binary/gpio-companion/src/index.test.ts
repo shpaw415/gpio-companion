@@ -120,7 +120,7 @@ describe("gpio-companion-bin", () => {
 			"v1/config/secrets",
 			{
 				method: "PUT",
-				body: JSON.stringify({ opencodeApiKey: "oc-key" }),
+				body: JSON.stringify({ gpioAiKey: "ai-key" }),
 			},
 			false,
 		);
@@ -169,19 +169,26 @@ describe("gpio-companion-bin", () => {
 		const response = await deviceFetch("v1/config/secrets", {
 			method: "PUT",
 			body: JSON.stringify({
-				opencodeApiKey: "oc-key",
+				gpioAiKey: "ai-key",
 				githubToken: "gh-key",
 			}),
 		});
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
-			opencodeApiKey: boolean;
+			gpioAiKey: boolean;
 			githubToken: boolean;
 			source: string;
 		};
-		expect(body.opencodeApiKey).toBe(true);
+		expect(body.gpioAiKey).toBe(true);
 		expect(body.githubToken).toBe(true);
 		expect(body.source).toBe("device-api");
+	});
+
+	test("returns the baked gpio ai key when signed", async () => {
+		const response = await deviceFetch("v1/config/ai-key");
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { gpioAiKey: string };
+		expect(body.gpioAiKey).toBe("ai-key");
 	});
 
 	test("sets github credentials on the pi api", async () => {

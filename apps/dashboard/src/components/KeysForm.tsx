@@ -6,12 +6,12 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { type FormEvent, useState } from "react";
+import { unwrapAction } from "../lib/action.ts";
 import { GITHUB_TOKEN_SETTINGS } from "../lib/github.ts";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 export default function KeysForm({ onComplete }: { onComplete?: () => void }) {
-	const [opencodeApiKey, setOpencodeApiKey] = useState("");
 	const [githubUsername, setGithubUsername] = useState("");
 	const [githubToken, setGithubToken] = useState("");
 	const [status, setStatus] = useState<Status>("idle");
@@ -22,14 +22,14 @@ export default function KeysForm({ onComplete }: { onComplete?: () => void }) {
 		setStatus("loading");
 		setMessage("");
 		try {
-			await saveDeviceSecrets({
-				opencodeApiKey,
-				githubUsername,
-				githubToken,
-			});
+			unwrapAction(
+				await saveDeviceSecrets({
+					githubUsername,
+					githubToken,
+				}),
+			);
 			setStatus("success");
 			setMessage("saved on the Pi API");
-			setOpencodeApiKey("");
 			setGithubToken("");
 			onComplete?.();
 		} catch (error) {
@@ -42,16 +42,9 @@ export default function KeysForm({ onComplete }: { onComplete?: () => void }) {
 		<Paper className="max-w-xl p-6" elevation={1}>
 			<form onSubmit={onSubmit}>
 				<Stack spacing={2}>
-					<TextField
-						label="OpenCode API key"
-						type="password"
-						autoComplete="off"
-						value={opencodeApiKey}
-						onChange={(event) => setOpencodeApiKey(event.target.value)}
-						className="w-full"
-					/>
 					<Typography variant="body2" color="secondary">
-						GitHub: create a classic PAT with <code>repo</code> scope, then save
+						OpenCode uses gpio-companion credits, not a pasted API key. GitHub:
+						create a classic PAT with <code>repo</code> scope, then save
 						username and token to the Pi.
 					</Typography>
 					<Button href={GITHUB_TOKEN_SETTINGS} variant="outlined">

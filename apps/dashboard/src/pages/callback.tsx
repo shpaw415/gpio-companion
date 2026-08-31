@@ -24,7 +24,7 @@ export default function AuthCallbackPage() {
 				if (auth.getToken()) {
 					auth.setTokenToCookie();
 				}
-				window.location.assign("/");
+				window.location.assign("/project");
 			})
 			.catch((caught: unknown) => {
 				if (!cancelled) {

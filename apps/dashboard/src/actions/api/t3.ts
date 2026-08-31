@@ -1,4 +1,5 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
+import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
 import { requireIdentity } from "../../lib/session.ts";
 import { parseStoredPairing, type StoredPairing } from "./pair.ts";
@@ -26,7 +27,7 @@ async function loadPairing(
 	return device;
 }
 
-export async function GET() {
+export const GET = wrapAction(async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
@@ -41,9 +42,9 @@ export async function GET() {
 	}>(
 		await signedDeviceFetch(ctx.env, device.deviceUrl, "GET", "/v1/t3/status"),
 	);
-}
+});
 
-export async function POST(action: T3Action) {
+export const POST = wrapAction(async function POST(action: T3Action) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
@@ -76,4 +77,4 @@ export async function POST(action: T3Action) {
 		);
 	}
 	throw new Error("unknown t3 action");
-}
+});

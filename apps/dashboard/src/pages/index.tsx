@@ -1,5 +1,5 @@
-import Onboarding from "@components/Onboarding";
+import Redirect from "@components/Redirect";
 
 export default function HomePage() {
-	return <Onboarding />;
+	return <Redirect to="/project" />;
 }

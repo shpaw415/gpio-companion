@@ -11,7 +11,7 @@ export default function NotFound() {
 				<Typography color="secondary" align="center">
 					The page you're looking for doesn't exist or has been moved.
 				</Typography>
-				<Button href="/" variant="contained">
+				<Button href="/project" variant="contained">
 					Back to home
 				</Button>
 			</Stack>

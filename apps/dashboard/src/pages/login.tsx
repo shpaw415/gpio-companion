@@ -7,7 +7,7 @@ export default function LoginPage() {
 
 	useEffect(() => {
 		if (session.data?.id || session.data?.email) {
-			window.location.assign("/");
+			window.location.assign("/project");
 		}
 	}, [session.data?.id, session.data?.email]);
 

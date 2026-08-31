@@ -18,5 +18,9 @@
 			"binding": "DYNAMIC_PAGE_KV",
 			"id": "<kv-binding-id>"
 		}
-	]
+	],
+	"ai": {
+		"binding": "AI",
+		"remote": true
+	}
 }

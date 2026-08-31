@@ -1,8 +1,13 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
+import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
 import { saveGithubAccount } from "../../lib/github.ts";
 import { requireIdentity } from "../../lib/session.ts";
-import { parseStoredPairing, type StoredPairing } from "./pair.ts";
+import {
+	parseStoredPairing,
+	registerDeviceAiKey,
+	type StoredPairing,
+} from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -11,7 +16,6 @@ type PagesEnv = {
 };
 
 export type DeviceSecretsPatch = {
-	opencodeApiKey?: string;
 	githubUsername?: string;
 	githubToken?: string;
 };
@@ -27,7 +31,7 @@ async function loadPairing(
 	return parseStoredPairing(raw);
 }
 
-export async function GET() {
+export const GET = wrapAction(async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
@@ -37,13 +41,14 @@ export async function GET() {
 	if (!device) {
 		return { paired: false as const };
 	}
+	await registerDeviceAiKey(ctx.env, device.deviceUrl, identity.id);
 	const status = await readDeviceJson<Record<string, unknown>>(
 		await signedDeviceFetch(ctx.env, device.deviceUrl, "GET", "/v1/status"),
 	);
 	return { paired: true as const, device, status };
-}
+});
 
-export async function PUT(patch: DeviceSecretsPatch) {
+export const PUT = wrapAction(async function PUT(patch: DeviceSecretsPatch) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
@@ -52,17 +57,6 @@ export async function PUT(patch: DeviceSecretsPatch) {
 	const device = await loadPairing(ctx.env, identity.id);
 	if (!device) {
 		throw new Error("pair a device first");
-	}
-	if (patch.opencodeApiKey) {
-		await readDeviceJson(
-			await signedDeviceFetch(
-				ctx.env,
-				device.deviceUrl,
-				"PUT",
-				"/v1/config/secrets",
-				{ opencodeApiKey: patch.opencodeApiKey },
-			),
-		);
 	}
 	if (patch.githubUsername || patch.githubToken) {
 		const username = patch.githubUsername?.trim() ?? "";
@@ -88,4 +82,4 @@ export async function PUT(patch: DeviceSecretsPatch) {
 		);
 	}
 	return { ok: true as const };
-}
+});

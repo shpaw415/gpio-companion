@@ -1,4 +1,5 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
+import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
 import { requireIdentity } from "../../lib/session.ts";
 import {
@@ -30,7 +31,7 @@ async function loadInbox(
 	return items;
 }
 
-export async function GET() {
+export const GET = wrapAction(async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
@@ -38,9 +39,9 @@ export async function GET() {
 	}
 	const items = await loadInbox(ctx.env, identity.id);
 	return { items };
-}
+});
 
-export async function POST(input: {
+export const POST = wrapAction(async function POST(input: {
 	uuid: string;
 	action: "accept" | "reject";
 }) {
@@ -102,7 +103,7 @@ export async function POST(input: {
 	await ctx.env.DYNAMIC_PAGE_KV.delete(`pending:${uuid}`);
 	await removeInbox(ctx.env, identity.id, uuid);
 	return { ok: true as const, action: "accept" as const };
-}
+});
 
 async function removeInbox(env: PagesEnv, userId: string, uuid: string) {
 	const inboxRaw = await env.DYNAMIC_PAGE_KV.get(`inbox:${userId}`);

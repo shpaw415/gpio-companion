@@ -19,7 +19,9 @@ import {
 	tunnelHostnames,
 } from "gpio-companion";
 import { type FormEvent, useEffect, useState } from "react";
+import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { unwrapAction } from "../lib/action.ts";
 import {
 	bluetoothAvailable,
 	bluetoothChooserCancelled,
@@ -37,6 +39,7 @@ export default function PairForm({
 	onComplete?: (deviceUrl: string) => void;
 }) {
 	const session = useAuthSession();
+	const { run } = useActionError();
 	const [bleReady, setBleReady] = useState(false);
 	const [deviceUrl, setDeviceUrl] = useState("");
 	const [uuid, setUuid] = useState("");
@@ -56,8 +59,8 @@ export default function PairForm({
 		if (!session.data?.id) {
 			return;
 		}
-		void getPairing().then((result) => {
-			if (result.paired) {
+		void run(getPairing()).then((result) => {
+			if (result?.paired) {
 				setPaired(result.device.login);
 				setDeviceUrl(result.device.deviceUrl);
 			}
@@ -84,7 +87,7 @@ export default function PairForm({
 	}
 
 	async function copySignedCommand(
-		envelope: Awaited<ReturnType<typeof signCredentials>>,
+		envelope: Parameters<typeof envelopeToPasteText>[0],
 		message = "copied — paste in LightBlue or nRF Connect, then read the status JSON",
 	) {
 		const text = envelopeToPasteText(envelope);
@@ -97,7 +100,7 @@ export default function PairForm({
 		setError("");
 		setStatus("checking Bluetooth…");
 		try {
-			const envelope = await signCredentials();
+			const envelope = unwrapAction(await signCredentials());
 			const canBle = await bluetoothAvailable();
 			setBleReady(canBle);
 			if (canBle) {
@@ -128,8 +131,10 @@ export default function PairForm({
 			return;
 		}
 		const timer = window.setInterval(() => {
-			void getT3()
-				.then(async (result) => {
+			void run(getT3()).then(async (result) => {
+					if (!result) {
+						return;
+					}
 					if (result.serviceInstalled) {
 						setT3Ready(true);
 						setStatus("T3 Code is persistent on the Pi");
@@ -137,19 +142,19 @@ export default function PairForm({
 					}
 					if (result.paired) {
 						setStatus("T3 paired — installing service…");
-						await t3Action("persist");
-						setT3Ready(true);
-						setStatus("T3 Code is persistent on the Pi");
+						if (await run(t3Action("persist"))) {
+							setT3Ready(true);
+							setStatus("T3 Code is persistent on the Pi");
+						}
 					}
-				})
-				.catch(() => undefined);
+				});
 		}, 3000);
 		return () => window.clearInterval(timer);
 	}, [pairingUrl, t3Ready]);
 
 	async function startT3Pairing() {
 		setStatus("starting T3 Code…");
-		const started = await t3Action("start");
+		const started = unwrapAction(await t3Action("start"));
 		setPairingUrl(started.pairingUrl);
 		setStatus("open the pairing URL in the browser");
 	}
@@ -163,11 +168,13 @@ export default function PairForm({
 		setError("");
 		setStatus("pairing…");
 		try {
-			const body = await claimPairing({
+			const body = unwrapAction(
+				await claimPairing({
 				deviceUrl,
 				uuid,
 				key,
-			});
+				}),
+			);
 			if ("pending" in body && body.pending) {
 				setStatus("waiting for the current owner to accept in Notifications");
 				setKey("");
@@ -282,7 +289,10 @@ export default function PairForm({
 							type="button"
 							variant="outlined"
 							onClick={() => {
-								void unpairDevice().then(() => {
+								void run(unpairDevice()).then((result) => {
+									if (!result) {
+										return;
+									}
 									setPaired("");
 									setStatus("unpaired");
 								});
@@ -311,18 +321,13 @@ export default function PairForm({
 									type="button"
 									variant="outlined"
 									onClick={() => {
-										void t3Action("persist")
-											.then(() => {
-												setT3Ready(true);
-												setStatus("T3 Code is persistent on the Pi");
-											})
-											.catch((caught) => {
-												setError(
-													caught instanceof Error
-														? caught.message
-														: "T3 service install failed",
-												);
-											});
+									void run(t3Action("persist")).then((result) => {
+											if (!result) {
+												return;
+											}
+											setT3Ready(true);
+											setStatus("T3 Code is persistent on the Pi");
+										});
 									}}
 								>
 									I’ve paired

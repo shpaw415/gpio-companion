@@ -4,6 +4,8 @@ import {
 	publicDeviceUrl,
 	tunnelHostnames,
 } from "gpio-companion";
+import { wrapAction } from "../../lib/action.ts";
+import { registerAiKey } from "../../lib/credits.ts";
 import {
 	readDeviceJson,
 	signDeviceEnvelope,
@@ -52,7 +54,7 @@ export function parsePendingPairing(raw: string): PendingPairing {
 	return { ...parsed, login: parsed.login || parsed.giteaLogin || "" };
 }
 
-export async function GET() {
+export const GET = wrapAction(async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	const raw = await ctx.env.DYNAMIC_PAGE_KV.get(`device:${identity.id}`);
@@ -60,15 +62,15 @@ export async function GET() {
 		return { paired: false as const };
 	}
 	return { paired: true as const, device: parseStoredPairing(raw) };
-}
+});
 
-export async function PUT() {
+export const PUT = wrapAction(async function PUT() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	await requireIdentity(ctx);
 	return signDeviceEnvelope(ctx.env, "GET", "/v1/pairing/credentials");
-}
+});
 
-export async function POST(input: ClaimInput) {
+export const POST = wrapAction(async function POST(input: ClaimInput) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id || !input.uuid || !input.key) {
@@ -138,6 +140,9 @@ export async function POST(input: ClaimInput) {
 		JSON.stringify(pairing),
 	);
 	await ctx.env.DYNAMIC_PAGE_KV.put(`pair:${pairing.uuid}`, pairing.userId);
+	if (!needsBle && origin) {
+		await registerDeviceAiKey(ctx.env, origin, identity.id);
+	}
 	if (needsBle) {
 		const envelope = await signDeviceEnvelope(
 			ctx.env,
@@ -169,9 +174,9 @@ export async function POST(input: ClaimInput) {
 		deviceUrl: origin,
 		t3Hostname: hosts.t3Hostname,
 	};
-}
+});
 
-export async function DELETE() {
+export const DELETE = wrapAction(async function DELETE() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
@@ -196,4 +201,19 @@ export async function DELETE() {
 	await ctx.env.DYNAMIC_PAGE_KV.delete(`device:${identity.id}`);
 	await ctx.env.DYNAMIC_PAGE_KV.delete(`pair:${device.uuid}`);
 	return { ok: true as const };
+});
+
+export async function registerDeviceAiKey(
+	env: PagesEnv,
+	origin: string,
+	userId: string,
+): Promise<void> {
+	try {
+		const payload = await readDeviceJson<{ gpioAiKey?: string }>(
+			await signedDeviceFetch(env, origin, "GET", "/v1/config/ai-key"),
+		);
+		await registerAiKey(env.DYNAMIC_PAGE_KV, userId, payload.gpioAiKey ?? "");
+	} catch {
+		return;
+	}
 }

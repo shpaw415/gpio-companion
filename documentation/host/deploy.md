@@ -53,7 +53,7 @@ App: `apps/dashboard`. Wrangler project name: `gpio-companion-dashboard`. Frame 
 
 ### KV
 
-Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` and `pair:<uuid>`. Per-user GitHub PATs for `/projects` are stored as `github:<userId>`.
+Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` and `pair:<uuid>`. Per-user GitHub PATs for `/projects` are stored as `github:<userId>`. AI credits are `credits:<userId>`; Pi OpenCode keys hash to `ai:<sha256>`. Enable the `AI` Workers AI binding in wrangler.
 
 ### Vars (wrangler.jsonc and/or Pages)
 
@@ -124,7 +124,7 @@ It creates `gpio-<pairing-uuid>`, publishes:
 
 T3 pairing stays on the dashboard: after claim it runs `t3 start`, shows `https://app.t3.codes/pair?host=https://t3-…`, then `t3 service install`.
 
-Do not put OpenCode API keys into first-setup. Those go through dashboard Keys after pair.
+first-setup bakes `GPIO_AI_KEY` and the OpenCode provider pointing at `/api/ai/v1`. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub PAT still goes through Keys after pair.
 
 ## 5. What users need from you
 

@@ -199,6 +199,11 @@ export async function handleDeviceRequest(
 		return persist(store, applyTunnel, next);
 	}
 
+	if (method === "GET" && path === "/v1/config/ai-key") {
+		const secrets = await secretsStore.read();
+		return json({ gpioAiKey: secrets.gpioAiKey });
+	}
+
 	if (method === "GET" && path === "/v1/config/secrets") {
 		return json(secretsStatus(await secretsStore.read()));
 	}

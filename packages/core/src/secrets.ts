@@ -1,7 +1,7 @@
 export const DEFAULT_GITHUB_URL = "https://github.com";
 
 export type DeviceSecrets = {
-	opencodeApiKey: string;
+	gpioAiKey: string;
 	githubUsername: string;
 	githubToken: string;
 	githubUrl: string;
@@ -9,7 +9,7 @@ export type DeviceSecrets = {
 
 export function emptyDeviceSecrets(): DeviceSecrets {
 	return {
-		opencodeApiKey: "",
+		gpioAiKey: "",
 		githubUsername: "",
 		githubToken: "",
 		githubUrl: "",
@@ -22,7 +22,8 @@ export function parseDeviceSecrets(input: unknown): DeviceSecrets {
 	}
 	const record = input as Record<string, unknown>;
 	return withGithubUrl({
-		opencodeApiKey: optionalString(record.opencodeApiKey),
+		gpioAiKey:
+			optionalString(record.gpioAiKey) || optionalString(record.opencodeApiKey),
 		githubUsername:
 			optionalString(record.githubUsername) ||
 			optionalString(record.giteaUsername),
@@ -38,7 +39,7 @@ export function mergeDeviceSecrets(
 	patch: DeviceSecrets,
 ): DeviceSecrets {
 	return withGithubUrl({
-		opencodeApiKey: patch.opencodeApiKey || current.opencodeApiKey,
+		gpioAiKey: patch.gpioAiKey || current.gpioAiKey,
 		githubUsername: patch.githubUsername || current.githubUsername,
 		githubToken: patch.githubToken || current.githubToken,
 		githubUrl: patch.githubUrl || current.githubUrl,
@@ -47,7 +48,7 @@ export function mergeDeviceSecrets(
 
 export function secretsStatus(secrets: DeviceSecrets) {
 	return {
-		opencodeApiKey: Boolean(secrets.opencodeApiKey),
+		gpioAiKey: Boolean(secrets.gpioAiKey),
 		githubUsername: Boolean(secrets.githubUsername),
 		githubToken: Boolean(secrets.githubToken),
 		githubUrl: Boolean(secrets.githubUrl),

@@ -10,6 +10,11 @@ export default function RenderShell({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `try{var m=localStorage.getItem("gpio-companion-color-mode");if(m!=="light"&&m!=="dark"){m=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=m;document.documentElement.style.colorScheme=m}catch(e){}`,
+					}}
+				/>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<link rel="preconnect" href="https://fonts.googleapis.com" />

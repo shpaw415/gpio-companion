@@ -44,7 +44,7 @@ export function fileSecretsStore(
 }
 
 export function secretsEnvContents(secrets: DeviceSecrets): string {
-	return `OPENCODE_API_KEY=${secrets.opencodeApiKey}\nGITHUB_URL=${secrets.githubUrl}\nGITHUB_USERNAME=${secrets.githubUsername}\nGITHUB_TOKEN=${secrets.githubToken}\n`;
+	return `GPIO_AI_KEY=${secrets.gpioAiKey}\nGITHUB_URL=${secrets.githubUrl}\nGITHUB_USERNAME=${secrets.githubUsername}\nGITHUB_TOKEN=${secrets.githubToken}\n`;
 }
 
 export function gitCredentialLine(secrets: DeviceSecrets): string | null {
@@ -72,15 +72,15 @@ function parseEnvSecrets(text: string): DeviceSecrets {
 	const record: Record<string, string> = {};
 	for (const line of text.split("\n")) {
 		const match = line.match(
-			/^(OPENCODE_API_KEY|GITHUB_URL|GITHUB_USERNAME|GITHUB_TOKEN|GITEA_URL|GITEA_USERNAME|GITEA_TOKEN)=(.*)$/,
+			/^(GPIO_AI_KEY|OPENCODE_API_KEY|GITHUB_URL|GITHUB_USERNAME|GITHUB_TOKEN|GITEA_URL|GITEA_USERNAME|GITEA_TOKEN)=(.*)$/,
 		);
 		if (!match) {
 			continue;
 		}
 		const key = match[1];
 		const value = match[2] ?? "";
-		if (key === "OPENCODE_API_KEY") {
-			record.opencodeApiKey = value;
+		if (key === "GPIO_AI_KEY" || key === "OPENCODE_API_KEY") {
+			record.gpioAiKey = record.gpioAiKey || value;
 		}
 		if (key === "GITHUB_URL" || key === "GITEA_URL") {
 			record.githubUrl = record.githubUrl || value;
