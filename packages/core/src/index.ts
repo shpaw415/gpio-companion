@@ -7,6 +7,25 @@ export function greet(from = PACKAGE_NAME): string {
 
 export { hashAiKey } from "./ai-key.ts";
 export {
+	applyMarkup,
+	costMicrodollars,
+	DEFAULT_AI_MARKUP,
+	DEFAULT_AI_MODEL,
+	DEFAULT_MAX_COMPLETION_TOKENS,
+	estimatePromptTokens,
+	formatUsd,
+	LEGACY_CREDIT_MICROS,
+	type ModelRate,
+	microsToUsd,
+	modelRate,
+	parseMarkup,
+	type TokenUsage,
+	tokensToMicrodollars,
+	USD_MICROS,
+	usdToMicros,
+	WORKERS_AI_LLM_RATES,
+} from "./ai-pricing.ts";
+export {
 	BLE_CHUNK_SIZE,
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,

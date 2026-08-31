@@ -1,10 +1,14 @@
 import type { ClientType, PublicSession } from "../../auth.ts";
+import { parseUserRole, type UserRole } from "./role.ts";
 
 export type UserIdentity = {
 	id: string | null;
 	email: string | null;
 	name: string | null;
+	role: UserRole;
 };
+
+export type SignedInIdentity = UserIdentity & { id: string };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
 	if (!value || typeof value !== "object") {
@@ -42,6 +46,7 @@ export async function resolveUserIdentity(
 		(auth as { userInfo?: unknown }).userInfo ?? meta?.data,
 	);
 	const metaData = asRecord(meta?.data);
+	const sessionUserInfo = asRecord(sessionPayload?.userInfo);
 	return {
 		id:
 			pickString(sessionPayload?.user_id, meta?.id, publicSession?.id) ?? null,
@@ -52,6 +57,12 @@ export async function resolveUserIdentity(
 			meta?.identifier,
 		),
 		name: pickString(publicSession?.name, jwtUserInfo?.name, metaData?.name),
+		role: parseUserRole(
+			sessionUserInfo?.role,
+			jwtUserInfo?.role,
+			meta?.role,
+			(auth as { userMeta?: { role?: unknown } }).userMeta?.role,
+		),
 	};
 }
 
@@ -60,5 +71,6 @@ export function identityToPublicSession(identity: UserIdentity): PublicSession {
 		id: identity.id ?? undefined,
 		email: identity.email ?? undefined,
 		name: identity.name ?? undefined,
+		role: identity.role,
 	};
 }

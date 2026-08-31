@@ -34,7 +34,7 @@ Page `/devices/pair` (or stepper step 2). You can pair more than one board.
 | Pairing UUID | Bluetooth or first-setup printout |
 | Pairing key | Bluetooth or first-setup printout |
 
-The dashboard **signs** the claim, starts **T3 Code** (`t3 start`), and shows a web pairing URL (`app.t3.codes/pair?host=https://t3-…`). Open it, finish T3 pairing; the dashboard then runs `t3 service install`. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
+The dashboard **signs** the claim, then you **Start T3 pairing** (also on Devices overview for a board already claimed). That runs `t3 start` and shows a one-click URL (`app.t3.codes/pair?host=https://t3-…#token=…`). Open it, finish T3 pairing; the dashboard then runs `t3 service install`. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
 
 ## 5. GitHub
 
@@ -42,11 +42,11 @@ The dashboard **signs** the claim, starts **T3 Code** (`t3 start`), and shows a 
 2. Dashboard **Keys**: **Connect GitHub** and install the gpio-companion GitHub App on your account (all or selected repos)
 3. Paired Pis mint a fresh token at `git push`. You do not paste a PAT. If the board was offline for more than an hour, just push again once it has internet — do not reopen Keys.
 
-OpenCode uses `/credits`, not a GitHub token. `gpio-companion github-token` prints a live token for API calls.
+OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), not a GitHub token. `gpio-companion github-token` prints a live token for API calls.
 
 ## 6. Overview
 
-When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). T3 Code pairing is the URL shown on `/pair` after hardware claim.
+When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). T3 Code pairing is **Start T3 pairing** on `/devices` (or `/devices/pair`): open the one-click `app.t3.codes` URL with host + token.
 
 ## If something fails
 

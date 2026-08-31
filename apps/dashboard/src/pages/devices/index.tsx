@@ -8,6 +8,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import SectionHub, { SectionHeader } from "../../components/Section.tsx";
+import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
@@ -16,7 +17,12 @@ type DeviceStatus = {
 	hardware?: string;
 	tunnel?: { configured?: boolean; apiHostname?: string };
 	secrets?: { githubReady?: boolean; gpioAiKey?: boolean };
-	t3?: { running?: boolean; serviceInstalled?: boolean };
+	t3?: {
+		running?: boolean;
+		pairingUrl?: string;
+		paired?: boolean;
+		serviceInstalled?: boolean;
+	};
 };
 
 type BoardView = {
@@ -138,6 +144,12 @@ export default function DevicesPage() {
 								Board status unavailable — is the Pi online?
 							</Typography>
 						)}
+						<T3PairingPanel
+							devices={[board.device]}
+							uuid={board.device.uuid}
+							initialStatus={board.status?.t3}
+							skipFetch
+						/>
 					</Stack>
 				</Paper>
 			))}
@@ -149,7 +161,7 @@ export default function DevicesPage() {
 						href: "/devices/pair",
 						title: "Pair hardware",
 						description:
-							"Load Device URL, pairing UUID, and key from the Pi over Bluetooth or a signed command.",
+							"Claim a board, then start T3 Code to get the one-click app.t3.codes pairing URL.",
 					},
 					{
 						href: "/devices/wifi",

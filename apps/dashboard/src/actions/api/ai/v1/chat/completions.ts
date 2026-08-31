@@ -1,7 +1,18 @@
 "no action";
 
+import { parseMarkup, type TokenUsage } from "gpio-companion";
 import {
-	consumeCredit,
+	billedMicros,
+	buildAiInput,
+	type ChatBody,
+	estimateUsage,
+	extractUsage,
+	parseSseUsage,
+	resolveModel,
+	toChatCompletion,
+} from "../../../../../lib/ai-proxy.ts";
+import {
+	consumeMicrodollars,
 	creditsBalance,
 	userIdForAiKey,
 } from "../../../../../lib/credits.ts";
@@ -9,9 +20,14 @@ import {
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
 	AI?: Ai;
+	GPIO_AI_MARKUP?: string;
 };
 
-const DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct";
+const CORS = {
+	"access-control-allow-origin": "*",
+	"access-control-allow-headers": "authorization,content-type",
+	"access-control-allow-methods": "POST,OPTIONS",
+};
 
 function bearer(request: Request): string {
 	const header = request.headers.get("authorization") ?? "";
@@ -22,11 +38,7 @@ function bearer(request: Request): string {
 export async function onRequestOptions() {
 	return new Response(null, {
 		status: 204,
-		headers: {
-			"access-control-allow-origin": "*",
-			"access-control-allow-headers": "authorization,content-type",
-			"access-control-allow-methods": "POST,OPTIONS",
-		},
+		headers: CORS,
 	});
 }
 
@@ -39,6 +51,7 @@ export async function onRequestPost(ctx: { request: Request; env: PagesEnv }) {
 	if (!userId) {
 		return error(401, "unknown api key");
 	}
+	const markup = parseMarkup(ctx.env.GPIO_AI_MARKUP);
 	const balance = await creditsBalance(ctx.env.DYNAMIC_PAGE_KV, userId);
 	if (balance <= 0) {
 		return error(402, "credits empty");
@@ -46,44 +59,49 @@ export async function onRequestPost(ctx: { request: Request; env: PagesEnv }) {
 	if (!ctx.env.AI) {
 		return error(503, "workers ai is not bound");
 	}
-	let body: {
-		model?: string;
-		messages?: Array<{ role: string; content: unknown }>;
-	};
+	let body: ChatBody;
 	try {
-		body = (await ctx.request.json()) as typeof body;
+		body = (await ctx.request.json()) as ChatBody;
 	} catch {
 		return error(400, "invalid json");
 	}
-	const model = body.model?.trim() || DEFAULT_MODEL;
-	const messages = (body.messages ?? []).map((message) => ({
-		role: message.role,
-		content: typeof message.content === "string" ? message.content : "",
-	}));
+	const model = resolveModel(body);
+	const estimate = billedMicros(model, estimateUsage(body), markup);
+	if (estimate == null) {
+		return error(400, "model not priced");
+	}
+	if (estimate > balance) {
+		return error(402, "credits empty");
+	}
+	const stream = body.stream === true;
+	const input = buildAiInput(body, stream);
 	try {
-		const result = await ctx.env.AI.run(model as keyof AiModels, {
-			messages,
-		});
-		await consumeCredit(ctx.env.DYNAMIC_PAGE_KV, userId);
-		const text = assistantText(result);
-		return Response.json({
-			id: `gpio-${crypto.randomUUID()}`,
-			object: "chat.completion",
-			created: Math.floor(Date.now() / 1000),
-			model,
-			choices: [
-				{
-					index: 0,
-					message: { role: "assistant", content: text },
-					finish_reason: "stop",
-				},
-			],
-			usage: {
-				prompt_tokens: 0,
-				completion_tokens: 0,
-				total_tokens: 0,
-			},
-		});
+		const result: unknown = await ctx.env.AI.run(
+			model as keyof AiModels,
+			input as never,
+		);
+		if (stream && result instanceof ReadableStream) {
+			return sseResponse(
+				ctx.env.DYNAMIC_PAGE_KV,
+				userId,
+				model,
+				markup,
+				estimate,
+				result,
+			);
+		}
+		const usage = extractUsage(result) ?? estimateUsage(body);
+		const debit = billedMicros(model, usage, markup) ?? estimate;
+		await consumeMicrodollars(ctx.env.DYNAMIC_PAGE_KV, userId, debit);
+		const completion = toChatCompletion(model, result);
+		if (!extractUsage(completion)) {
+			completion.usage = {
+				prompt_tokens: usage.prompt_tokens,
+				completion_tokens: usage.completion_tokens,
+				total_tokens: usage.prompt_tokens + usage.completion_tokens,
+			};
+		}
+		return Response.json(completion, { headers: CORS });
 	} catch (caught) {
 		const message =
 			caught instanceof Error ? caught.message : "workers ai failed";
@@ -91,14 +109,47 @@ export async function onRequestPost(ctx: { request: Request; env: PagesEnv }) {
 	}
 }
 
-function assistantText(result: unknown): string {
-	if (typeof result === "string") {
-		return result;
-	}
-	if (result && typeof result === "object" && "response" in result) {
-		return String((result as { response: unknown }).response ?? "");
-	}
-	return JSON.stringify(result ?? "");
+function sseResponse(
+	kv: KVNamespace,
+	userId: string,
+	model: string,
+	markup: number,
+	fallback: number,
+	upstream: ReadableStream<unknown>,
+): Response {
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let usage: TokenUsage | null = null;
+	const billed = upstream.pipeThrough(
+		new TransformStream<unknown, Uint8Array>({
+			transform(chunk, controller) {
+				const bytes =
+					chunk instanceof Uint8Array
+						? chunk
+						: typeof chunk === "string"
+							? new TextEncoder().encode(chunk)
+							: new TextEncoder().encode(String(chunk ?? ""));
+				buffer += decoder.decode(bytes, { stream: true });
+				usage = parseSseUsage(buffer, usage);
+				if (buffer.length > 16_384) {
+					buffer = buffer.slice(-4_096);
+				}
+				controller.enqueue(bytes);
+			},
+			async flush() {
+				const debit =
+					(usage ? billedMicros(model, usage, markup) : null) ?? fallback;
+				await consumeMicrodollars(kv, userId, debit);
+			},
+		}),
+	);
+	return new Response(billed, {
+		headers: {
+			...CORS,
+			"content-type": "text/event-stream",
+			"cache-control": "no-cache",
+		},
+	});
 }
 
 function error(status: number, message: string): Response {
@@ -109,6 +160,6 @@ function error(status: number, message: string): Response {
 				type: status === 402 ? "insufficient_quota" : "invalid_request_error",
 			},
 		},
-		{ status },
+		{ status, headers: CORS },
 	);
 }

@@ -2,7 +2,7 @@ import { getContext } from "frame-master-plugin-cloudflare-pages-functions-actio
 import { parseWifiConfig } from "gpio-companion";
 import { wrapAction } from "../../lib/action.ts";
 import { signDeviceEnvelope } from "../../lib/device-api.ts";
-import { requireOwnedDevice } from "../../lib/pairing-store.ts";
+import { requireAccessibleDevice } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
 type PagesEnv = {
@@ -19,6 +19,6 @@ export const POST = wrapAction(async function POST(input: {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	const wifi = parseWifiConfig(input);
-	await requireOwnedDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, wifi.uuid);
+	await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, wifi.uuid);
 	return signDeviceEnvelope(ctx.env, "PUT", "/v1/config/wifi", wifi);
 });

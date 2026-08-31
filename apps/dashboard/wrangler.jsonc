@@ -14,6 +14,7 @@
 		"PUBLIC_AUTH_REDIRECT_URI": "https://gpio-companion.com/callback",
 		"GITHUB_APP_ID": "4778170",
 		"GITHUB_APP_SLUG": "gpio-companion",
+		"GPIO_AI_MARKUP": "1.25",
 	},
 	"kv_namespaces": [
 		{

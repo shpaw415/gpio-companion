@@ -7,10 +7,11 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { unwrapAction } from "../../lib/action.ts";
+import { formatUsd } from "../../lib/credits.ts";
 
 export default function CreditsPage() {
 	const session = useAuthSession();
-	const [balance, setBalance] = useState<number | null>(null);
+	const [micros, setMicros] = useState<number | null>(null);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState("");
 
@@ -19,7 +20,7 @@ export default function CreditsPage() {
 			return;
 		}
 		void getCredits()
-			.then((result) => setBalance(unwrapAction(result).balance))
+			.then((result) => setMicros(unwrapAction(result).micros))
 			.catch((caught: unknown) => {
 				setError(caught instanceof Error ? caught.message : "load failed");
 			});
@@ -42,23 +43,23 @@ export default function CreditsPage() {
 				Credits
 			</Typography>
 			<Typography color="secondary">
-				OpenCode on the Pi uses gpio-companion credits. Empty balance returns
-				402 from the AI proxy. Paid checkout is not wired yet; grant is a host
-				stub.
+				OpenCode on the Pi spends gpio-companion balance at Cloudflare Workers
+				AI list price (in/out tokens) times markup. Empty balance returns 402.
+				Paid checkout is not wired yet; grant is a host stub.
 			</Typography>
 			<Paper className="max-w-xl p-6" elevation={1}>
 				<Stack spacing={2}>
 					<Typography variant="h5">
-						{balance === null ? "…" : `${balance} credits`}
+						{micros === null ? "…" : formatUsd(micros)}
 					</Typography>
 					<Button
 						variant="contained"
 						onClick={() => {
 							setError("");
-							void grantCredits(100)
+							void grantCredits(1)
 								.then((result) => {
-									setBalance(unwrapAction(result).balance);
-									setStatus("granted 100 credits");
+									setMicros(unwrapAction(result).micros);
+									setStatus("granted $1.00");
 								})
 								.catch((caught: unknown) => {
 									setError(
@@ -67,7 +68,7 @@ export default function CreditsPage() {
 								});
 						}}
 					>
-						Add 100 credits (stub)
+						Add $1.00 (stub)
 					</Button>
 					{status ? <Alert severity="success">{status}</Alert> : null}
 					{error ? <Alert severity="error">{error}</Alert> : null}

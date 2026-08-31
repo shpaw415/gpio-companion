@@ -4,7 +4,6 @@ import {
 	PUT as signCredentials,
 	DELETE as unpairDevice,
 } from "@api/pair";
-import { GET as getT3, POST as t3Action } from "@api/t3";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -30,6 +29,7 @@ import {
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect from "./DeviceSelect.tsx";
+import T3PairingPanel from "./T3PairingPanel.tsx";
 
 const LIGHTBLUE = "https://apps.apple.com/app/lightblue/id557428110";
 const NRF_CONNECT =
@@ -52,9 +52,8 @@ export default function PairForm({
 	const [devices, setDevices] = useState<StoredPairing[]>([]);
 	const [unpairUuid, setUnpairUuid] = useState("");
 	const [t3Uuid, setT3Uuid] = useState("");
+	const [t3AutoStart, setT3AutoStart] = useState(false);
 	const [pasteText, setPasteText] = useState("");
-	const [pairingUrl, setPairingUrl] = useState("");
-	const [t3Ready, setT3Ready] = useState(false);
 
 	const applyDevices = useCallback((next: StoredPairing[]) => {
 		setDevices(next);
@@ -140,40 +139,6 @@ export default function PairForm({
 		}
 	}
 
-	useEffect(() => {
-		if (!pairingUrl || t3Ready || !t3Uuid) {
-			return;
-		}
-		const timer = window.setInterval(() => {
-			void run(getT3(t3Uuid)).then(async (result) => {
-				if (!result) {
-					return;
-				}
-				if (result.serviceInstalled) {
-					setT3Ready(true);
-					setStatus("T3 Code is persistent on the Pi");
-					return;
-				}
-				if (result.paired) {
-					setStatus("T3 paired — installing service…");
-					if (await run(t3Action("persist", t3Uuid))) {
-						setT3Ready(true);
-						setStatus("T3 Code is persistent on the Pi");
-					}
-				}
-			});
-		}, 3000);
-		return () => window.clearInterval(timer);
-	}, [pairingUrl, t3Ready, t3Uuid, run]);
-
-	async function startT3Pairing(boardUuid: string) {
-		setT3Uuid(boardUuid);
-		setStatus("starting T3 Code…");
-		const started = unwrapAction(await t3Action("start", boardUuid));
-		setPairingUrl(started.pairingUrl);
-		setStatus("open the pairing URL in the browser");
-	}
-
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
 		if (!session.data?.id) {
@@ -235,7 +200,8 @@ export default function PairForm({
 			setKey("");
 			const listing = await run(getPairing());
 			applyDevices(listing?.devices ?? []);
-			await startT3Pairing(boardUuid);
+			setT3Uuid(boardUuid);
+			setT3AutoStart(true);
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "pair failed");
@@ -341,9 +307,8 @@ export default function PairForm({
 											applyDevices(listing?.devices ?? []);
 										});
 										if (t3Uuid === target) {
-											setPairingUrl("");
-											setT3Ready(false);
 											setT3Uuid("");
+											setT3AutoStart(false);
 										}
 										setStatus("unpaired");
 									});
@@ -356,34 +321,12 @@ export default function PairForm({
 					{pasteText ? (
 						<CopyBlock label="Signed Bluetooth command" value={pasteText} />
 					) : null}
-					{pairingUrl ? (
-						<Stack spacing={1}>
-							<Typography variant="subtitle1">T3 Code pairing</Typography>
-							<Button href={pairingUrl} variant="contained">
-								Open pairing URL
-							</Button>
-							<CopyBlock label="T3 pairing URL" value={pairingUrl} />
-							{t3Ready ? (
-								<Alert severity="success">T3 Code service installed</Alert>
-							) : (
-								<Button
-									type="button"
-									variant="outlined"
-									onClick={() => {
-										void run(t3Action("persist", t3Uuid)).then((result) => {
-											if (!result) {
-												return;
-											}
-											setT3Ready(true);
-											setStatus("T3 Code is persistent on the Pi");
-										});
-									}}
-								>
-									I’ve paired
-								</Button>
-							)}
-						</Stack>
-					) : null}
+					<T3PairingPanel
+						key={t3Uuid || "t3"}
+						devices={devices}
+						uuid={t3Uuid || undefined}
+						autoStart={t3AutoStart}
+					/>
 					{status ? <Typography color="secondary">{status}</Typography> : null}
 					{error ? <Alert severity="error">{error}</Alert> : null}
 				</Stack>

@@ -24,6 +24,7 @@
 		"./src/actions/api/ai/v1/chat/completions.ts",
 		"./src/lib/credits.ts",
 		"./src/actions/api/wifi.ts",
+		"./src/actions/api/admin/devices.ts",
 		"./src/components/WifiBleForm.tsx",
 		"./src/pages/wifi.tsx",
 		"./src/lib/web-bluetooth.ts",

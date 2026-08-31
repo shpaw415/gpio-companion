@@ -14,7 +14,10 @@
 			"!**/out",
 			"!**/tmp",
 			"!**/worker-configuration.d.ts",
-			"!**/.wrangler"
+			"!**/.wrangler",
+			"!**/apps/mobile/android",
+			"!**/apps/mobile/ios",
+			"!**/apps/mobile/.expo"
 		]
 	},
 	"formatter": {

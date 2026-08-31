@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+	listAllDevices,
 	loadDevices,
 	parseDeviceList,
+	publicPairing,
 	removeDevice,
+	requireAccessibleDevice,
 	requireOwnedDevice,
 	type StoredPairing,
 	upsertDevice,
@@ -17,6 +20,13 @@ function memoryKv() {
 		},
 		delete: async (key: string) => {
 			data.delete(key);
+		},
+		list: async ({ prefix }: { prefix: string; cursor?: string }) => {
+			const keys = [...data.keys()]
+				.filter((name) => name.startsWith(prefix))
+				.sort()
+				.map((name) => ({ name }));
+			return { keys, list_complete: true as const };
 		},
 		data,
 	};
@@ -192,5 +202,65 @@ describe("wifi sign gate", () => {
 			psk: "secret",
 		});
 		expect(await requireOwnedDevice(kv, "user-1", wifi.uuid)).toEqual(owned);
+	});
+});
+
+describe("requireAccessibleDevice", () => {
+	test("lets an owner reach their own board", async () => {
+		const kv = memoryKv();
+		const owned = board("user-1", "uuid-1");
+		await upsertDevice(kv, owned);
+		expect(
+			await requireAccessibleDevice(
+				kv,
+				{ id: "user-1", role: "user" },
+				"uuid-1",
+			),
+		).toEqual(owned);
+	});
+
+	test("refuses another account's board for a user", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "own-uuid"));
+		await upsertDevice(kv, board("owner", "uuid-1"));
+		await expect(
+			requireAccessibleDevice(kv, { id: "user-1", role: "user" }, "uuid-1"),
+		).rejects.toThrow("device is not paired with this account");
+	});
+
+	test("lets an admin reach another account's board", async () => {
+		const kv = memoryKv();
+		const owned = board("owner", "uuid-1");
+		await upsertDevice(kv, owned);
+		expect(
+			await requireAccessibleDevice(
+				kv,
+				{ id: "admin-1", role: "admin" },
+				"uuid-1",
+			),
+		).toEqual(owned);
+	});
+
+	test("still requires uuid for an admin when omitted", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("owner", "uuid-1"));
+		await expect(
+			requireAccessibleDevice(kv, { id: "admin-1", role: "admin" }),
+		).rejects.toThrow("pair a device first");
+	});
+});
+
+describe("listAllDevices", () => {
+	test("returns every account's boards without exposing a missing list", async () => {
+		const kv = memoryKv();
+		const first = board("user-1", "uuid-1");
+		const second = board("user-2", "uuid-2", {
+			login: "bob",
+			email: "bob@gpio-companion.com",
+		});
+		await upsertDevice(kv, first);
+		await upsertDevice(kv, second);
+		expect(await listAllDevices(kv)).toEqual([first, second]);
+		expect(publicPairing(first)).not.toHaveProperty("key");
 	});
 });

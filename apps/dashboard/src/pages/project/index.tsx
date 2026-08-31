@@ -1,7 +1,5 @@
-import { GET as getDevice } from "@api/device";
 import { GET as getPairing } from "@api/pair";
 import ProjectBrowser from "@components/ProjectBrowser";
-import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -42,45 +40,17 @@ export default function ProjectPage() {
 	const { run } = useActionError();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [paired, setPaired] = useState(false);
-	const [deviceUrl, setDeviceUrl] = useState("");
 	const [githubReady, setGithubReady] = useState(false);
 
 	useEffect(() => {
 		const userId = session.data?.id;
 		if (!userId) {
 			setPaired(false);
-			setDeviceUrl("");
 			setGithubReady(false);
 			return;
 		}
-		void run(getPairing()).then(async (result) => {
-			const devices = result?.devices ?? [];
-			if (devices.length === 0) {
-				setPaired(false);
-				setDeviceUrl("");
-				setGithubReady(false);
-				return;
-			}
-			setPaired(true);
-			setDeviceUrl(
-				devices
-					.map((item) => item.deviceUrl)
-					.filter(Boolean)
-					.join(" · "),
-			);
-			const listing = await run(getDevice());
-			if (!listing?.paired) {
-				setGithubReady(false);
-				return;
-			}
-			setGithubReady(
-				listing.devices.some((item) => {
-					const secrets = item.status?.secrets as
-						| { githubReady?: boolean }
-						| undefined;
-					return Boolean(secrets?.githubReady);
-				}),
-			);
+		void run(getPairing()).then((result) => {
+			setPaired((result?.devices ?? []).length > 0);
 		});
 	}, [session.data?.id, run]);
 
@@ -96,41 +66,34 @@ export default function ProjectPage() {
 				</Typography>
 			</SectionHeader>
 
-			<Paper className="p-6" elevation={1}>
-				<Stack spacing={3}>
-					<Typography variant="h6">Set up your board</Typography>
-					<Stepper activeStep={step} alternativeLabel>
-						{STEPS.map((label, index) => (
-							<Step key={label} completed={step > index}>
-								<StepLabel>{label}</StepLabel>
-							</Step>
-						))}
-					</Stepper>
-					{next ? (
-						<Box className="flex flex-wrap items-center justify-between gap-4">
-							<Typography color="secondary">{next.hint}</Typography>
-							<Button href={next.href} variant="contained">
-								{next.label}
-							</Button>
-						</Box>
-					) : (
-						<Alert severity="success">
-							Ready — board paired and GitHub keys saved on the Pi.
-						</Alert>
-					)}
-					{paired ? (
-						<Typography variant="body2" color="secondary">
-							{deviceUrl}
-						</Typography>
-					) : null}
-				</Stack>
-			</Paper>
+			{step < 3 ? (
+				<Paper className="p-6" elevation={1}>
+					<Stack spacing={3}>
+						<Typography variant="h6">Set up your board</Typography>
+						<Stepper activeStep={step} alternativeLabel>
+							{STEPS.map((label, index) => (
+								<Step key={label} completed={step > index}>
+									<StepLabel>{label}</StepLabel>
+								</Step>
+							))}
+						</Stepper>
+						{next ? (
+							<Box className="flex flex-wrap items-center justify-between gap-4">
+								<Typography color="secondary">{next.hint}</Typography>
+								<Button href={next.href} variant="contained">
+									{next.label}
+								</Button>
+							</Box>
+						) : null}
+					</Stack>
+				</Paper>
+			) : null}
 
 			<div>
 				<Typography variant="h5" className="mb-3">
 					Your projects
 				</Typography>
-				<ProjectBrowser />
+				<ProjectBrowser onConfigured={setGithubReady} />
 			</div>
 		</Stack>
 	);

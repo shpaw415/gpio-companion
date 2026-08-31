@@ -1,3 +1,5 @@
+import { isAdmin, type UserRole } from "./auth/role.ts";
+
 export type StoredPairing = {
 	userId: string;
 	uuid: string;
@@ -12,7 +14,19 @@ export type PairingKv = {
 	get(key: string): Promise<string | null>;
 	put(key: string, value: string): Promise<void>;
 	delete(key: string): Promise<void>;
+	list?(options: { prefix: string; cursor?: string }): Promise<{
+		keys: Array<{ name: string }>;
+		list_complete: boolean;
+		cursor?: string;
+	}>;
 };
+
+export type DeviceActor = {
+	id: string;
+	role: UserRole;
+};
+
+export type PublicPairing = Omit<StoredPairing, "key">;
 
 export function deviceListKey(userId: string): string {
 	return `device:${userId}`;
@@ -134,4 +148,46 @@ async function requirePairOwner(
 		throw new Error("device is not paired with this account");
 	}
 	return device;
+}
+
+export function publicPairing(device: StoredPairing): PublicPairing {
+	const { key: _key, ...rest } = device;
+	return rest;
+}
+
+export async function listAllDevices(kv: PairingKv): Promise<StoredPairing[]> {
+	if (!kv.list) {
+		throw new Error("kv list is required");
+	}
+	const devices: StoredPairing[] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await kv.list({ prefix: "device:", cursor });
+		for (const key of page.keys) {
+			devices.push(...parseDeviceList(await kv.get(key.name)));
+		}
+		cursor = page.list_complete ? undefined : page.cursor;
+	} while (cursor);
+	return devices;
+}
+
+export async function requireAccessibleDevice(
+	kv: PairingKv,
+	actor: DeviceActor,
+	uuid?: string,
+): Promise<StoredPairing> {
+	const trimmed = uuid?.trim() ?? "";
+	if (isAdmin(actor.role) && trimmed) {
+		const ownerId = await kv.get(pairOwnerKey(trimmed));
+		if (!ownerId) {
+			throw new Error("device is not paired with this account");
+		}
+		const devices = await loadDevices(kv, ownerId);
+		const device = devices.find((item) => item.uuid === trimmed);
+		if (!device) {
+			throw new Error("device is not paired with this account");
+		}
+		return device;
+	}
+	return requireOwnedDevice(kv, actor.id, uuid);
 }

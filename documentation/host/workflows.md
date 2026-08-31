@@ -61,7 +61,7 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 | Tunnel replica token | `cloudflared.env` | First-setup Cloudflare API (token itself is not stored) |
 | Cloudflare API token | console only | First-setup; never written to disk |
 
-Never put Cloudflare or GitHub user tokens in the image. AI credits live in dashboard KV (`credits:<userId>`).
+Never put Cloudflare or GitHub user tokens in the image. AI credits live in dashboard KV (`credits:<userId>` as USD microdollars, billed at Workers AI list in/out × `GPIO_AI_MARKUP`).
 
 ## Break-glass on a bricked network
 

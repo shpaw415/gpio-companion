@@ -1,0 +1,14 @@
+{
+	"name": "openauthster",
+	"version": "1.0.2",
+	"description": "OpenAuthster native PKCE auth for gpio-companion",
+	"main": "index.ts",
+	"license": "MIT",
+	"author": "gpio-companion",
+	"homepage": "https://gpio-companion.com",
+	"peerDependencies": {
+		"expo": "*",
+		"react": "*",
+		"react-native": "*"
+	}
+}

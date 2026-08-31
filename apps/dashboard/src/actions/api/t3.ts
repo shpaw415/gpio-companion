@@ -1,7 +1,7 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
-import { requireOwnedDevice } from "../../lib/pairing-store.ts";
+import { requireAccessibleDevice } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
 type PagesEnv = {
@@ -18,9 +18,9 @@ export const GET = wrapAction(async function GET(uuid?: string) {
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await requireOwnedDevice(
+	const device = await requireAccessibleDevice(
 		ctx.env.DYNAMIC_PAGE_KV,
-		identity.id,
+		identity,
 		uuid,
 	);
 	if (!device.deviceUrl) {
@@ -45,9 +45,9 @@ export const POST = wrapAction(async function POST(
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await requireOwnedDevice(
+	const device = await requireAccessibleDevice(
 		ctx.env.DYNAMIC_PAGE_KV,
-		identity.id,
+		identity,
 		uuid,
 	);
 	if (!device.deviceUrl) {

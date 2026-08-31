@@ -1,8 +1,10 @@
+import { navigate } from "@next/client";
 import Box from "@shpaw415/mui-lite/Box";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
-import { navigate } from "@next/client";
+import { useAuthSession } from "../../hooks/useAuth.ts";
+import { isAdmin } from "../../lib/auth/role.ts";
 
-const tabs = [
+const baseTabs = [
 	{ href: "/devices", label: "Overview" },
 	{ href: "/devices/pair", label: "Pair" },
 	{ href: "/devices/wifi", label: "WiFi" },
@@ -10,7 +12,9 @@ const tabs = [
 	{ href: "/devices/notifications", label: "Requests" },
 ];
 
-function active(pathname: string) {
+const adminTab = { href: "/devices/admin", label: "Admin" };
+
+function active(pathname: string, tabs: Array<{ href: string }>) {
 	const match = [...tabs]
 		.sort((a, b) => b.href.length - a.href.length)
 		.find((tab) => pathname.startsWith(tab.href));
@@ -22,10 +26,12 @@ export default function DevicesLayout({
 }: {
 	children: React.JSX.Element;
 }) {
+	const session = useAuthSession();
+	const tabs = isAdmin(session.data?.role) ? [...baseTabs, adminTab] : baseTabs;
 	const value =
 		typeof window === "undefined"
 			? "/devices"
-			: active(window.location.pathname);
+			: active(window.location.pathname, tabs);
 
 	return (
 		<Box>

@@ -5,28 +5,40 @@ import {
 } from "@api/projects";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
-import {
-	List,
-	ListItem,
-	ListItemButton,
-	ListItemText,
-} from "@shpaw415/mui-lite/List";
+import { TablePagination } from "@shpaw415/mui-lite/Pagination";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
+import Table, {
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+} from "@shpaw415/mui-lite/Table";
+import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
 
-export default function ProjectBrowser() {
+export default function ProjectBrowser({
+	onConfigured,
+}: {
+	onConfigured?: (ready: boolean) => void;
+}) {
 	const [configured, setConfigured] = useState(true);
 	const [repos, setRepos] = useState<GithubRepo[]>([]);
 	const [error, setError] = useState("");
 	const [bundle, setBundle] = useState<ProjectBundle | null>(null);
 	const [pcbJson, setPcbJson] = useState<string | null>(null);
 	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
+	const [query, setQuery] = useState("");
+	const [owner, setOwner] = useState("all");
+	const [page, setPage] = useState(0);
+	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
 
 	useEffect(() => {
 		listProjects()
@@ -34,13 +46,39 @@ export default function ProjectBrowser() {
 				const data = unwrapAction(result);
 				setConfigured(data.configured);
 				setRepos(data.repos);
+				onConfigured?.(data.configured);
 			})
 			.catch((err: unknown) => {
 				setError(
 					err instanceof Error ? err.message : "failed to list projects",
 				);
 			});
-	}, []);
+	}, [onConfigured]);
+
+	const owners = useMemo(() => {
+		return [...new Set(repos.map((repo) => repo.owner))].sort();
+	}, [repos]);
+
+	const filtered = useMemo(() => {
+		const needle = query.trim().toLowerCase();
+		return repos.filter((repo) => {
+			if (owner !== "all" && repo.owner !== owner) {
+				return false;
+			}
+			if (!needle) {
+				return true;
+			}
+			return (
+				repo.name.toLowerCase().includes(needle) ||
+				repo.full_name.toLowerCase().includes(needle)
+			);
+		});
+	}, [repos, owner, query]);
+
+	const paged = filtered.slice(
+		page * rowsPerPage,
+		page * rowsPerPage + rowsPerPage,
+	);
 
 	async function openRepo(repo: GithubRepo) {
 		setError("");
@@ -74,29 +112,90 @@ export default function ProjectBrowser() {
 	if (!configured) {
 		return (
 			<Alert severity="info">
-				Save a GitHub username and PAT on Keys so this dashboard can list your
-				repos. Agent-pushed files live in pcb/, breadboard/, and technical/.
+				Install the GitHub App on Keys so this dashboard can list your repos.
+				Agent-pushed files live in pcb/, breadboard/, and technical/.
 			</Alert>
 		);
 	}
 
 	return (
-		<div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
-			<Paper elevation={1}>
-				<List>
-					{repos.map((repo) => (
-						<ListItem key={repo.full_name} disablePadding>
-							<ListItemButton onClick={() => void openRepo(repo)}>
-								<ListItemText primary={repo.name} secondary={repo.full_name} />
-							</ListItemButton>
-						</ListItem>
-					))}
-				</List>
-				{repos.length === 0 ? (
-					<Typography color="secondary" className="p-4">
-						No GitHub repos yet.
-					</Typography>
-				) : null}
+		<Stack spacing={3}>
+			<Paper className="p-4" elevation={1}>
+				<Stack spacing={2}>
+					<Stack
+						direction="row"
+						spacing={2}
+						sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
+					>
+						<TextField
+							label="Filter"
+							placeholder="Name or owner/repo"
+							value={query}
+							onChange={(event) => {
+								setQuery(event.target.value);
+								setPage(0);
+							}}
+							className="min-w-[16rem] flex-1"
+						/>
+						<Select
+							label="Owner"
+							value={owner}
+							onSelect={(next) => {
+								setOwner(next);
+								setPage(0);
+							}}
+							className="min-w-[12rem]"
+						>
+							<option value="all">All owners</option>
+							{owners.map((login) => (
+								<option key={login} value={login}>
+									{login}
+								</option>
+							))}
+						</Select>
+					</Stack>
+					<TableContainer>
+						<Table size="small">
+							<TableHead>
+								<TableRow>
+									<TableCell>Name</TableCell>
+									<TableCell>Owner</TableCell>
+									<TableCell>Repository</TableCell>
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{paged.map((repo) => (
+									<TableRow
+										key={repo.full_name}
+										hover
+										selected={
+											bundle?.owner === repo.owner && bundle?.repo === repo.name
+										}
+										onClick={() => void openRepo(repo)}
+									>
+										<TableCell>{repo.name}</TableCell>
+										<TableCell>{repo.owner}</TableCell>
+										<TableCell>{repo.full_name}</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</TableContainer>
+					{filtered.length === 0 ? (
+						<Typography color="secondary">No matching repos.</Typography>
+					) : (
+						<TablePagination
+							count={filtered.length}
+							page={page}
+							rowsPerPage={rowsPerPage}
+							onPageChange={(_event, nextPage) => setPage(nextPage)}
+							onRowsPerPageChange={(next) => {
+								setRowsPerPage(next);
+								setPage(0);
+							}}
+						/>
+					)}
+				</Stack>
 			</Paper>
 			<Stack spacing={3}>
 				{error ? <Alert severity="error">{error}</Alert> : null}
@@ -119,7 +218,7 @@ export default function ProjectBrowser() {
 					<Typography color="secondary">Select a project.</Typography>
 				)}
 			</Stack>
-		</div>
+		</Stack>
 	);
 }
 

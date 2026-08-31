@@ -1,9 +1,14 @@
 import { createOpenAuthsterClient } from "openauthster-shared/client/user";
 
+import type { UserRole } from "./lib/auth/role.ts";
+
+export type { UserRole };
+
 export type PublicSession = {
 	id?: string;
 	email?: string;
 	name?: string;
+	role?: UserRole;
 };
 
 export type PrivateSession = Record<string, never>;
@@ -20,7 +25,7 @@ function truncateKey(key: string) {
 export function createClient(
 	props: { ctx?: EventContext<Env, never, Record<string, never>> } = {},
 ) {
-	return createOpenAuthsterClient<PublicSession, PrivateSession, string>({
+	return createOpenAuthsterClient<PublicSession, PrivateSession, UserRole>({
 		issuerURI: process.env.PUBLIC_AUTH_ISSUER as string,
 		clientID: process.env.PUBLIC_AUTH_CLIENT_ID as string,
 		redirectURI:

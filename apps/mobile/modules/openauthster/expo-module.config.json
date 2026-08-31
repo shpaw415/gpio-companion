@@ -1,0 +1,9 @@
+{
+	"platforms": ["apple", "android"],
+	"apple": {
+		"modules": ["OpenAuthsterModule"]
+	},
+	"android": {
+		"modules": ["expo.modules.openauthster.OpenAuthsterModule"]
+	}
+}

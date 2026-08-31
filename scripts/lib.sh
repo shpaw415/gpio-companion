@@ -461,7 +461,7 @@ provider["gpio-companion"] = {
         "apiKey": os.environ["GPIO_AI_KEY"],
     },
     "models": {
-        "@cf/meta/llama-3.1-8b-instruct": {"name": "Llama 3.1 8B"},
+        "@cf/zai-org/glm-5.3": {"name": "GLM-5.3"},
     },
 }
 path.write_text(json.dumps(data, indent="\t") + "\n")
