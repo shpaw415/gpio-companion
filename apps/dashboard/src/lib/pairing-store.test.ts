@@ -1,0 +1,196 @@
+import { describe, expect, test } from "bun:test";
+import {
+	loadDevices,
+	parseDeviceList,
+	removeDevice,
+	requireOwnedDevice,
+	type StoredPairing,
+	upsertDevice,
+} from "./pairing-store.ts";
+
+function memoryKv() {
+	const data = new Map<string, string>();
+	return {
+		get: async (key: string) => data.get(key) ?? null,
+		put: async (key: string, value: string) => {
+			data.set(key, value);
+		},
+		delete: async (key: string) => {
+			data.delete(key);
+		},
+		data,
+	};
+}
+
+function board(
+	userId: string,
+	uuid: string,
+	extra: Partial<StoredPairing> = {},
+): StoredPairing {
+	return {
+		userId,
+		uuid,
+		key: `key-${uuid}`,
+		deviceUrl: `https://api-${uuid.replaceAll("-", "")}.gpio-companion.com`,
+		login: "ada",
+		email: "ada@gpio-companion.com",
+		claimedAt: "2026-08-31T00:00:00.000Z",
+		...extra,
+	};
+}
+
+describe("parseDeviceList", () => {
+	test("reads a legacy single pairing object", () => {
+		const legacy = board("user-1", "uuid-1");
+		expect(parseDeviceList(JSON.stringify(legacy))).toEqual([legacy]);
+	});
+
+	test("reads a pairing array", () => {
+		const devices = [board("user-1", "uuid-1"), board("user-1", "uuid-2")];
+		expect(parseDeviceList(JSON.stringify(devices))).toEqual(devices);
+	});
+
+	test("returns empty for missing records", () => {
+		expect(parseDeviceList(null)).toEqual([]);
+	});
+});
+
+describe("pairing store", () => {
+	test("migrates a legacy object to an array on load", async () => {
+		const kv = memoryKv();
+		const legacy = board("user-1", "uuid-1");
+		await kv.put("device:user-1", JSON.stringify(legacy));
+		const devices = await loadDevices(kv, "user-1");
+		expect(devices).toEqual([legacy]);
+		expect(JSON.parse((await kv.get("device:user-1")) as string)).toEqual([
+			legacy,
+		]);
+	});
+
+	test("upsert keeps an existing board when pairing a second", async () => {
+		const kv = memoryKv();
+		const first = board("user-1", "uuid-1");
+		const second = board("user-1", "uuid-2");
+		await upsertDevice(kv, first);
+		await upsertDevice(kv, second);
+		expect(await loadDevices(kv, "user-1")).toEqual([first, second]);
+		expect(await kv.get("pair:uuid-1")).toBe("user-1");
+		expect(await kv.get("pair:uuid-2")).toBe("user-1");
+	});
+
+	test("upsert replaces the same uuid in place", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "uuid-1"));
+		const updated = board("user-1", "uuid-1", { key: "rotated" });
+		await upsertDevice(kv, updated);
+		expect(await loadDevices(kv, "user-1")).toEqual([updated]);
+	});
+
+	test("removeDevice drops one board and leaves the rest", async () => {
+		const kv = memoryKv();
+		const first = board("user-1", "uuid-1");
+		const second = board("user-1", "uuid-2");
+		await upsertDevice(kv, first);
+		await upsertDevice(kv, second);
+		expect(await removeDevice(kv, "user-1", "uuid-1")).toEqual(first);
+		expect(await loadDevices(kv, "user-1")).toEqual([second]);
+		expect(await kv.get("pair:uuid-1")).toBeNull();
+		expect(await kv.get("pair:uuid-2")).toBe("user-1");
+	});
+
+	test("transfer moves one uuid without wiping the owner's other boards", async () => {
+		const kv = memoryKv();
+		const keep = board("owner", "keep-uuid");
+		const move = board("owner", "move-uuid");
+		await upsertDevice(kv, keep);
+		await upsertDevice(kv, move);
+		const taken = await removeDevice(kv, "owner", "move-uuid");
+		expect(taken).toEqual(move);
+		await upsertDevice(kv, { ...move, userId: "requester" });
+		expect(await loadDevices(kv, "owner")).toEqual([keep]);
+		expect(await loadDevices(kv, "requester")).toEqual([
+			{ ...move, userId: "requester" },
+		]);
+		expect(await kv.get("pair:move-uuid")).toBe("requester");
+		expect(await kv.get("pair:keep-uuid")).toBe("owner");
+	});
+});
+
+describe("requireOwnedDevice", () => {
+	test("refuses when the user has no paired boards", async () => {
+		const kv = memoryKv();
+		await expect(requireOwnedDevice(kv, "user-1", "uuid-1")).rejects.toThrow(
+			"pair a device first",
+		);
+	});
+
+	test("refuses a uuid that is not paired with the user", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "uuid-1"));
+		await expect(requireOwnedDevice(kv, "user-1", "uuid-2")).rejects.toThrow(
+			"device is not paired with this account",
+		);
+	});
+
+	test("refuses when the pair index owner mismatches", async () => {
+		const kv = memoryKv();
+		const owned = board("user-1", "uuid-1");
+		await upsertDevice(kv, owned);
+		await kv.put("pair:uuid-1", "other-user");
+		await expect(requireOwnedDevice(kv, "user-1", "uuid-1")).rejects.toThrow(
+			"device is not paired with this account",
+		);
+	});
+
+	test("returns the paired board when uuid and owner match", async () => {
+		const kv = memoryKv();
+		const owned = board("user-1", "uuid-1");
+		await upsertDevice(kv, owned);
+		expect(await requireOwnedDevice(kv, "user-1", "uuid-1")).toEqual(owned);
+	});
+
+	test("picks the only board when uuid is omitted", async () => {
+		const kv = memoryKv();
+		const owned = board("user-1", "uuid-1");
+		await upsertDevice(kv, owned);
+		expect(await requireOwnedDevice(kv, "user-1")).toEqual(owned);
+	});
+
+	test("requires uuid when more than one board is paired", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "uuid-1"));
+		await upsertDevice(kv, board("user-1", "uuid-2"));
+		await expect(requireOwnedDevice(kv, "user-1")).rejects.toThrow(
+			"uuid is required",
+		);
+	});
+});
+
+describe("wifi sign gate", () => {
+	test("does not allow signing for an unpaired uuid", async () => {
+		const { parseWifiConfig } = await import("gpio-companion");
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "uuid-1"));
+		const wifi = parseWifiConfig({
+			uuid: "uuid-2",
+			ssid: "lab",
+			psk: "secret",
+		});
+		await expect(requireOwnedDevice(kv, "user-1", wifi.uuid)).rejects.toThrow(
+			"device is not paired with this account",
+		);
+	});
+
+	test("allows signing for a uuid paired to the user", async () => {
+		const { parseWifiConfig } = await import("gpio-companion");
+		const kv = memoryKv();
+		const owned = board("user-1", "uuid-1");
+		await upsertDevice(kv, owned);
+		const wifi = parseWifiConfig({
+			uuid: "uuid-1",
+			ssid: "lab",
+			psk: "secret",
+		});
+		expect(await requireOwnedDevice(kv, "user-1", wifi.uuid)).toEqual(owned);
+	});
+});

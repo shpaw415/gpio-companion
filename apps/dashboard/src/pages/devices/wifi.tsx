@@ -9,10 +9,11 @@ export default function WifiPage() {
 				WiFi over Bluetooth
 			</Typography>
 			<Typography color="secondary">
-				The dashboard signs the WiFi command with the gpio-companion private key
-				and a timestamp. The Pi verifies it before connecting. Chrome or Edge
-				can talk to the Pi directly. On iOS, sign and copy, then paste into
-				LightBlue or nRF Connect.
+				Pick a board already paired to your account. The dashboard signs the
+				WiFi command with the gpio-companion private key and a timestamp. The Pi
+				verifies it before connecting. Chrome or Edge can talk to the Pi
+				directly. On iOS, sign and copy, then paste into LightBlue or nRF
+				Connect.
 			</Typography>
 			<WifiBleForm />
 		</Stack>

@@ -1,13 +1,14 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
-import { requireIdentity } from "../../lib/session.ts";
 import {
-	type PendingPairing,
-	parsePendingPairing,
-	parseStoredPairing,
+	removeDevice,
+	requireOwnedDevice,
 	type StoredPairing,
-} from "./pair.ts";
+	upsertDevice,
+} from "../../lib/pairing-store.ts";
+import { requireIdentity } from "../../lib/session.ts";
+import { type PendingPairing, parsePendingPairing } from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -56,19 +57,18 @@ export const POST = wrapAction(async function POST(input: {
 		throw new Error("pending pairing not found");
 	}
 	const pending = JSON.parse(pendingRaw) as PendingPairing;
-	const ownerRaw = await ctx.env.DYNAMIC_PAGE_KV.get(`device:${identity.id}`);
 	if (input.action === "reject") {
 		await ctx.env.DYNAMIC_PAGE_KV.delete(`pending:${uuid}`);
 		await removeInbox(ctx.env, identity.id, uuid);
 		return { ok: true as const, action: "reject" as const };
 	}
-	if (!ownerRaw) {
+	const owner = await requireOwnedDevice(
+		ctx.env.DYNAMIC_PAGE_KV,
+		identity.id,
+		uuid,
+	).catch(() => {
 		throw new Error("you do not own this board");
-	}
-	const owner = parseStoredPairing(ownerRaw);
-	if (owner.uuid !== uuid) {
-		throw new Error("you do not own this board");
-	}
+	});
 	if (owner.deviceUrl) {
 		await readDeviceJson(
 			await signedDeviceFetch(
@@ -94,12 +94,8 @@ export const POST = wrapAction(async function POST(input: {
 		key: pending.key,
 		claimedAt: new Date().toISOString(),
 	};
-	await ctx.env.DYNAMIC_PAGE_KV.delete(`device:${identity.id}`);
-	await ctx.env.DYNAMIC_PAGE_KV.put(
-		`device:${pending.requesterId}`,
-		JSON.stringify(next),
-	);
-	await ctx.env.DYNAMIC_PAGE_KV.put(`pair:${uuid}`, pending.requesterId);
+	await removeDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, uuid);
+	await upsertDevice(ctx.env.DYNAMIC_PAGE_KV, next);
 	await ctx.env.DYNAMIC_PAGE_KV.delete(`pending:${uuid}`);
 	await removeInbox(ctx.env, identity.id, uuid);
 	return { ok: true as const, action: "accept" as const };

@@ -1,20 +1,19 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { wrapAction } from "../../lib/action.ts";
+import type { GithubAppEnv } from "../../lib/github-app.ts";
 import {
+	githubAccountForUser,
 	githubConfigured,
 	listRepos,
-	loadGithubAccount,
 	loadProjectBundle,
 	readRepoFile,
 } from "../../lib/github.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
-type PagesEnv = {
-	DYNAMIC_PAGE_KV: KVNamespace;
-};
+type PagesEnv = GithubAppEnv;
 
 async function accountForUser(env: PagesEnv, userId: string) {
-	return loadGithubAccount(env.DYNAMIC_PAGE_KV, userId);
+	return githubAccountForUser(env, userId);
 }
 
 export const GET = wrapAction(async function GET() {

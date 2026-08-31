@@ -32,7 +32,7 @@ export default function LoginPanel() {
 				Sign in
 			</Typography>
 			<Typography color="secondary" align="center" className="mt-2 mb-6">
-				Sign in with GitHub, then pair a Pi and set up a PAT.
+				Sign in with GitHub, then pair a Pi and connect the GitHub App.
 			</Typography>
 			<Stack spacing={2}>
 				<Button variant="contained" onClick={() => void start()}>

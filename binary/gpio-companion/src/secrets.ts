@@ -3,6 +3,7 @@ import {
 	DEFAULT_GITHUB_URL,
 	type DeviceSecrets,
 	emptyDeviceSecrets,
+	gitHttpsUsername,
 	parseDeviceSecrets,
 } from "gpio-companion";
 
@@ -53,7 +54,10 @@ export function gitCredentialLine(secrets: DeviceSecrets): string | null {
 	}
 	try {
 		const url = new URL(secrets.githubUrl || DEFAULT_GITHUB_URL);
-		url.username = secrets.githubUsername;
+		url.username = gitHttpsUsername(
+			secrets.githubToken,
+			secrets.githubUsername,
+		);
 		url.password = secrets.githubToken;
 		url.pathname = "/";
 		url.search = "";
@@ -65,7 +69,7 @@ export function gitCredentialLine(secrets: DeviceSecrets): string | null {
 }
 
 export function gitconfigContents(credentialsPath: string): string {
-	return `[credential]\n\thelper = store --file ${credentialsPath}\n`;
+	return `[credential "https://github.com"]\n\thelper = !/usr/local/bin/gpio-companion git-credential\n[credential]\n\thelper = store --file ${credentialsPath}\n`;
 }
 
 function parseEnvSecrets(text: string): DeviceSecrets {

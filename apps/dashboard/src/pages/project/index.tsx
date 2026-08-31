@@ -31,8 +31,8 @@ const NEXT: Record<
 	},
 	2: {
 		href: "/devices/keys",
-		label: "Save GitHub keys",
-		hint: "Save your GitHub username and PAT to the Pi.",
+		label: "Connect GitHub",
+		hint: "Install the gpio-companion GitHub App so the Pi can push.",
 	},
 	3: undefined,
 };
@@ -54,23 +54,35 @@ export default function ProjectPage() {
 			return;
 		}
 		void run(getPairing()).then(async (result) => {
-			if (!result?.paired) {
+			const devices = result?.devices ?? [];
+			if (devices.length === 0) {
 				setPaired(false);
-				return;
-			}
-			setPaired(true);
-			setDeviceUrl(result.device.deviceUrl);
-			const device = await run(getDevice());
-			if (!device?.paired) {
+				setDeviceUrl("");
 				setGithubReady(false);
 				return;
 			}
-			const secrets = device.status.secrets as
-				| { githubReady?: boolean }
-				| undefined;
-			setGithubReady(Boolean(secrets?.githubReady));
+			setPaired(true);
+			setDeviceUrl(
+				devices
+					.map((item) => item.deviceUrl)
+					.filter(Boolean)
+					.join(" · "),
+			);
+			const listing = await run(getDevice());
+			if (!listing?.paired) {
+				setGithubReady(false);
+				return;
+			}
+			setGithubReady(
+				listing.devices.some((item) => {
+					const secrets = item.status?.secrets as
+						| { githubReady?: boolean }
+						| undefined;
+					return Boolean(secrets?.githubReady);
+				}),
+			);
 		});
-	}, [session.data?.id]);
+	}, [session.data?.id, run]);
 
 	const step = !loggedIn ? 0 : !paired ? 1 : !githubReady ? 2 : 3;
 	const next = NEXT[step] ?? undefined;

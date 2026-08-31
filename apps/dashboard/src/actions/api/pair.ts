@@ -11,22 +11,22 @@ import {
 	signDeviceEnvelope,
 	signedDeviceFetch,
 } from "../../lib/device-api.ts";
+import {
+	loadDevices,
+	removeDevice,
+	upsertDevice,
+} from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
+
+export {
+	parseStoredPairing,
+	type StoredPairing,
+} from "../../lib/pairing-store.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
 	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
 	GPIO_COMPANION_DEVICE_KEY_ID?: string;
-};
-
-export type StoredPairing = {
-	userId: string;
-	uuid: string;
-	key: string;
-	deviceUrl: string;
-	login: string;
-	email: string;
-	claimedAt: string;
 };
 
 export type PendingPairing = {
@@ -44,11 +44,6 @@ export type ClaimInput = {
 	key: string;
 };
 
-export function parseStoredPairing(raw: string): StoredPairing {
-	const parsed = JSON.parse(raw) as StoredPairing & { giteaLogin?: string };
-	return { ...parsed, login: parsed.login || parsed.giteaLogin || "" };
-}
-
 export function parsePendingPairing(raw: string): PendingPairing {
 	const parsed = JSON.parse(raw) as PendingPairing & { giteaLogin?: string };
 	return { ...parsed, login: parsed.login || parsed.giteaLogin || "" };
@@ -57,11 +52,8 @@ export function parsePendingPairing(raw: string): PendingPairing {
 export const GET = wrapAction(async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
-	const raw = await ctx.env.DYNAMIC_PAGE_KV.get(`device:${identity.id}`);
-	if (!raw) {
-		return { paired: false as const };
-	}
-	return { paired: true as const, device: parseStoredPairing(raw) };
+	const devices = await loadDevices(ctx.env.DYNAMIC_PAGE_KV, identity.id);
+	return { paired: devices.length > 0, devices };
 });
 
 export const PUT = wrapAction(async function PUT() {
@@ -126,7 +118,7 @@ export const POST = wrapAction(async function POST(input: ClaimInput) {
 	} else {
 		needsBle = true;
 	}
-	const pairing: StoredPairing = {
+	const pairing = {
 		userId: identity.id,
 		uuid: input.uuid.trim(),
 		key: input.key,
@@ -135,11 +127,7 @@ export const POST = wrapAction(async function POST(input: ClaimInput) {
 		email: identity.email ?? "",
 		claimedAt: new Date().toISOString(),
 	};
-	await ctx.env.DYNAMIC_PAGE_KV.put(
-		`device:${identity.id}`,
-		JSON.stringify(pairing),
-	);
-	await ctx.env.DYNAMIC_PAGE_KV.put(`pair:${pairing.uuid}`, pairing.userId);
+	await upsertDevice(ctx.env.DYNAMIC_PAGE_KV, pairing);
 	if (!needsBle && origin) {
 		await registerDeviceAiKey(ctx.env, origin, identity.id);
 	}
@@ -162,6 +150,7 @@ export const POST = wrapAction(async function POST(input: ClaimInput) {
 			needsBle: true as const,
 			login: pairing.login,
 			deviceUrl: origin,
+			uuid: pairing.uuid,
 			t3Hostname: hosts.t3Hostname,
 			envelope,
 		};
@@ -172,21 +161,26 @@ export const POST = wrapAction(async function POST(input: ClaimInput) {
 		needsBle: false as const,
 		login: pairing.login,
 		deviceUrl: origin,
+		uuid: pairing.uuid,
 		t3Hostname: hosts.t3Hostname,
 	};
 });
 
-export const DELETE = wrapAction(async function DELETE() {
+export const DELETE = wrapAction(async function DELETE(uuid: string) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const raw = await ctx.env.DYNAMIC_PAGE_KV.get(`device:${identity.id}`);
-	if (!raw) {
+	const trimmed = uuid?.trim() ?? "";
+	if (!trimmed) {
+		throw new Error("uuid is required");
+	}
+	const devices = await loadDevices(ctx.env.DYNAMIC_PAGE_KV, identity.id);
+	const device = devices.find((item) => item.uuid === trimmed);
+	if (!device) {
 		return { ok: true as const };
 	}
-	const device = parseStoredPairing(raw);
 	if (device.deviceUrl) {
 		await readDeviceJson(
 			await signedDeviceFetch(
@@ -198,8 +192,7 @@ export const DELETE = wrapAction(async function DELETE() {
 			),
 		).catch(() => undefined);
 	}
-	await ctx.env.DYNAMIC_PAGE_KV.delete(`device:${identity.id}`);
-	await ctx.env.DYNAMIC_PAGE_KV.delete(`pair:${device.uuid}`);
+	await removeDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, device.uuid);
 	return { ok: true as const };
 });
 

@@ -9,9 +9,8 @@ export default function KeysPage() {
 				Keys
 			</Typography>
 			<Typography color="secondary">
-				Use your GitHub account. Create a classic PAT with repo scope, then send
-				username and token to the paired Pi through the dashboard
-				(Ed25519-signed device API).
+				Connect the gpio-companion GitHub App. Boards pull a live installation
+				token when they push — you do not create a PAT.
 			</Typography>
 			<KeysForm />
 		</Stack>

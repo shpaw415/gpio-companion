@@ -1,3 +1,4 @@
+import { GET as getPairing } from "@api/pair";
 import { POST as signWifi } from "@api/wifi";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
@@ -10,14 +11,17 @@ import {
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
 } from "gpio-companion";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
 import { unwrapAction } from "../lib/action.ts";
+import type { StoredPairing } from "../lib/pairing-store.ts";
 import {
 	bluetoothSupported,
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
+import DeviceSelect from "./DeviceSelect.tsx";
 
 type Status = "idle" | "connecting" | "sending" | "success" | "error";
 
@@ -27,13 +31,33 @@ const NRF_CONNECT =
 
 export default function WifiBleForm() {
 	const session = useAuthSession();
+	const { run } = useActionError();
 	const supported = bluetoothSupported();
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
 	const [uuid, setUuid] = useState("");
+	const [devices, setDevices] = useState<StoredPairing[]>([]);
 	const [status, setStatus] = useState<Status>("idle");
 	const [message, setMessage] = useState("");
 	const [pasteText, setPasteText] = useState("");
+
+	useEffect(() => {
+		if (!session.data?.id) {
+			setDevices([]);
+			setUuid("");
+			return;
+		}
+		void run(getPairing()).then((result) => {
+			const next = result?.devices ?? [];
+			setDevices(next);
+			setUuid((current) => {
+				if (current && next.some((device) => device.uuid === current)) {
+					return current;
+				}
+				return next[0]?.uuid ?? "";
+			});
+		});
+	}, [session.data?.id, run]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
@@ -49,6 +73,11 @@ export default function WifiBleForm() {
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
 		setMessage("");
+		if (!uuid) {
+			setStatus("error");
+			setMessage("pair a device first");
+			return;
+		}
 		if (!supported) {
 			setStatus("sending");
 			try {
@@ -70,12 +99,14 @@ export default function WifiBleForm() {
 		setStatus("connecting");
 		try {
 			const ble = await connectGpioCompanionBle();
-			const boardUuid = ble.info.uuid || uuid;
-			setUuid(boardUuid);
+			if (ble.info.uuid && ble.info.uuid !== uuid) {
+				ble.disconnect();
+				throw new Error("this board is not the selected paired device");
+			}
 			setStatus("sending");
 			const envelope = unwrapAction(
 				await signWifi({
-					uuid: boardUuid,
+					uuid,
 					ssid,
 					psk,
 				}),
@@ -84,10 +115,14 @@ export default function WifiBleForm() {
 			ble.disconnect();
 			let ok = true;
 			try {
-				const parsed = JSON.parse(raw) as { error?: string; ssid?: string };
-				if (parsed.error) {
+				const parsed = JSON.parse(raw) as {
+					error?: string;
+					ssid?: string;
+					connected?: boolean;
+				};
+				if (parsed.error || parsed.connected === false) {
 					ok = false;
-					setMessage(parsed.error);
+					setMessage(parsed.error || "wifi connect failed");
 				} else {
 					setMessage(`connected to ${parsed.ssid || ssid}`);
 				}
@@ -102,6 +137,9 @@ export default function WifiBleForm() {
 		}
 	}
 
+	const busy = status === "connecting" || status === "sending";
+	const canSubmit = Boolean(uuid && ssid && psk) && !busy;
+
 	return (
 		<Paper className="max-w-xl p-6" elevation={1}>
 			<form onSubmit={onSubmit}>
@@ -112,6 +150,21 @@ export default function WifiBleForm() {
 							command here, then paste it as text in LightBlue or nRF Connect. A
 							native gpio-companion app will replace this later.
 						</Alert>
+					)}
+					{devices.length === 0 ? (
+						<Alert severity="info">
+							<Button href="/devices/pair" variant="text">
+								Pair a board
+							</Button>{" "}
+							before signing a WiFi command.
+						</Alert>
+					) : (
+						<DeviceSelect
+							devices={devices}
+							value={uuid}
+							onChange={setUuid}
+							disabled={busy}
+						/>
 					)}
 					<TextField
 						label="SSID"
@@ -127,22 +180,7 @@ export default function WifiBleForm() {
 						onChange={(event) => setPsk(event.target.value)}
 						className="w-full"
 					/>
-					<TextField
-						label="Pairing UUID"
-						placeholder={
-							supported
-								? "read from the Pi over Bluetooth"
-								: "printed at Pi first-setup"
-						}
-						value={uuid}
-						onChange={(event) => setUuid(event.target.value)}
-						className="w-full"
-					/>
-					<Button
-						type="submit"
-						variant="contained"
-						disabled={status === "connecting" || status === "sending"}
-					>
+					<Button type="submit" variant="contained" disabled={!canSubmit}>
 						{status === "connecting"
 							? "Connecting…"
 							: status === "sending"
@@ -165,16 +203,15 @@ export default function WifiBleForm() {
 								.
 							</Typography>
 							<Typography variant="body2" color="secondary">
-								2. Connect to {BLE_DEVICE_NAME}, open the write characteristic{" "}
-								{BLE_CMD_UUID}, paste the signed JSON as UTF-8 text, send.
+								2. Connect to the board, open the write characteristic, paste
+								the signed JSON as UTF-8 text, send.
 							</Typography>
+							<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
+							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
 						</>
 					)}
 					{pasteText ? (
-						<>
-							<CopyBlock label="Signed Bluetooth command" value={pasteText} />
-							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-						</>
+						<CopyBlock label="Signed Bluetooth command" value={pasteText} />
 					) : null}
 					{message ? (
 						<Alert severity={status === "error" ? "error" : "success"}>

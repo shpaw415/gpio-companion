@@ -74,6 +74,15 @@ export {
 } from "./device-auth.ts";
 export { DEFAULT_DEVICE_KEY_ID } from "./device-public-key.ts";
 export {
+	createGithubAppJwt,
+	GITHUB_API,
+	GITHUB_APP_TOKEN_PREFIX,
+	GITHUB_GIT_USER,
+	gitHttpsUsername,
+	isGithubAppToken,
+	timingSafeEqualString,
+} from "./github-app.ts";
+export {
 	emptyPairingState,
 	loginFromEmail,
 	type PairingClaim,
@@ -115,7 +124,12 @@ export {
 	tunnelHostnames,
 } from "./tunnel-host.ts";
 export {
+	classifyWifiConnectError,
 	parseWifiConfig,
+	publicWifiFailure,
 	publicWifiStatus,
 	type WifiConfig,
+	WifiConnectError,
+	type WifiConnectReason,
+	wifiConnectMessage,
 } from "./wifi.ts";

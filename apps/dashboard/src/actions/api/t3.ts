@@ -1,8 +1,8 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
+import { requireOwnedDevice } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
-import { parseStoredPairing, type StoredPairing } from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -12,28 +12,20 @@ type PagesEnv = {
 
 export type T3Action = "start" | "persist";
 
-async function loadPairing(
-	env: PagesEnv,
-	userId: string,
-): Promise<StoredPairing> {
-	const raw = await env.DYNAMIC_PAGE_KV.get(`device:${userId}`);
-	if (!raw) {
-		throw new Error("pair a device first");
-	}
-	const device = parseStoredPairing(raw);
-	if (!device.deviceUrl) {
-		throw new Error("device URL is missing");
-	}
-	return device;
-}
-
-export const GET = wrapAction(async function GET() {
+export const GET = wrapAction(async function GET(uuid?: string) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await loadPairing(ctx.env, identity.id);
+	const device = await requireOwnedDevice(
+		ctx.env.DYNAMIC_PAGE_KV,
+		identity.id,
+		uuid,
+	);
+	if (!device.deviceUrl) {
+		throw new Error("device URL is missing");
+	}
 	return readDeviceJson<{
 		running: boolean;
 		pairingUrl: string;
@@ -44,13 +36,23 @@ export const GET = wrapAction(async function GET() {
 	);
 });
 
-export const POST = wrapAction(async function POST(action: T3Action) {
+export const POST = wrapAction(async function POST(
+	action: T3Action,
+	uuid?: string,
+) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await loadPairing(ctx.env, identity.id);
+	const device = await requireOwnedDevice(
+		ctx.env.DYNAMIC_PAGE_KV,
+		identity.id,
+		uuid,
+	);
+	if (!device.deviceUrl) {
+		throw new Error("device URL is missing");
+	}
 	if (action === "start") {
 		return readDeviceJson<{ pairingUrl: string }>(
 			await signedDeviceFetch(

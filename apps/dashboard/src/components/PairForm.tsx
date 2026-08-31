@@ -18,16 +18,18 @@ import {
 	publicDeviceUrl,
 	tunnelHostnames,
 } from "gpio-companion";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
 import { unwrapAction } from "../lib/action.ts";
+import type { StoredPairing } from "../lib/pairing-store.ts";
 import {
 	bluetoothAvailable,
 	bluetoothChooserCancelled,
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
+import DeviceSelect from "./DeviceSelect.tsx";
 
 const LIGHTBLUE = "https://apps.apple.com/app/lightblue/id557428110";
 const NRF_CONNECT =
@@ -47,9 +49,24 @@ export default function PairForm({
 	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
 	const [paired, setPaired] = useState("");
+	const [devices, setDevices] = useState<StoredPairing[]>([]);
+	const [unpairUuid, setUnpairUuid] = useState("");
+	const [t3Uuid, setT3Uuid] = useState("");
 	const [pasteText, setPasteText] = useState("");
 	const [pairingUrl, setPairingUrl] = useState("");
 	const [t3Ready, setT3Ready] = useState(false);
+
+	const applyDevices = useCallback((next: StoredPairing[]) => {
+		setDevices(next);
+		const last = next.at(-1);
+		setPaired(last?.login ?? "");
+		setUnpairUuid((current) => {
+			if (current && next.some((device) => device.uuid === current)) {
+				return current;
+			}
+			return last?.uuid ?? "";
+		});
+	}, []);
 
 	useEffect(() => {
 		void bluetoothAvailable().then(setBleReady);
@@ -60,12 +77,9 @@ export default function PairForm({
 			return;
 		}
 		void run(getPairing()).then((result) => {
-			if (result?.paired) {
-				setPaired(result.device.login);
-				setDeviceUrl(result.device.deviceUrl);
-			}
+			applyDevices(result?.devices ?? []);
 		});
-	}, [session.data?.id]);
+	}, [session.data?.id, run, applyDevices]);
 
 	async function applyCredentials(raw: string, infoDeviceUrl?: string) {
 		const body = JSON.parse(raw) as {
@@ -127,34 +141,35 @@ export default function PairForm({
 	}
 
 	useEffect(() => {
-		if (!pairingUrl || t3Ready) {
+		if (!pairingUrl || t3Ready || !t3Uuid) {
 			return;
 		}
 		const timer = window.setInterval(() => {
-			void run(getT3()).then(async (result) => {
-					if (!result) {
-						return;
-					}
-					if (result.serviceInstalled) {
+			void run(getT3(t3Uuid)).then(async (result) => {
+				if (!result) {
+					return;
+				}
+				if (result.serviceInstalled) {
+					setT3Ready(true);
+					setStatus("T3 Code is persistent on the Pi");
+					return;
+				}
+				if (result.paired) {
+					setStatus("T3 paired — installing service…");
+					if (await run(t3Action("persist", t3Uuid))) {
 						setT3Ready(true);
 						setStatus("T3 Code is persistent on the Pi");
-						return;
 					}
-					if (result.paired) {
-						setStatus("T3 paired — installing service…");
-						if (await run(t3Action("persist"))) {
-							setT3Ready(true);
-							setStatus("T3 Code is persistent on the Pi");
-						}
-					}
-				});
+				}
+			});
 		}, 3000);
 		return () => window.clearInterval(timer);
-	}, [pairingUrl, t3Ready]);
+	}, [pairingUrl, t3Ready, t3Uuid, run]);
 
-	async function startT3Pairing() {
+	async function startT3Pairing(boardUuid: string) {
+		setT3Uuid(boardUuid);
 		setStatus("starting T3 Code…");
-		const started = unwrapAction(await t3Action("start"));
+		const started = unwrapAction(await t3Action("start", boardUuid));
 		setPairingUrl(started.pairingUrl);
 		setStatus("open the pairing URL in the browser");
 	}
@@ -170,9 +185,9 @@ export default function PairForm({
 		try {
 			const body = unwrapAction(
 				await claimPairing({
-				deviceUrl,
-				uuid,
-				key,
+					deviceUrl,
+					uuid,
+					key,
 				}),
 			);
 			if ("pending" in body && body.pending) {
@@ -214,9 +229,13 @@ export default function PairForm({
 				setDeviceUrl(body.deviceUrl);
 				onComplete?.(body.deviceUrl);
 			}
+			const boardUuid =
+				"uuid" in body && typeof body.uuid === "string" ? body.uuid : uuid;
 			setStatus("paired");
 			setKey("");
-			await startT3Pairing();
+			const listing = await run(getPairing());
+			applyDevices(listing?.devices ?? []);
+			await startT3Pairing(boardUuid);
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "pair failed");
@@ -238,7 +257,13 @@ export default function PairForm({
 		<Paper className="max-w-xl p-6" elevation={1}>
 			<form onSubmit={onSubmit}>
 				<Stack spacing={2}>
-					{paired ? <Alert severity="success">Paired as {paired}</Alert> : null}
+					{devices.length > 0 ? (
+						<Alert severity="success">
+							{devices.length === 1
+								? `Paired as ${paired || devices[0]?.login}`
+								: `${devices.length} boards paired`}
+						</Alert>
+					) : null}
 					<Button
 						type="button"
 						variant="contained"
@@ -258,9 +283,15 @@ export default function PairForm({
 						or{" "}
 						<Button href={NRF_CONNECT} variant="text">
 							nRF Connect
-						</Button>{" "}
-						→ {BLE_DEVICE_NAME} write {BLE_CMD_UUID}, then read status.
+						</Button>
+						.
 					</Typography>
+					{bleReady ? null : (
+						<>
+							<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
+							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
+						</>
+					)}
 					<TextField
 						label="Device URL"
 						placeholder="https://api-<uuid>.gpio-companion.com (optional)"
@@ -284,28 +315,46 @@ export default function PairForm({
 					<Button type="submit" variant="contained">
 						Pair hardware
 					</Button>
-					{paired ? (
-						<Button
-							type="button"
-							variant="outlined"
-							onClick={() => {
-								void run(unpairDevice()).then((result) => {
-									if (!result) {
+					{devices.length > 0 ? (
+						<>
+							{devices.length > 1 ? (
+								<DeviceSelect
+									devices={devices}
+									value={unpairUuid}
+									onChange={setUnpairUuid}
+									label="Unpair device"
+								/>
+							) : null}
+							<Button
+								type="button"
+								variant="outlined"
+								onClick={() => {
+									const target = unpairUuid || devices[0]?.uuid;
+									if (!target) {
 										return;
 									}
-									setPaired("");
-									setStatus("unpaired");
-								});
-							}}
-						>
-							Unpair (revokes T3 Code)
-						</Button>
+									void run(unpairDevice(target)).then((result) => {
+										if (!result) {
+											return;
+										}
+										void run(getPairing()).then((listing) => {
+											applyDevices(listing?.devices ?? []);
+										});
+										if (t3Uuid === target) {
+											setPairingUrl("");
+											setT3Ready(false);
+											setT3Uuid("");
+										}
+										setStatus("unpaired");
+									});
+								}}
+							>
+								Unpair (revokes T3 Code)
+							</Button>
+						</>
 					) : null}
 					{pasteText ? (
-						<>
-							<CopyBlock label="Signed Bluetooth command" value={pasteText} />
-							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-						</>
+						<CopyBlock label="Signed Bluetooth command" value={pasteText} />
 					) : null}
 					{pairingUrl ? (
 						<Stack spacing={1}>
@@ -321,7 +370,7 @@ export default function PairForm({
 									type="button"
 									variant="outlined"
 									onClick={() => {
-									void run(t3Action("persist")).then((result) => {
+										void run(t3Action("persist", t3Uuid)).then((result) => {
 											if (!result) {
 												return;
 											}

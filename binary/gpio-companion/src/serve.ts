@@ -10,12 +10,15 @@ import {
 	parseWifiConfig,
 	publicDeviceUrl,
 	publicPairing,
+	publicWifiFailure,
 	publicWifiStatus,
 	redactDeviceConfig,
 	secretsStatus,
 	VERSION,
 	verifyDeviceRequest,
+	WifiConnectError,
 } from "gpio-companion";
+import type { GithubInstallationCreds } from "./github-credentials.ts";
 import {
 	applyClaim,
 	applyTransfer,
@@ -44,6 +47,7 @@ export type ServeOptions = {
 	revokeT3?: () => Promise<void>;
 	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
+	githubCredentials?: () => Promise<GithubInstallationCreds>;
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -67,6 +71,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.revokeT3,
 					options.t3,
 					options.deviceAuth,
+					options.githubCredentials,
 				);
 			} catch (error) {
 				if (error instanceof DeviceAuthError) {
@@ -99,6 +104,7 @@ export async function handleDeviceRequest(
 	revokeT3: (() => Promise<void>) | undefined,
 	t3: T3Controller | undefined,
 	deviceAuth: DeviceAuthConfig,
+	githubCredentials?: () => Promise<GithubInstallationCreds>,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -108,6 +114,16 @@ export async function handleDeviceRequest(
 
 	if (method === "GET" && path === "/health") {
 		return json({ ok: true, version: VERSION });
+	}
+
+	if (method === "GET" && path === "/v1/github-token") {
+		if (!isLoopback(url)) {
+			throw new Error("github token is local-only");
+		}
+		if (!githubCredentials) {
+			throw new Error("github credentials are not configured");
+		}
+		return json(await githubCredentials());
 	}
 
 	if (!deviceAuth.publicKeyPem.trim()) {
@@ -227,8 +243,15 @@ export async function handleDeviceRequest(
 		if (!applyWifi) {
 			throw new Error("wifi apply is not configured");
 		}
-		const result = await applyWifi(wifi);
-		return json(publicWifiStatus(result.ssid, true));
+		try {
+			const result = await applyWifi(wifi);
+			return json(publicWifiStatus(result.ssid, true));
+		} catch (error) {
+			if (error instanceof WifiConnectError) {
+				return json(publicWifiFailure(wifi.ssid, error.reason), 400);
+			}
+			throw error;
+		}
 	}
 
 	if (method === "PUT" && path === "/v1/config/github") {

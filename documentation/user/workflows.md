@@ -27,11 +27,11 @@ Dashboard `/projects` reads those paths (PCB viewer for `pcb/circuit.json` / `pc
 
 ## Change WiFi later
 
-Still signed-in `/wifi`, anytime — same Chrome Bluetooth or iOS paste flow. UUID must stay this board’s pairing UUID.
+Still signed-in `/devices/wifi`, anytime — pick the paired device from the dropdown, then the same Chrome Bluetooth or iOS paste flow. The dashboard will not sign a UUID that is not paired to your account.
 
 ## Change keys later
 
-`/keys` again (OpenCode key and/or GitHub username/token). Requires an existing pair. The dashboard talks to the stored device URL, not a URL you type after pair.
+`/devices/keys` → Connect GitHub (install the gpio-companion GitHub App). Paired boards mint a token at git push; you do not paste a PAT. If a board was offline for more than an hour, push again after it has internet.
 
 ## Board updates
 

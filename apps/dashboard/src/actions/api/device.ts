@@ -2,12 +2,13 @@ import { getContext } from "frame-master-plugin-cloudflare-pages-functions-actio
 import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
 import { saveGithubAccount } from "../../lib/github.ts";
-import { requireIdentity } from "../../lib/session.ts";
 import {
-	parseStoredPairing,
-	registerDeviceAiKey,
+	loadDevices,
+	requireOwnedDevice,
 	type StoredPairing,
-} from "./pair.ts";
+} from "../../lib/pairing-store.ts";
+import { requireIdentity } from "../../lib/session.ts";
+import { registerDeviceAiKey } from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -16,20 +17,15 @@ type PagesEnv = {
 };
 
 export type DeviceSecretsPatch = {
+	uuid?: string;
 	githubUsername?: string;
 	githubToken?: string;
 };
 
-async function loadPairing(
-	env: PagesEnv,
-	userId: string,
-): Promise<StoredPairing | null> {
-	const raw = await env.DYNAMIC_PAGE_KV.get(`device:${userId}`);
-	if (!raw) {
-		return null;
-	}
-	return parseStoredPairing(raw);
-}
+export type DeviceStatusItem = {
+	device: StoredPairing;
+	status: Record<string, unknown> | null;
+};
 
 export const GET = wrapAction(async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
@@ -37,15 +33,30 @@ export const GET = wrapAction(async function GET() {
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await loadPairing(ctx.env, identity.id);
-	if (!device) {
-		return { paired: false as const };
+	const paired = await loadDevices(ctx.env.DYNAMIC_PAGE_KV, identity.id);
+	const devices: DeviceStatusItem[] = [];
+	for (const device of paired) {
+		if (device.deviceUrl) {
+			await registerDeviceAiKey(ctx.env, device.deviceUrl, identity.id);
+		}
+		let status: Record<string, unknown> | null = null;
+		if (device.deviceUrl) {
+			try {
+				status = await readDeviceJson<Record<string, unknown>>(
+					await signedDeviceFetch(
+						ctx.env,
+						device.deviceUrl,
+						"GET",
+						"/v1/status",
+					),
+				);
+			} catch {
+				status = null;
+			}
+		}
+		devices.push({ device, status });
 	}
-	await registerDeviceAiKey(ctx.env, device.deviceUrl, identity.id);
-	const status = await readDeviceJson<Record<string, unknown>>(
-		await signedDeviceFetch(ctx.env, device.deviceUrl, "GET", "/v1/status"),
-	);
-	return { paired: true as const, device, status };
+	return { paired: devices.length > 0, devices };
 });
 
 export const PUT = wrapAction(async function PUT(patch: DeviceSecretsPatch) {
@@ -54,10 +65,11 @@ export const PUT = wrapAction(async function PUT(patch: DeviceSecretsPatch) {
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await loadPairing(ctx.env, identity.id);
-	if (!device) {
-		throw new Error("pair a device first");
-	}
+	const device = await requireOwnedDevice(
+		ctx.env.DYNAMIC_PAGE_KV,
+		identity.id,
+		patch.uuid,
+	);
 	if (patch.githubUsername || patch.githubToken) {
 		const username = patch.githubUsername?.trim() ?? "";
 		const token = patch.githubToken?.trim() ?? "";

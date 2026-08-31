@@ -7,9 +7,10 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import SectionHub, { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
-import SectionHub, { SectionHeader } from "../../components/Section.tsx";
+import type { StoredPairing } from "../../lib/pairing-store.ts";
 
 type DeviceStatus = {
 	hardware?: string;
@@ -18,36 +19,42 @@ type DeviceStatus = {
 	t3?: { running?: boolean; serviceInstalled?: boolean };
 };
 
+type BoardView = {
+	device: StoredPairing;
+	status: DeviceStatus | null;
+};
+
 export default function DevicesPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
-	const [paired, setPaired] = useState(false);
-	const [deviceUrl, setDeviceUrl] = useState("");
-	const [status, setStatus] = useState<DeviceStatus | null>(null);
+	const [boards, setBoards] = useState<BoardView[]>([]);
 
 	useEffect(() => {
 		if (!session.data?.id) {
-			setPaired(false);
-			setDeviceUrl("");
-			setStatus(null);
+			setBoards([]);
 			return;
 		}
 		void run(getPairing()).then(async (result) => {
-				if (!result?.paired) {
-					setPaired(false);
-					return;
-				}
-				setPaired(true);
-				setDeviceUrl(result.device.deviceUrl);
-				const device = await run(getDevice());
-				if (device?.paired) {
-					setStatus(device.status as DeviceStatus);
-				} else {
-					setStatus(null);
-				}
-			});
-	}, [session.data?.id]);
+			if (!result?.paired) {
+				setBoards([]);
+				return;
+			}
+			const device = await run(getDevice());
+			if (device?.paired) {
+				setBoards(
+					device.devices.map((item) => ({
+						device: item.device,
+						status: item.status as DeviceStatus | null,
+					})),
+				);
+			} else {
+				setBoards(
+					result.devices.map((item) => ({ device: item, status: null })),
+				);
+			}
+		});
+	}, [session.data?.id, run]);
 
 	return (
 		<Stack spacing={3}>
@@ -66,7 +73,7 @@ export default function DevicesPage() {
 				</Alert>
 			) : null}
 
-			{loggedIn && !paired ? (
+			{loggedIn && boards.length === 0 ? (
 				<Alert severity="info">
 					<Button href="/devices/pair" variant="text">
 						Pair a board
@@ -75,40 +82,53 @@ export default function DevicesPage() {
 				</Alert>
 			) : null}
 
-			{paired ? (
-				<Paper className="max-w-2xl p-6" elevation={1}>
+			{boards.map((board) => (
+				<Paper key={board.device.uuid} className="max-w-2xl p-6" elevation={1}>
 					<Stack spacing={2}>
 						<Typography variant="h6">Paired board</Typography>
-						{deviceUrl ? (
-							<Typography color="secondary">{deviceUrl}</Typography>
+						<Typography color="secondary">{board.device.uuid}</Typography>
+						{board.device.deviceUrl ? (
+							<Typography color="secondary">
+								{board.device.deviceUrl}
+							</Typography>
 						) : null}
-						{status ? (
+						{board.status ? (
 							<Stack direction="row" spacing={1} className="flex-wrap">
-								{status.hardware ? (
-									<Chip label={status.hardware} variant="outlined" />
+								{board.status.hardware ? (
+									<Chip label={board.status.hardware} variant="outlined" />
 								) : null}
 								<Chip
 									label={
-										status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
+										board.status.tunnel?.configured
+											? "tunnel ready"
+											: "tunnel pending"
 									}
-									color={status.tunnel?.configured ? "success" : "secondary"}
-									variant="outlined"
-								/>
-								<Chip
-									label={status.secrets?.githubReady ? "GitHub ready" : "GitHub keys pending"}
-									color={status.secrets?.githubReady ? "success" : "warning"}
+									color={
+										board.status.tunnel?.configured ? "success" : "secondary"
+									}
 									variant="outlined"
 								/>
 								<Chip
 									label={
-										status.t3?.serviceInstalled
+										board.status.secrets?.githubReady
+											? "GitHub ready"
+											: "GitHub keys pending"
+									}
+									color={
+										board.status.secrets?.githubReady ? "success" : "warning"
+									}
+									variant="outlined"
+								/>
+								<Chip
+									label={
+										board.status.t3?.serviceInstalled
 											? "T3 Code installed"
-											: status.t3?.running
+											: board.status.t3?.running
 												? "T3 Code running"
 												: "T3 Code idle"
 									}
 									color={
-										status.t3?.serviceInstalled ? "success" : "secondary"
+										board.status.t3?.serviceInstalled ? "success" : "secondary"
 									}
 									variant="outlined"
 								/>
@@ -120,7 +140,7 @@ export default function DevicesPage() {
 						)}
 					</Stack>
 				</Paper>
-			) : null}
+			))}
 
 			<SectionHub
 				description="Everything you can do with a board."

@@ -482,6 +482,14 @@ install_gpio_companion_bin() {
 		die "gpio-companion binary missing and bun is not installed"
 	fi
 	install -m 0755 "$src" "$BIN_DIR/gpio-companion"
+	install_github_git_helper
+}
+
+install_github_git_helper() {
+	cat >/etc/gitconfig <<EOF
+[credential "https://github.com"]
+	helper = !/usr/local/bin/gpio-companion git-credential
+EOF
 }
 
 install_update_wrapper() {

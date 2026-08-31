@@ -1,6 +1,6 @@
 # Deploy (host)
 
-Deploy order: **device keys → dashboard (auth + KV + secret) → tell users the URLs**. Boards can boot before a user has a GitHub PAT; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
+Deploy order: **device keys → dashboard (auth + KV + secret) → tell users the URLs**. Boards can boot before a user connects the GitHub App; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
 
 ## Prerequisites
 
@@ -53,7 +53,11 @@ App: `apps/dashboard`. Wrangler project name: `gpio-companion-dashboard`. Frame 
 
 ### KV
 
-Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` and `pair:<uuid>`. Per-user GitHub PATs for `/projects` are stored as `github:<userId>`. AI credits are `credits:<userId>`; Pi OpenCode keys hash to `ai:<sha256>`. Enable the `AI` Workers AI binding in wrangler.
+Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` (array) and `pair:<uuid>`. GitHub App installs are `github-app:<userId>`. Legacy PATs may still exist as `github:<userId>`. AI credits are `credits:<userId>`; Pi OpenCode keys hash to `ai:<sha256>`. Enable the `AI` Workers AI binding in wrangler.
+
+### GitHub App
+
+Create a GitHub App (Contents R/W, Metadata R, Administration R/W if the agent creates repos). Setup URL: `https://gpio-companion.com/devices/keys`. Users install it from dashboard Keys. Pis mint a live installation token at git push via `POST /api/github-credentials` (pairing uuid + key). Put `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and `GITHUB_APP_SLUG` on the Pages project. Never commit the App private key.
 
 ### Vars (wrangler.jsonc and/or Pages)
 
@@ -67,6 +71,9 @@ Committed `vars` override dashboard-only values if they are empty strings. Set r
 | `AUTH_SECRET` | OpenAuthster client secret (secret, not a public var) |
 | `GPIO_COMPANION_DEVICE_PRIVATE_KEY` | Ed25519 PKCS8 PEM (secret) |
 | `GPIO_COMPANION_DEVICE_KEY_ID` | `gpio-companion-v1` |
+| `GITHUB_APP_ID` | GitHub App id (secret/var) |
+| `GITHUB_APP_PRIVATE_KEY` | GitHub App private PEM (secret) |
+| `GITHUB_APP_SLUG` | GitHub App slug for `/apps/{slug}/installations/new` |
 
 `PUBLIC_*` is injected into the browser. Never put the device private key or `AUTH_SECRET` under a `PUBLIC_` name.
 

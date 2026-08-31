@@ -14,11 +14,7 @@ Choose **raspberrypi** or **orangepi**. Enter the host’s Cloudflare API token,
 
 If the Pi already has Ethernet, skip to sign-in.
 
-If it has no WiFi yet:
-
-1. Sign in to the dashboard on a phone or laptop that **does** have internet
-2. Open **WiFi** (`/wifi`) — see [wifi-bluetooth.md](./wifi-bluetooth.md)
-3. After the Pi joins WiFi, continue pairing with the device URL
+If it has no WiFi yet, pair over Bluetooth first (step 4), then set WiFi from **WiFi** (`/devices/wifi`) — see [wifi-bluetooth.md](./wifi-bluetooth.md). The dashboard only signs WiFi for a board already paired to your account.
 
 Ethernet and the Pi TTY (`nmcli`) always work.
 
@@ -30,7 +26,7 @@ Use `/login`. Continue with GitHub; you land on `/callback` then home.
 
 ## 4. Pair the board
 
-Page `/pair` (or stepper step 2).
+Page `/devices/pair` (or stepper step 2). You can pair more than one board.
 
 | Field | Where it comes from |
 | --- | --- |
@@ -43,11 +39,10 @@ The dashboard **signs** the claim, starts **T3 Code** (`t3 start`), and shows a 
 ## 5. GitHub
 
 1. Use **your** GitHub account (create one if needed)
-2. Create a **classic PAT** with the `repo` scope at https://github.com/settings/tokens
-3. Dashboard **Keys**: GitHub username and token (OpenCode uses `/credits`, not a pasted API key)
-4. Save — the dashboard stores the token for `/projects` and signs `PUT /v1/config/github` to **your** paired Pi
+2. Dashboard **Keys**: **Connect GitHub** and install the gpio-companion GitHub App on your account (all or selected repos)
+3. Paired Pis mint a fresh token at `git push`. You do not paste a PAT. If the board was offline for more than an hour, just push again once it has internet — do not reopen Keys.
 
-The agent uses `/etc/gpio-companion/secrets.env` on the Pi. Tokens are not stored in the dashboard form after save.
+OpenCode uses `/credits`, not a GitHub token. `gpio-companion github-token` prints a live token for API calls.
 
 ## 6. Overview
 

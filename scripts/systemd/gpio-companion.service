@@ -15,6 +15,7 @@ Environment=GPIO_COMPANION_PAIRING=/etc/gpio-companion/pairing.json
 EnvironmentFile=-/etc/gpio-companion/pairing.env
 Environment=GPIO_COMPANION_PORT=4150
 Environment=GPIO_COMPANION_HARDWARE=raspberrypi
+Environment=GPIO_COMPANION_DASHBOARD_URL=https://gpio-companion.com
 
 [Install]
 WantedBy=multi-user.target

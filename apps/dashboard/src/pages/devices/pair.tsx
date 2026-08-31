@@ -11,10 +11,10 @@ export default function PairPage() {
 			<Typography color="secondary">
 				Connect over Bluetooth to load Device URL, pairing UUID, and key from
 				the Pi. If Web Bluetooth is unavailable, the dashboard signs a command
-				to paste in LightBlue or nRF Connect. Console printout still works. No
-				WiFi yet? Set it from{" "}
-				<a href="/devices/wifi">WiFi over Bluetooth</a>. Then add a GitHub PAT
-				on Keys.
+				to paste in LightBlue or nRF Connect. Console printout still works. You
+				can pair more than one board. After pairing, set WiFi from{" "}
+				<a href="/devices/wifi">WiFi over Bluetooth</a> or Ethernet/TTY, then
+				add a GitHub PAT on Keys.
 			</Typography>
 			<PairForm />
 		</Stack>

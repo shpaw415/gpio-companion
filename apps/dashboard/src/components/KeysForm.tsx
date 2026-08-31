@@ -1,83 +1,107 @@
-import { PUT as saveDeviceSecrets } from "@api/device";
+import { GET as getGithubApp, POST as saveGithubApp } from "@api/github-app";
+import { GET as getPairing } from "@api/pair";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
-import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { type FormEvent, useState } from "react";
+import { useEffect, useState } from "react";
+import { useActionError } from "../hooks/useActionError.tsx";
+import { useAuthSession } from "../hooks/useAuth.ts";
 import { unwrapAction } from "../lib/action.ts";
-import { GITHUB_TOKEN_SETTINGS } from "../lib/github.ts";
+import type { StoredPairing } from "../lib/pairing-store.ts";
 
-type Status = "idle" | "loading" | "success" | "error";
+export default function KeysForm() {
+	const session = useAuthSession();
+	const { run } = useActionError();
+	const [login, setLogin] = useState("");
+	const [installUrl, setInstallUrl] = useState("");
+	const [devices, setDevices] = useState<StoredPairing[]>([]);
+	const [error, setError] = useState("");
+	const [status, setStatus] = useState("");
 
-export default function KeysForm({ onComplete }: { onComplete?: () => void }) {
-	const [githubUsername, setGithubUsername] = useState("");
-	const [githubToken, setGithubToken] = useState("");
-	const [status, setStatus] = useState<Status>("idle");
-	const [message, setMessage] = useState("");
-
-	async function onSubmit(event: FormEvent) {
-		event.preventDefault();
-		setStatus("loading");
-		setMessage("");
-		try {
-			unwrapAction(
-				await saveDeviceSecrets({
-					githubUsername,
-					githubToken,
-				}),
-			);
-			setStatus("success");
-			setMessage("saved on the Pi API");
-			setGithubToken("");
-			onComplete?.();
-		} catch (error) {
-			setStatus("error");
-			setMessage(error instanceof Error ? error.message : "save failed");
+	useEffect(() => {
+		if (!session.data?.id) {
+			setDevices([]);
+			return;
 		}
+		void run(getPairing()).then((result) => {
+			setDevices(result?.devices ?? []);
+		});
+	}, [session.data?.id, run]);
+
+	useEffect(() => {
+		if (!session.data?.id) {
+			return;
+		}
+		const params = new URLSearchParams(window.location.search);
+		const installationId = params.get("installation_id");
+		const state = params.get("state") ?? "";
+		void (async () => {
+			try {
+				if (installationId && state) {
+					const saved = unwrapAction(
+						await saveGithubApp({ installationId, state }),
+					);
+					setLogin(saved.login);
+					setInstallUrl("");
+					setStatus(`connected as @${saved.login}`);
+					window.history.replaceState({}, "", "/devices/keys");
+					return;
+				}
+				const current = unwrapAction(await getGithubApp());
+				setLogin(current.login);
+				setInstallUrl(current.installUrl);
+			} catch (caught) {
+				setError(caught instanceof Error ? caught.message : "github app failed");
+			}
+		})();
+	}, [session.data?.id]);
+
+	if (!session.data?.id && !session.data?.email) {
+		return (
+			<Typography color="secondary">
+				<Button href="/login" variant="text">
+					Sign in
+				</Button>{" "}
+				to connect GitHub.
+			</Typography>
+		);
 	}
 
 	return (
 		<Paper className="max-w-xl p-6" elevation={1}>
-			<form onSubmit={onSubmit}>
-				<Stack spacing={2}>
-					<Typography variant="body2" color="secondary">
-						OpenCode uses gpio-companion credits, not a pasted API key. GitHub:
-						create a classic PAT with <code>repo</code> scope, then save
-						username and token to the Pi.
+			<Stack spacing={2}>
+				<Typography variant="body2" color="secondary">
+					Install the gpio-companion GitHub App. Paired Pis mint a fresh token
+					at git push — nothing to paste, and being offline for more than an
+					hour does not require you to reopen this page.
+				</Typography>
+				{login ? (
+					<Alert severity="success">Connected as @{login}</Alert>
+				) : installUrl ? (
+					<Button href={installUrl} variant="contained">
+						Connect GitHub
+					</Button>
+				) : (
+					<Typography color="secondary">Checking GitHub App…</Typography>
+				)}
+				{devices.length === 0 ? (
+					<Alert severity="info">
+						<Button href="/devices/pair" variant="text">
+							Pair a board
+						</Button>{" "}
+						so the agent can push with this GitHub App.
+					</Alert>
+				) : (
+					<Typography color="secondary">
+						{devices.length} paired board{devices.length === 1 ? "" : "s"} will
+						use this App at git push.
 					</Typography>
-					<Button href={GITHUB_TOKEN_SETTINGS} variant="outlined">
-						Open GitHub token settings
-					</Button>
-					<TextField
-						label="GitHub username"
-						value={githubUsername}
-						onChange={(event) => setGithubUsername(event.target.value)}
-						className="w-full"
-					/>
-					<TextField
-						label="GitHub token"
-						type="password"
-						autoComplete="off"
-						value={githubToken}
-						onChange={(event) => setGithubToken(event.target.value)}
-						className="w-full"
-					/>
-					<Button
-						type="submit"
-						variant="contained"
-						disabled={status === "loading"}
-					>
-						{status === "loading" ? "Saving…" : "Save to Pi API"}
-					</Button>
-					{message ? (
-						<Alert severity={status === "error" ? "error" : "success"}>
-							{message}
-						</Alert>
-					) : null}
-				</Stack>
-			</form>
+				)}
+				{status ? <Alert severity="success">{status}</Alert> : null}
+				{error ? <Alert severity="error">{error}</Alert> : null}
+			</Stack>
 		</Paper>
 	);
 }

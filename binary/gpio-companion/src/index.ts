@@ -8,6 +8,12 @@ import {
 	VERSION,
 } from "gpio-companion";
 import { startBleBridge } from "./ble.ts";
+import {
+	fetchGithubCredentials,
+	loadGithubCreds,
+	persistGithubLogin,
+	runGitCredentialHelper,
+} from "./github-credentials.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -29,8 +35,34 @@ if (command === "version" || command === "-v" || command === "--version") {
 	process.exit(0);
 }
 
+if (command === "git-credential" || command === "github-token") {
+	const pairingUuid = process.env.GPIO_COMPANION_PAIRING_UUID ?? "";
+	const pairingKey = process.env.GPIO_COMPANION_PAIRING_KEY ?? "";
+	const port = Number(process.env.GPIO_COMPANION_PORT ?? DEFAULT_PORT);
+	try {
+		if (command === "github-token") {
+			const creds = await loadGithubCreds(pairingUuid, pairingKey, port);
+			process.stdout.write(`${creds.token}\n`);
+			process.exit(0);
+		}
+		const output = await runGitCredentialHelper(
+			process.argv[3] ?? "get",
+			await Bun.stdin.text(),
+			{ uuid: pairingUuid, key: pairingKey },
+		);
+		process.stdout.write(output);
+		process.exit(0);
+	} catch (caught) {
+		const message = caught instanceof Error ? caught.message : "github failed";
+		console.error(message);
+		process.exit(1);
+	}
+}
+
 if (command !== "serve") {
-	console.error("usage: gpio-companion serve | version");
+	console.error(
+		"usage: gpio-companion serve | version | git-credential | github-token",
+	);
 	process.exit(1);
 }
 
@@ -43,21 +75,36 @@ const pairingPath = process.env.GPIO_COMPANION_PAIRING ?? DEFAULT_PAIRING_PATH;
 const pairingUuid = process.env.GPIO_COMPANION_PAIRING_UUID ?? "";
 const pairingKey = process.env.GPIO_COMPANION_PAIRING_KEY ?? "";
 const port = Number(process.env.GPIO_COMPANION_PORT ?? DEFAULT_PORT);
+const secrets = fileSecretsStore(secretsPath);
+const pairing = filePairingStore(pairingPath, pairingUuid, pairingKey);
 
 const deviceAuth = loadDeviceAuth();
 
 const t3 = liveT3Controller();
+const githubCredentials = async () => {
+	const state = await pairing.read();
+	const creds = await fetchGithubCredentials({
+		uuid: state.uuid || pairingUuid,
+		key: state.key || pairingKey,
+	});
+	await persistGithubLogin(secrets, creds);
+	return creds;
+};
 const server = startDeviceApi({
 	port,
 	store: fileConfigStore(configPath, hardware),
-	secrets: fileSecretsStore(secretsPath),
-	pairing: filePairingStore(pairingPath, pairingUuid, pairingKey),
+	secrets,
+	pairing,
 	applyTunnel: applyCloudflaredReplica(envPath),
 	applyWifi: applyNetworkManagerWifi(),
 	t3,
 	revokeT3: () => t3.revoke(),
 	deviceAuth,
+	githubCredentials,
 });
+setInterval(() => {
+	void githubCredentials().catch(() => undefined);
+}, 30 * 60 * 1000);
 
 startBleBridge({
 	pairingUuid,

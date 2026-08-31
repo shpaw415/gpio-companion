@@ -2,10 +2,16 @@ import {
 	BREADBOARD_CIRCUIT_JSON,
 	BREADBOARD_DIAGRAM_JSON,
 	BREADBOARD_PREVIEW_SVG,
+	isGithubAppToken,
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
 	PROJECT_FILE_DIRS,
 } from "gpio-companion";
+import {
+	type GithubAppEnv,
+	loadGithubAppInstall,
+	mintInstallationToken,
+} from "./github-app.ts";
 
 export const GITHUB_API = "https://api.github.com";
 export const GITHUB_TOKEN_SETTINGS = "https://github.com/settings/tokens";
@@ -48,6 +54,22 @@ export function githubConfigured(
 	return Boolean(account?.username && account?.token);
 }
 
+export async function githubAccountForUser(
+	env: GithubAppEnv,
+	userId: string,
+): Promise<GithubAccount | null> {
+	const install = await loadGithubAppInstall(env.DYNAMIC_PAGE_KV, userId);
+	if (install && env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY) {
+		const minted = await mintInstallationToken(
+			env,
+			install.installationId,
+			install.login,
+		);
+		return { username: install.login, token: minted.token };
+	}
+	return loadGithubAccount(env.DYNAMIC_PAGE_KV, userId);
+}
+
 export async function loadGithubAccount(
 	kv: KVNamespace,
 	userId: string,
@@ -78,6 +100,22 @@ export async function saveGithubAccount(
 }
 
 export async function listRepos(account: GithubAccount): Promise<GithubRepo[]> {
+	if (isGithubAppToken(account.token)) {
+		const data = await githubJson<{
+			repositories?: Array<{
+				full_name: string;
+				name: string;
+				owner: { login: string };
+				html_url: string;
+			}>;
+		}>(account, "/installation/repositories?per_page=100");
+		return (data.repositories ?? []).map((item) => ({
+			full_name: item.full_name,
+			name: item.name,
+			owner: item.owner.login,
+			html_url: item.html_url,
+		}));
+	}
 	const items = await githubJson<
 		Array<{
 			full_name: string;

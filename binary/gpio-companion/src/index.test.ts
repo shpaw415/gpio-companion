@@ -2,7 +2,11 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
+import {
+	generateDeviceKeyPair,
+	signDeviceRequest,
+	WifiConnectError,
+} from "gpio-companion";
 import { filePairingStore } from "./pairing.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -32,6 +36,15 @@ const server = startDeviceApi({
 		applied += 1;
 	},
 	applyWifi: async (config) => {
+		if (config.ssid === "missing") {
+			throw new WifiConnectError("ssid-not-found");
+		}
+		if (config.ssid === "badpass") {
+			throw new WifiConnectError("password");
+		}
+		if (config.ssid === "nowifi") {
+			throw new WifiConnectError("no-device");
+		}
 		wifiSsid = config.ssid;
 		return { ssid: config.ssid };
 	},
@@ -253,6 +266,56 @@ describe("gpio-companion-bin", () => {
 		expect(wifiSsid).toBe("bench");
 	});
 
+	test("returns classified wifi connect failures", async () => {
+		const missing = await deviceFetch("v1/config/wifi", {
+			method: "PUT",
+			body: JSON.stringify({
+				ssid: "missing",
+				psk: "secret-pass",
+				uuid: "pair-uuid",
+			}),
+		});
+		expect(missing.status).toBe(400);
+		expect(await missing.json()).toEqual({
+			ssid: "missing",
+			connected: false,
+			reason: "ssid-not-found",
+			error: "wifi network not found",
+		});
+
+		const badpass = await deviceFetch("v1/config/wifi", {
+			method: "PUT",
+			body: JSON.stringify({
+				ssid: "badpass",
+				psk: "secret-pass",
+				uuid: "pair-uuid",
+			}),
+		});
+		expect(badpass.status).toBe(400);
+		expect(await badpass.json()).toEqual({
+			ssid: "badpass",
+			connected: false,
+			reason: "password",
+			error: "wifi password incorrect",
+		});
+
+		const nowifi = await deviceFetch("v1/config/wifi", {
+			method: "PUT",
+			body: JSON.stringify({
+				ssid: "nowifi",
+				psk: "secret-pass",
+				uuid: "pair-uuid",
+			}),
+		});
+		expect(nowifi.status).toBe(400);
+		expect(await nowifi.json()).toEqual({
+			ssid: "nowifi",
+			connected: false,
+			reason: "no-device",
+			error: "wifi adapter not available",
+		});
+	});
+
 	test("claims pairing uuid-key", async () => {
 		const denied = await deviceFetch("v1/pairing/claim", {
 			method: "POST",
@@ -380,5 +443,12 @@ describe("gpio-companion-bin", () => {
 		expect(persistBody.paired).toBe(true);
 		expect(persistBody.serviceInstalled).toBe(true);
 		expect(t3Installed).toBe(1);
+	});
+
+	test("github token is loopback only", async () => {
+		const response = await fetch(`${server.url}v1/github-token`);
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toContain("not configured");
 	});
 });
