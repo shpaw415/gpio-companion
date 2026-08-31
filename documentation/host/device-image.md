@@ -80,7 +80,7 @@ If the board is on a tunnel URL, that origin must only be reachable as you inten
 
 ## Bluetooth WiFi (on-device)
 
-`gpio-companion serve` starts `scripts/ble-gatt-server.py` unless `GPIO_COMPANION_BLE=0`. No adapter → skip. Advertisement is the local name `gpio-companion` only (not the 128-bit service UUID) so it fits the 31-byte legacy PDU; the service is still on GATT after connect.
+`gpio-companion serve` starts `scripts/ble-gatt-server.py` unless `GPIO_COMPANION_BLE=0`. No adapter → skip. Advertisement is the local name `gpio-companion` only (not the 128-bit service UUID) so it fits the 31-byte legacy PDU; the service is still on GATT after connect. The BlueZ adapter **Alias** is also set to `gpio-companion` so scanners do not show the hostname (`orangepi3-lts`).
 
 | Item | Value |
 | --- | --- |

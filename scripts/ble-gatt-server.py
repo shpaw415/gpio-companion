@@ -206,9 +206,15 @@ class Advertisement(dbus.service.Object):
 
 def power_adapter(bus, path):
 	props = dbus.Interface(bus.get_object(BLUEZ, path), PROP_IFACE)
-	for key in ("Powered", "Discoverable"):
+	sets = (
+		("Powered", dbus.Boolean(True)),
+		("Discoverable", dbus.Boolean(True)),
+		("Alias", dbus.String(LOCAL_NAME)),
+		("DiscoverableTimeout", dbus.UInt32(0)),
+	)
+	for key, value in sets:
 		try:
-			props.Set("org.bluez.Adapter1", key, dbus.Boolean(True))
+			props.Set("org.bluez.Adapter1", key, value)
 		except dbus.exceptions.DBusException:
 			pass
 
@@ -241,22 +247,55 @@ def wait_adapter(bus):
 	return adapter
 
 
-def register_advertisement(ad_manager, ad):
-	error = None
-	for attempt in range(8):
-		try:
-			ad_manager.RegisterAdvertisement(ad.get_path(), {})
+def register_gatt(service_manager, ad_manager, app, ad):
+	loop = GLib.MainLoop()
+	state = {"failed": False, "ad_tries": 0}
+
+	def fail(kind, error):
+		state["failed"] = True
+		sys.stderr.write(f"gpio-companion ble: {kind}: {error}\n")
+		loop.quit()
+
+	def on_ad_ok():
+		sys.stdout.write("gpio-companion ble: advertising\n")
+		sys.stdout.flush()
+
+	def start_ad():
+		ad_manager.RegisterAdvertisement(
+			ad.get_path(),
+			{},
+			reply_handler=on_ad_ok,
+			error_handler=on_ad_err,
+		)
+		return False
+
+	def on_ad_err(error):
+		state["ad_tries"] += 1
+		sys.stderr.write(
+			f"gpio-companion ble: advertise retry {state['ad_tries']}: {error}\n"
+		)
+		ad_manager.UnregisterAdvertisement(
+			ad.get_path(),
+			reply_handler=lambda: None,
+			error_handler=lambda _error: None,
+		)
+		if state["ad_tries"] >= 8:
+			fail("advertise failed", error)
 			return
-		except dbus.exceptions.DBusException as exc:
-			error = exc
-			try:
-				ad_manager.UnregisterAdvertisement(ad.get_path())
-			except dbus.exceptions.DBusException:
-				pass
-			sys.stderr.write(f"gpio-companion ble: advertise retry {attempt}: {exc}\n")
-			time.sleep(0.5)
-	sys.stderr.write(f"gpio-companion ble: advertise failed: {error}\n")
-	sys.exit(1)
+		GLib.timeout_add(500, start_ad)
+
+	def on_app_ok():
+		start_ad()
+
+	service_manager.RegisterApplication(
+		app.get_path(),
+		{},
+		reply_handler=on_app_ok,
+		error_handler=lambda error: fail("register failed", error),
+	)
+	loop.run()
+	if state["failed"]:
+		sys.exit(1)
 
 
 def forward_envelope(payload, status_char):
@@ -324,16 +363,7 @@ def main():
 	service_manager = dbus.Interface(bus.get_object(BLUEZ, adapter), GATT_MANAGER)
 	ad_manager = dbus.Interface(bus.get_object(BLUEZ, adapter), LE_AD_MANAGER)
 	ad = Advertisement(bus)
-
-	try:
-		service_manager.RegisterApplication(app.get_path(), {})
-	except dbus.exceptions.DBusException as error:
-		sys.stderr.write(f"gpio-companion ble: register failed: {error}\n")
-		sys.exit(1)
-	register_advertisement(ad_manager, ad)
-	sys.stdout.write("gpio-companion ble: advertising\n")
-	sys.stdout.flush()
-	GLib.MainLoop().run()
+	register_gatt(service_manager, ad_manager, app, ad)
 
 
 if __name__ == "__main__":
