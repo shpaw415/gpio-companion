@@ -13,7 +13,7 @@
 		"PUBLIC_AUTH_ISSUER": "https://c138e26ec90148fd88735d42f445004c-auth.webcreas.com",
 		"PUBLIC_AUTH_REDIRECT_URI": "https://gpio-companion.com/callback",
 		"GITHUB_APP_ID": "4778170",
-		"GITHUB_APP_SLUG": "/apps/gpio-companion",
+		"GITHUB_APP_SLUG": "gpio-companion",
 	},
 	"kv_namespaces": [
 		{
