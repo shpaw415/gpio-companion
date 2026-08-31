@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GPIO_USER="${GPIO_USER:-${SUDO_USER:-root}}"
 CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
 BIN_DIR="${GPIO_COMPANION_BIN_DIR:-/usr/local/bin}"
+LIB_DIR="${GPIO_COMPANION_LIB_DIR:-/usr/local/lib/gpio-companion}"
 DEFAULT_DASHBOARD_URL="https://gpio-companion.com"
 
 die() {
@@ -482,7 +483,13 @@ install_gpio_companion_bin() {
 		die "gpio-companion binary missing and bun is not installed"
 	fi
 	install -m 0755 "$src" "$BIN_DIR/gpio-companion"
+	install_ble_gatt_script
 	install_github_git_helper
+}
+
+install_ble_gatt_script() {
+	install -d -m 0755 "$LIB_DIR"
+	install -m 0755 "$REPO_ROOT/scripts/ble-gatt-server.py" "$LIB_DIR/ble-gatt-server.py"
 }
 
 install_github_git_helper() {

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -9,6 +9,11 @@ import {
 	BLE_STATUS_UUID,
 } from "gpio-companion";
 
+export const INSTALLED_BLE_SCRIPT =
+	"/usr/local/lib/gpio-companion/ble-gatt-server.py";
+export const FALLBACK_BLE_SCRIPT =
+	"/opt/gpio-companion/scripts/ble-gatt-server.py";
+
 export type BleBridgeOptions = {
 	pairingUuid: string;
 	hardware: string;
@@ -16,30 +21,48 @@ export type BleBridgeOptions = {
 	deviceUrl?: string;
 };
 
-function bleScriptPath(): string | null {
-	const fromEnv = process.env.GPIO_COMPANION_BLE_SCRIPT;
-	if (fromEnv && existsSync(fromEnv)) {
-		return fromEnv;
+export type BleScriptLookup = {
+	env?: NodeJS.Dict<string>;
+	exists?: (path: string) => boolean;
+	readRepoPath?: () => string | null;
+	sourceDir?: string | null;
+};
+
+export function bleScriptCandidates(lookup: BleScriptLookup = {}): string[] {
+	const env = lookup.env ?? process.env;
+	const candidates: string[] = [];
+	const fromEnv = env.GPIO_COMPANION_BLE_SCRIPT?.trim();
+	if (fromEnv) {
+		candidates.push(fromEnv);
 	}
-	try {
-		const here = dirname(fileURLToPath(import.meta.url));
-		const candidates = [
-			join(here, "../../../scripts/ble-gatt-server.py"),
-			"/opt/gpio-companion/scripts/ble-gatt-server.py",
-		];
-		return candidates.find((path) => existsSync(path)) ?? null;
-	} catch {
-		return existsSync("/opt/gpio-companion/scripts/ble-gatt-server.py")
-			? "/opt/gpio-companion/scripts/ble-gatt-server.py"
-			: null;
+	candidates.push(installedBleScript(env));
+	const repo = lookup.readRepoPath
+		? lookup.readRepoPath()
+		: defaultRepoPath(env);
+	if (repo) {
+		candidates.push(join(repo, "scripts/ble-gatt-server.py"));
 	}
+	candidates.push(FALLBACK_BLE_SCRIPT);
+	const here =
+		lookup.sourceDir === undefined ? defaultSourceDir() : lookup.sourceDir;
+	if (here) {
+		candidates.push(join(here, "../../../scripts/ble-gatt-server.py"));
+	}
+	return candidates;
+}
+
+export function resolveBleScriptPath(
+	lookup: BleScriptLookup = {},
+): string | null {
+	const exists = lookup.exists ?? existsSync;
+	return bleScriptCandidates(lookup).find((path) => exists(path)) ?? null;
 }
 
 export function startBleBridge(options: BleBridgeOptions): void {
 	if (process.env.GPIO_COMPANION_BLE === "0") {
 		return;
 	}
-	const script = bleScriptPath();
+	const script = resolveBleScriptPath();
 	if (!script) {
 		console.log("gpio-companion ble: script not found, skipping");
 		return;
@@ -67,4 +90,31 @@ export function startBleBridge(options: BleBridgeOptions): void {
 		}
 	});
 	console.log("gpio-companion ble: advertising");
+}
+
+function installedBleScript(env: NodeJS.Dict<string>): string {
+	const libDir = env.GPIO_COMPANION_LIB_DIR?.trim();
+	if (libDir) {
+		return join(libDir, "ble-gatt-server.py");
+	}
+	return INSTALLED_BLE_SCRIPT;
+}
+
+function defaultRepoPath(env: NodeJS.Dict<string>): string | null {
+	const configDir =
+		env.GPIO_COMPANION_CONFIG_DIR?.trim() || "/etc/gpio-companion";
+	try {
+		const repo = readFileSync(join(configDir, "repo.path"), "utf8").trim();
+		return repo.length > 0 ? repo : null;
+	} catch {
+		return null;
+	}
+}
+
+function defaultSourceDir(): string | null {
+	try {
+		return dirname(fileURLToPath(import.meta.url));
+	} catch {
+		return null;
+	}
 }

@@ -17,6 +17,7 @@ fi
 
 GPIO_USER="${GPIO_USER:-${SUDO_USER:-root}}"
 BIN_DIR="${GPIO_COMPANION_BIN_DIR:-/usr/local/bin}"
+LIB_DIR="${GPIO_COMPANION_LIB_DIR:-/usr/local/lib/gpio-companion}"
 
 cd "$REPO_ROOT"
 
@@ -56,6 +57,8 @@ paths_changed() {
 	git diff --name-only "$before" "$after" | grep -Eq "$pattern"
 }
 
+install_ble_gatt_script
+
 if paths_changed '^(binary/gpio-companion/|packages/core/|scripts/systemd/gpio-companion\.service|package\.json|bun\.lock)'; then
 	echo "gpio-companion update: server changed, rebuilding"
 	install_gpio_companion_bin
@@ -66,6 +69,9 @@ if paths_changed '^(binary/gpio-companion/|packages/core/|scripts/systemd/gpio-c
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	fi
 	systemctl daemon-reload
+	systemctl restart gpio-companion.service
+elif paths_changed '^scripts/ble-gatt-server\.py$'; then
+	echo "gpio-companion update: BLE GATT script changed, restarting"
 	systemctl restart gpio-companion.service
 elif [[ "$key_changed" -eq 1 ]]; then
 	echo "gpio-companion update: restarting server for new device public key"

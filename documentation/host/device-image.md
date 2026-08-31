@@ -92,7 +92,7 @@ If the board is on a tunnel URL, that origin must only be reachable as you inten
 
 Python forwards the signed envelope to `http://127.0.0.1:4150` (still verified). `PUT /v1/config/wifi` requires body UUID = local pairing UUID, then `nmcli device wifi connect`.
 
-Script path: env `GPIO_COMPANION_BLE_SCRIPT`, else `/opt/gpio-companion/scripts/ble-gatt-server.py`.
+Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default `/usr/local/lib/gpio-companion/ble-gatt-server.py`), then that installed copy, then `$repo/scripts/ble-gatt-server.py` from `/etc/gpio-companion/repo.path`, then `/opt/gpio-companion/scripts/ble-gatt-server.py`, then a source-tree relative path (dev). Install copies `scripts/ble-gatt-server.py` next to the binary helper dir. Missing script → skip (`gpio-companion ble: script not found, skipping`).
 
 ## Updater
 
