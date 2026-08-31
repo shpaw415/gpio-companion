@@ -55,9 +55,93 @@ App: `apps/dashboard`. Wrangler project name: `gpio-companion-dashboard`. Frame 
 
 Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` (array) and `pair:<uuid>`. GitHub App installs are `github-app:<userId>`. Legacy PATs may still exist as `github:<userId>`. AI credits are `credits:<userId>`; Pi OpenCode keys hash to `ai:<sha256>`. Enable the `AI` Workers AI binding in wrangler.
 
-### GitHub App
+### GitHub App (required)
 
-Create a GitHub App (Contents R/W, Metadata R, Administration R/W if the agent creates repos). Setup URL: `https://gpio-companion.com/devices/keys`. Users install it from dashboard Keys. Pis mint a live installation token at git push via `POST /api/github-credentials` (pairing uuid + key). Put `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and `GITHUB_APP_SLUG` on the Pages project. Never commit the App private key.
+Users do **not** paste a PAT. Each signed-in user installs **your** GitHub App from dashboard `/devices/keys`. The Pi never stores a long-lived token: `git push` calls `gpio-companion git-credential`, which hits loopback `GET /v1/github-token`, which `POST`s pairing uuid+key to `https://gpio-companion.com/api/github-credentials`. The dashboard mints a 1-hour installation token (`ghs_…`) and git uses username `x-access-token`.
+
+If a board is offline for more than an hour, the user does nothing except push again once it has internet.
+
+#### Create the App (once per environment)
+
+1. GitHub (org or user that owns gpio-companion) → **Settings → Developer settings → GitHub Apps → New GitHub App**.
+2. Fill:
+
+   | Field | Value |
+   | --- | --- |
+   | GitHub App name | `gpio-companion` (or `gpio-companion-staging`). This becomes the **slug** in `https://github.com/apps/<slug>`. |
+   | Homepage URL | `https://gpio-companion.com` |
+   | Callback URL | `https://gpio-companion.com/devices/keys` (unused for OAuth; required by the form) |
+   | Expire user authorization tokens | leave default |
+   | Request user authorization (OAuth) during installation | **unchecked** |
+   | Setup URL (Post installation) | `https://gpio-companion.com/devices/keys` |
+   | Redirect on update | **checked** so GitHub returns `?installation_id=&setup_action=&state=` |
+   | Webhook | **unchecked** (inactive). This App does not consume webhooks. |
+   | Where can this GitHub App be installed? | **Any account** |
+
+3. Repository permissions (only these):
+
+   | Permission | Access | Why |
+   | --- | --- | --- |
+   | **Contents** | Read and write | clone / commit / `git push` |
+   | **Metadata** | Read-only | mandatory with Contents |
+   | **Administration** | Read and write | agent **creates** repos under the installer account |
+
+   Leave all other repository, organization, and account permissions **No access**.
+
+4. Create the App. On the app page copy:
+
+   - **App ID** — integer, e.g. `123456` → `GITHUB_APP_ID`
+   - **Public link** `/apps/<slug>` → `GITHUB_APP_SLUG` (the path segment only, e.g. `gpio-companion`)
+5. **Generate a private key**. GitHub downloads `*.pem` (`-----BEGIN RSA PRIVATE KEY-----` or `BEGIN PRIVATE KEY`). Store it outside git (mode 0600). This is `GITHUB_APP_PRIVATE_KEY`. You cannot re-download it; generate a new key if lost.
+6. Optional: set the app logo. Do not enable “Expire user authorization tokens” workflows; we mint **installation** tokens, not user-to-server OAuth.
+
+Staging: repeat as a second App (`gpio-companion-staging`) with Setup URL `http://localhost:3010/devices/keys` (or your tunnel). Do not reuse production keys.
+
+#### Put credentials on Cloudflare Pages
+
+From `apps/dashboard` (`--project-name gpio-companion-dashboard`):
+
+```sh
+# public identifiers — vars are fine
+npx wrangler pages secret put GITHUB_APP_ID
+# paste the numeric App ID
+
+npx wrangler pages secret put GITHUB_APP_SLUG
+# paste the slug only, e.g. gpio-companion
+
+# private PEM — never commit, never PUBLIC_
+printf '%s' "$(cat /path/to/gpio-companion.private-key.pem)" | npx wrangler pages secret put GITHUB_APP_PRIVATE_KEY
+```
+
+Local (`apps/dashboard/.dev.vars` or `.env`, see `.env.exemple`):
+
+```
+GITHUB_APP_ID=123456
+GITHUB_APP_SLUG=gpio-companion
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+```
+
+Newlines in `.dev.vars` can be literal; Wrangler accepts a PEM block. Never prefix these with `PUBLIC_`.
+
+#### Runtime map
+
+| Piece | Location |
+| --- | --- |
+| App install record | KV `github-app:<userId>` = `{ installationId, login }` |
+| Install CSRF | KV `github-app-state:<uuid>` (TTL 15 min) |
+| Dashboard mint | `GET`/`POST` `/api/github-app` (signed-in user) |
+| Pi mint | `POST /api/github-credentials` body `{ uuid, key }` (pairing secret, TLS) |
+| Git on the Pi | `/etc/gitconfig` helper `!/usr/local/bin/gpio-companion git-credential` |
+| Agent API token | `gpio-companion github-token` (same mint path) |
+
+`/projects` lists **installation** repos (`GET /installation/repositories`), not `/user/repos`. Legacy KV `github:<userId>` PATs still work if present; Keys no longer collects them.
+
+#### Confirm
+
+1. Dashboard `/devices/keys` while signed in shows **Connect GitHub** (not a PAT form). If you see `github app is not configured`, the three secrets are missing on that Wrangler environment.
+2. Install the App on a test GitHub account (all repos or selected).
+3. Redirect lands on `/devices/keys` with `installation_id` + `state`; page shows **Connected as @login**.
+4. On a paired Pi: `curl -sS http://127.0.0.1:4150/v1/github-token` (loopback only) returns `token` starting `ghs_`. `git push` to a repo the App can access succeeds without a PAT.
 
 ### Vars (wrangler.jsonc and/or Pages)
 
@@ -75,7 +159,7 @@ Committed `vars` override dashboard-only values if they are empty strings. Set r
 | `GITHUB_APP_PRIVATE_KEY` | GitHub App private PEM (secret) |
 | `GITHUB_APP_SLUG` | GitHub App slug for `/apps/{slug}/installations/new` |
 
-`PUBLIC_*` is injected into the browser. Never put the device private key or `AUTH_SECRET` under a `PUBLIC_` name.
+`PUBLIC_*` is injected into the browser. Never put `GPIO_COMPANION_DEVICE_PRIVATE_KEY`, `AUTH_SECRET`, or `GITHUB_APP_PRIVATE_KEY` under a `PUBLIC_` name.
 
 ### Local
 
@@ -104,11 +188,7 @@ Confirm:
 
 ## 3. GitHub (user accounts)
 
-The host does **not** run Gitea. Each dashboard user uses **their GitHub account**.
-
-- Keys: GitHub username + classic PAT (`repo` scope) at https://github.com/settings/tokens
-- Dashboard stores the PAT in KV (`github:<userId>`) so `/projects` lists that user's repos
-- The same save signs `PUT /v1/config/github` to the Pi; on-device `/etc/gpio-companion/secrets.env` (mode 600) plus `git-credentials`
+The host does **not** run Gitea. Each dashboard user uses **their GitHub account** by installing **your** GitHub App (section 2). You do not collect PATs.
 
 If an old `gitea-container` Worker is still deployed, delete it (`wrangler delete gitea-container`).
 
@@ -131,13 +211,13 @@ It creates `gpio-<pairing-uuid>`, publishes:
 
 T3 pairing stays on the dashboard: after claim it runs `t3 start`, shows `https://app.t3.codes/pair?host=https://t3-…`, then `t3 service install`.
 
-first-setup bakes `GPIO_AI_KEY` and the OpenCode provider pointing at `/api/ai/v1`. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub PAT still goes through Keys after pair.
+first-setup bakes `GPIO_AI_KEY` and the OpenCode provider pointing at `/api/ai/v1`. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub access is the App install on Keys, not a PAT.
 
 ## 5. What users need from you
 
 Give every desk user:
 
 1. Dashboard origin (and that they must use Chrome/Edge for in-browser Bluetooth)
-2. That projects live on **their GitHub** (classic PAT with `repo`)
+2. That projects live on **their GitHub**; after pair they **Connect GitHub** on `/devices/keys` (install your App — no PAT)
 3. Cloudflare API token / account ID / zone ID for first-setup (Tunnel Edit + DNS Edit on `gpio-companion.com`)
 4. That pairing UUID + key and the `api-` / `t3-` URLs are printed **on the Pi console** at first-setup — you do not email those

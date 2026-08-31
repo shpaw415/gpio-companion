@@ -52,7 +52,10 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 | OpenAuthster `AUTH_SECRET` | Pages secret | Host |
 | Pairing UUID/key | `/etc/gpio-companion/pairing.env` | First-setup on the Pi |
 | GPIO AI key | `/etc/gpio-companion/secrets.env` (`GPIO_AI_KEY`) | First-setup; hashed on pair for `/api/ai/v1` |
-| GitHub user token | same `secrets.env` | User via Keys after they create a GitHub PAT |
+| GitHub App private key | Cloudflare Pages secret `GITHUB_APP_PRIVATE_KEY` | Host (generate on the App settings page) |
+| GitHub App ID / slug | Pages secret/var `GITHUB_APP_ID`, `GITHUB_APP_SLUG` | Host |
+| GitHub installation | KV `github-app:<userId>` | User via Keys **Connect GitHub** |
+| GitHub installation token (`ghs_`) | minted on demand, ~1h | Pi `git-credential` / `GET /v1/github-token` → `POST /api/github-credentials` |
 | Tunnel replica token | `cloudflared.env` | First-setup Cloudflare API (token itself is not stored) |
 | Cloudflare API token | console only | First-setup; never written to disk |
 

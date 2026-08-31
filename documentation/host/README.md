@@ -9,7 +9,7 @@ gpio-companion is still a raw product (`PRODUCT.md`). Do not treat unspecified c
 You run:
 
 - The Cloudflare Pages dashboard (`apps/dashboard`, project `gpio-companion-dashboard`)
-- Users host electronics projects on **their own GitHub** accounts (dashboard Keys PAT)
+- Users host electronics projects on **their own GitHub** accounts (dashboard Keys GitHub App install)
 - Ed25519 device-signing keys (private key never in git or the browser)
 - Armbian image / first-boot clone of this repo onto Orange Pi and Raspberry Pi boards
 
@@ -19,7 +19,7 @@ You do **not** sit at the GPIO bench. The on-device agent and the signed-in dash
 
 | Doc | Contents |
 | --- | --- |
-| [deploy.md](./deploy.md) | Dashboard, auth, KV, device private key, GitHub PAT flow, local vs production |
+| [deploy.md](./deploy.md) | Dashboard, auth, KV, device private key, GitHub App (create + secrets), local vs production |
 | [device-image.md](./device-image.md) | Snapshot first-boot, per-hardware install, systemd, BLE GATT, device API |
 | [workflows.md](./workflows.md) | Day-two ops: updates, key rotation, pairing support, secrets ownership |
 
@@ -36,5 +36,5 @@ Pi (public key from GET /api/device-public-key)
 - Unsigned on the Pi: `GET /health` only
 - Private key: Cloudflare secret `GPIO_COMPANION_DEVICE_PRIVATE_KEY`
 - Public key: fetched at first-setup onto `/etc/gpio-companion/device-auth.json` (key id `gpio-companion-v1`); refreshed by `scripts/update-script.sh`
-- Unsigned on the dashboard: `GET /api/device-public-key` (and `GET /api/health`)
+- Unsigned on the dashboard: `GET /api/device-public-key`, `GET /api/health`, and `POST /api/github-credentials` (Pi pairing uuid+key, not the browser)
 - Browser never holds the private key and never calls the Pi API directly for config
