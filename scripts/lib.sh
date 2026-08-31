@@ -81,7 +81,9 @@ install_apt_base() {
 		udev \
 		bluez \
 		python3-dbus \
-		python3-gi
+		python3-gi \
+		network-manager
+	systemctl enable --now NetworkManager.service || true
 }
 
 install_node() {

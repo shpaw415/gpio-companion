@@ -41,7 +41,7 @@ Force re-run: `GPIO_COMPANION_FORCE_SETUP=1`.
 
 Shared work: `scripts/lib.sh` → `install_common`.
 
-Packages include: git, zip/unzip, bun, build-essential, node-gyp toolchain, libgpiod, Arduino USB (`avrdude`, `picocom`, …), cloudflared, OpenCode, T3 Code, **bluez**, **python3-dbus**, **python3-gi** (BLE GATT).
+Packages include: git, zip/unzip, bun, build-essential, node-gyp toolchain, libgpiod, Arduino USB (`avrdude`, `picocom`, …), cloudflared, OpenCode, T3 Code, **bluez**, **python3-dbus**, **python3-gi** (BLE GATT), **network-manager** (`nmcli` for `PUT /v1/config/wifi`).
 
 - Raspberry Pi extras: optional `pigpio` / `raspi-gpio`
 - Orange Pi extras: optional WiringOP — SoC lines are **not** BCM; agents must use `gpioinfo`
