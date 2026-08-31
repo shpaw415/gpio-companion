@@ -1,3 +1,10 @@
+import BluetoothIcon from "@material-design-icons/svg/filled/bluetooth.svg";
+import FolderIcon from "@material-design-icons/svg/filled/folder.svg";
+import HomeIcon from "@material-design-icons/svg/filled/home.svg";
+import LoginIcon from "@material-design-icons/svg/filled/login.svg";
+import NotificationsIcon from "@material-design-icons/svg/filled/notifications.svg";
+import VpnKeyIcon from "@material-design-icons/svg/filled/vpn_key.svg";
+import WifiIcon from "@material-design-icons/svg/filled/wifi.svg";
 import AppBar from "@shpaw415/mui-lite/AppBar";
 import BottomNavigation, {
 	BottomNavigationAction,
@@ -7,16 +14,16 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Toolbar from "@shpaw415/mui-lite/Toolbar";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
-const nav = [
-	{ href: "/", label: "Home" },
-	{ href: "/projects", label: "Projects" },
-	{ href: "/pair", label: "Pair" },
-	{ href: "/notifications", label: "Notify" },
-	{ href: "/wifi", label: "WiFi" },
-	{ href: "/keys", label: "Keys" },
-	{ href: "/login", label: "Sign in" },
+const nav: Array<{ href: string; label: string; icon: ReactNode }> = [
+	{ href: "/", label: "Home", icon: <HomeIcon /> },
+	{ href: "/projects", label: "Projects", icon: <FolderIcon /> },
+	{ href: "/pair", label: "Pair", icon: <BluetoothIcon /> },
+	{ href: "/notifications", label: "Notify", icon: <NotificationsIcon /> },
+	{ href: "/wifi", label: "WiFi", icon: <WifiIcon /> },
+	{ href: "/keys", label: "Keys", icon: <VpnKeyIcon /> },
+	{ href: "/login", label: "Sign in", icon: <LoginIcon /> },
 ];
 
 function currentTab(pathname: string) {
@@ -99,6 +106,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 								key={item.href}
 								value={item.href}
 								label={item.label}
+								icon={item.icon}
 							/>
 						))}
 					</BottomNavigation>
