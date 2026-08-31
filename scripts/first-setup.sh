@@ -53,7 +53,8 @@ if [[ ! -t 0 && -z "${GPIO_COMPANION_HARDWARE:-}" ]]; then
 fi
 
 echo "gpio-companion first setup"
-echo "OpenCode API key and Gitea token are set from the dashboard, not this prompt."
+echo "OpenCode API key and GitHub token are set from the dashboard, not this prompt."
+echo "T3 Code pairing is started from the dashboard after you claim this board."
 echo
 
 hardware="${GPIO_COMPANION_HARDWARE:-}"
@@ -76,25 +77,51 @@ if [[ "$hardware" != "raspberrypi" && "$hardware" != "orangepi" ]]; then
 	die "hardware must be raspberrypi or orangepi"
 fi
 
-tunnel_token="${GPIO_COMPANION_TUNNEL_TOKEN:-}"
-tunnel_hostname="${GPIO_COMPANION_TUNNEL_HOSTNAME:-}"
+cf_token="${GPIO_COMPANION_CF_API_TOKEN:-}"
+cf_account="${GPIO_COMPANION_CF_ACCOUNT_ID:-}"
+cf_zone="${GPIO_COMPANION_CF_ZONE_ID:-}"
 
 if [[ -t 0 ]]; then
-	[[ -n "$tunnel_token" ]] || prompt_secret tunnel_token "Cloudflare tunnel token (t3code replica, empty to skip)"
-	[[ -n "$tunnel_hostname" ]] || prompt tunnel_hostname "Tunnel hostname / custom endpoint" ""
+	[[ -n "$cf_token" ]] || prompt_secret cf_token "Cloudflare API token (Tunnel Edit + Zone DNS Edit)"
+	[[ -n "$cf_account" ]] || prompt cf_account "Cloudflare account ID" ""
+	[[ -n "$cf_zone" ]] || prompt cf_zone "Cloudflare zone ID (gpio-companion.com)" ""
+fi
+
+if [[ -z "$cf_token" || -z "$cf_account" || -z "$cf_zone" ]]; then
+	die "Cloudflare API token, account ID, and zone ID are required"
 fi
 
 echo "installing $hardware..."
 "/bin/bash" "$SCRIPT_DIR/install-${hardware}.sh"
 
-apply_runtime_config "$hardware" "$tunnel_token" "$tunnel_hostname"
+write_pairing_env
+# shellcheck disable=SC1091
+source "$CONFIG_DIR/pairing.env"
+if [[ -z "${GPIO_COMPANION_PAIRING_UUID:-}" ]]; then
+	die "pairing UUID missing after write_pairing_env"
+fi
+
+echo "creating Cloudflare tunnel for this board..."
+tunnel_json="$(create_cloudflare_tunnel "$GPIO_COMPANION_PAIRING_UUID" "$cf_token" "$cf_account" "$cf_zone")"
+unset cf_token
+cf_token=""
+
+tunnel_token="$(TUNNEL_JSON="$tunnel_json" python3 -c 'import json,os; print(json.loads(os.environ["TUNNEL_JSON"])["token"])')"
+t3_hostname="$(TUNNEL_JSON="$tunnel_json" python3 -c 'import json,os; print(json.loads(os.environ["TUNNEL_JSON"])["hostname"])')"
+api_hostname="$(TUNNEL_JSON="$tunnel_json" python3 -c 'import json,os; print(json.loads(os.environ["TUNNEL_JSON"])["apiHostname"])')"
+tunnel_id="$(TUNNEL_JSON="$tunnel_json" python3 -c 'import json,os; print(json.loads(os.environ["TUNNEL_JSON"])["tunnelId"])')"
+
+apply_runtime_config "$hardware" "$tunnel_token" "$t3_hostname" "$api_hostname" "$tunnel_id"
+unset tunnel_token
+tunnel_token=""
 
 install -d -m 0755 "$CONFIG_DIR"
 date -u +"%Y-%m-%dT%H:%M:%SZ" >"$MARKER"
 chmod 644 "$MARKER"
 
-write_pairing_env
-
 echo "first-setup complete"
+echo "device API: https://${api_hostname}"
+echo "T3 Code:    https://${t3_hostname}"
 echo "pair this board on the dashboard /pair page with the UUID and key above"
-echo "OpenCode and Gitea credentials are set from the dashboard after pairing"
+echo "OpenCode and GitHub credentials are set from the dashboard after pairing"
+echo "T3 Code pairing starts on the dashboard after claim"

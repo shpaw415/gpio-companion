@@ -4,6 +4,7 @@ import {
 	PUT as signCredentials,
 	DELETE as unpairDevice,
 } from "@api/pair";
+import { GET as getT3, POST as t3Action } from "@api/t3";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -14,7 +15,6 @@ import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
-	giteaLoginFromEmail,
 } from "gpio-companion";
 import { type FormEvent, useEffect, useState } from "react";
 import { useAuthSession } from "../hooks/useAuth.ts";
@@ -37,11 +37,12 @@ export default function PairForm({
 	const [deviceUrl, setDeviceUrl] = useState("");
 	const [uuid, setUuid] = useState("");
 	const [key, setKey] = useState("");
-	const [giteaLogin, setGiteaLogin] = useState("");
 	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
 	const [paired, setPaired] = useState("");
 	const [pasteText, setPasteText] = useState("");
+	const [pairingUrl, setPairingUrl] = useState("");
+	const [t3Ready, setT3Ready] = useState(false);
 
 	useEffect(() => {
 		if (!session.data?.id) {
@@ -49,14 +50,11 @@ export default function PairForm({
 		}
 		void getPairing().then((result) => {
 			if (result.paired) {
-				setPaired(result.device.giteaLogin);
+				setPaired(result.device.login);
 				setDeviceUrl(result.device.deviceUrl);
 			}
 		});
-		if (!giteaLogin && session.data?.email) {
-			setGiteaLogin(giteaLoginFromEmail(session.data.email));
-		}
-	}, [session.data?.id, session.data?.email, giteaLogin]);
+	}, [session.data?.id]);
 
 	async function retrieveCredentials() {
 		setError("");
@@ -87,6 +85,37 @@ export default function PairForm({
 		}
 	}
 
+	useEffect(() => {
+		if (!pairingUrl || t3Ready) {
+			return;
+		}
+		const timer = window.setInterval(() => {
+			void getT3()
+				.then(async (result) => {
+					if (result.serviceInstalled) {
+						setT3Ready(true);
+						setStatus("T3 Code is persistent on the Pi");
+						return;
+					}
+					if (result.paired) {
+						setStatus("T3 paired — installing service…");
+						await t3Action("persist");
+						setT3Ready(true);
+						setStatus("T3 Code is persistent on the Pi");
+					}
+				})
+				.catch(() => undefined);
+		}, 3000);
+		return () => window.clearInterval(timer);
+	}, [pairingUrl, t3Ready]);
+
+	async function startT3Pairing() {
+		setStatus("starting T3 Code…");
+		const started = await t3Action("start");
+		setPairingUrl(started.pairingUrl);
+		setStatus("open the pairing URL in the browser");
+	}
+
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
 		if (!session.data?.id) {
@@ -100,7 +129,6 @@ export default function PairForm({
 				deviceUrl,
 				uuid,
 				key,
-				giteaLogin,
 			});
 			if ("pending" in body && body.pending) {
 				setStatus("waiting for the current owner to accept in Notifications");
@@ -120,8 +148,8 @@ export default function PairForm({
 					return;
 				}
 			}
-			if ("giteaLogin" in body) {
-				setPaired(body.giteaLogin);
+			if ("login" in body) {
+				setPaired(body.login);
 			}
 			if ("deviceUrl" in body) {
 				setDeviceUrl(body.deviceUrl);
@@ -129,6 +157,7 @@ export default function PairForm({
 			}
 			setStatus("paired");
 			setKey("");
+			await startT3Pairing();
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "pair failed");
@@ -150,9 +179,7 @@ export default function PairForm({
 		<Paper className="max-w-xl p-6" elevation={1}>
 			<form onSubmit={onSubmit}>
 				<Stack spacing={2}>
-					{paired ? (
-						<Alert severity="success">Paired as Gitea account {paired}</Alert>
-					) : null}
+					{paired ? <Alert severity="success">Paired as {paired}</Alert> : null}
 					<Button
 						type="button"
 						variant="outlined"
@@ -177,7 +204,7 @@ export default function PairForm({
 					)}
 					<TextField
 						label="Device URL"
-						placeholder="https://pi.example.com:4150 (optional if using BLE)"
+						placeholder="https://api-<uuid>.gpio-companion.com (optional)"
 						value={deviceUrl}
 						onChange={(event) => setDeviceUrl(event.target.value)}
 						className="w-full"
@@ -193,12 +220,6 @@ export default function PairForm({
 						type="password"
 						value={key}
 						onChange={(event) => setKey(event.target.value)}
-						className="w-full"
-					/>
-					<TextField
-						label="Gitea account"
-						value={giteaLogin}
-						onChange={(event) => setGiteaLogin(event.target.value)}
 						className="w-full"
 					/>
 					<Button type="submit" variant="contained">
@@ -224,6 +245,43 @@ export default function PairForm({
 							className="w-full min-h-32 p-2 font-mono text-xs"
 							value={pasteText}
 						/>
+					) : null}
+					{pairingUrl ? (
+						<Stack spacing={1}>
+							<Typography variant="subtitle1">T3 Code pairing</Typography>
+							<Button href={pairingUrl} variant="contained">
+								Open pairing URL
+							</Button>
+							<textarea
+								readOnly
+								className="w-full min-h-16 p-2 font-mono text-xs"
+								value={pairingUrl}
+							/>
+							{t3Ready ? (
+								<Alert severity="success">T3 Code service installed</Alert>
+							) : (
+								<Button
+									type="button"
+									variant="outlined"
+									onClick={() => {
+										void t3Action("persist")
+											.then(() => {
+												setT3Ready(true);
+												setStatus("T3 Code is persistent on the Pi");
+											})
+											.catch((caught) => {
+												setError(
+													caught instanceof Error
+														? caught.message
+														: "T3 service install failed",
+												);
+											});
+									}}
+								>
+									I’ve paired
+								</Button>
+							)}
+						</Stack>
 					) : null}
 					{status ? <Typography color="secondary">{status}</Typography> : null}
 					{error ? <Alert severity="error">{error}</Alert> : null}

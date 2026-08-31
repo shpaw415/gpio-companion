@@ -1,51 +1,59 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import {
-	giteaConfigured,
+	githubConfigured,
 	listRepos,
+	loadGithubAccount,
 	loadProjectBundle,
 	readRepoFile,
-} from "../../lib/gitea.ts";
+} from "../../lib/github.ts";
+import { requireIdentity } from "../../lib/session.ts";
 
 type PagesEnv = {
-	GITEA_URL?: string;
-	GITEA_TOKEN?: string;
+	DYNAMIC_PAGE_KV: KVNamespace;
 };
+
+async function accountForUser(env: PagesEnv, userId: string) {
+	return loadGithubAccount(env.DYNAMIC_PAGE_KV, userId);
+}
 
 export async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
-	const env = {
-		GITEA_URL: ctx.env.GITEA_URL,
-		GITEA_TOKEN: ctx.env.GITEA_TOKEN,
-	};
-	if (!giteaConfigured(env)) {
+	const identity = await requireIdentity(ctx);
+	if (!identity.id) {
+		throw new Error("sign in first");
+	}
+	const account = await accountForUser(ctx.env, identity.id);
+	if (!githubConfigured(account)) {
 		return {
 			configured: false,
 			repos: [] as Awaited<ReturnType<typeof listRepos>>,
 		};
 	}
-	return { configured: true, repos: await listRepos(env) };
+	return { configured: true, repos: await listRepos(account) };
 }
 
 export async function POST(owner: string, repo: string) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
-	const env = {
-		GITEA_URL: ctx.env.GITEA_URL,
-		GITEA_TOKEN: ctx.env.GITEA_TOKEN,
-	};
-	if (!giteaConfigured(env)) {
-		throw new Error("gitea is not configured");
+	const identity = await requireIdentity(ctx);
+	if (!identity.id) {
+		throw new Error("sign in first");
 	}
-	return loadProjectBundle(env, owner, repo);
+	const account = await accountForUser(ctx.env, identity.id);
+	if (!githubConfigured(account)) {
+		throw new Error("github is not configured");
+	}
+	return loadProjectBundle(account, owner, repo);
 }
 
 export async function PUT(owner: string, repo: string, path: string) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
-	const env = {
-		GITEA_URL: ctx.env.GITEA_URL,
-		GITEA_TOKEN: ctx.env.GITEA_TOKEN,
-	};
-	if (!giteaConfigured(env)) {
-		throw new Error("gitea is not configured");
+	const identity = await requireIdentity(ctx);
+	if (!identity.id) {
+		throw new Error("sign in first");
 	}
-	return { text: await readRepoFile(env, owner, repo, path) };
+	const account = await accountForUser(ctx.env, identity.id);
+	if (!githubConfigured(account)) {
+		throw new Error("github is not configured");
+	}
+	return { text: await readRepoFile(account, owner, repo, path) };
 }

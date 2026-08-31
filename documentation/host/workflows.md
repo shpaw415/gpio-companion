@@ -21,7 +21,7 @@ There is no multi-key ring yet — rotation is cutover.
 
 You cannot pair for them without their dashboard login. They need:
 
-- Device URL (tunnel or LAN `http://<pi>:4150` — after WiFi)
+- Device URL (`https://api-<uuid>.gpio-companion.com` from first-setup)
 - Pairing UUID + key from the Pi’s first-setup console / `pairing.env`
 
 Host debug on the board (SSH/serial):
@@ -53,11 +53,11 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 | OpenAuthster `AUTH_SECRET` | Pages secret | Host |
 | Pairing UUID/key | `/etc/gpio-companion/pairing.env` | First-setup on the Pi |
 | OpenCode API key | `/etc/gpio-companion/secrets.env` | User via dashboard Keys |
-| Gitea user token | same `secrets.env` | User via Keys after they register on Gitea |
-| Tunnel token | `cloudflared.env` | First-setup or signed `PUT /v1/config/tunnel` |
-| Dashboard `GITEA_TOKEN` | Pages secret | Host (read projects in the cloud UI) |
+| GitHub user token | same `secrets.env` | User via Keys after they create a GitHub PAT |
+| Tunnel replica token | `cloudflared.env` | First-setup Cloudflare API (token itself is not stored) |
+| Cloudflare API token | console only | First-setup; never written to disk |
 
-Never put OpenCode or Gitea user tokens in the image.
+Never put OpenCode or GitHub user tokens in the image.
 
 ## Break-glass on a bricked network
 

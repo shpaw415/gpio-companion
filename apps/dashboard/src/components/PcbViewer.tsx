@@ -64,7 +64,7 @@ export default function PcbViewer({
 	return (
 		<Paper className="p-6" elevation={1}>
 			<Typography color="secondary">
-				No {label} circuit.json or preview.svg in Gitea yet.
+				No {label} circuit.json or preview.svg on GitHub yet.
 			</Typography>
 		</Paper>
 	);

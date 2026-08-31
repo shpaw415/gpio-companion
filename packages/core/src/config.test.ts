@@ -10,7 +10,7 @@ describe("device config", () => {
 	test("empty raspberrypi config", () => {
 		expect(emptyDeviceConfig("raspberrypi")).toEqual({
 			hardware: "raspberrypi",
-			tunnel: { token: "", hostname: "" },
+			tunnel: { token: "", hostname: "", apiHostname: "", tunnelId: "" },
 		});
 	});
 
@@ -23,6 +23,8 @@ describe("device config", () => {
 		).toEqual({
 			token: "tok",
 			hostname: "t3.example.com",
+			apiHostname: "",
+			tunnelId: "",
 		});
 	});
 

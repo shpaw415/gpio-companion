@@ -1,12 +1,12 @@
 # Getting started (user)
 
-Do this in order. OpenCode API key and Gitea token are **not** typed on the Pi; they come from the dashboard after pair.
+Do this in order. OpenCode API key and GitHub token are **not** typed on the Pi; they come from the dashboard after pair.
 
 ## 1. Power the board
 
 HDMI/serial if you need the console. First boot clones the repo to `/opt/gpio-companion` and runs first-setup (root, interactive).
 
-Choose **raspberrypi** or **orangepi**. Optionally paste a Cloudflare tunnel token and hostname for T3 Code (skip if the host applies it later).
+Choose **raspberrypi** or **orangepi**. Enter the host’s Cloudflare API token, account ID, and zone ID so first-setup can create this board’s tunnel (`api-…` and `t3-…` on gpio-companion.com).
 
 **Write down** the printed **pairing UUID** and **pairing key**, or pull them on `/pair` over Bluetooth (Chrome) / LightBlue paste (iOS). They also live in `/etc/gpio-companion/pairing.env` (root).
 
@@ -24,7 +24,7 @@ Ethernet and the Pi TTY (`nmcli`) always work.
 
 ## 3. Sign in
 
-Dashboard `/` stepper: **Sign in → Pair Pi → Gitea → Overview**.
+Dashboard `/` stepper: **Sign in → Pair Pi → GitHub → Overview**.
 
 Use `/login`. After OAuth/passkey you land on `/callback` then home.
 
@@ -34,26 +34,24 @@ Page `/pair` (or stepper step 2).
 
 | Field | Where it comes from |
 | --- | --- |
-| Device URL | `https://<your-tunnel-host>:4150` or `http://<pi-lan-ip>:4150` |
+| Device URL | `https://api-<uuid>.gpio-companion.com` (printed at first-setup; optional) |
 | Pairing UUID | first-setup printout |
 | Pairing key | first-setup printout |
-| Gitea account | suggested from your email; must match the account you will create on Gitea |
 
-The dashboard **signs** the claim. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
+The dashboard **signs** the claim, starts **T3 Code** (`t3 start`), and shows a web pairing URL (`app.t3.codes/pair?host=https://t3-…`). Open it, finish T3 pairing; the dashboard then runs `t3 service install`. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
 
-## 5. Gitea
+## 5. GitHub
 
-1. Open Gitea (link on Keys / onboarding if the host set `PUBLIC_GITEA_URL`)
-2. **Register** a user yourself
-3. Create a **token** (repo read/write so the agent can `git push`)
-4. Dashboard **Keys**: Gitea URL, username, token, optional OpenCode API key
-5. Save — the dashboard signs `PUT /v1/config/gitea` and `PUT /v1/config/secrets` to **your** paired Pi
+1. Use **your** GitHub account (create one if needed)
+2. Create a **classic PAT** with the `repo` scope at https://github.com/settings/tokens
+3. Dashboard **Keys**: GitHub username, token, optional OpenCode API key
+4. Save — the dashboard stores the token for `/projects` and signs `PUT /v1/config/github` and `PUT /v1/config/secrets` to **your** paired Pi
 
 The agent uses `/etc/gpio-companion/secrets.env` on the Pi. Tokens are not stored in the dashboard form after save.
 
 ## 6. Overview
 
-When Gitea is marked ready on the device, `/` shows the overview and `/projects` lists repos (pcb / breadboard / technical). T3 Code pairing stays on the dashboard.
+When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). T3 Code pairing is the URL shown on `/pair` after hardware claim.
 
 ## If something fails
 

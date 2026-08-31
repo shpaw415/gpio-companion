@@ -15,12 +15,12 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
-import type { GiteaRepo, ProjectBundle } from "../lib/gitea.ts";
+import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import PcbViewer from "./PcbViewer.tsx";
 
 export default function ProjectBrowser() {
 	const [configured, setConfigured] = useState(true);
-	const [repos, setRepos] = useState<GiteaRepo[]>([]);
+	const [repos, setRepos] = useState<GithubRepo[]>([]);
 	const [error, setError] = useState("");
 	const [bundle, setBundle] = useState<ProjectBundle | null>(null);
 	const [pcbJson, setPcbJson] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export default function ProjectBrowser() {
 			});
 	}, []);
 
-	async function openRepo(repo: GiteaRepo) {
+	async function openRepo(repo: GithubRepo) {
 		setError("");
 		setPcbJson(null);
 		try {
@@ -56,7 +56,7 @@ export default function ProjectBrowser() {
 	if (!configured) {
 		return (
 			<Alert severity="info">
-				Set GITEA_URL and secret GITEA_TOKEN on the Pages project to list Gitea
+				Save a GitHub username and PAT on Keys so this dashboard can list your
 				repos. Agent-pushed files live in pcb/, breadboard/, and technical/.
 			</Alert>
 		);
@@ -76,7 +76,7 @@ export default function ProjectBrowser() {
 				</List>
 				{repos.length === 0 ? (
 					<Typography color="secondary" className="p-4">
-						No Gitea repos yet.
+						No GitHub repos yet.
 					</Typography>
 				) : null}
 			</Paper>

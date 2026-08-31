@@ -14,6 +14,7 @@
 		"./src/components/LoginPanel.tsx",
 		"./src/pages/index.tsx",
 		"./src/actions/api/pair.ts",
+		"./src/actions/api/t3.ts",
 		"./src/actions/api/device.ts",
 		"./src/lib/session.ts",
 		"./src/components/KeysForm.tsx",

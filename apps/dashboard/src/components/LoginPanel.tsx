@@ -42,7 +42,7 @@ export default function LoginPanel() {
 				Sign in
 			</Typography>
 			<Typography color="secondary" align="center" className="mt-2 mb-6">
-				Sign in, then pair a Pi and set up Gitea.
+				Sign in, then pair a Pi and set up GitHub.
 			</Typography>
 			<Stack spacing={2}>
 				<Button variant="outlined" onClick={() => void start("google")}>

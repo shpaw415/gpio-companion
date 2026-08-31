@@ -15,7 +15,7 @@ import {
 	DEFAULT_TUNNEL_ENV_PATH,
 	fileConfigStore,
 } from "./store.ts";
-import { revokeT3Authorization } from "./t3.ts";
+import { liveT3Controller } from "./t3.ts";
 import { applyCloudflaredReplica } from "./tunnel.ts";
 import { applyNetworkManagerWifi } from "./wifi.ts";
 
@@ -46,6 +46,7 @@ const deviceKeyId =
 const devicePublicKeyPem =
 	process.env.GPIO_COMPANION_DEVICE_PUBLIC_KEY ?? DEFAULT_DEVICE_PUBLIC_KEY_PEM;
 
+const t3 = liveT3Controller();
 const server = startDeviceApi({
 	port,
 	store: fileConfigStore(configPath, hardware),
@@ -53,7 +54,8 @@ const server = startDeviceApi({
 	pairing: filePairingStore(pairingPath, pairingUuid, pairingKey),
 	applyTunnel: applyCloudflaredReplica(envPath),
 	applyWifi: applyNetworkManagerWifi(),
-	revokeT3: revokeT3Authorization,
+	t3,
+	revokeT3: () => t3.revoke(),
 	deviceAuth: {
 		keyId: deviceKeyId,
 		publicKeyPem: devicePublicKeyPem,

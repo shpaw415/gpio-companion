@@ -1,16 +1,18 @@
+export const DEFAULT_GITHUB_URL = "https://github.com";
+
 export type DeviceSecrets = {
 	opencodeApiKey: string;
-	giteaUrl: string;
-	giteaUsername: string;
-	giteaToken: string;
+	githubUsername: string;
+	githubToken: string;
+	githubUrl: string;
 };
 
 export function emptyDeviceSecrets(): DeviceSecrets {
 	return {
 		opencodeApiKey: "",
-		giteaUrl: "",
-		giteaUsername: "",
-		giteaToken: "",
+		githubUsername: "",
+		githubToken: "",
+		githubUrl: "",
 	};
 }
 
@@ -19,37 +21,46 @@ export function parseDeviceSecrets(input: unknown): DeviceSecrets {
 		throw new Error("secrets must be an object");
 	}
 	const record = input as Record<string, unknown>;
-	return {
+	return withGithubUrl({
 		opencodeApiKey: optionalString(record.opencodeApiKey),
-		giteaUrl: optionalString(record.giteaUrl),
-		giteaUsername: optionalString(record.giteaUsername),
-		giteaToken: optionalString(record.giteaToken),
-	};
+		githubUsername:
+			optionalString(record.githubUsername) ||
+			optionalString(record.giteaUsername),
+		githubToken:
+			optionalString(record.githubToken) || optionalString(record.giteaToken),
+		githubUrl:
+			optionalString(record.githubUrl) || optionalString(record.giteaUrl),
+	});
 }
 
 export function mergeDeviceSecrets(
 	current: DeviceSecrets,
 	patch: DeviceSecrets,
 ): DeviceSecrets {
-	return {
+	return withGithubUrl({
 		opencodeApiKey: patch.opencodeApiKey || current.opencodeApiKey,
-		giteaUrl: patch.giteaUrl || current.giteaUrl,
-		giteaUsername: patch.giteaUsername || current.giteaUsername,
-		giteaToken: patch.giteaToken || current.giteaToken,
-	};
+		githubUsername: patch.githubUsername || current.githubUsername,
+		githubToken: patch.githubToken || current.githubToken,
+		githubUrl: patch.githubUrl || current.githubUrl,
+	});
 }
 
 export function secretsStatus(secrets: DeviceSecrets) {
 	return {
 		opencodeApiKey: Boolean(secrets.opencodeApiKey),
-		giteaUrl: Boolean(secrets.giteaUrl),
-		giteaUsername: Boolean(secrets.giteaUsername),
-		giteaToken: Boolean(secrets.giteaToken),
-		giteaReady: Boolean(
-			secrets.giteaUrl && secrets.giteaUsername && secrets.giteaToken,
-		),
+		githubUsername: Boolean(secrets.githubUsername),
+		githubToken: Boolean(secrets.githubToken),
+		githubUrl: Boolean(secrets.githubUrl),
+		githubReady: Boolean(secrets.githubUsername && secrets.githubToken),
 		source: "device-api" as const,
 	};
+}
+
+function withGithubUrl(secrets: DeviceSecrets): DeviceSecrets {
+	if (secrets.githubUsername && secrets.githubToken && !secrets.githubUrl) {
+		return { ...secrets, githubUrl: DEFAULT_GITHUB_URL };
+	}
+	return secrets;
 }
 
 function optionalString(value: unknown): string {

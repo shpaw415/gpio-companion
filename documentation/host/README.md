@@ -1,6 +1,6 @@
 # Host documentation
 
-This tree is for **operators**: people who deploy gpio-companion cloud services, sign device commands, and ship Armbian images. Desk users (pairing a board, WiFi, Gitea, agent work) live in [`../user/`](../user/).
+This tree is for **operators**: people who deploy gpio-companion cloud services, sign device commands, and ship Armbian images. Desk users (pairing a board, WiFi, GitHub, agent work) live in [`../user/`](../user/).
 
 gpio-companion is still a raw product (`PRODUCT.md`). Do not treat unspecified choices as locked.
 
@@ -9,7 +9,7 @@ gpio-companion is still a raw product (`PRODUCT.md`). Do not treat unspecified c
 You run:
 
 - The Cloudflare Pages dashboard (`apps/dashboard`, project `gpio-companion-dashboard`)
-- Optional Gitea (`apps/workers/gitea-container`)
+- Users host electronics projects on **their own GitHub** accounts (dashboard Keys PAT)
 - Ed25519 device-signing keys (private key never in git or the browser)
 - Armbian image / first-boot clone of this repo onto Orange Pi and Raspberry Pi boards
 
@@ -19,7 +19,7 @@ You do **not** sit at the GPIO bench. The on-device agent and the signed-in dash
 
 | Doc | Contents |
 | --- | --- |
-| [deploy.md](./deploy.md) | Dashboard, auth, KV, device private key, Gitea worker, local vs production |
+| [deploy.md](./deploy.md) | Dashboard, auth, KV, device private key, GitHub PAT flow, local vs production |
 | [device-image.md](./device-image.md) | Snapshot first-boot, per-hardware install, systemd, BLE GATT, device API |
 | [workflows.md](./workflows.md) | Day-two ops: updates, key rotation, pairing support, secrets ownership |
 

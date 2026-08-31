@@ -21,15 +21,18 @@ Bake the **production public key** (`packages/core/src/device-public-key.ts`) in
 `scripts/first-setup.sh` (root, TTY unless env is fully set):
 
 1. Hardware: `raspberrypi` or `orangepi` (guessed from `/proc/device-tree/model`)
-2. Optional Cloudflare tunnel token + hostname (T3 replica)
+2. Cloudflare API token, account ID, and zone ID (creates a per-Pi tunnel; token is not written to disk)
 3. Runs `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
-4. Writes `/etc/gpio-companion/config.json` and `cloudflared.env`
-5. Generates pairing UUID + key into `/etc/gpio-companion/pairing.env` (mode 600) if unset
-6. Writes `/etc/gpio-companion/first-setup-complete`
+4. Generates pairing UUID + key into `/etc/gpio-companion/pairing.env` (mode 600) if unset
+5. Creates `gpio-<uuid>` on Cloudflare with `api-<slug>` → :4150 and `t3-<slug>` → :3773
+6. Writes `/etc/gpio-companion/config.json` and `cloudflared.env`, enables the replica
+7. Writes `/etc/gpio-companion/first-setup-complete`
 
-It does **not** collect OpenCode or Gitea secrets.
+It does **not** collect OpenCode or GitHub secrets. It does **not** run `t3 service install` (dashboard does that after T3 pairing).
 
-Prints pairing UUID and key for the dashboard `/pair` page. Treat that console output as a physical possession secret.
+Prints pairing UUID/key plus `https://api-…` and `https://t3-…`. Treat that console output as a physical possession secret.
+
+Non-interactive: `GPIO_COMPANION_HARDWARE`, `GPIO_COMPANION_CF_API_TOKEN`, `GPIO_COMPANION_CF_ACCOUNT_ID`, `GPIO_COMPANION_CF_ZONE_ID`.
 
 Force re-run: `GPIO_COMPANION_FORCE_SETUP=1`.
 
@@ -64,8 +67,9 @@ Env the unit loads:
 | Route | Auth |
 | --- | --- |
 | `GET /health` | none |
-| `GET /v1/status`, pairing, config, secrets, gitea, **wifi** | Ed25519 dashboard signature |
+| `GET /v1/status`, pairing, config, secrets, github, **wifi**, **t3** | Ed25519 dashboard signature |
 | `POST /v1/pairing/claim` | signature **and** pairing UUID + key |
+| `POST /v1/t3/start`, `POST /v1/t3/service-install` | signature |
 
 Signature headers: `X-Gpio-Key-Id`, `X-Gpio-Timestamp`, `X-Gpio-Nonce`, `X-Gpio-Signature`. 60s skew. Canonical version `gpio-companion-device-v1`.
 

@@ -24,6 +24,7 @@ export {
 export {
 	type DeviceConfig,
 	emptyDeviceConfig,
+	emptyTunnelConfig,
 	HARDWARE_IDS,
 	type HardwareId,
 	isHardwareId,
@@ -52,7 +53,7 @@ export {
 } from "./device-public-key.ts";
 export {
 	emptyPairingState,
-	giteaLoginFromEmail,
+	loginFromEmail,
 	type PairingClaim,
 	type PairingCredentials,
 	type PairingPublic,
@@ -72,12 +73,25 @@ export {
 	type ProjectFileDir,
 } from "./project-files.ts";
 export {
+	DEFAULT_GITHUB_URL,
 	type DeviceSecrets,
 	emptyDeviceSecrets,
 	mergeDeviceSecrets,
 	parseDeviceSecrets,
 	secretsStatus,
 } from "./secrets.ts";
+export {
+	cloudflareTunnelName,
+	DEVICE_API_PORT,
+	extractT3PairingUrl,
+	pairingSlug,
+	publicDeviceUrl,
+	rewriteT3PairingUrl,
+	T3_ORIGIN_PORT,
+	TUNNEL_ZONE,
+	type TunnelHostnames,
+	tunnelHostnames,
+} from "./tunnel-host.ts";
 export {
 	parseWifiConfig,
 	publicWifiStatus,

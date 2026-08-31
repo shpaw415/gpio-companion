@@ -2,21 +2,33 @@ import { describe, expect, test } from "bun:test";
 import { parseDeviceSecrets, secretsStatus } from "./secrets.ts";
 
 describe("device secrets", () => {
-	test("parses gitea credentials for the pi api", () => {
+	test("parses github credentials for the pi api", () => {
 		const secrets = parseDeviceSecrets({
 			opencodeApiKey: " oc ",
-			giteaUrl: " https://git.example.com ",
-			giteaUsername: " ada ",
-			giteaToken: " gt ",
+			githubUsername: " ada ",
+			githubToken: " gh ",
 		});
-		expect(secrets.giteaUsername).toBe("ada");
+		expect(secrets.githubUsername).toBe("ada");
+		expect(secrets.githubUrl).toBe("https://github.com");
 		expect(secretsStatus(secrets)).toEqual({
 			opencodeApiKey: true,
-			giteaUrl: true,
-			giteaUsername: true,
-			giteaToken: true,
-			giteaReady: true,
+			githubUsername: true,
+			githubToken: true,
+			githubUrl: true,
+			githubReady: true,
 			source: "device-api",
 		});
+	});
+
+	test("reads legacy gitea field names", () => {
+		const secrets = parseDeviceSecrets({
+			giteaUsername: " ada ",
+			giteaToken: " gt ",
+			giteaUrl: " https://git.example.com ",
+		});
+		expect(secrets.githubUsername).toBe("ada");
+		expect(secrets.githubToken).toBe("gt");
+		expect(secrets.githubUrl).toBe("https://git.example.com");
+		expect(secretsStatus(secrets).githubReady).toBe(true);
 	});
 });

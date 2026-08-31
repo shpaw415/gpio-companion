@@ -1,23 +1,268 @@
-import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { extractT3PairingUrl, rewriteT3PairingUrl } from "gpio-companion";
+
+export type T3Status = {
+	running: boolean;
+	pairingUrl: string;
+	paired: boolean;
+	serviceInstalled: boolean;
+};
+
+export type T3Controller = {
+	start(t3Hostname: string): Promise<{ pairingUrl: string }>;
+	status(): Promise<T3Status>;
+	installService(): Promise<T3Status>;
+	revoke(): Promise<void>;
+};
+
+const START_WAIT_MS = 20_000;
+
+type StartHandle = {
+	kill(): void;
+	exited: Promise<number>;
+};
+
+let startHandle: StartHandle | undefined;
+let lastPairingUrl = "";
+let markedPaired = false;
+
+export function liveT3Controller(): T3Controller {
+	return {
+		start: startT3,
+		status: t3Status,
+		installService: installT3Service,
+		revoke: revokeT3Authorization,
+	};
+}
+
+export async function startT3(
+	t3Hostname: string,
+): Promise<{ pairingUrl: string }> {
+	if (startHandle) {
+		startHandle.kill();
+		startHandle = undefined;
+	}
+	lastPairingUrl = "";
+	markedPaired = false;
+	const user = gpioUser();
+	const proc = Bun.spawn(t3Command(user, ["start"]), {
+		stdout: "pipe",
+		stderr: "pipe",
+		stdin: "ignore",
+		env: process.env,
+	});
+	startHandle = {
+		kill() {
+			proc.kill();
+		},
+		exited: proc.exited,
+	};
+	const raw = await readPairingUrl(proc, START_WAIT_MS);
+	const pairingUrl = rewriteT3PairingUrl(raw, t3Hostname);
+	lastPairingUrl = pairingUrl;
+	if (!pairingUrl) {
+		throw new Error("t3 start did not print a pairing URL");
+	}
+	return { pairingUrl };
+}
+
+export async function t3Status(): Promise<T3Status> {
+	const user = gpioUser();
+	const running = startProcessAlive() || (await portOpen(3773));
+	const serviceInstalled = await t3ServiceInstalled(user);
+	const paired = markedPaired || serviceInstalled || (await t3HasSession(user));
+	if (paired) {
+		markedPaired = true;
+	}
+	return {
+		running,
+		pairingUrl: lastPairingUrl,
+		paired,
+		serviceInstalled,
+	};
+}
+
+export async function installT3Service(): Promise<T3Status> {
+	const user = gpioUser();
+	await spawnT3(user, ["service", "install"]);
+	markedPaired = true;
+	if (startHandle) {
+		startHandle.kill();
+		startHandle = undefined;
+	}
+	return t3Status();
+}
 
 export async function revokeT3Authorization(): Promise<void> {
-	const home = process.env.HOME || homedir();
+	if (startHandle) {
+		startHandle.kill();
+		startHandle = undefined;
+	}
+	lastPairingUrl = "";
+	markedPaired = false;
+	const user = gpioUser();
+	await spawnT3(user, ["service", "uninstall"]).catch(() => undefined);
+	const home = userHome(user);
 	const dirs = [
 		join(home, ".t3"),
 		join(home, ".config/t3"),
 		join(home, ".local/share/t3"),
 	];
 	for (const dir of dirs) {
-		await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+		await Bun.spawn(["rm", "-rf", dir], {
+			stdout: "ignore",
+			stderr: "ignore",
+		}).exited.catch(() => 0);
 	}
-	await Bun.spawn(["t3", "logout"], {
-		stdout: "ignore",
-		stderr: "ignore",
-	}).exited.catch(() => 0);
+	await spawnT3(user, ["logout"]).catch(() => undefined);
 	await Bun.spawn(["systemctl", "restart", "t3"], {
 		stdout: "ignore",
 		stderr: "ignore",
 	}).exited.catch(() => 0);
+}
+
+function gpioUser(): string {
+	if (process.env.GPIO_USER?.trim()) {
+		return process.env.GPIO_USER.trim();
+	}
+	return process.env.SUDO_USER?.trim() || "root";
+}
+
+function userHome(user: string): string {
+	if (user === "root") {
+		return process.env.HOME || homedir() || "/root";
+	}
+	return `/home/${user}`;
+}
+
+function t3Command(user: string, args: string[]): string[] {
+	const bin = process.env.GPIO_COMPANION_T3 ?? Bun.which("t3") ?? "t3";
+	if (user === "root") {
+		return [bin, ...args];
+	}
+	return ["sudo", "-u", user, "-H", bin, ...args];
+}
+
+function startProcessAlive(): boolean {
+	return Boolean(startHandle);
+}
+
+async function spawnT3(user: string, args: string[]): Promise<string> {
+	const proc = Bun.spawn(t3Command(user, args), {
+		stdout: "pipe",
+		stderr: "pipe",
+		stdin: "ignore",
+		env: process.env,
+	});
+	const [stdout, stderr, code] = await Promise.all([
+		readAll(proc.stdout),
+		readAll(proc.stderr),
+		proc.exited,
+	]);
+	if (code !== 0) {
+		throw new Error(
+			stderr.trim() || stdout.trim() || `t3 ${args.join(" ")} failed`,
+		);
+	}
+	return stdout;
+}
+
+async function t3ServiceInstalled(user: string): Promise<boolean> {
+	try {
+		const output = await spawnT3(user, ["service", "status"]);
+		return /active|installed|running/i.test(output);
+	} catch {
+		return false;
+	}
+}
+
+async function t3HasSession(user: string): Promise<boolean> {
+	try {
+		const output = await spawnT3(user, ["auth"]);
+		if (/no sessions?/i.test(output)) {
+			return false;
+		}
+		return /session/i.test(output);
+	} catch {
+		return false;
+	}
+}
+
+async function portOpen(port: number): Promise<boolean> {
+	try {
+		await fetch(`http://127.0.0.1:${port}/`, {
+			signal: AbortSignal.timeout(400),
+		});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function readPairingUrl(
+	proc: {
+		stdout: ReadableStream<Uint8Array> | number | null;
+		stderr: ReadableStream<Uint8Array> | number | null;
+		exited: Promise<number>;
+	},
+	timeoutMs: number,
+): Promise<string> {
+	let buffer = "";
+	const stdout = readInto(proc.stdout, (chunk) => {
+		buffer += chunk;
+	});
+	const stderr = readInto(proc.stderr, (chunk) => {
+		buffer += chunk;
+	});
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		const url = extractT3PairingUrl(buffer);
+		if (url) {
+			return url;
+		}
+		await Promise.race([Bun.sleep(200), proc.exited]);
+	}
+	await Promise.race([stdout, stderr, Bun.sleep(0)]);
+	return extractT3PairingUrl(buffer);
+}
+
+async function readInto(
+	stream: ReadableStream<Uint8Array> | number | null,
+	onChunk: (text: string) => void,
+): Promise<void> {
+	if (!stream || typeof stream === "number") {
+		return;
+	}
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) {
+			return;
+		}
+		if (value) {
+			onChunk(decoder.decode(value, { stream: true }));
+		}
+	}
+}
+
+async function readAll(
+	stream: ReadableStream<Uint8Array> | number | null,
+): Promise<string> {
+	if (!stream || typeof stream === "number") {
+		return "";
+	}
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+	let text = "";
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) {
+			return text;
+		}
+		if (value) {
+			text += decoder.decode(value, { stream: true });
+		}
+	}
 }

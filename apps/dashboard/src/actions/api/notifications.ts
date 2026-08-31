@@ -1,7 +1,12 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
 import { requireIdentity } from "../../lib/session.ts";
-import type { PendingPairing, StoredPairing } from "./pair.ts";
+import {
+	type PendingPairing,
+	parsePendingPairing,
+	parseStoredPairing,
+	type StoredPairing,
+} from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -19,7 +24,7 @@ async function loadInbox(
 	for (const uuid of ids) {
 		const raw = await env.DYNAMIC_PAGE_KV.get(`pending:${uuid}`);
 		if (raw) {
-			items.push(JSON.parse(raw) as PendingPairing);
+			items.push(parsePendingPairing(raw));
 		}
 	}
 	return items;
@@ -59,7 +64,7 @@ export async function POST(input: {
 	if (!ownerRaw) {
 		throw new Error("you do not own this board");
 	}
-	const owner = JSON.parse(ownerRaw) as StoredPairing;
+	const owner = parseStoredPairing(ownerRaw);
 	if (owner.uuid !== uuid) {
 		throw new Error("you do not own this board");
 	}
@@ -75,7 +80,7 @@ export async function POST(input: {
 					key: pending.key,
 					userId: pending.requesterId,
 					email: pending.requesterEmail,
-					giteaLogin: pending.giteaLogin,
+					login: pending.login,
 				},
 			),
 		);
@@ -84,7 +89,7 @@ export async function POST(input: {
 		...owner,
 		userId: pending.requesterId,
 		email: pending.requesterEmail,
-		giteaLogin: pending.giteaLogin,
+		login: pending.login,
 		key: pending.key,
 		claimedAt: new Date().toISOString(),
 	};

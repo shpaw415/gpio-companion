@@ -11,7 +11,7 @@ import { useAuthSession } from "../hooks/useAuth.ts";
 type Item = {
 	uuid: string;
 	requesterEmail: string;
-	giteaLogin: string;
+	login: string;
 	createdAt: string;
 };
 
@@ -57,7 +57,7 @@ export default function NotificationCenter() {
 						{items.map((item) => (
 							<ListItem key={item.uuid}>
 								<ListItemText
-									primary={`${item.requesterEmail || item.giteaLogin} wants ${item.uuid}`}
+									primary={`${item.requesterEmail || item.login} wants ${item.uuid}`}
 									secondary={item.createdAt}
 								/>
 								<Button

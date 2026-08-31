@@ -1,5 +1,9 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
-import { giteaLoginFromEmail } from "gpio-companion";
+import {
+	loginFromEmail,
+	publicDeviceUrl,
+	tunnelHostnames,
+} from "gpio-companion";
 import {
 	readDeviceJson,
 	signDeviceEnvelope,
@@ -18,7 +22,7 @@ export type StoredPairing = {
 	uuid: string;
 	key: string;
 	deviceUrl: string;
-	giteaLogin: string;
+	login: string;
 	email: string;
 	claimedAt: string;
 };
@@ -28,7 +32,7 @@ export type PendingPairing = {
 	key: string;
 	requesterId: string;
 	requesterEmail: string;
-	giteaLogin: string;
+	login: string;
 	createdAt: string;
 };
 
@@ -36,8 +40,17 @@ export type ClaimInput = {
 	deviceUrl?: string;
 	uuid: string;
 	key: string;
-	giteaLogin?: string;
 };
+
+export function parseStoredPairing(raw: string): StoredPairing {
+	const parsed = JSON.parse(raw) as StoredPairing & { giteaLogin?: string };
+	return { ...parsed, login: parsed.login || parsed.giteaLogin || "" };
+}
+
+export function parsePendingPairing(raw: string): PendingPairing {
+	const parsed = JSON.parse(raw) as PendingPairing & { giteaLogin?: string };
+	return { ...parsed, login: parsed.login || parsed.giteaLogin || "" };
+}
 
 export async function GET() {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
@@ -46,7 +59,7 @@ export async function GET() {
 	if (!raw) {
 		return { paired: false as const };
 	}
-	return { paired: true as const, device: JSON.parse(raw) as StoredPairing };
+	return { paired: true as const, device: parseStoredPairing(raw) };
 }
 
 export async function PUT() {
@@ -61,11 +74,10 @@ export async function POST(input: ClaimInput) {
 	if (!identity.id || !input.uuid || !input.key) {
 		throw new Error("uuid and key are required");
 	}
-	const origin = (input.deviceUrl ?? "").replace(/\/+$/, "");
-	const giteaLogin =
-		input.giteaLogin?.trim() ||
-		giteaLoginFromEmail(identity.email ?? "") ||
-		identity.id;
+	const hosts = tunnelHostnames(input.uuid.trim());
+	const typedOrigin = (input.deviceUrl ?? "").replace(/\/+$/, "");
+	const origin = typedOrigin || publicDeviceUrl(hosts.apiHostname);
+	const login = loginFromEmail(identity.email ?? "") || identity.id;
 	const ownerId = await ctx.env.DYNAMIC_PAGE_KV.get(
 		`pair:${input.uuid.trim()}`,
 	);
@@ -75,7 +87,7 @@ export async function POST(input: ClaimInput) {
 			key: input.key,
 			requesterId: identity.id,
 			requesterEmail: identity.email ?? "",
-			giteaLogin,
+			login,
 			createdAt: new Date().toISOString(),
 		};
 		await ctx.env.DYNAMIC_PAGE_KV.put(
@@ -91,23 +103,33 @@ export async function POST(input: ClaimInput) {
 		}
 		return { pending: true as const, uuid: pending.uuid };
 	}
+	let needsBle = false;
 	if (origin) {
-		await readDeviceJson(
-			await signedDeviceFetch(ctx.env, origin, "POST", "/v1/pairing/claim", {
-				uuid: input.uuid,
-				key: input.key,
-				userId: identity.id,
-				email: identity.email ?? "",
-				giteaLogin,
-			}),
-		);
+		try {
+			await readDeviceJson(
+				await signedDeviceFetch(ctx.env, origin, "POST", "/v1/pairing/claim", {
+					uuid: input.uuid,
+					key: input.key,
+					userId: identity.id,
+					email: identity.email ?? "",
+					login,
+				}),
+			);
+		} catch (error) {
+			if (typedOrigin) {
+				throw error;
+			}
+			needsBle = true;
+		}
+	} else {
+		needsBle = true;
 	}
 	const pairing: StoredPairing = {
 		userId: identity.id,
 		uuid: input.uuid.trim(),
 		key: input.key,
 		deviceUrl: origin,
-		giteaLogin,
+		login,
 		email: identity.email ?? "",
 		claimedAt: new Date().toISOString(),
 	};
@@ -116,7 +138,7 @@ export async function POST(input: ClaimInput) {
 		JSON.stringify(pairing),
 	);
 	await ctx.env.DYNAMIC_PAGE_KV.put(`pair:${pairing.uuid}`, pairing.userId);
-	if (!origin) {
+	if (needsBle) {
 		const envelope = await signDeviceEnvelope(
 			ctx.env,
 			"POST",
@@ -126,15 +148,16 @@ export async function POST(input: ClaimInput) {
 				key: input.key,
 				userId: identity.id,
 				email: identity.email ?? "",
-				giteaLogin,
+				login,
 			},
 		);
 		return {
 			ok: true as const,
 			pending: false as const,
 			needsBle: true as const,
-			giteaLogin: pairing.giteaLogin,
+			login: pairing.login,
 			deviceUrl: origin,
+			t3Hostname: hosts.t3Hostname,
 			envelope,
 		};
 	}
@@ -142,8 +165,9 @@ export async function POST(input: ClaimInput) {
 		ok: true as const,
 		pending: false as const,
 		needsBle: false as const,
-		giteaLogin: pairing.giteaLogin,
+		login: pairing.login,
 		deviceUrl: origin,
+		t3Hostname: hosts.t3Hostname,
 	};
 }
 
@@ -157,7 +181,7 @@ export async function DELETE() {
 	if (!raw) {
 		return { ok: true as const };
 	}
-	const device = JSON.parse(raw) as StoredPairing;
+	const device = parseStoredPairing(raw);
 	if (device.deviceUrl) {
 		await readDeviceJson(
 			await signedDeviceFetch(

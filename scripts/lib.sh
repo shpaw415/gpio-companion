@@ -137,9 +137,6 @@ install_opencode() {
 
 install_t3code() {
 	npm install -g t3
-	if [[ "$GPIO_USER" != "root" ]]; then
-		sudo -u "$GPIO_USER" bash -lc 'npx --yes t3@latest service install' || true
-	fi
 }
 
 install_arduino_udev() {
@@ -217,13 +214,15 @@ write_device_config() {
 	"hardware": "$hardware",
 	"tunnel": {
 		"token": "",
-		"hostname": ""
+		"hostname": "",
+		"apiHostname": "",
+		"tunnelId": ""
 	}
 }
 EOF
 	fi
 	if [[ ! -f "$CONFIG_DIR/cloudflared.env" ]]; then
-		printf "TUNNEL_TOKEN=''\nTUNNEL_HOSTNAME=''\n" >"$CONFIG_DIR/cloudflared.env"
+		printf "TUNNEL_TOKEN=''\nTUNNEL_HOSTNAME=''\nTUNNEL_API_HOSTNAME=''\nTUNNEL_ID=''\n" >"$CONFIG_DIR/cloudflared.env"
 		chmod 600 "$CONFIG_DIR/cloudflared.env"
 	fi
 }
@@ -256,13 +255,13 @@ EOF
 	chmod 600 "$CONFIG_DIR/pairing.env"
 	echo "pairing UUID: $uuid"
 	echo "pairing key:  $key"
-	echo "enter these on the dashboard /pair page to bind this board to your account (Gitea)"
+	echo "enter these on the dashboard /pair page to bind this board to your account"
 }
 
 apply_runtime_config() {
-	local hardware="$1" token="$2" hostname="$3"
+	local hardware="$1" token="$2" hostname="$3" api_hostname="${4:-}" tunnel_id="${5:-}"
 	install -d -m 0755 "$CONFIG_DIR"
-	GPIO_COMPANION_CONFIG_DIR="$CONFIG_DIR" HARDWARE="$hardware" TUNNEL_TOKEN="$token" TUNNEL_HOSTNAME="$hostname" python3 - <<'PY'
+	GPIO_COMPANION_CONFIG_DIR="$CONFIG_DIR" HARDWARE="$hardware" TUNNEL_TOKEN="$token" TUNNEL_HOSTNAME="$hostname" TUNNEL_API_HOSTNAME="$api_hostname" TUNNEL_ID="$tunnel_id" python3 - <<'PY'
 import json, os
 from pathlib import Path
 config_dir = Path(os.environ.get("GPIO_COMPANION_CONFIG_DIR", "/etc/gpio-companion"))
@@ -271,6 +270,8 @@ config = {
 	"tunnel": {
 		"token": os.environ.get("TUNNEL_TOKEN", ""),
 		"hostname": os.environ.get("TUNNEL_HOSTNAME", ""),
+		"apiHostname": os.environ.get("TUNNEL_API_HOSTNAME", ""),
+		"tunnelId": os.environ.get("TUNNEL_ID", ""),
 	},
 }
 (config_dir / "config.json").write_text(json.dumps(config, indent="\t") + "\n")
@@ -279,6 +280,8 @@ def env_value(value: str) -> str:
 (config_dir / "cloudflared.env").write_text(
 	f"TUNNEL_TOKEN={env_value(config['tunnel']['token'])}\n"
 	f"TUNNEL_HOSTNAME={env_value(config['tunnel']['hostname'])}\n"
+	f"TUNNEL_API_HOSTNAME={env_value(config['tunnel']['apiHostname'])}\n"
+	f"TUNNEL_ID={env_value(config['tunnel']['tunnelId'])}\n"
 )
 PY
 	chmod 600 "$CONFIG_DIR/cloudflared.env"
@@ -288,15 +291,27 @@ PY
 	fi
 }
 
+create_cloudflare_tunnel() {
+	local uuid="$1" api_token="$2" account_id="$3" zone_id="$4"
+	local output
+	output="$(
+		CLOUDFLARE_API_TOKEN="$api_token" python3 "$SCRIPT_DIR/create-cloudflare-tunnel.py" \
+			--account-id "$account_id" \
+			--zone-id "$zone_id" \
+			--uuid "$uuid"
+	)"
+	printf '%s\n' "$output"
+}
+
 write_secrets_file() {
-	local opencode_key="$1" gitea_url="$2" gitea_user="$3" gitea_token="$4"
+	local opencode_key="$1" github_user="$2" github_token="$3"
 	install -d -m 0755 "$CONFIG_DIR"
 	umask 077
 	cat >"$CONFIG_DIR/secrets.env" <<EOF
 OPENCODE_API_KEY=$opencode_key
-GITEA_URL=$gitea_url
-GITEA_USERNAME=$gitea_user
-GITEA_TOKEN=$gitea_token
+GITHUB_URL=https://github.com
+GITHUB_USERNAME=$github_user
+GITHUB_TOKEN=$github_token
 EOF
 	chmod 600 "$CONFIG_DIR/secrets.env"
 }
@@ -363,6 +378,5 @@ install_common() {
 	sync_opencode_agent
 	install_systemd_units "$hardware"
 	echo "gpio-companion $hardware install complete"
-	echo "set tunnel replica: PUT http://<device>:4150/v1/config/tunnel {\"token\":\"...\",\"hostname\":\"...\"}"
-	echo "t3code pairing is managed from the dashboard"
+	echo "first-setup creates the Cloudflare tunnel; t3code pairing is managed from the dashboard"
 }

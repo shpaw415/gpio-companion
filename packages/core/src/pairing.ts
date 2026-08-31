@@ -3,13 +3,13 @@ export type PairingClaim = {
 	key: string;
 	userId: string;
 	email: string;
-	giteaLogin: string;
+	login: string;
 };
 
 export type PairingPublic = {
 	uuid: string;
 	paired: boolean;
-	giteaLogin: string;
+	login: string;
 };
 
 export type PairingState = {
@@ -18,7 +18,7 @@ export type PairingState = {
 	claimed: boolean;
 	userId: string;
 	email: string;
-	giteaLogin: string;
+	login: string;
 	claimedAt: string;
 };
 
@@ -29,7 +29,7 @@ export function emptyPairingState(uuid = "", key = ""): PairingState {
 		claimed: false,
 		userId: "",
 		email: "",
-		giteaLogin: "",
+		login: "",
 		claimedAt: "",
 	};
 }
@@ -43,9 +43,12 @@ export function parsePairingClaim(input: unknown): PairingClaim {
 	const key = requiredString(record.key, "key");
 	const userId = requiredString(record.userId, "userId");
 	const email = optionalString(record.email);
-	const giteaLogin =
-		optionalString(record.giteaLogin) || giteaLoginFromEmail(email) || userId;
-	return { uuid, key, userId, email, giteaLogin };
+	const login =
+		optionalString(record.login) ||
+		optionalString(record.giteaLogin) ||
+		loginFromEmail(email) ||
+		userId;
+	return { uuid, key, userId, email, login };
 }
 
 export type PairingCredentials = {
@@ -82,11 +85,11 @@ export function publicPairing(state: PairingState): PairingPublic {
 	return {
 		uuid: state.uuid,
 		paired: state.claimed,
-		giteaLogin: state.claimed ? state.giteaLogin : "",
+		login: state.claimed ? state.login : "",
 	};
 }
 
-export function giteaLoginFromEmail(email: string): string {
+export function loginFromEmail(email: string): string {
 	const at = email.indexOf("@");
 	if (at <= 0) {
 		return email;

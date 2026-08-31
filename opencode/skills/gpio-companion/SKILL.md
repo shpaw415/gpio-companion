@@ -2,7 +2,7 @@
 name: gpio-companion
 description: >-
   On-device gpio-companion agent: GPIO OS control, tscircuit breadboard/PCB,
-  visual technical sheets, Gitea projects, Bun web/scripts, Arduino C over USB.
+  visual technical sheets, GitHub projects, Bun web/scripts, Arduino C over USB.
   Use on Orange Pi / Raspberry Pi Armbian images with OpenCode or T3Code, and
   when working in the gpio-companion monorepo.
 ---
@@ -22,12 +22,12 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 
 - Vibe-code breadboards and PCBs with tscircuit
 - Show the user visual technical sheets and helpers
-- Keep each electronics project in Gitea using credentials from `/etc/gpio-companion/secrets.env` (`GITEA_URL`, `GITEA_USERNAME`, `GITEA_TOKEN`) set via the device API after the user created their Gitea account
-- When a PCB, breadboard, or technical-sheet task is finished, push to Gitea immediately:
+- Keep each electronics project on GitHub using credentials from `/etc/gpio-companion/secrets.env` (`GITHUB_URL`, `GITHUB_USERNAME`, `GITHUB_TOKEN`) set via the device API after the user created a GitHub PAT. Git credential helper file: `/etc/gpio-companion/git-credentials` (config include `/etc/gpio-companion/gitconfig`).
+- When a PCB, breadboard, or technical-sheet task is finished, push to GitHub immediately:
   - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
   - `breadboard/circuit.json` + `breadboard/preview.svg`
   - `technical/` sheets
-  Then `git add`, commit, `git push` on the project remote. The dashboard viewer reads those paths.
+  Then `git add`, commit, `git push` on the project remote (`https://github.com/<user>/<project>.git`). The dashboard viewer reads those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
 - Generate Arduino firmware in C and send it over USB
 - Load the pinout skill for the current hardware before wiring GPIO

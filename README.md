@@ -1,6 +1,6 @@
 # gpio-companion
 
-On-device AI coworker for GPIO boards (Orange Pi / Raspberry Pi): Armbian + OpenCode/T3Code, tscircuit breadboard/PCB, Gitea projects, Bun web, Arduino C over USB. Future dashboard: gpio-companion.com.
+On-device AI coworker for GPIO boards (Orange Pi / Raspberry Pi): Armbian + OpenCode/T3Code, tscircuit breadboard/PCB, GitHub projects, Bun web, Arduino C over USB. Future dashboard: gpio-companion.com.
 
 Vision: `PRODUCT.md` (raw). Agent rules: `opencode/preferences`, `opencode/skills`.
 
@@ -8,7 +8,7 @@ Operator deploy and image docs: `documentation/host/`. Desk user setup and daily
 
 ```txt
 .
-├── apps/                 # web app and workers
+├── apps/                 # web app
 ├── packages/             # shared libraries
 ├── binary/               # on-device binary + config API
 ├── scripts/              # per-hardware Armbian install
@@ -22,7 +22,6 @@ Operator deploy and image docs: `documentation/host/`. Desk user setup and daily
 | `packages/core` | `gpio-companion` | shared library |
 | `apps/web` | `gpio-companion-web` | web companion |
 | `apps/dashboard` | `gpio-companion-dashboard` | Cloudflare Pages dashboard |
-| `apps/workers/gitea-container` | `gitea-container` | Gitea on Cloudflare Containers |
 | `binary/gpio-companion` | `gpio-companion-bin` | standalone binary |
 
 ## Scripts
@@ -32,8 +31,6 @@ bun install
 bun test
 bun run typecheck
 bun run dev
-bun run dev:gitea
-bun run deploy:gitea
 bun run dev:dashboard
 bun run deploy:dashboard
 bun run compile
@@ -44,4 +41,4 @@ sudo ./scripts/snapshot/gpio-companion-first-boot.sh
 sudo ./scripts/first-setup.sh
 ```
 
-On-device config API (port 4150) sets the cloudflared replica used for T3 Code. Pairing is done from the dashboard.
+First-setup creates a per-Pi Cloudflare tunnel. The on-device API (port 4150) and T3 Code (port 3773) are published as `api-` / `t3-` hostnames. Dashboard `/pair` claims the board, runs `t3 start`, and installs the T3 service after web pairing.

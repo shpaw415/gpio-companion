@@ -6,7 +6,7 @@ This tree is for the person at the desk: Orange Pi or Raspberry Pi on the bench,
 
 | Doc | Contents |
 | --- | --- |
-| [getting-started.md](./getting-started.md) | Power on → WiFi → sign in → pair → Gitea → Keys |
+| [getting-started.md](./getting-started.md) | Power on → WiFi → sign in → pair → GitHub → Keys |
 | [wifi-bluetooth.md](./wifi-bluetooth.md) | Chrome Bluetooth and iOS LightBlue / nRF Connect paste |
 | [workflows.md](./workflows.md) | Daily agent work, projects, PCB/breadboard folders, Arduino C |
 
@@ -14,6 +14,6 @@ This tree is for the person at the desk: Orange Pi or Raspberry Pi on the bench,
 
 - A GPIO board running gpio-companion (Armbian, OpenCode, T3 Code)
 - A dashboard account (email / Google / passkey — whatever the host enabled)
-- Optional Gitea account **you** create (pairing does not create one)
+- Your GitHub account (pairing does not create one)
 
 The agent on the Pi owns the OS, pins, and USB. You steer it from T3 Code / OpenCode and from the dashboard.

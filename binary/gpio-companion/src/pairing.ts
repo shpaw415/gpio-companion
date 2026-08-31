@@ -22,10 +22,13 @@ export function filePairingStore(
 			if (!(await file.exists())) {
 				return emptyPairingState(uuid, key);
 			}
-			const parsed = (await file.json()) as PairingState;
+			const parsed = (await file.json()) as PairingState & {
+				giteaLogin?: string;
+			};
 			return {
 				...emptyPairingState(uuid, key),
 				...parsed,
+				login: parsed.login || parsed.giteaLogin || "",
 				uuid: uuid || parsed.uuid,
 				key: key || parsed.key,
 			};
@@ -63,7 +66,7 @@ export function applyClaim(
 		claimed: true,
 		userId: claim.userId,
 		email: claim.email,
-		giteaLogin: claim.giteaLogin,
+		login: claim.login,
 		claimedAt: new Date().toISOString(),
 	};
 }
@@ -83,7 +86,7 @@ export function applyTransfer(
 		claimed: true,
 		userId: claim.userId,
 		email: claim.email,
-		giteaLogin: claim.giteaLogin,
+		login: claim.login,
 		claimedAt: new Date().toISOString(),
 	};
 }

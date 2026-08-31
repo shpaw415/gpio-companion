@@ -23,6 +23,7 @@ import {
 } from "./pairing.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
+import type { T3Controller } from "./t3.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
 import type { ApplyWifi } from "./wifi.ts";
 
@@ -40,6 +41,7 @@ export type ServeOptions = {
 	applyTunnel: ApplyTunnel;
 	applyWifi?: ApplyWifi;
 	revokeT3?: () => Promise<void>;
+	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
 };
 
@@ -62,6 +64,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.applyTunnel,
 					options.applyWifi,
 					options.revokeT3,
+					options.t3,
 					options.deviceAuth,
 				);
 			} catch (error) {
@@ -93,6 +96,7 @@ export async function handleDeviceRequest(
 	applyTunnel: ApplyTunnel,
 	applyWifi: ApplyWifi | undefined,
 	revokeT3: (() => Promise<void>) | undefined,
+	t3: T3Controller | undefined,
 	deviceAuth: DeviceAuthConfig,
 ): Promise<Response> {
 	const url = new URL(request.url);
@@ -121,6 +125,7 @@ export async function handleDeviceRequest(
 			...publicPairing(pairing),
 			hardware: config.hardware,
 			hostname: config.tunnel.hostname,
+			apiHostname: config.tunnel.apiHostname,
 		});
 	}
 
@@ -210,32 +215,67 @@ export async function handleDeviceRequest(
 		return json(publicWifiStatus(result.ssid, true));
 	}
 
-	if (method === "PUT" && path === "/v1/config/gitea") {
+	if (method === "PUT" && path === "/v1/config/github") {
 		const current = await secretsStore.read();
 		const next = mergeDeviceSecrets(
 			current,
 			parseDeviceSecrets(parseJson(bodyText)),
 		);
-		if (!next.giteaUrl || !next.giteaUsername || !next.giteaToken) {
-			throw new Error("giteaUrl, giteaUsername, and giteaToken are required");
+		if (!next.githubUsername || !next.githubToken) {
+			throw new Error("githubUsername and githubToken are required");
 		}
 		await secretsStore.write(next);
 		return json(secretsStatus(next));
+	}
+
+	if (method === "POST" && path === "/v1/t3/start") {
+		if (!t3) {
+			throw new Error("t3 is not configured");
+		}
+		const config = await store.read();
+		if (!config.tunnel.hostname) {
+			throw new Error("t3 hostname is not configured");
+		}
+		return json(await t3.start(config.tunnel.hostname));
+	}
+
+	if (method === "GET" && path === "/v1/t3/status") {
+		if (!t3) {
+			throw new Error("t3 is not configured");
+		}
+		return json(await t3.status());
+	}
+
+	if (method === "POST" && path === "/v1/t3/service-install") {
+		if (!t3) {
+			throw new Error("t3 is not configured");
+		}
+		return json(await t3.installService());
 	}
 
 	if (method === "GET" && path === "/v1/status") {
 		const config = await store.read();
 		const secrets = await secretsStore.read();
 		const pairing = await pairingStore.read();
+		const t3Status = t3
+			? await t3.status()
+			: {
+					running: false,
+					pairingUrl: "",
+					paired: false,
+					serviceInstalled: false,
+				};
 		return json({
 			hardware: config.hardware,
 			tunnel: {
 				configured: Boolean(config.tunnel.token),
 				hostname: config.tunnel.hostname,
+				apiHostname: config.tunnel.apiHostname,
 			},
 			secrets: secretsStatus(secrets),
 			pairing: publicPairing(pairing),
 			t3codePairing: "dashboard",
+			t3: t3Status,
 		});
 	}
 
@@ -286,9 +326,9 @@ async function wipeOwnerSecrets(
 	const current = await secretsStore.read();
 	await secretsStore.write({
 		...current,
-		giteaUrl: "",
-		giteaUsername: "",
-		giteaToken: "",
+		githubUrl: "",
+		githubUsername: "",
+		githubToken: "",
 	});
 	if (revokeT3) {
 		await revokeT3();

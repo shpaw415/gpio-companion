@@ -34,7 +34,13 @@ export function fileConfigStore(
 }
 
 export function tunnelEnvContents(tunnel: TunnelConfig): string {
-	return `TUNNEL_TOKEN=${systemdEnvValue(tunnel.token)}\nTUNNEL_HOSTNAME=${systemdEnvValue(tunnel.hostname)}\n`;
+	return [
+		`TUNNEL_TOKEN=${systemdEnvValue(tunnel.token)}`,
+		`TUNNEL_HOSTNAME=${systemdEnvValue(tunnel.hostname)}`,
+		`TUNNEL_API_HOSTNAME=${systemdEnvValue(tunnel.apiHostname ?? "")}`,
+		`TUNNEL_ID=${systemdEnvValue(tunnel.tunnelId ?? "")}`,
+		"",
+	].join("\n");
 }
 
 function systemdEnvValue(value: string): string {

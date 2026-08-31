@@ -1,13 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-	giteaLoginFromEmail,
-	parsePairingClaim,
-	publicPairing,
-} from "./pairing.ts";
+import { loginFromEmail, parsePairingClaim, publicPairing } from "./pairing.ts";
 
 describe("pairing", () => {
-	test("maps email to gitea login", () => {
-		expect(giteaLoginFromEmail("ada@gpio-companion.com")).toBe("ada");
+	test("maps email to login", () => {
+		expect(loginFromEmail("ada@gpio-companion.com")).toBe("ada");
 	});
 
 	test("parses a claim", () => {
@@ -17,7 +13,7 @@ describe("pairing", () => {
 			userId: "user-1",
 			email: "ada@gpio-companion.com",
 		});
-		expect(claim.giteaLogin).toBe("ada");
+		expect(claim.login).toBe("ada");
 		expect(
 			publicPairing({ ...claim, claimed: true, claimedAt: "now", key: "k1" })
 				.paired,

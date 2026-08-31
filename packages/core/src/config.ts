@@ -5,6 +5,8 @@ export type HardwareId = (typeof HARDWARE_IDS)[number];
 export type TunnelConfig = {
 	token: string;
 	hostname: string;
+	apiHostname: string;
+	tunnelId: string;
 };
 
 export type DeviceConfig = {
@@ -12,13 +14,19 @@ export type DeviceConfig = {
 	tunnel: TunnelConfig;
 };
 
+export function emptyTunnelConfig(): TunnelConfig {
+	return {
+		token: "",
+		hostname: "",
+		apiHostname: "",
+		tunnelId: "",
+	};
+}
+
 export function emptyDeviceConfig(hardware: HardwareId): DeviceConfig {
 	return {
 		hardware,
-		tunnel: {
-			token: "",
-			hostname: "",
-		},
+		tunnel: emptyTunnelConfig(),
 	};
 }
 
@@ -58,6 +66,9 @@ export function parseTunnelConfig(input: unknown): TunnelConfig {
 	return {
 		token: record.token.trim(),
 		hostname: record.hostname.trim(),
+		apiHostname:
+			typeof record.apiHostname === "string" ? record.apiHostname.trim() : "",
+		tunnelId: typeof record.tunnelId === "string" ? record.tunnelId.trim() : "",
 	};
 }
 

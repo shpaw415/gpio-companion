@@ -13,7 +13,7 @@ On Orange Pi, power/GND seats match the 40-pin Pi layout; **SoC GPIO numbers are
 
 Arduino firmware is **C**, flashed over USB. No other MCU language unless the product locks one.
 
-## Projects live in Gitea
+## Projects live in GitHub
 
 One git repo per electronics project. When a PCB, breadboard, or technical-sheet task is done, the agent must **push**:
 
@@ -31,7 +31,7 @@ Still signed-in `/wifi`, anytime — same Chrome Bluetooth or iOS paste flow. UU
 
 ## Change keys later
 
-`/keys` again (OpenCode key and/or Gitea URL/user/token). Requires an existing pair. The dashboard talks to the stored device URL, not a URL you type after pair.
+`/keys` again (OpenCode key and/or GitHub username/token). Requires an existing pair. The dashboard talks to the stored device URL, not a URL you type after pair.
 
 ## Board updates
 
@@ -42,4 +42,4 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 - Do not put 5V into GPIO
 - Do not short 3V3 to 5V
 - The agent may drive pins and USB; stay at the bench for power hardware
-- Pairing key and Gitea token are secrets; do not commit them
+- Pairing key and GitHub token are secrets; do not commit them

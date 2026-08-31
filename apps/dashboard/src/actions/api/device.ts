@@ -1,7 +1,8 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
+import { saveGithubAccount } from "../../lib/github.ts";
 import { requireIdentity } from "../../lib/session.ts";
-import type { StoredPairing } from "./pair.ts";
+import { parseStoredPairing, type StoredPairing } from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -11,9 +12,8 @@ type PagesEnv = {
 
 export type DeviceSecretsPatch = {
 	opencodeApiKey?: string;
-	giteaUrl?: string;
-	giteaUsername?: string;
-	giteaToken?: string;
+	githubUsername?: string;
+	githubToken?: string;
 };
 
 async function loadPairing(
@@ -24,7 +24,7 @@ async function loadPairing(
 	if (!raw) {
 		return null;
 	}
-	return JSON.parse(raw) as StoredPairing;
+	return parseStoredPairing(raw);
 }
 
 export async function GET() {
@@ -64,17 +64,25 @@ export async function PUT(patch: DeviceSecretsPatch) {
 			),
 		);
 	}
-	if (patch.giteaUrl || patch.giteaUsername || patch.giteaToken) {
+	if (patch.githubUsername || patch.githubToken) {
+		const username = patch.githubUsername?.trim() ?? "";
+		const token = patch.githubToken?.trim() ?? "";
+		if (!username || !token) {
+			throw new Error("githubUsername and githubToken are required");
+		}
+		await saveGithubAccount(ctx.env.DYNAMIC_PAGE_KV, identity.id, {
+			username,
+			token,
+		});
 		await readDeviceJson(
 			await signedDeviceFetch(
 				ctx.env,
 				device.deviceUrl,
 				"PUT",
-				"/v1/config/gitea",
+				"/v1/config/github",
 				{
-					giteaUrl: patch.giteaUrl ?? "",
-					giteaUsername: patch.giteaUsername ?? "",
-					giteaToken: patch.giteaToken ?? "",
+					githubUsername: username,
+					githubToken: token,
 				},
 			),
 		);

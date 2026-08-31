@@ -15,6 +15,12 @@ const pairingPath = join(dir, "pairing.json");
 const keys = await generateDeviceKeyPair();
 let applied = 0;
 let wifiSsid = "";
+let t3Started = 0;
+let t3Installed = 0;
+let t3Revoked = 0;
+let t3Paired = false;
+let t3Running = false;
+let t3PairingUrl = "";
 
 const server = startDeviceApi({
 	port: 0,
@@ -28,6 +34,42 @@ const server = startDeviceApi({
 	applyWifi: async (config) => {
 		wifiSsid = config.ssid;
 		return { ssid: config.ssid };
+	},
+	t3: {
+		async start(hostname) {
+			t3Started += 1;
+			t3Running = true;
+			t3PairingUrl = `https://app.t3.codes/pair?host=https://${hostname}#token=test`;
+			return { pairingUrl: t3PairingUrl };
+		},
+		async status() {
+			return {
+				running: t3Running,
+				pairingUrl: t3PairingUrl,
+				paired: t3Paired,
+				serviceInstalled: t3Installed > 0,
+			};
+		},
+		async installService() {
+			t3Installed += 1;
+			t3Paired = true;
+			t3Running = true;
+			return {
+				running: true,
+				pairingUrl: t3PairingUrl,
+				paired: true,
+				serviceInstalled: true,
+			};
+		},
+		async revoke() {
+			t3Revoked += 1;
+			t3Running = false;
+			t3Paired = false;
+			t3PairingUrl = "";
+		},
+	},
+	revokeT3: async () => {
+		t3Revoked += 1;
 	},
 	deviceAuth: {
 		keyId: keys.keyId,
@@ -113,9 +155,14 @@ describe("gpio-companion-bin", () => {
 	});
 
 	test("quotes tunnel env values", () => {
-		expect(tunnelEnvContents({ token: 'a"b', hostname: "host" })).toContain(
-			'TUNNEL_TOKEN="a\\"b"',
-		);
+		expect(
+			tunnelEnvContents({
+				token: 'a"b',
+				hostname: "host",
+				apiHostname: "",
+				tunnelId: "",
+			}),
+		).toContain('TUNNEL_TOKEN="a\\"b"');
 	});
 
 	test("stores dashboard secrets without echoing them", async () => {
@@ -123,32 +170,35 @@ describe("gpio-companion-bin", () => {
 			method: "PUT",
 			body: JSON.stringify({
 				opencodeApiKey: "oc-key",
-				giteaToken: "gitea-key",
+				githubToken: "gh-key",
 			}),
 		});
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
 			opencodeApiKey: boolean;
-			giteaToken: boolean;
+			githubToken: boolean;
 			source: string;
 		};
 		expect(body.opencodeApiKey).toBe(true);
-		expect(body.giteaToken).toBe(true);
+		expect(body.githubToken).toBe(true);
 		expect(body.source).toBe("device-api");
 	});
 
-	test("sets gitea credentials on the pi api", async () => {
-		const response = await deviceFetch("v1/config/gitea", {
+	test("sets github credentials on the pi api", async () => {
+		const response = await deviceFetch("v1/config/github", {
 			method: "PUT",
 			body: JSON.stringify({
-				giteaUrl: "https://git.example.com",
-				giteaUsername: "ada",
-				giteaToken: "gitea-key",
+				githubUsername: "ada",
+				githubToken: "gh-key",
 			}),
 		});
 		expect(response.status).toBe(200);
-		const body = (await response.json()) as { giteaReady: boolean };
-		expect(body.giteaReady).toBe(true);
+		const body = (await response.json()) as {
+			githubReady: boolean;
+			githubUrl: boolean;
+		};
+		expect(body.githubReady).toBe(true);
+		expect(body.githubUrl).toBe(true);
 	});
 
 	test("rejects unsigned wifi and uuid mismatch", async () => {
@@ -196,7 +246,7 @@ describe("gpio-companion-bin", () => {
 		expect(wifiSsid).toBe("bench");
 	});
 
-	test("claims pairing uuid-key as gitea account", async () => {
+	test("claims pairing uuid-key", async () => {
 		const denied = await deviceFetch("v1/pairing/claim", {
 			method: "POST",
 			body: JSON.stringify({
@@ -220,10 +270,10 @@ describe("gpio-companion-bin", () => {
 		expect(claimed.status).toBe(200);
 		const body = (await claimed.json()) as {
 			paired: boolean;
-			giteaLogin: string;
+			login: string;
 		};
 		expect(body.paired).toBe(true);
-		expect(body.giteaLogin).toBe("ada");
+		expect(body.login).toBe("ada");
 	});
 
 	test("credentials are signed and include pairing key", async () => {
@@ -253,11 +303,11 @@ describe("gpio-companion-bin", () => {
 		});
 		expect(transferred.status).toBe(200);
 		const transferredBody = (await transferred.json()) as {
-			giteaLogin: string;
+			login: string;
 			paired: boolean;
 		};
 		expect(transferredBody.paired).toBe(true);
-		expect(transferredBody.giteaLogin).toBe("bob");
+		expect(transferredBody.login).toBe("bob");
 
 		const unpaired = await deviceFetch("v1/pairing/unpair", {
 			method: "POST",
@@ -269,5 +319,48 @@ describe("gpio-companion-bin", () => {
 		expect(unpaired.status).toBe(200);
 		const unpairedBody = (await unpaired.json()) as { paired: boolean };
 		expect(unpairedBody.paired).toBe(false);
+		expect(t3Revoked).toBeGreaterThan(0);
+	});
+
+	test("rejects unsigned t3 start", async () => {
+		const response = await deviceFetch(
+			"v1/t3/start",
+			{ method: "POST", body: "" },
+			false,
+		);
+		expect(response.status).toBe(401);
+	});
+
+	test("starts t3 then installs the service", async () => {
+		await deviceFetch("v1/config/tunnel", {
+			method: "PUT",
+			body: JSON.stringify({
+				token: "tunnel-token",
+				hostname: "t3.gpio.example",
+				apiHostname: "api.gpio.example",
+				tunnelId: "tun-1",
+			}),
+		});
+		const started = await deviceFetch("v1/t3/start", {
+			method: "POST",
+			body: "",
+		});
+		expect(started.status).toBe(200);
+		const startedBody = (await started.json()) as { pairingUrl: string };
+		expect(startedBody.pairingUrl).toContain("app.t3.codes/pair");
+		expect(t3Started).toBe(1);
+
+		const persist = await deviceFetch("v1/t3/service-install", {
+			method: "POST",
+			body: "",
+		});
+		expect(persist.status).toBe(200);
+		const persistBody = (await persist.json()) as {
+			paired: boolean;
+			serviceInstalled: boolean;
+		};
+		expect(persistBody.paired).toBe(true);
+		expect(persistBody.serviceInstalled).toBe(true);
+		expect(t3Installed).toBe(1);
 	});
 });
