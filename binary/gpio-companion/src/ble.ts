@@ -13,6 +13,7 @@ export type BleBridgeOptions = {
 	pairingUuid: string;
 	hardware: string;
 	port: number;
+	deviceUrl?: string;
 };
 
 function bleScriptPath(): string | null {
@@ -57,6 +58,7 @@ export function startBleBridge(options: BleBridgeOptions): void {
 			GPIO_COMPANION_BLE_API: `http://127.0.0.1:${options.port}`,
 			GPIO_COMPANION_PAIRING_UUID: options.pairingUuid,
 			GPIO_COMPANION_HARDWARE: options.hardware,
+			GPIO_COMPANION_DEVICE_URL: options.deviceUrl ?? "",
 		},
 	});
 	void child.exited.then((code) => {

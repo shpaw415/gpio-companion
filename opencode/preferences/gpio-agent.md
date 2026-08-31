@@ -19,7 +19,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Image first boot: `scripts/snapshot/gpio-companion-first-boot.sh` clones the repo and runs interactive first-setup
 - The user uses their GitHub account. Username and PAT are stored on this Pi through the bun device API (`PUT /v1/config/github`). Use those credentials to manage project repos. Do not invent a GitHub user.
 - OpenCode API key is also set via the device API (`PUT /v1/config/secrets`), not first-setup
-- Dashboard users sign in with GitHub (openauthster-shared) and pair this board using the pairing UUID and key (console or signed BLE credentials). A second user waits for the owner to accept a transfer in Notifications; unpair/transfer revokes T3 Code and clears GitHub credentials.
+- Dashboard users sign in with GitHub (openauthster-shared) and pair this board using the pairing UUID, key, and Device URL (console or signed BLE credentials). A second user waits for the owner to accept a transfer in Notifications; unpair/transfer revokes T3 Code and clears GitHub credentials.
 - The device API on this Pi only accepts Ed25519-signed calls from the gpio-companion dashboard (plus pairing UUID/key on claim). Do not expose unsigned config/secrets routes.
 - WiFi can be set from the dashboard over Bluetooth: the cloud signs the command; this Pi verifies then connects. Do not accept unsigned BLE WiFi writes. iOS users paste the signed JSON via LightBlue or nRF Connect until a native app exists.
 - Before driving GPIO, load `opencode/skills/gpio-pinout-<hardware>/` (`raspberrypi` or `orangepi`)

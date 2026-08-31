@@ -8,7 +8,7 @@ HDMI/serial if you need the console. First boot clones the repo to `/opt/gpio-co
 
 Choose **raspberrypi** or **orangepi**. Enter the host’s Cloudflare API token, account ID, and zone ID so first-setup can create this board’s tunnel (`api-…` and `t3-…` on gpio-companion.com).
 
-**Write down** the printed **pairing UUID** and **pairing key**, or pull them on `/pair` over Bluetooth (Chrome) / LightBlue paste (iOS). They also live in `/etc/gpio-companion/pairing.env` (root).
+**Write down** the printed **pairing UUID** and **pairing key**, or pull UUID, key, and Device URL on `/pair` over Bluetooth (Chrome) / LightBlue paste (iOS). They also live in `/etc/gpio-companion/pairing.env` (root).
 
 ## 2. Network
 
@@ -34,9 +34,9 @@ Page `/pair` (or stepper step 2).
 
 | Field | Where it comes from |
 | --- | --- |
-| Device URL | `https://api-<uuid>.gpio-companion.com` (printed at first-setup; optional) |
-| Pairing UUID | first-setup printout |
-| Pairing key | first-setup printout |
+| Device URL | Bluetooth (first-setup `apiHostname`) or `https://api-<uuid>.gpio-companion.com` |
+| Pairing UUID | Bluetooth or first-setup printout |
+| Pairing key | Bluetooth or first-setup printout |
 
 The dashboard **signs** the claim, starts **T3 Code** (`t3 start`), and shows a web pairing URL (`app.t3.codes/pair?host=https://t3-…`). Open it, finish T3 pairing; the dashboard then runs `t3 service install`. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
 

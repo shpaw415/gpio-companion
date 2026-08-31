@@ -8,6 +8,7 @@ import {
 	parsePairingUnpair,
 	parseTunnelConfig,
 	parseWifiConfig,
+	publicDeviceUrl,
 	publicPairing,
 	publicWifiStatus,
 	redactDeviceConfig,
@@ -145,7 +146,13 @@ export async function handleDeviceRequest(
 		if (!isLoopback(url)) {
 			throw new Error("pairing credentials are local-only");
 		}
-		return json(pairingCredentials(await pairingStore.read()));
+		const config = await store.read();
+		return json(
+			pairingCredentials(
+				await pairingStore.read(),
+				publicDeviceUrl(config.tunnel.apiHostname),
+			),
+		);
 	}
 
 	if (method === "POST" && path === "/v1/pairing/transfer") {

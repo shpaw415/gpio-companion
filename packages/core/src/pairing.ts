@@ -56,14 +56,19 @@ export type PairingCredentials = {
 	key: string;
 	paired: boolean;
 	userId: string;
+	deviceUrl: string;
 };
 
-export function pairingCredentials(state: PairingState): PairingCredentials {
+export function pairingCredentials(
+	state: PairingState,
+	deviceUrl = "",
+): PairingCredentials {
 	return {
 		uuid: state.uuid,
 		key: state.key,
 		paired: state.claimed,
 		userId: state.claimed ? state.userId : "",
+		deviceUrl,
 	};
 }
 

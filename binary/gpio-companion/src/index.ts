@@ -3,6 +3,8 @@ import {
 	DEFAULT_DEVICE_KEY_ID,
 	type HardwareId,
 	isHardwareId,
+	parseDeviceConfig,
+	publicDeviceUrl,
 	VERSION,
 } from "gpio-companion";
 import { startBleBridge } from "./ble.ts";
@@ -61,6 +63,7 @@ startBleBridge({
 	pairingUuid,
 	hardware,
 	port: server.port ?? 4150,
+	deviceUrl: readDeviceUrl(configPath),
 });
 
 console.log(
@@ -96,6 +99,20 @@ function loadDeviceAuth(): { keyId: string; publicKeyPem: string } {
 		}
 	}
 	return { keyId, publicKeyPem };
+}
+
+function readDeviceUrl(path: string): string {
+	if (!existsSync(path)) {
+		return "";
+	}
+	try {
+		return publicDeviceUrl(
+			parseDeviceConfig(JSON.parse(readFileSync(path, "utf8"))).tunnel
+				.apiHostname,
+		);
+	} catch {
+		return "";
+	}
 }
 
 function readHardware(): HardwareId {

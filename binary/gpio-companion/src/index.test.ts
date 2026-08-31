@@ -277,6 +277,15 @@ describe("gpio-companion-bin", () => {
 	});
 
 	test("credentials are signed and include pairing key", async () => {
+		await deviceFetch("v1/config/tunnel", {
+			method: "PUT",
+			body: JSON.stringify({
+				token: "tunnel-token",
+				hostname: "t3.gpio.example",
+				apiHostname: "api.gpio.example",
+				tunnelId: "tun-1",
+			}),
+		});
 		const response = await deviceFetch("v1/pairing/credentials");
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
@@ -284,11 +293,13 @@ describe("gpio-companion-bin", () => {
 			key: string;
 			paired: boolean;
 			userId: string;
+			deviceUrl: string;
 		};
 		expect(body.uuid).toBe("pair-uuid");
 		expect(body.key).toBe("pair-key");
 		expect(body.paired).toBe(true);
 		expect(body.userId).toBe("user-1");
+		expect(body.deviceUrl).toBe("https://api.gpio.example");
 	});
 
 	test("transfers owner and unpairs", async () => {

@@ -22,6 +22,7 @@ export type BleInfo = {
 	uuid: string;
 	hardware: string;
 	name: string;
+	deviceUrl?: string;
 };
 
 export async function createSignedEnvelope(options: {

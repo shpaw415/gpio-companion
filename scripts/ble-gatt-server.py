@@ -37,6 +37,7 @@ API = os.environ.get("GPIO_COMPANION_BLE_API", "http://127.0.0.1:4150")
 PAIR_UUID = os.environ.get("GPIO_COMPANION_PAIRING_UUID", "")
 HARDWARE = os.environ.get("GPIO_COMPANION_HARDWARE", "raspberrypi")
 LOCAL_NAME = os.environ.get("GPIO_BLE_NAME", "gpio-companion")
+DEVICE_URL = os.environ.get("GPIO_COMPANION_DEVICE_URL", "")
 
 
 class Application(dbus.service.Object):
@@ -246,7 +247,12 @@ def main():
 	info = Characteristic(bus, 0, INFO_UUID, ["read"], svc)
 	info.set_value(
 		json.dumps(
-			{"uuid": PAIR_UUID, "hardware": HARDWARE, "name": LOCAL_NAME}
+			{
+				"uuid": PAIR_UUID,
+				"hardware": HARDWARE,
+				"name": LOCAL_NAME,
+				"deviceUrl": DEVICE_URL,
+			}
 		).encode("utf-8")
 	)
 	status = Characteristic(bus, 2, STATUS_UUID, ["read", "notify"], svc)

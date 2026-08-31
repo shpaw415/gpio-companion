@@ -15,6 +15,8 @@ import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
+	publicDeviceUrl,
+	tunnelHostnames,
 } from "gpio-companion";
 import { type FormEvent, useEffect, useState } from "react";
 import { useAuthSession } from "../hooks/useAuth.ts";
@@ -72,12 +74,21 @@ export default function PairForm({
 			const ble = await connectGpioCompanionBle();
 			const raw = await ble.sendEnvelope(envelope);
 			ble.disconnect();
-			const body = JSON.parse(raw) as { uuid?: string; key?: string };
+			const body = JSON.parse(raw) as {
+				uuid?: string;
+				key?: string;
+				deviceUrl?: string;
+			};
 			if (!body.uuid || !body.key) {
 				throw new Error("device did not return pairing credentials");
 			}
 			setUuid(body.uuid);
 			setKey(body.key);
+			setDeviceUrl(
+				body.deviceUrl ||
+					ble.info.deviceUrl ||
+					publicDeviceUrl(tunnelHostnames(body.uuid).apiHostname),
+			);
 			setStatus("credentials loaded");
 		} catch (caught) {
 			setStatus("");
@@ -186,7 +197,7 @@ export default function PairForm({
 						onClick={() => void retrieveCredentials()}
 					>
 						{supported
-							? "Get UUID and key over Bluetooth"
+							? "Get pairing over Bluetooth"
 							: "Sign credentials command (iOS)"}
 					</Button>
 					{supported ? null : (

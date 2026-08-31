@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { loginFromEmail, parsePairingClaim, publicPairing } from "./pairing.ts";
+import {
+	emptyPairingState,
+	loginFromEmail,
+	pairingCredentials,
+	parsePairingClaim,
+	publicPairing,
+} from "./pairing.ts";
 
 describe("pairing", () => {
 	test("maps email to login", () => {
@@ -18,5 +24,16 @@ describe("pairing", () => {
 			publicPairing({ ...claim, claimed: true, claimedAt: "now", key: "k1" })
 				.paired,
 		).toBe(true);
+	});
+
+	test("credentials include device url", () => {
+		const creds = pairingCredentials(
+			{ ...emptyPairingState("u1", "k1"), claimed: true, userId: "user-1" },
+			"https://api-u1.gpio-companion.com",
+		);
+		expect(creds.uuid).toBe("u1");
+		expect(creds.key).toBe("k1");
+		expect(creds.deviceUrl).toBe("https://api-u1.gpio-companion.com");
+		expect(creds.userId).toBe("user-1");
 	});
 });
