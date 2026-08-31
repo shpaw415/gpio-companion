@@ -82,7 +82,10 @@ export async function connectGpioCompanionBle(): Promise<{
 		throw new Error("Web Bluetooth is not available in this browser");
 	}
 	const device = await bluetooth.requestDevice({
-		filters: [{ namePrefix: BLE_DEVICE_NAME }],
+		filters: [
+			{ services: [BLE_SERVICE_UUID] },
+			{ namePrefix: BLE_DEVICE_NAME },
+		],
 		optionalServices: [BLE_SERVICE_UUID],
 	});
 	const gatt = device.gatt;

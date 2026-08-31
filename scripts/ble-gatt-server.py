@@ -175,21 +175,30 @@ class CommandCharacteristic(Characteristic):
 		self.on_payload(payload)
 
 
+def advertisement_payloads():
+	uuid = dbus.Array([SERVICE_UUID], signature="s")
+	return (
+		{"Type": "peripheral", "ServiceUUIDs": uuid, "LocalName": LOCAL_NAME},
+		{"Type": "peripheral", "ServiceUUIDs": uuid, "LocalName": "gpio"},
+		{"Type": "peripheral", "ServiceUUIDs": uuid},
+		{"Type": "peripheral", "LocalName": LOCAL_NAME},
+	)
+
+
 class Advertisement(dbus.service.Object):
 	def __init__(self, bus):
 		self.path = "/org/gpio/ble/advertisement0"
+		self.payload = advertisement_payloads()[0]
 		dbus.service.Object.__init__(self, bus, self.path)
 
 	def get_path(self):
 		return dbus.ObjectPath(self.path)
 
+	def set_payload(self, payload):
+		self.payload = payload
+
 	def get_properties(self):
-		return {
-			LE_AD: {
-				"Type": "peripheral",
-				"LocalName": LOCAL_NAME,
-			}
-		}
+		return {LE_AD: self.payload}
 
 	@dbus.service.method(PROP_IFACE, in_signature="s", out_signature="a{sv}")
 	def GetAll(self, interface):
@@ -249,6 +258,7 @@ def wait_adapter(bus):
 
 def register_gatt(service_manager, ad_manager, app, ad):
 	loop = GLib.MainLoop()
+	payloads = advertisement_payloads()
 	state = {"failed": False, "ad_tries": 0}
 
 	def fail(kind, error):
@@ -261,6 +271,8 @@ def register_gatt(service_manager, ad_manager, app, ad):
 		sys.stdout.flush()
 
 	def start_ad():
+		index = min(state["ad_tries"], len(payloads) - 1)
+		ad.set_payload(payloads[index])
 		ad_manager.RegisterAdvertisement(
 			ad.get_path(),
 			{},

@@ -16,6 +16,8 @@ Bluetooth name: **gpio-companion**.
 
 Safari, Firefox, and iOS Chrome/Safari **cannot** use Web Bluetooth in this page.
 
+Chrome’s chooser uses **this computer’s** Bluetooth (not the Pi’s). Quit `bluetoothctl` first. Android Chrome needs Location allowed for BLE scans. nRF Connect can see the board even when the dashboard chooser is empty if the advert has no service UUID.
+
 ## iOS workaround (until a native app)
 
 Safari cannot talk to the Pi from the website. Use sign-and-copy:
