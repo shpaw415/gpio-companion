@@ -25,6 +25,7 @@ let t3Revoked = 0;
 let t3Paired = false;
 let t3Running = false;
 let t3PairingUrl = "";
+const clockSets: number[] = [];
 
 const server = startDeviceApi({
 	port: 0,
@@ -89,6 +90,9 @@ const server = startDeviceApi({
 	deviceAuth: {
 		keyId: keys.keyId,
 		publicKeyPem: keys.publicKeyPem,
+	},
+	applyClock: async (issuedMs) => {
+		clockSets.push(issuedMs);
 	},
 });
 
@@ -247,6 +251,116 @@ describe("gpio-companion-bin", () => {
 			}),
 		});
 		expect(mismatch.status).toBe(403);
+	});
+
+	test("sets the clock from a valid future wifi signature", async () => {
+		const issued = Date.now() + 180_000;
+		const body = JSON.stringify({
+			ssid: "bench",
+			psk: "secret-pass",
+			uuid: "pair-uuid",
+		});
+		const auth = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body,
+			now: issued,
+		});
+		const response = await fetch(`${server.url}v1/config/wifi`, {
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				...auth,
+			},
+			body,
+		});
+		expect(response.status).toBe(200);
+		expect(clockSets.at(-1)).toBe(issued);
+
+		const older = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body,
+			now: Date.now() + 90_000,
+		});
+		const replay = await fetch(`${server.url}v1/config/wifi`, {
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				...older,
+			},
+			body,
+		});
+		expect(replay.status).toBe(403);
+		expect(await replay.json()).toEqual({
+			error: "expired device signature",
+		});
+		expect(clockSets.at(-1)).toBe(issued);
+	});
+
+	test("rejects an expired wifi signature without setting the clock", async () => {
+		const before = clockSets.length;
+		const body = JSON.stringify({
+			ssid: "bench",
+			psk: "secret-pass",
+			uuid: "pair-uuid",
+		});
+		const auth = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body,
+			now: Date.now() - 120_000,
+		});
+		const response = await fetch(`${server.url}v1/config/wifi`, {
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				...auth,
+			},
+			body,
+		});
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error: "expired device signature",
+		});
+		expect(clockSets.length).toBe(before);
+	});
+
+	test("does not set the clock for an invalid future signature", async () => {
+		const before = clockSets.length;
+		const body = JSON.stringify({
+			ssid: "bench",
+			psk: "secret-pass",
+			uuid: "pair-uuid",
+		});
+		const auth = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body,
+			now: Date.now() + 240_000,
+		});
+		auth["X-Gpio-Signature"] = btoa("not-a-real-signature");
+		const response = await fetch(`${server.url}v1/config/wifi`, {
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				...auth,
+			},
+			body,
+		});
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error: "invalid device signature",
+		});
+		expect(clockSets.length).toBe(before);
 	});
 
 	test("applies signed wifi when pairing uuid matches", async () => {

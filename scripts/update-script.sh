@@ -18,6 +18,10 @@ fi
 GPIO_USER="${GPIO_USER:-${SUDO_USER:-root}}"
 BIN_DIR="${GPIO_COMPANION_BIN_DIR:-/usr/local/bin}"
 LIB_DIR="${GPIO_COMPANION_LIB_DIR:-/usr/local/lib/gpio-companion}"
+FORCE=0
+if [[ "${1:-}" == "--force" || "${GPIO_COMPANION_UPDATE_FORCE:-}" == "1" ]]; then
+	FORCE=1
+fi
 
 cd "$REPO_ROOT"
 
@@ -51,6 +55,9 @@ fi
 
 paths_changed() {
 	local pattern="$1"
+	if [[ "$FORCE" -eq 1 ]]; then
+		return 0
+	fi
 	if [[ "$before" == "$after" ]]; then
 		return 1
 	fi
@@ -60,7 +67,11 @@ paths_changed() {
 install_ble_gatt_script
 
 if paths_changed '^(binary/gpio-companion/|packages/core/|scripts/systemd/gpio-companion\.service|package\.json|bun\.lock)'; then
-	echo "gpio-companion update: server changed, rebuilding"
+	if [[ "$FORCE" -eq 1 ]]; then
+		echo "gpio-companion update: force rebuild"
+	else
+		echo "gpio-companion update: server changed, rebuilding"
+	fi
 	install_gpio_companion_bin
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion.service" /etc/systemd/system/gpio-companion.service
 	sed -i "s/^Environment=GPIO_COMPANION_HARDWARE=.*/Environment=GPIO_COMPANION_HARDWARE=$(read_hardware)/" /etc/systemd/system/gpio-companion.service
@@ -68,6 +79,7 @@ if paths_changed '^(binary/gpio-companion/|packages/core/|scripts/systemd/gpio-c
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.service" /etc/systemd/system/gpio-companion-update.service
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	fi
+	install_update_wrapper
 	systemctl daemon-reload
 	systemctl restart gpio-companion.service
 elif paths_changed '^scripts/ble-gatt-server\.py$'; then

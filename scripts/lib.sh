@@ -508,9 +508,17 @@ install_update_wrapper() {
 set -euo pipefail
 CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
 REPO="$(cat "$CONFIG_DIR/repo.path")"
-exec /bin/bash "$REPO/scripts/update-script.sh"
+exec /bin/bash "$REPO/scripts/update-script.sh" "$@"
 EOF
 	chmod 0755 /usr/local/sbin/gpio-companion-update
+	cat >/usr/local/sbin/gpio-companion-force-update <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
+REPO="$(cat "$CONFIG_DIR/repo.path")"
+exec /bin/bash "$REPO/scripts/update-script.sh" --force
+EOF
+	chmod 0755 /usr/local/sbin/gpio-companion-force-update
 }
 
 install_systemd_units() {

@@ -37,6 +37,7 @@ bun run compile
 sudo ./scripts/install-raspberrypi.sh
 sudo ./scripts/install-orangepi.sh
 sudo ./scripts/update-script.sh
+sudo ./scripts/force-update.sh
 sudo ./scripts/snapshot/gpio-companion-first-boot.sh
 sudo ./scripts/first-setup.sh
 ```

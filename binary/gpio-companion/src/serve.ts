@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
 	DeviceAuthError,
 	type DeviceConfig,
@@ -36,6 +37,8 @@ export type DeviceAuthConfig = {
 	publicKeyPem: string;
 };
 
+export type ApplyClock = (issuedMs: number) => Promise<void>;
+
 export type ServeOptions = {
 	port?: number;
 	hostname?: string;
@@ -48,11 +51,14 @@ export type ServeOptions = {
 	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
 	githubCredentials?: () => Promise<GithubInstallationCreds>;
+	applyClock?: ApplyClock;
+	clockStampPath?: string;
 };
 
 export function startDeviceApi(options: ServeOptions) {
 	const port = options.port ?? DEFAULT_PORT;
 	const hostname = options.hostname ?? "0.0.0.0";
+	const clock = createClockGate(options);
 	return Bun.serve({
 		port,
 		hostname,
@@ -72,6 +78,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.t3,
 					options.deviceAuth,
 					options.githubCredentials,
+					clock,
 				);
 			} catch (error) {
 				if (error instanceof DeviceAuthError) {
@@ -105,6 +112,7 @@ export async function handleDeviceRequest(
 	t3: T3Controller | undefined,
 	deviceAuth: DeviceAuthConfig,
 	githubCredentials?: () => Promise<GithubInstallationCreds>,
+	clock?: ClockGate,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -130,7 +138,7 @@ export async function handleDeviceRequest(
 		throw new DeviceAuthError("device public key not registered", 401);
 	}
 
-	await verifyDeviceRequest({
+	const verified = await verifyDeviceRequest({
 		publicKeyPem: deviceAuth.publicKeyPem,
 		keyId: deviceAuth.keyId,
 		method,
@@ -138,6 +146,11 @@ export async function handleDeviceRequest(
 		body: bodyText,
 		headers: request.headers,
 	});
+	if (clock) {
+		await clock.sync(verified.issued, verified.clockBehind);
+	} else if (verified.clockBehind) {
+		throw new DeviceAuthError("expired device signature", 403);
+	}
 
 	if (method === "GET" && path === "/v1/pairing") {
 		const config = await store.read();
@@ -320,6 +333,76 @@ export async function handleDeviceRequest(
 	}
 
 	return json({ error: "not found" }, 404);
+}
+
+type ClockGate = {
+	sync(issuedMs: number, clockBehind: boolean): Promise<void>;
+};
+
+function createClockGate(options: ServeOptions): ClockGate {
+	let lastIssuedMs = readClockStamp(options.clockStampPath);
+	const apply = options.applyClock ?? defaultApplyClock;
+	return {
+		async sync(issuedMs, clockBehind) {
+			if (!clockBehind) {
+				return;
+			}
+			if (issuedMs <= lastIssuedMs) {
+				throw new DeviceAuthError("expired device signature", 403);
+			}
+			try {
+				await apply(issuedMs);
+			} catch {
+				// still accept this request; signature already verified
+			}
+			lastIssuedMs = issuedMs;
+			writeClockStamp(options.clockStampPath, issuedMs);
+		},
+	};
+}
+
+async function defaultApplyClock(issuedMs: number): Promise<void> {
+	const unix = Math.floor(issuedMs / 1000);
+	if (!Number.isFinite(unix) || unix <= 0) {
+		return;
+	}
+	try {
+		const date = Bun.spawn(["date", "-u", "-s", `@${unix}`], {
+			stdout: "ignore",
+			stderr: "ignore",
+		});
+		await date.exited;
+	} catch {
+		return;
+	}
+	try {
+		const hw = Bun.spawn(["fake-hwclock", "save"], {
+			stdout: "ignore",
+			stderr: "ignore",
+		});
+		await hw.exited;
+	} catch {
+		return;
+	}
+}
+
+function readClockStamp(path: string | undefined): number {
+	if (!path) {
+		return 0;
+	}
+	try {
+		const issued = Number(readFileSync(path, "utf8").trim());
+		return Number.isFinite(issued) && issued > 0 ? issued : 0;
+	} catch {
+		return 0;
+	}
+}
+
+function writeClockStamp(path: string | undefined, issuedMs: number): void {
+	if (!path) {
+		return;
+	}
+	void Bun.write(path, `${issuedMs}\n`).catch(() => undefined);
 }
 
 async function persist(

@@ -2,6 +2,8 @@
 
 The dashboard **signs** every WiFi command with gpio-companion’s private key and a timestamp (replay window 60 seconds). The Pi checks the signature and that the pairing UUID in the command matches **this** board. Unsigned BLE writes do nothing useful.
 
+A fresh board with no RTC (typical Orange Pi) often has a clock far behind Cloudflare. The first **valid** signed command sets the Pi clock from that timestamp, then the 60-second window applies. A command older than a minute is still rejected.
+
 You must be **signed in**, and the board must already be **paired** to your account. Choose it from the paired-device dropdown. The dashboard will not sign a WiFi command for any other UUID.
 
 Bluetooth name: **gpio-companion**.
@@ -32,7 +34,7 @@ Safari cannot talk to the Pi from the website. Use sign-and-copy:
 
 The Pi accepts that JSON text. A native gpio-companion iOS app is planned later and will replace the extra BLE app.
 
-If copy failed, use **Copy to clipboard** on `/devices/wifi`. If the timestamp is older than about a minute, sign again (replay protection).
+If copy failed, use **Copy to clipboard** on `/devices/wifi`. If the timestamp is older than about a minute, sign again (replay protection). The first successful paste may also set the board clock.
 
 ## If Bluetooth is missing
 

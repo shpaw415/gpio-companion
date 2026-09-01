@@ -71,6 +71,55 @@ describe("device-auth", () => {
 		}
 	});
 
+	test("flags a valid signature when the local clock is behind", async () => {
+		const keys = await generateDeviceKeyPair();
+		const now = 1_700_000_000_000;
+		const issued = now + 120_000;
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/status",
+			now: issued,
+		});
+		const result = await verifyDeviceRequest({
+			publicKeyPem: keys.publicKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/status",
+			headers,
+			now,
+		});
+		expect(result).toEqual({ issued, clockBehind: true });
+	});
+
+	test("rejects an invalid signature before treating a future timestamp as clock skew", async () => {
+		const keys = await generateDeviceKeyPair();
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/status",
+			now: Date.now() + 120_000,
+		});
+		headers["X-Gpio-Signature"] = btoa("not-a-real-signature");
+		try {
+			await verifyDeviceRequest({
+				publicKeyPem: keys.publicKeyPem,
+				keyId: keys.keyId,
+				method: "GET",
+				path: "/v1/status",
+				headers,
+			});
+			throw new Error("expected failure");
+		} catch (error) {
+			expect(error).toBeInstanceOf(DeviceAuthError);
+			expect((error as DeviceAuthError).message).toBe(
+				"invalid device signature",
+			);
+		}
+	});
+
 	test("derives the public PEM from the private PEM", async () => {
 		const keys = await generateDeviceKeyPair();
 		const derived = await publicKeyPemFromPrivateKey(keys.privateKeyPem);

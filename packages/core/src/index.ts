@@ -85,6 +85,7 @@ export {
 	DeviceAuthError,
 	type DeviceAuthHeaders,
 	type DeviceKeyPair,
+	type DeviceVerifyResult,
 	generateDeviceKeyPair,
 	normalizeDevicePath,
 	publicKeyPemFromPrivateKey,

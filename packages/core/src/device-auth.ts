@@ -111,6 +111,11 @@ export async function signDeviceRequest(options: {
 	};
 }
 
+export type DeviceVerifyResult = {
+	issued: number;
+	clockBehind: boolean;
+};
+
 export async function verifyDeviceRequest(options: {
 	publicKeyPem: string;
 	keyId: string;
@@ -120,7 +125,7 @@ export async function verifyDeviceRequest(options: {
 	headers: Headers | Record<string, string | null | undefined>;
 	now?: number;
 	maxSkewMs?: number;
-}): Promise<void> {
+}): Promise<DeviceVerifyResult> {
 	const keyId = headerValue(options.headers, DEVICE_AUTH_HEADERS.keyId);
 	const timestamp = headerValue(options.headers, DEVICE_AUTH_HEADERS.timestamp);
 	const nonce = headerValue(options.headers, DEVICE_AUTH_HEADERS.nonce);
@@ -134,10 +139,6 @@ export async function verifyDeviceRequest(options: {
 	const issued = Number(timestamp);
 	if (!Number.isFinite(issued)) {
 		throw new DeviceAuthError("invalid device signature", 403);
-	}
-	const skew = Math.abs((options.now ?? Date.now()) - issued);
-	if (skew > (options.maxSkewMs ?? DEFAULT_DEVICE_MAX_SKEW_MS)) {
-		throw new DeviceAuthError("expired device signature", 403);
 	}
 	const payload = await canonicalDevicePayload({
 		method: options.method,
@@ -162,6 +163,15 @@ export async function verifyDeviceRequest(options: {
 	if (!ok) {
 		throw new DeviceAuthError("invalid device signature", 403);
 	}
+	const now = options.now ?? Date.now();
+	const maxSkewMs = options.maxSkewMs ?? DEFAULT_DEVICE_MAX_SKEW_MS;
+	if (now - issued > maxSkewMs) {
+		throw new DeviceAuthError("expired device signature", 403);
+	}
+	return {
+		issued,
+		clockBehind: issued - now > maxSkewMs,
+	};
 }
 
 export async function canonicalDevicePayload(input: {

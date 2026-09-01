@@ -18,6 +18,7 @@ import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
 import {
+	DEFAULT_CLOCK_STAMP_PATH,
 	DEFAULT_CONFIG_PATH,
 	DEFAULT_DEVICE_AUTH_PATH,
 	DEFAULT_PORT,
@@ -101,10 +102,15 @@ const server = startDeviceApi({
 	revokeT3: () => t3.revoke(),
 	deviceAuth,
 	githubCredentials,
+	clockStampPath:
+		process.env.GPIO_COMPANION_CLOCK_STAMP ?? DEFAULT_CLOCK_STAMP_PATH,
 });
-setInterval(() => {
-	void githubCredentials().catch(() => undefined);
-}, 30 * 60 * 1000);
+setInterval(
+	() => {
+		void githubCredentials().catch(() => undefined);
+	},
+	30 * 60 * 1000,
+);
 
 startBleBridge({
 	pairingUuid,
