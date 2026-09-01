@@ -1,5 +1,14 @@
 # Host workflows
 
+## Ship a desktop companion release
+
+1. Set the same version (not `0.0.0`) in `apps/desktop/package.json` and `apps/desktop/src-tauri/tauri.conf.json`
+2. Merge to `main` (or run **Release desktop** via `workflow_dispatch`)
+3. GitHub Actions builds Windows / Linux / macOS and publishes `desktop-v<version>` on the repo Releases page
+4. If that tag already exists, the workflow skips (safe rerun)
+
+Unsigned macOS artifacts may need a right-click Open until Apple signing is configured.
+
 ## Ship a dashboard change
 
 1. Implement in `apps/dashboard` (and `packages/core` if signing/BLE envelope changed)
@@ -38,6 +47,7 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 ## WiFi / BLE support
 
 - Chrome/Edge: dashboard `/wifi` uses Web Bluetooth
+- Native companion: `apps/mobile` (iOS/Android) and `apps/desktop` (Windows/Linux/macOS) use native GATT and `/api/mobile/*`
 - iOS Safari: sign-and-copy → LightBlue or nRF Connect, UTF-8 JSON to command characteristic
 - Signed body UUID must match the Pi
 - `GPIO_COMPANION_BLE=0` disables advertising
@@ -69,4 +79,4 @@ Physical console (HDMI/serial): first-setup TTY, Ethernet, or `nmcli` as root. B
 
 ## What not to invent
 
-Billing, gpio-companion.com subscription, Orange Pi SKU matrix, and a native iOS app are not locked. Host docs stop at the services and image paths above.
+Billing, gpio-companion.com subscription, and Orange Pi SKU matrix are not locked. Host docs stop at the services and image paths above.

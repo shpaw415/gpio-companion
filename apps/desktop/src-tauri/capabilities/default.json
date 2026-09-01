@@ -1,0 +1,6 @@
+{
+	"identifier": "default",
+	"description": "gpio-companion desktop",
+	"windows": ["main"],
+	"permissions": ["core:default", "opener:default", "deep-link:default"]
+}

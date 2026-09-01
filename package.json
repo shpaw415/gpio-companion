@@ -17,6 +17,7 @@
 			"apps/workers/*",
 			"!apps/workers",
 			"!apps/mobile",
+			"!apps/desktop",
 			"packages/*",
 			"binary/*"
 		],

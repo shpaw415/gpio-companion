@@ -16,11 +16,23 @@ Bluetooth name: **gpio-companion**.
 4. **Connect over Bluetooth** and pick `gpio-companion`
 5. Wait until status says connected
 
-Safari, Firefox, and iOS Chrome/Safari **cannot** use Web Bluetooth in this page.
+Safari, Firefox, and iOS Chrome/Safari **cannot** use Web Bluetooth in this page. Use the native apps instead: `apps/mobile` (iOS/Android) or `apps/desktop` (Windows/Linux/macOS).
 
 Chrome’s chooser uses **this computer’s** Bluetooth (not the Pi’s). Quit `bluetoothctl` first. Android Chrome needs Location allowed for BLE scans. nRF Connect can see the board even when the dashboard chooser is empty if the advert has no service UUID.
 
-## iOS workaround (until a native app)
+## Native desktop (Windows / Linux / macOS)
+
+The Tauri app in `apps/desktop` signs in with GitHub, then pairs and sends WiFi over native Bluetooth (not Web Bluetooth).
+
+```sh
+cd apps/desktop
+bun install
+bun run tauri:dev
+```
+
+Linux: install WebKitGTK/GTK build deps (see `apps/desktop/README.md`) and join the `bluetooth` group. Quit `bluetoothctl` while scanning.
+
+## iOS workaround (until using the native app)
 
 Safari cannot talk to the Pi from the website. Use sign-and-copy:
 
@@ -32,7 +44,7 @@ Safari cannot talk to the Pi from the website. Use sign-and-copy:
 6. Paste the JSON as **UTF-8 text** (not hex) and send
 7. Read the **status** characteristic — `{ "connected": true, "ssid": "…" }` on success, or `{ "error": "…", "reason": "ssid-not-found"|"password"|"no-device"|"failed" }` on failure
 
-The Pi accepts that JSON text. A native gpio-companion iOS app is planned later and will replace the extra BLE app.
+The Pi accepts that JSON text. Prefer `apps/mobile` (iOS/Android) or `apps/desktop` (Windows/Linux/macOS) instead of a third-party BLE app.
 
 If copy failed, use **Copy to clipboard** on `/devices/wifi`. If the timestamp is older than about a minute, sign again (replay protection). The first successful paste may also set the board clock.
 

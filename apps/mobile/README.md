@@ -16,3 +16,5 @@ npx expo run:android
 Register an OpenAuthster **public** client (`clientType: "public"`) with redirect `gpio-companion://auth/callback` and GitHub enabled. Set `app.json` `extra.issuerUrl` / `authClientId` to that project.
 
 Needs a dev build (not Expo Go): Bluetooth + native OpenAuthster modules.
+
+Windows / Linux / macOS: `apps/desktop` (Tauri). Same `/api/mobile/*` API and GATT protocol.

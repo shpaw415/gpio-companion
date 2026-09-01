@@ -8,7 +8,7 @@ Operator deploy and image docs: `documentation/host/`. Desk user setup and daily
 
 ```txt
 .
-├── apps/                 # web app
+├── apps/                 # dashboard, mobile, desktop
 ├── packages/             # shared libraries
 ├── binary/               # on-device binary + config API
 ├── scripts/              # per-hardware Armbian install
@@ -22,6 +22,8 @@ Operator deploy and image docs: `documentation/host/`. Desk user setup and daily
 | `packages/core` | `gpio-companion` | shared library |
 | `apps/web` | `gpio-companion-web` | web companion |
 | `apps/dashboard` | `gpio-companion-dashboard` | Cloudflare Pages dashboard |
+| `apps/mobile` | `gpio-companion-mobile` | Expo BLE companion (iOS/Android; not a Bun workspace) |
+| `apps/desktop` | `gpio-companion-desktop` | Tauri BLE companion (Windows/Linux/macOS; not a Bun workspace) |
 | `binary/gpio-companion` | `gpio-companion-bin` | standalone binary |
 
 ## Scripts
