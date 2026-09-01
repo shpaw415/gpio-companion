@@ -73,7 +73,15 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 					props.services.iter().map(|id| id.to_string()).collect();
 				let refs: Vec<&str> = services.iter().map(String::as_str).collect();
 				if frames::matches_board(name, &refs) {
+					crate::log::line(&format!(
+						"bluetooth found name={} addr={} type={:?} rssi={:?}",
+						name.unwrap_or("-"),
+						props.address,
+						props.address_type,
+						props.rssi
+					));
 					let _ = adapter.stop_scan().await;
+					sleep(Duration::from_millis(400)).await;
 					return Ok(peripheral);
 				}
 			}
@@ -91,12 +99,31 @@ fn find_char(peripheral: &Peripheral, uuid: &str) -> Result<Characteristic, Stri
 		.ok_or_else(|| format!("missing characteristic {uuid}"))
 }
 
+async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
+	if peripheral.is_connected().await.unwrap_or(false) {
+		crate::log::line("bluetooth already connected");
+		return Ok(());
+	}
+	let mut last = "connect failed".to_string();
+	for attempt in 1..=5 {
+		match peripheral.connect().await {
+			Ok(()) => {
+				crate::log::line(&format!("bluetooth connected attempt={attempt}"));
+				return Ok(());
+			}
+			Err(err) => {
+				last = err.to_string();
+				crate::log::line(&format!("bluetooth connect attempt={attempt}: {last}"));
+				let _ = peripheral.disconnect().await;
+				sleep(Duration::from_millis(250 * attempt as u64)).await;
+			}
+		}
+	}
+	Err(format!("bluetooth connect: {last}"))
+}
+
 pub async fn read_info(peripheral: &Peripheral) -> Result<BleInfo, String> {
-	peripheral.connect().await.map_err(|err| {
-		let message = format!("bluetooth connect: {err}");
-		crate::log::line(&message);
-		message
-	})?;
+	ensure_connected(peripheral).await?;
 	peripheral.discover_services().await.map_err(|err| {
 		let message = format!("bluetooth discover: {err}");
 		crate::log::line(&message);
