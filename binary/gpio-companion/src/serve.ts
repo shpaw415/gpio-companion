@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import {
+	DEFAULT_DEVICE_MAX_SKEW_MS,
 	DeviceAuthError,
 	type DeviceConfig,
 	mergeDeviceSecrets,
@@ -53,12 +54,19 @@ export type ServeOptions = {
 	githubCredentials?: () => Promise<GithubInstallationCreds>;
 	applyClock?: ApplyClock;
 	clockStampPath?: string;
+	clockTrusted?: () => boolean | Promise<boolean>;
+	noncePath?: string;
+	nonceStore?: {
+		has(nonce: string): boolean;
+		add(nonce: string): void;
+	};
 };
 
 export function startDeviceApi(options: ServeOptions) {
 	const port = options.port ?? DEFAULT_PORT;
 	const hostname = options.hostname ?? "0.0.0.0";
 	const clock = createClockGate(options);
+	const nonces = createNonceGate(options);
 	return Bun.serve({
 		port,
 		hostname,
@@ -79,6 +87,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.deviceAuth,
 					options.githubCredentials,
 					clock,
+					nonces,
 				);
 			} catch (error) {
 				if (error instanceof DeviceAuthError) {
@@ -113,6 +122,7 @@ export async function handleDeviceRequest(
 	deviceAuth: DeviceAuthConfig,
 	githubCredentials?: () => Promise<GithubInstallationCreds>,
 	clock?: ClockGate,
+	nonces?: NonceGate,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -138,6 +148,7 @@ export async function handleDeviceRequest(
 		throw new DeviceAuthError("device public key not registered", 401);
 	}
 
+	const trusted = clock ? await clock.trusted() : true;
 	const verified = await verifyDeviceRequest({
 		publicKeyPem: deviceAuth.publicKeyPem,
 		keyId: deviceAuth.keyId,
@@ -145,7 +156,11 @@ export async function handleDeviceRequest(
 		path,
 		body: bodyText,
 		headers: request.headers,
+		enforceSkew: trusted,
 	});
+	if (nonces) {
+		nonces.consume(verified.nonce);
+	}
 	if (clock) {
 		await clock.sync(verified.issued, verified.clockBehind);
 	} else if (verified.clockBehind) {
@@ -329,13 +344,32 @@ export async function handleDeviceRequest(
 }
 
 type ClockGate = {
+	trusted(): Promise<boolean>;
 	sync(issuedMs: number, clockBehind: boolean): Promise<void>;
 };
+
+type NonceGate = {
+	consume(nonce: string): void;
+};
+
+const MAX_DEVICE_NONCES = 512;
 
 function createClockGate(options: ServeOptions): ClockGate {
 	let lastIssuedMs = readClockStamp(options.clockStampPath);
 	const apply = options.applyClock ?? defaultApplyClock;
 	return {
+		async trusted() {
+			if (options.clockTrusted) {
+				return options.clockTrusted();
+			}
+			if (
+				lastIssuedMs > 0 &&
+				Math.abs(Date.now() - lastIssuedMs) <= DEFAULT_DEVICE_MAX_SKEW_MS
+			) {
+				return true;
+			}
+			return ntpSynchronized();
+		},
 		async sync(issuedMs, clockBehind) {
 			if (!clockBehind) {
 				return;
@@ -350,6 +384,33 @@ function createClockGate(options: ServeOptions): ClockGate {
 			}
 			lastIssuedMs = issuedMs;
 			writeClockStamp(options.clockStampPath, issuedMs);
+		},
+	};
+}
+
+function createNonceGate(options: ServeOptions): NonceGate {
+	if (options.nonceStore) {
+		const store = options.nonceStore;
+		return {
+			consume(nonce) {
+				if (store.has(nonce)) {
+					throw new DeviceAuthError("replayed device signature", 403);
+				}
+				store.add(nonce);
+			},
+		};
+	}
+	let nonces = readNonces(options.noncePath);
+	return {
+		consume(nonce) {
+			if (nonces.includes(nonce)) {
+				throw new DeviceAuthError("replayed device signature", 403);
+			}
+			nonces.push(nonce);
+			if (nonces.length > MAX_DEVICE_NONCES) {
+				nonces = nonces.slice(-MAX_DEVICE_NONCES);
+			}
+			writeNonces(options.noncePath, nonces);
 		},
 	};
 }
@@ -396,6 +457,42 @@ function writeClockStamp(path: string | undefined, issuedMs: number): void {
 		return;
 	}
 	void Bun.write(path, `${issuedMs}\n`).catch(() => undefined);
+}
+
+async function ntpSynchronized(): Promise<boolean> {
+	try {
+		const proc = Bun.spawn(
+			["timedatectl", "show", "-p", "NTPSynchronized", "--value"],
+			{ stdout: "pipe", stderr: "ignore" },
+		);
+		const text = await new Response(proc.stdout).text();
+		await proc.exited;
+		return text.trim().toLowerCase() === "yes";
+	} catch {
+		return false;
+	}
+}
+
+function readNonces(path: string | undefined): string[] {
+	if (!path) {
+		return [];
+	}
+	try {
+		const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+		if (!Array.isArray(parsed)) {
+			return [];
+		}
+		return parsed.filter((item): item is string => typeof item === "string");
+	} catch {
+		return [];
+	}
+}
+
+function writeNonces(path: string | undefined, nonces: string[]): void {
+	if (!path) {
+		return;
+	}
+	void Bun.write(path, `${JSON.stringify(nonces)}\n`).catch(() => undefined);
 }
 
 async function persist(

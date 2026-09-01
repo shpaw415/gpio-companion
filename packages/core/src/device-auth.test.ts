@@ -90,7 +90,36 @@ describe("device-auth", () => {
 			headers,
 			now,
 		});
-		expect(result).toEqual({ issued, clockBehind: true });
+		expect(result).toEqual({
+			issued,
+			nonce: headers["X-Gpio-Nonce"],
+			clockBehind: true,
+		});
+	});
+
+	test("accepts a stale timestamp when skew is not enforced", async () => {
+		const keys = await generateDeviceKeyPair();
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/pairing/credentials",
+			now: Date.now() - 120_000,
+			nonce: "offline-nonce-1",
+		});
+		const result = await verifyDeviceRequest({
+			publicKeyPem: keys.publicKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/pairing/credentials",
+			headers,
+			enforceSkew: false,
+		});
+		expect(result).toEqual({
+			issued: Number(headers["X-Gpio-Timestamp"]),
+			nonce: "offline-nonce-1",
+			clockBehind: false,
+		});
 	});
 
 	test("rejects an invalid signature before treating a future timestamp as clock skew", async () => {

@@ -70,7 +70,7 @@ The binary also reads `/etc/gpio-companion/device-auth.json` (`keyId`, `publicKe
 | Route | Auth |
 | --- | --- |
 | `GET /health` | none |
-| `GET /v1/status`, pairing, config, secrets, github, **wifi**, **t3** | Ed25519 dashboard signature |
+| `GET /v1/status`, pairing, config, secrets, github, **wifi**, **t3** | Ed25519 dashboard signature (60s skew once NTP/clock is trusted; nonce replay list while offline) |
 | `POST /v1/pairing/claim` | signature **and** pairing UUID + key |
 | `POST /v1/t3/pair` | signature |
 

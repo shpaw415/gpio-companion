@@ -113,7 +113,6 @@ export default function PairForm({
 		setError("");
 		setStatus("checking Bluetooth…");
 		try {
-			const envelope = unwrapAction(await signCredentials());
 			const canBle = await bluetoothAvailable();
 			setBleReady(canBle);
 			if (canBle) {
@@ -121,6 +120,7 @@ export default function PairForm({
 				try {
 					const ble = await connectGpioCompanionBle();
 					setStatus("reading pairing…");
+					const envelope = unwrapAction(await signCredentials());
 					const raw = await ble.sendEnvelope(envelope);
 					ble.disconnect();
 					await applyCredentials(raw, ble.info.deviceUrl);
@@ -132,6 +132,7 @@ export default function PairForm({
 					}
 				}
 			}
+			const envelope = unwrapAction(await signCredentials());
 			await copySignedCommand(envelope);
 		} catch (caught) {
 			setStatus("");

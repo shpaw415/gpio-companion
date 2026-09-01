@@ -21,6 +21,7 @@ import {
 	DEFAULT_CLOCK_STAMP_PATH,
 	DEFAULT_CONFIG_PATH,
 	DEFAULT_DEVICE_AUTH_PATH,
+	DEFAULT_NONCE_PATH,
 	DEFAULT_PORT,
 	DEFAULT_TUNNEL_ENV_PATH,
 	fileConfigStore,
@@ -104,6 +105,7 @@ const server = startDeviceApi({
 	githubCredentials,
 	clockStampPath:
 		process.env.GPIO_COMPANION_CLOCK_STAMP ?? DEFAULT_CLOCK_STAMP_PATH,
+	noncePath: process.env.GPIO_COMPANION_NONCES ?? DEFAULT_NONCE_PATH,
 });
 setInterval(
 	() => {

@@ -11,6 +11,7 @@ export const DEFAULT_TUNNEL_ENV_PATH = "/etc/gpio-companion/cloudflared.env";
 export const DEFAULT_DEVICE_AUTH_PATH = "/etc/gpio-companion/device-auth.json";
 export const DEFAULT_CLOCK_STAMP_PATH =
 	"/etc/gpio-companion/last-device-timestamp";
+export const DEFAULT_NONCE_PATH = "/etc/gpio-companion/device-nonces.json";
 export const DEFAULT_PORT = 4150;
 
 export type ConfigStore = {

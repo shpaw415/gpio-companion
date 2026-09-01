@@ -80,10 +80,41 @@ const server = startDeviceApi({
 	applyClock: async (issuedMs) => {
 		clockSets.push(issuedMs);
 	},
+	clockTrusted: () => true,
 });
 
 afterAll(() => {
 	server.stop();
+});
+
+const seenNonces = new Set<string>();
+const untrustedDir = await mkdtemp(join(tmpdir(), "gpio-companion-offline-"));
+const untrusted = startDeviceApi({
+	port: 0,
+	hostname: "127.0.0.1",
+	store: fileConfigStore(join(untrustedDir, "config.json"), "orangepi"),
+	secrets: fileSecretsStore(join(untrustedDir, "secrets.env")),
+	pairing: filePairingStore(
+		join(untrustedDir, "pairing.json"),
+		"pair-uuid",
+		"pair-key",
+	),
+	applyTunnel: async () => undefined,
+	deviceAuth: {
+		keyId: keys.keyId,
+		publicKeyPem: keys.publicKeyPem,
+	},
+	clockTrusted: () => false,
+	nonceStore: {
+		has: (nonce) => seenNonces.has(nonce),
+		add: (nonce) => {
+			seenNonces.add(nonce);
+		},
+	},
+});
+
+afterAll(() => {
+	untrusted.stop();
 });
 
 async function deviceFetch(
@@ -545,5 +576,47 @@ describe("gpio-companion-bin", () => {
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { error: string };
 		expect(body.error).toContain("not configured");
+	});
+});
+
+describe("untrusted clock nonce replay", () => {
+	test("accepts a stale pairing signature once per nonce", async () => {
+		const auth = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/pairing/credentials",
+			now: Date.now() - 120_000,
+			nonce: "offline-pair-1",
+		});
+		const ok = await fetch(`${untrusted.url}v1/pairing/credentials`, {
+			headers: { ...auth },
+		});
+		expect(ok.status).toBe(200);
+
+		const replay = await fetch(`${untrusted.url}v1/pairing/credentials`, {
+			headers: { ...auth },
+		});
+		expect(replay.status).toBe(403);
+		expect(await replay.json()).toEqual({
+			error: "replayed device signature",
+		});
+	});
+
+	test("still rejects a stale signature when the clock is trusted", async () => {
+		const auth = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: "/v1/pairing/credentials",
+			now: Date.now() - 120_000,
+		});
+		const response = await fetch(`${server.url}v1/pairing/credentials`, {
+			headers: { ...auth },
+		});
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error: "expired device signature",
+		});
 	});
 });

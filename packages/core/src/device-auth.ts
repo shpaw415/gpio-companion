@@ -113,6 +113,7 @@ export async function signDeviceRequest(options: {
 
 export type DeviceVerifyResult = {
 	issued: number;
+	nonce: string;
 	clockBehind: boolean;
 };
 
@@ -125,6 +126,7 @@ export async function verifyDeviceRequest(options: {
 	headers: Headers | Record<string, string | null | undefined>;
 	now?: number;
 	maxSkewMs?: number;
+	enforceSkew?: boolean;
 }): Promise<DeviceVerifyResult> {
 	const keyId = headerValue(options.headers, DEVICE_AUTH_HEADERS.keyId);
 	const timestamp = headerValue(options.headers, DEVICE_AUTH_HEADERS.timestamp);
@@ -165,11 +167,13 @@ export async function verifyDeviceRequest(options: {
 	}
 	const now = options.now ?? Date.now();
 	const maxSkewMs = options.maxSkewMs ?? DEFAULT_DEVICE_MAX_SKEW_MS;
-	if (now - issued > maxSkewMs) {
+	const enforceSkew = options.enforceSkew ?? true;
+	if (enforceSkew && now - issued > maxSkewMs) {
 		throw new DeviceAuthError("expired device signature", 403);
 	}
 	return {
 		issued,
+		nonce,
 		clockBehind: issued - now > maxSkewMs,
 	};
 }

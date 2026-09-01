@@ -14,7 +14,7 @@ Choose **raspberrypi** or **orangepi**. Enter the host’s Cloudflare API token,
 
 If the Pi already has Ethernet, skip to sign-in.
 
-If it has no WiFi yet, pair over Bluetooth first (step 4), then set WiFi from **WiFi** (`/devices/wifi`) — see [wifi-bluetooth.md](./wifi-bluetooth.md). The dashboard only signs WiFi for a board already paired to your account.
+If it has no WiFi yet, pair over Bluetooth first (step 4), then set WiFi from **WiFi** (`/devices/wifi`) — see [wifi-bluetooth.md](./wifi-bluetooth.md). While the board is offline (clock not NTP-synced), the Pi accepts a signed BLE command once per nonce instead of the 60-second timestamp window. The dashboard only signs WiFi for a board already paired to your account.
 
 Ethernet and the Pi TTY (`nmcli`) always work.
 
