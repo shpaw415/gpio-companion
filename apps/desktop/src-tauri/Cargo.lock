@@ -1593,6 +1593,7 @@ version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "btleplug",
+ "dbus",
  "futures",
  "keyring",
  "rand 0.9.5",

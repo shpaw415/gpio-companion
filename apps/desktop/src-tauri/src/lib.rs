@@ -1,6 +1,8 @@
 mod api;
 mod auth;
 mod ble;
+#[cfg(target_os = "linux")]
+mod bluez;
 mod config;
 mod frames;
 mod log;

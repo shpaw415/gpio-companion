@@ -46,8 +46,15 @@ async fn adapter() -> Result<btleplug::platform::Adapter, String> {
 		})
 }
 
-pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
-	let adapter = adapter().await?;
+async fn start_scan(adapter: &btleplug::platform::Adapter) -> Result<(), String> {
+	#[cfg(target_os = "linux")]
+	{
+		match tokio::task::spawn_blocking(crate::bluez::start_le_discovery).await {
+			Ok(Ok(())) => return Ok(()),
+			Ok(Err(err)) => crate::log::line(&err),
+			Err(err) => crate::log::line(&format!("bluetooth le discovery join: {err}")),
+		}
+	}
 	adapter
 		.start_scan(ScanFilter::default())
 		.await
@@ -55,11 +62,24 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 			let message = format!("bluetooth scan: {err}");
 			crate::log::line(&message);
 			message
-		})?;
+		})
+}
+
+async fn stop_scan(adapter: &btleplug::platform::Adapter) {
+	#[cfg(target_os = "linux")]
+	{
+		let _ = tokio::task::spawn_blocking(crate::bluez::stop_le_discovery).await;
+	}
+	let _ = adapter.stop_scan().await;
+}
+
+pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
+	let adapter = adapter().await?;
+	start_scan(&adapter).await?;
 	let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
 	loop {
 		if tokio::time::Instant::now() > deadline {
-			let _ = adapter.stop_scan().await;
+			stop_scan(&adapter).await;
 			return Err("no gpio-companion board found".to_string());
 		}
 		let peripherals = adapter
@@ -80,7 +100,7 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 						props.address_type,
 						props.rssi
 					));
-					let _ = adapter.stop_scan().await;
+					stop_scan(&adapter).await;
 					sleep(Duration::from_millis(400)).await;
 					return Ok(peripheral);
 				}
@@ -104,8 +124,27 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 		crate::log::line("bluetooth already connected");
 		return Ok(());
 	}
+	#[cfg(target_os = "linux")]
+	{
+		if let Ok(Some(props)) = peripheral.properties().await {
+			let addr = props.address.to_string();
+			match tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await {
+				Ok(Ok(())) => {
+					for _ in 0..20 {
+						if peripheral.is_connected().await.unwrap_or(false) {
+							crate::log::line("bluetooth connected via ConnectProfile");
+							return Ok(());
+						}
+						sleep(Duration::from_millis(150)).await;
+					}
+				}
+				Ok(Err(err)) => crate::log::line(&err),
+				Err(err) => crate::log::line(&format!("bluetooth le connect join: {err}")),
+			}
+		}
+	}
 	let mut last = "connect failed".to_string();
-	for attempt in 1..=5 {
+	for attempt in 1..=3 {
 		match peripheral.connect().await {
 			Ok(()) => {
 				crate::log::line(&format!("bluetooth connected attempt={attempt}"));
@@ -115,7 +154,7 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 				last = err.to_string();
 				crate::log::line(&format!("bluetooth connect attempt={attempt}: {last}"));
 				let _ = peripheral.disconnect().await;
-				sleep(Duration::from_millis(250 * attempt as u64)).await;
+				sleep(Duration::from_millis(400 * attempt as u64)).await;
 			}
 		}
 	}
