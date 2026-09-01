@@ -13,6 +13,9 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 	async function start() {
 		setBusy(true);
 		setError("");
+		setTimeout(() => {
+			setBusy(false);
+		}, 5000);
 		try {
 			await authLogin();
 			onSignedIn();
