@@ -90,4 +90,8 @@ elif [[ "$key_changed" -eq 1 ]]; then
 	systemctl restart gpio-companion.service
 fi
 
+if ! install_t3_service; then
+	echo "gpio-companion update: t3 service install skipped" >&2
+fi
+
 echo "gpio-companion update: done"

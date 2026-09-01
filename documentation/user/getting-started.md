@@ -36,7 +36,7 @@ Page `/devices/pair` (or stepper step 2). You can pair more than one board.
 
 On Devices overview you can set an optional **label** on a paired board at any time (name it for the bench). It is only for recognition in the dashboard.
 
-The dashboard **signs** the claim, then you **Start T3 pairing** (also on Devices overview for a board already claimed). That runs `t3 serve` and shows a pair code, QR, and board URL (`https://t3-…/pair#token=…`). Scan or open it, finish T3 pairing; the dashboard then runs `t3 service install`. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
+The dashboard **signs** the claim, then **Pair T3** (also on Devices overview for a board already claimed). That runs `t3 pair` against the service installed at first-setup and shows a pair code, QR, and board URL (`https://t3-…/pair#token=…`). Scan or open it to finish T3 pairing. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
 
 ## 5. GitHub
 
@@ -48,7 +48,7 @@ OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), no
 
 ## 6. Overview
 
-When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). T3 Code pairing is **Start T3 pairing** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
+When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). T3 Code pairing is **Pair T3** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
 
 ## If something fails
 

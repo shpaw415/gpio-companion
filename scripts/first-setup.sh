@@ -54,7 +54,7 @@ fi
 
 echo "gpio-companion first setup"
 echo "OpenCode API key and GitHub token are set from the dashboard, not this prompt."
-echo "T3 Code pairing is started from the dashboard after you claim this board."
+echo "T3 Code service is installed here; pairing starts on the dashboard after you claim this board."
 echo
 
 export GPIO_COMPANION_DASHBOARD_URL="${GPIO_COMPANION_DASHBOARD_URL:-https://gpio-companion.com}"
@@ -132,4 +132,4 @@ echo "device API: https://${api_hostname}"
 echo "T3 Code:    https://${t3_hostname}"
 echo "pair this board on the dashboard /pair page with the UUID and key above"
 echo "OpenCode uses gpio-companion credits (AI key baked on this Pi); GitHub PAT is set from Keys after pairing"
-echo "T3 Code pairing starts on the dashboard after claim"
+echo "T3 Code pairing runs from the dashboard after claim"

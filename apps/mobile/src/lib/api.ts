@@ -85,11 +85,7 @@ export function t3Status(token: string, uuid: string) {
 	return request(token, `/api/mobile/t3?uuid=${encodeURIComponent(uuid)}`);
 }
 
-export function t3Action(
-	token: string,
-	action: "start" | "persist",
-	uuid: string,
-) {
+export function t3Action(token: string, action: "pair", uuid: string) {
 	return request(token, "/api/mobile/t3", {
 		method: "POST",
 		body: JSON.stringify({ action, uuid }),

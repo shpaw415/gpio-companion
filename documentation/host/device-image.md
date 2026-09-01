@@ -29,7 +29,7 @@ The clone does **not** bake a production public key. First-setup fetches it from
 7. Fetches the dashboard Ed25519 public key into `/etc/gpio-companion/device-auth.json` (fails closed if the dashboard is unreachable)
 8. Writes `/etc/gpio-companion/first-setup-complete`
 
-It does **not** collect OpenCode or GitHub secrets. It does **not** run `t3 service install` (dashboard does that after T3 pairing).
+It does **not** collect OpenCode or GitHub secrets. It **does** run `t3 service install`. It does **not** run `t3 pair` (dashboard does that after claim).
 
 Prints pairing UUID/key plus `https://api-…` and `https://t3-…`. Treat that console output as a physical possession secret.
 
@@ -72,7 +72,7 @@ The binary also reads `/etc/gpio-companion/device-auth.json` (`keyId`, `publicKe
 | `GET /health` | none |
 | `GET /v1/status`, pairing, config, secrets, github, **wifi**, **t3** | Ed25519 dashboard signature |
 | `POST /v1/pairing/claim` | signature **and** pairing UUID + key |
-| `POST /v1/t3/start`, `POST /v1/t3/service-install` | signature |
+| `POST /v1/t3/pair` | signature |
 
 Signature headers: `X-Gpio-Key-Id`, `X-Gpio-Timestamp`, `X-Gpio-Nonce`, `X-Gpio-Signature`. 60s skew. Canonical version `gpio-companion-device-v1`.
 

@@ -197,8 +197,8 @@ export default function AdminDevicesPage() {
 															) : null}
 															<Chip
 																label={
-																	board.status.t3?.serviceInstalled
-																		? "T3 installed"
+																	board.status.t3?.paired
+																		? "T3 paired"
 																		: board.status.t3?.running
 																			? "T3 running"
 																			: "T3 idle"

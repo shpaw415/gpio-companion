@@ -38,9 +38,7 @@ export default function T3PairingPanel({
 	const [pairingToken, setPairingToken] = useState(
 		tokenFrom(initialStatus?.pairingUrl, initialStatus?.pairingToken),
 	);
-	const [t3Ready, setT3Ready] = useState(
-		Boolean(initialStatus?.serviceInstalled),
-	);
+	const [t3Ready, setT3Ready] = useState(Boolean(initialStatus?.paired));
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
@@ -50,7 +48,7 @@ export default function T3PairingPanel({
 		initialStatus?.pairingUrl,
 		initialStatus?.pairingToken,
 	);
-	const seedReady = Boolean(initialStatus?.serviceInstalled);
+	const seedReady = Boolean(initialStatus?.paired);
 
 	useEffect(() => {
 		if (uuid) {
@@ -69,16 +67,16 @@ export default function T3PairingPanel({
 		setBusy(true);
 		setError("");
 		setT3Ready(false);
-		setStatus("starting T3 Code…");
+		setStatus("minting T3 pairing link…");
 		try {
-			const started = unwrapAction(await t3Action("start", boardUuid));
+			const started = unwrapAction(await t3Action("pair", boardUuid));
 			const token = tokenFrom(started.pairingUrl, started.pairingToken);
 			setPairingUrl(started.pairingUrl);
 			setPairingToken(token);
 			setStatus("scan the QR or open the pairing URL in the browser");
 		} catch (caught) {
 			setStatus("");
-			setError(caught instanceof Error ? caught.message : "T3 start failed");
+			setError(caught instanceof Error ? caught.message : "T3 pair failed");
 		} finally {
 			setBusy(false);
 		}
@@ -111,7 +109,7 @@ export default function T3PairingPanel({
 				setPairingUrl(result.pairingUrl);
 				setPairingToken(tokenFrom(result.pairingUrl, result.pairingToken));
 			}
-			if (result.serviceInstalled) {
+			if (result.paired) {
 				setT3Ready(true);
 			}
 		});
@@ -130,21 +128,13 @@ export default function T3PairingPanel({
 			return;
 		}
 		const timer = window.setInterval(() => {
-			void run(getT3(selected)).then(async (result) => {
+			void run(getT3(selected)).then((result) => {
 				if (!result) {
 					return;
 				}
-				if (result.serviceInstalled) {
-					setT3Ready(true);
-					setStatus("T3 Code is persistent on the Pi");
-					return;
-				}
 				if (result.paired) {
-					setStatus("T3 paired — installing service…");
-					if (await run(t3Action("persist", selected))) {
-						setT3Ready(true);
-						setStatus("T3 Code is persistent on the Pi");
-					}
+					setT3Ready(true);
+					setStatus("T3 Code is paired");
 				}
 			});
 		}, 3000);
@@ -159,7 +149,8 @@ export default function T3PairingPanel({
 		<Stack spacing={1}>
 			<Typography variant="subtitle1">T3 Code pairing</Typography>
 			<Typography variant="body2" color="secondary">
-				Start T3 on the Pi, then scan the QR or open the board pairing URL.
+				T3 already runs on the Pi. Mint a pairing link, then scan the QR or open
+				the board pairing URL.
 			</Typography>
 			{!uuid && devices.length > 1 ? (
 				<DeviceSelect
@@ -176,7 +167,7 @@ export default function T3PairingPanel({
 				disabled={busy || !selected}
 				onClick={() => void startPairing(selected)}
 			>
-				Start T3 pairing
+				{pairingUrl || t3Ready ? "New pairing link" : "Pair T3"}
 			</Button>
 			{pairingUrl ? (
 				<>
@@ -196,26 +187,7 @@ export default function T3PairingPanel({
 					<CopyBlock label="T3 pairing URL" value={pairingUrl} />
 				</>
 			) : null}
-			{t3Ready ? (
-				<Alert severity="success">T3 Code service installed</Alert>
-			) : pairingUrl ? (
-				<Button
-					type="button"
-					variant="outlined"
-					disabled={busy || !selected}
-					onClick={() => {
-						void run(t3Action("persist", selected)).then((result) => {
-							if (!result) {
-								return;
-							}
-							setT3Ready(true);
-							setStatus("T3 Code is persistent on the Pi");
-						});
-					}}
-				>
-					I’ve paired
-				</Button>
-			) : null}
+			{t3Ready ? <Alert severity="success">T3 Code paired</Alert> : null}
 			{status ? <Typography color="secondary">{status}</Typography> : null}
 			{error ? <Alert severity="error">{error}</Alert> : null}
 		</Stack>

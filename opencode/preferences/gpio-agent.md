@@ -14,7 +14,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Arduino firmware must be C, delivered over USB
 - Install with `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
 - cloudflared replica is the per-Pi T3 Code tunnel created at first-setup; token + hostnames can still be set through the device API
-- T3 Code pairing is dashboard-managed (`t3 serve`, pair code/QR on the board URL, then `t3 service install`)
+- T3 Code service is installed at first-setup (`t3 service install`); pairing is dashboard-managed after claim (`t3 pair`, pair code/QR on the board URL)
 - Repo updates run via `scripts/update-script.sh` on boot and every 24h (skills, preferences, device server)
 - Image first boot: `scripts/snapshot/gpio-companion-first-boot.sh` clones the repo and runs interactive first-setup
 - The user uses their GitHub account. Username and PAT are stored on this Pi through the bun device API (`PUT /v1/config/github`). Use those credentials to manage project repos. Do not invent a GitHub user.

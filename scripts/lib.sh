@@ -141,6 +141,18 @@ install_opencode() {
 
 install_t3code() {
 	npm install -g t3
+	install_t3_service
+}
+
+install_t3_service() {
+	if ! command -v t3 >/dev/null 2>&1; then
+		return 1
+	fi
+	if [[ "$GPIO_USER" == "root" ]]; then
+		t3 service install
+		return
+	fi
+	sudo -u "$GPIO_USER" -H t3 service install
 }
 
 install_arduino_udev() {
@@ -555,5 +567,5 @@ install_common() {
 	sync_opencode_agent
 	install_systemd_units "$hardware"
 	echo "gpio-companion $hardware install complete"
-	echo "first-setup creates the Cloudflare tunnel; t3code pairing is managed from the dashboard"
+	echo "T3 Code service is installed; pairing runs from the dashboard after claim"
 }

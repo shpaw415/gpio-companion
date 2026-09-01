@@ -30,7 +30,7 @@ describe("tunnel hostnames", () => {
 		expect(url).not.toContain("app.t3.codes");
 	});
 
-	test("extracts pairing urls from t3 serve stdout, not the connection string", () => {
+	test("extracts pairing urls from t3 pair stdout, not the connection string", () => {
 		const text = [
 			"T3 Code server is ready.",
 			"Connection string: http://127.0.0.1:3773",

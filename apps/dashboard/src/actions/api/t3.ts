@@ -10,7 +10,7 @@ type PagesEnv = {
 	GPIO_COMPANION_DEVICE_KEY_ID?: string;
 };
 
-export type T3Action = "start" | "persist";
+export type T3Action = "pair";
 
 export const GET = wrapAction(async function GET(uuid?: string) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
@@ -54,30 +54,9 @@ export const POST = wrapAction(async function POST(
 	if (!device.deviceUrl) {
 		throw new Error("device URL is missing");
 	}
-	if (action === "start") {
+	if (action === "pair") {
 		return readDeviceJson<{ pairingUrl: string; pairingToken: string }>(
-			await signedDeviceFetch(
-				ctx.env,
-				device.deviceUrl,
-				"POST",
-				"/v1/t3/start",
-			),
-		);
-	}
-	if (action === "persist") {
-		return readDeviceJson<{
-			running: boolean;
-			pairingUrl: string;
-			pairingToken: string;
-			paired: boolean;
-			serviceInstalled: boolean;
-		}>(
-			await signedDeviceFetch(
-				ctx.env,
-				device.deviceUrl,
-				"POST",
-				"/v1/t3/service-install",
-			),
+			await signedDeviceFetch(ctx.env, device.deviceUrl, "POST", "/v1/t3/pair"),
 		);
 	}
 	throw new Error("unknown t3 action");

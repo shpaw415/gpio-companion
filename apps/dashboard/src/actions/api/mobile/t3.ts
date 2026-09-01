@@ -62,26 +62,14 @@ export async function onRequestPost(ctx: MobileContext) {
 		if (!device.deviceUrl) {
 			throw new Error("device URL is missing");
 		}
-		if (action === "start") {
+		if (action === "pair") {
 			return jsonOk(
 				await readDeviceJson(
 					await signedDeviceFetch(
 						ctx.env,
 						device.deviceUrl,
 						"POST",
-						"/v1/t3/start",
-					),
-				),
-			);
-		}
-		if (action === "persist") {
-			return jsonOk(
-				await readDeviceJson(
-					await signedDeviceFetch(
-						ctx.env,
-						device.deviceUrl,
-						"POST",
-						"/v1/t3/service-install",
+						"/v1/t3/pair",
 					),
 				),
 			);

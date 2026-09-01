@@ -280,7 +280,7 @@ export async function handleDeviceRequest(
 		return json(secretsStatus(next));
 	}
 
-	if (method === "POST" && path === "/v1/t3/start") {
+	if (method === "POST" && path === "/v1/t3/pair") {
 		if (!t3) {
 			throw new Error("t3 is not configured");
 		}
@@ -288,7 +288,7 @@ export async function handleDeviceRequest(
 		if (!config.tunnel.hostname) {
 			throw new Error("t3 hostname is not configured");
 		}
-		return json(await t3.start(config.tunnel.hostname));
+		return json(await t3.pair(config.tunnel.hostname));
 	}
 
 	if (method === "GET" && path === "/v1/t3/status") {
@@ -296,13 +296,6 @@ export async function handleDeviceRequest(
 			throw new Error("t3 is not configured");
 		}
 		return json(await t3.status());
-	}
-
-	if (method === "POST" && path === "/v1/t3/service-install") {
-		if (!t3) {
-			throw new Error("t3 is not configured");
-		}
-		return json(await t3.installService());
 	}
 
 	if (method === "GET" && path === "/v1/status") {

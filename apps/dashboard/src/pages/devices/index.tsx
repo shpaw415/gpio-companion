@@ -151,15 +151,13 @@ export default function DevicesPage() {
 								/>
 								<Chip
 									label={
-										board.status.t3?.serviceInstalled
-											? "T3 Code installed"
+										board.status.t3?.paired
+											? "T3 Code paired"
 											: board.status.t3?.running
 												? "T3 Code running"
 												: "T3 Code idle"
 									}
-									color={
-										board.status.t3?.serviceInstalled ? "success" : "secondary"
-									}
+									color={board.status.t3?.paired ? "success" : "secondary"}
 									variant="outlined"
 								/>
 							</Stack>

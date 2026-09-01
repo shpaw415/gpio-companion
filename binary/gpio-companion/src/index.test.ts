@@ -19,8 +19,7 @@ const pairingPath = join(dir, "pairing.json");
 const keys = await generateDeviceKeyPair();
 let applied = 0;
 let wifiSsid = "";
-let t3Started = 0;
-let t3Installed = 0;
+let t3PairedCalls = 0;
 let t3Revoked = 0;
 let t3Paired = false;
 let t3Running = false;
@@ -50,8 +49,8 @@ const server = startDeviceApi({
 		return { ssid: config.ssid };
 	},
 	t3: {
-		async start(hostname) {
-			t3Started += 1;
+		async pair(hostname) {
+			t3PairedCalls += 1;
 			t3Running = true;
 			t3PairingUrl = `https://${hostname}/pair#token=test`;
 			return { pairingUrl: t3PairingUrl, pairingToken: "test" };
@@ -62,24 +61,11 @@ const server = startDeviceApi({
 				pairingUrl: t3PairingUrl,
 				pairingToken: t3PairingUrl ? "test" : "",
 				paired: t3Paired,
-				serviceInstalled: t3Installed > 0,
-			};
-		},
-		async installService() {
-			t3Installed += 1;
-			t3Paired = true;
-			t3Running = true;
-			return {
-				running: true,
-				pairingUrl: t3PairingUrl,
-				pairingToken: "test",
-				paired: true,
 				serviceInstalled: true,
 			};
 		},
 		async revoke() {
 			t3Revoked += 1;
-			t3Running = false;
 			t3Paired = false;
 			t3PairingUrl = "";
 		},
@@ -519,16 +505,16 @@ describe("gpio-companion-bin", () => {
 		expect(t3Revoked).toBeGreaterThan(0);
 	});
 
-	test("rejects unsigned t3 start", async () => {
+	test("rejects unsigned t3 pair", async () => {
 		const response = await deviceFetch(
-			"v1/t3/start",
+			"v1/t3/pair",
 			{ method: "POST", body: "" },
 			false,
 		);
 		expect(response.status).toBe(401);
 	});
 
-	test("starts t3 then installs the service", async () => {
+	test("pairs t3 against the running service", async () => {
 		await deviceFetch("v1/config/tunnel", {
 			method: "PUT",
 			body: JSON.stringify({
@@ -538,33 +524,20 @@ describe("gpio-companion-bin", () => {
 				tunnelId: "tun-1",
 			}),
 		});
-		const started = await deviceFetch("v1/t3/start", {
+		const paired = await deviceFetch("v1/t3/pair", {
 			method: "POST",
 			body: "",
 		});
-		expect(started.status).toBe(200);
-		const startedBody = (await started.json()) as {
+		expect(paired.status).toBe(200);
+		const pairedBody = (await paired.json()) as {
 			pairingUrl: string;
 			pairingToken: string;
 		};
-		expect(startedBody.pairingUrl).toBe(
+		expect(pairedBody.pairingUrl).toBe(
 			"https://t3.gpio.example/pair#token=test",
 		);
-		expect(startedBody.pairingToken).toBe("test");
-		expect(t3Started).toBe(1);
-
-		const persist = await deviceFetch("v1/t3/service-install", {
-			method: "POST",
-			body: "",
-		});
-		expect(persist.status).toBe(200);
-		const persistBody = (await persist.json()) as {
-			paired: boolean;
-			serviceInstalled: boolean;
-		};
-		expect(persistBody.paired).toBe(true);
-		expect(persistBody.serviceInstalled).toBe(true);
-		expect(t3Installed).toBe(1);
+		expect(pairedBody.pairingToken).toBe("test");
+		expect(t3PairedCalls).toBe(1);
 	});
 
 	test("github token is loopback only", async () => {
