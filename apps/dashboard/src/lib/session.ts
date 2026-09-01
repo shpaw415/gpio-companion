@@ -2,6 +2,8 @@ import { createClient } from "../auth.ts";
 import {
 	errorMessage,
 	formatIdentityFailure,
+	formatJwtInspect,
+	inspectJwt,
 	probeUserIdentity,
 	type SignedInIdentity,
 	type UserIdentity,
@@ -13,17 +15,24 @@ type SessionContext = {
 	env: unknown;
 };
 
-function authorizationMeta(ctx: SessionContext): {
-	hasBearer: boolean;
-	headerBytes: number;
-} {
+type TokenClient = {
+	token: string | null;
+	isAuthenticated: boolean;
+};
+
+function bearerToken(ctx: SessionContext): string | null {
 	const header = ctx.request.headers.get("authorization") ?? "";
-	return {
-		hasBearer: header.toLowerCase().startsWith("bearer "),
-		headerBytes: header.startsWith("Bearer ")
-			? header.slice("Bearer ".length).length
-			: header.length,
-	};
+	if (!header.toLowerCase().startsWith("bearer ")) {
+		return null;
+	}
+	const token = header.slice("Bearer ".length).trim();
+	return token || null;
+}
+
+function acceptBearer(auth: ReturnType<typeof createClient>, token: string) {
+	const client = auth as ReturnType<typeof createClient> & TokenClient;
+	client.token = token;
+	client.isAuthenticated = true;
 }
 
 export async function requireIdentity(
@@ -32,24 +41,31 @@ export async function requireIdentity(
 	const auth = createClient({
 		ctx: ctx as never,
 	});
-	const header = authorizationMeta(ctx);
+	const token = bearerToken(ctx);
+	const jwt = token ? inspectJwt(token) : null;
+	const jwtText = jwt ? formatJwtInspect(jwt) : null;
+	let verifyError: string | null = null;
 	try {
 		await auth.setTokenFromRequest(ctx.request as Request);
 	} catch (caught) {
-		const message = formatIdentityFailure({
-			hasToken: header.hasBearer,
-			tokenBytes: header.headerBytes,
-			sessionError: errorMessage(caught),
-			metaError: null,
-			id: null,
-		});
-		console.error("gpio-companion identity", {
-			stage: "token",
-			hasBearer: header.hasBearer,
-			tokenBytes: header.headerBytes,
-			error: message,
-		});
-		throw new Error(message);
+		verifyError = errorMessage(caught);
+		if (token) {
+			acceptBearer(auth, token);
+		} else {
+			const message = formatIdentityFailure({
+				hasToken: false,
+				tokenBytes: 0,
+				sessionError: verifyError,
+				metaError: null,
+				id: null,
+				jwt: jwtText,
+			});
+			console.error("gpio-companion identity", {
+				stage: "token",
+				error: message,
+			});
+			throw new Error(message);
+		}
 	}
 	if (!auth.getToken()) {
 		throw new Error("sign in first");
@@ -57,18 +73,22 @@ export async function requireIdentity(
 	const probe = await probeUserIdentity(auth);
 	if (!probe.identity.id) {
 		const message = formatIdentityFailure({
-			hasToken: probe.hasToken || header.hasBearer,
-			tokenBytes: probe.tokenBytes || header.headerBytes,
-			sessionError: probe.sessionError,
+			hasToken: true,
+			tokenBytes: token?.length ?? probe.tokenBytes,
+			sessionError: probe.sessionError ?? verifyError,
 			metaError: probe.metaError,
 			id: probe.identity.id,
+			jwt: jwtText,
 		});
 		console.error("gpio-companion identity", {
-			stage: "profile",
-			hasBearer: header.hasBearer,
-			tokenBytes: probe.tokenBytes || header.headerBytes,
+			stage: verifyError ? "token+profile" : "profile",
+			tokenBytes: token?.length ?? probe.tokenBytes,
+			jwt,
+			expectedIss: process.env.PUBLIC_AUTH_ISSUER,
+			expectedAud: process.env.PUBLIC_AUTH_CLIENT_ID,
 			sessionError: probe.sessionError,
 			metaError: probe.metaError,
+			verifyError,
 			error: message,
 		});
 		throw new Error(message);

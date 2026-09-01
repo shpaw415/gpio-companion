@@ -64,12 +64,70 @@ export function errorMessage(caught: unknown, depth = 0): string | null {
 	return null;
 }
 
+export type JwtInspect = {
+	parts: number;
+	alg: string | null;
+	kid: string | null;
+	iss: string | null;
+	aud: string | null;
+	exp: number | null;
+	mode: string | null;
+	expired: boolean | null;
+};
+
+function decodeJwtPart(part: string): Record<string, unknown> | null {
+	try {
+		const padded = part.replace(/-/g, "+").replace(/_/g, "/");
+		const pad = (4 - (padded.length % 4)) % 4;
+		const json = atob(`${padded}${"=".repeat(pad)}`);
+		const value = JSON.parse(json) as unknown;
+		return asRecord(value);
+	} catch {
+		return null;
+	}
+}
+
+export function inspectJwt(token: string): JwtInspect {
+	const parts = token.split(".").filter((part) => part.length > 0);
+	const header = parts[0] ? decodeJwtPart(parts[0]) : null;
+	const payload = parts[1] ? decodeJwtPart(parts[1]) : null;
+	const exp = typeof payload?.exp === "number" ? payload.exp : null;
+	const audValue = payload?.aud;
+	const aud = Array.isArray(audValue)
+		? audValue.map(String).join(",")
+		: pickString(audValue);
+	return {
+		parts: parts.length,
+		alg: pickString(header?.alg),
+		kid: pickString(header?.kid),
+		iss: pickString(payload?.iss),
+		aud,
+		exp,
+		mode: pickString(payload?.mode),
+		expired: exp === null ? null : exp <= Math.floor(Date.now() / 1000),
+	};
+}
+
+export function formatJwtInspect(jwt: JwtInspect): string {
+	return [
+		`parts=${jwt.parts}`,
+		`alg=${jwt.alg ?? "?"}`,
+		`kid=${jwt.kid ?? "?"}`,
+		`iss=${jwt.iss ?? "?"}`,
+		`aud=${jwt.aud ?? "?"}`,
+		`exp=${jwt.exp ?? "?"}`,
+		`mode=${jwt.mode ?? "?"}`,
+		`expired=${jwt.expired ?? "?"}`,
+	].join(" ");
+}
+
 export function formatIdentityFailure(probe: {
 	hasToken: boolean;
 	tokenBytes: number;
 	sessionError: string | null;
 	metaError: string | null;
 	id: string | null;
+	jwt?: string | null;
 }): string {
 	if (!probe.hasToken) {
 		return "sign in first";
@@ -78,6 +136,9 @@ export function formatIdentityFailure(probe: {
 		return "sign in first";
 	}
 	const parts = ["profile unavailable", `tokenBytes=${probe.tokenBytes}`];
+	if (probe.jwt) {
+		parts.push(`jwt=${probe.jwt}`);
+	}
 	if (probe.sessionError) {
 		parts.push(`session=${probe.sessionError}`);
 	}
