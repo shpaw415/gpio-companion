@@ -1,4 +1,5 @@
 use crate::config::DASHBOARD_URL;
+use crate::log;
 use crate::tokens;
 use reqwest::Method;
 use serde::de::DeserializeOwned;
@@ -29,8 +30,12 @@ pub async fn request_with_token<T: DeserializeOwned>(
 ) -> Result<T, String> {
 	let client = reqwest::Client::new();
 	let url = format!("{DASHBOARD_URL}{path}");
+	log::line(&format!(
+		"http {method} {path} tokenBytes={}",
+		token.len()
+	));
 	let mut builder = client
-		.request(method, url)
+		.request(method.clone(), &url)
 		.header("accept", "application/json")
 		.header("authorization", format!("Bearer {token}"));
 	if let Some(body) = body {
@@ -38,19 +43,50 @@ pub async fn request_with_token<T: DeserializeOwned>(
 			.header("content-type", "application/json")
 			.json(body);
 	}
-	let response = builder.send().await.map_err(|err| err.to_string())?;
-	let payload = response
-		.json::<ActionResult<T>>()
-		.await
-		.map_err(|err| err.to_string())?;
-	if !payload.ok {
-		return Err(payload
-			.error
-			.unwrap_or_else(|| "request failed".to_string()));
+	let response = builder.send().await.map_err(|err| {
+		let message = format!("http {method} {path} network: {err}");
+		log::line(&message);
+		message
+	})?;
+	let status = response.status();
+	let content_type = response
+		.headers()
+		.get(reqwest::header::CONTENT_TYPE)
+		.and_then(|value| value.to_str().ok())
+		.unwrap_or("")
+		.to_string();
+	let text = response.text().await.map_err(|err| {
+		let message = format!("http {method} {path} body: {err}");
+		log::line(&message);
+		message
+	})?;
+	log::line(&format!(
+		"http {method} {path} -> {status} ct={content_type} bytes={}",
+		text.len()
+	));
+	match serde_json::from_str::<ActionResult<T>>(&text) {
+		Ok(payload) if payload.ok => payload.data.ok_or_else(|| {
+			let message = format!("http {method} {path} {status}: empty data");
+			log::line(&message);
+			message
+		}),
+		Ok(payload) => {
+			let error = payload
+				.error
+				.unwrap_or_else(|| "request failed".to_string());
+			let message = format!("http {method} {path} {status}: {error}");
+			log::line(&message);
+			Err(message)
+		}
+		Err(err) => {
+			let message = format!(
+				"http {method} {path} {status}: not json ({err}); body={}",
+				log::truncate(&text, 500)
+			);
+			log::line(&message);
+			Err(message)
+		}
 	}
-	payload
-		.data
-		.ok_or_else(|| "request failed".to_string())
 }
 
 pub async fn request_value(

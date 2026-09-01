@@ -10,6 +10,13 @@ describe("mobile-http", () => {
 
 	it("maps sign-in errors to 401", () => {
 		expect(errorStatus(new Error("sign in first"))).toBe(401);
+		expect(
+			errorStatus(
+				new Error(
+					"profile unavailable; tokenBytes=120; session=br-connection-profile-unavailable",
+				),
+			),
+		).toBe(401);
 		expect(errorStatus(new Error("admin only"))).toBe(403);
 		expect(errorStatus(new Error("uuid is required"))).toBe(400);
 	});

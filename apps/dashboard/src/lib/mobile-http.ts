@@ -22,7 +22,10 @@ export function jsonFail(error: string, status = 400): Response {
 
 export function errorStatus(caught: unknown): number {
 	const message = caught instanceof Error ? caught.message : "request failed";
-	if (message === "sign in first") {
+	if (
+		message === "sign in first" ||
+		message.startsWith("profile unavailable")
+	) {
 		return 401;
 	}
 	if (message === "admin only") {

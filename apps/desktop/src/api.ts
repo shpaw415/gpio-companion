@@ -13,6 +13,13 @@ export type DeviceList = {
 	devices: Device[];
 };
 
+export type Session = {
+	id: string | null;
+	email: string | null;
+	name: string | null;
+	role?: string | null;
+};
+
 async function call<T>(
 	cmd: string,
 	args?: Record<string, unknown>,
@@ -34,6 +41,14 @@ export function authLogin() {
 
 export function authLogout() {
 	return call<void>("auth_logout");
+}
+
+export function authSession() {
+	return call<Session>("auth_session");
+}
+
+export function debugLogs() {
+	return call<string[]>("debug_logs");
 }
 
 export function listDevices() {

@@ -25,14 +25,25 @@ fn parse_uuid(value: &str) -> Result<Uuid, String> {
 }
 
 async fn adapter() -> Result<btleplug::platform::Adapter, String> {
-	let manager = Manager::new().await.map_err(|err| err.to_string())?;
+	let manager = Manager::new().await.map_err(|err| {
+		let message = format!("bluetooth manager: {err}");
+		crate::log::line(&message);
+		message
+	})?;
 	manager
 		.adapters()
 		.await
-		.map_err(|err| err.to_string())?
+		.map_err(|err| {
+			let message = format!("bluetooth adapters: {err}");
+			crate::log::line(&message);
+			message
+		})?
 		.into_iter()
 		.next()
-		.ok_or_else(|| "no bluetooth adapter".to_string())
+		.ok_or_else(|| {
+			crate::log::line("no bluetooth adapter");
+			"no bluetooth adapter".to_string()
+		})
 }
 
 pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
@@ -40,7 +51,11 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 	adapter
 		.start_scan(ScanFilter::default())
 		.await
-		.map_err(|err| err.to_string())?;
+		.map_err(|err| {
+			let message = format!("bluetooth scan: {err}");
+			crate::log::line(&message);
+			message
+		})?;
 	let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
 	loop {
 		if tokio::time::Instant::now() > deadline {
@@ -77,17 +92,30 @@ fn find_char(peripheral: &Peripheral, uuid: &str) -> Result<Characteristic, Stri
 }
 
 pub async fn read_info(peripheral: &Peripheral) -> Result<BleInfo, String> {
-	peripheral.connect().await.map_err(|err| err.to_string())?;
-	peripheral
-		.discover_services()
-		.await
-		.map_err(|err| err.to_string())?;
+	peripheral.connect().await.map_err(|err| {
+		let message = format!("bluetooth connect: {err}");
+		crate::log::line(&message);
+		message
+	})?;
+	peripheral.discover_services().await.map_err(|err| {
+		let message = format!("bluetooth discover: {err}");
+		crate::log::line(&message);
+		message
+	})?;
 	let info_char = find_char(peripheral, BLE_INFO_UUID)?;
-	let data = peripheral
-		.read(&info_char)
-		.await
-		.map_err(|err| err.to_string())?;
-	serde_json::from_slice(&data).map_err(|_| "invalid bluetooth info".to_string())
+	let data = peripheral.read(&info_char).await.map_err(|err| {
+		let message = format!("bluetooth info read: {err}");
+		crate::log::line(&message);
+		message
+	})?;
+	serde_json::from_slice(&data).map_err(|err| {
+		let message = format!(
+			"invalid bluetooth info ({err}); body={}",
+			String::from_utf8_lossy(&data)
+		);
+		crate::log::line(&message);
+		message
+	})
 }
 
 pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<String, String> {

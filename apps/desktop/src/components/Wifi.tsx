@@ -6,6 +6,7 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import { bleWifi, type Device, listDevices, onBleStatus } from "../api";
+import DebugLog from "./DebugLog";
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [devices, setDevices] = useState<Device[]>([]);
@@ -35,7 +36,9 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			const raw = await bleWifi({ uuid, ssid, psk });
 			setStatus(raw || "sent");
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "wifi failed");
+			const message = caught instanceof Error ? caught.message : "wifi failed";
+			console.error("gpio-companion-desktop wifi", message);
+			setError(message);
 		} finally {
 			setBusy(false);
 		}
@@ -75,6 +78,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			/>
 			{status ? <Typography>{status}</Typography> : null}
 			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? <DebugLog error={error} /> : null}
 			<Button variant="contained" disabled={busy} onClick={() => void send()}>
 				Send to board
 			</Button>

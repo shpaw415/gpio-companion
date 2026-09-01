@@ -5,6 +5,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { authLogin } from "../api";
+import DebugLog from "./DebugLog";
 
 export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 	const [error, setError] = useState("");
@@ -20,7 +21,9 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 			await authLogin();
 			onSignedIn();
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "login failed");
+			const message = caught instanceof Error ? caught.message : "login failed";
+			console.error("gpio-companion-desktop login", message);
+			setError(message);
 		} finally {
 			setBusy(false);
 		}
@@ -49,6 +52,7 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 					{error}
 				</Alert>
 			) : null}
+			{error ? <DebugLog error={error} /> : null}
 		</Paper>
 	);
 }

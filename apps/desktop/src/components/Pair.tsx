@@ -4,6 +4,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import { blePair, onBleStatus } from "../api";
+import DebugLog from "./DebugLog";
 
 export default function Pair({ onBack }: { onBack: () => void }) {
 	const [status, setStatus] = useState("Ready to scan");
@@ -25,7 +26,9 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			await blePair();
 			setStatus("Paired");
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "pair failed");
+			const message = caught instanceof Error ? caught.message : "pair failed";
+			console.error("gpio-companion-desktop pair", message);
+			setError(message);
 		} finally {
 			setBusy(false);
 		}
@@ -42,6 +45,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			</Typography>
 			<Typography>{status}</Typography>
 			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? <DebugLog error={error} /> : null}
 			<Button variant="contained" disabled={busy} onClick={() => void pair()}>
 				Scan gpio-companion
 			</Button>

@@ -92,25 +92,43 @@ pub async fn exchange_code(callback: &str, verifier: &str, expected_state: &str)
 		urlencoding(verifier)
 	);
 	let client = reqwest::Client::new();
+	crate::log::line("auth token exchange");
 	let response = client
 		.post(format!("{ISSUER_URL}/token"))
 		.header("content-type", "application/x-www-form-urlencoded")
 		.body(body)
 		.send()
 		.await
-		.map_err(|err| err.to_string())?;
-	if !response.status().is_success() {
-		return Err(format!(
-			"token exchange failed ({}); add redirect {} on OpenAuthster public client {}",
-			response.status(),
+		.map_err(|err| {
+			let message = format!("token exchange network: {err}");
+			crate::log::line(&message);
+			message
+		})?;
+	let status = response.status();
+	let text = response.text().await.map_err(|err| {
+		let message = format!("token exchange body: {err}");
+		crate::log::line(&message);
+		message
+	})?;
+	if !status.is_success() {
+		let message = format!(
+			"token exchange failed ({status}); body={}; add redirect {} on OpenAuthster public client {}",
+			crate::log::truncate(&text, 400),
 			AUTH_REDIRECT_URI,
 			AUTH_CLIENT_ID
-		));
+		);
+		crate::log::line(&message);
+		return Err(message);
 	}
-	let payload = response
-		.json::<TokenResponse>()
-		.await
-		.map_err(|err| err.to_string())?;
+	let payload = serde_json::from_str::<TokenResponse>(&text).map_err(|err| {
+		let message = format!(
+			"token exchange not json ({err}); body={}",
+			crate::log::truncate(&text, 400)
+		);
+		crate::log::line(&message);
+		message
+	})?;
+	crate::log::line("auth token exchange ok");
 	let expires_at = payload.expires_in.map(|seconds| {
 		let now = SystemTime::now()
 			.duration_since(UNIX_EPOCH)

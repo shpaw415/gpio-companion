@@ -4,7 +4,14 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
-import { type Device, listDevices, unpairDevice } from "../api";
+import {
+	authSession,
+	type Device,
+	listDevices,
+	type Session,
+	unpairDevice,
+} from "../api";
+import DebugLog from "./DebugLog";
 
 export default function Devices({
 	onPair,
@@ -16,14 +23,29 @@ export default function Devices({
 	onSignOut: () => void;
 }) {
 	const [devices, setDevices] = useState<Device[]>([]);
+	const [session, setSession] = useState<Session | null>(null);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
+		void authSession()
+			.then((next) => {
+				setSession(next);
+				console.info("gpio-companion-desktop session", next);
+			})
+			.catch((caught) => {
+				const message =
+					caught instanceof Error ? caught.message : "profile load failed";
+				console.error("gpio-companion-desktop session", message);
+				setError(message);
+			});
 		void listDevices()
 			.then((result) => setDevices(result.devices))
-			.catch((caught) =>
-				setError(caught instanceof Error ? caught.message : "load failed"),
-			);
+			.catch((caught) => {
+				const message =
+					caught instanceof Error ? caught.message : "load failed";
+				console.error("gpio-companion-desktop devices", message);
+				setError((current) => current || message);
+			});
 	}, []);
 
 	return (
@@ -31,7 +53,13 @@ export default function Devices({
 			<Typography variant="h5" Element="h1">
 				Devices
 			</Typography>
+			{session?.name || session?.email ? (
+				<Typography color="secondary">
+					{session.name || session.email}
+				</Typography>
+			) : null}
 			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? <DebugLog error={error} /> : null}
 			{devices.length === 0 ? (
 				<Typography color="secondary">
 					No boards yet. Pair one nearby.

@@ -3,6 +3,7 @@ mod auth;
 mod ble;
 mod config;
 mod frames;
+mod log;
 mod tokens;
 
 use api::request_value;
@@ -30,6 +31,14 @@ struct Device {
 	label: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Session {
+	id: Option<String>,
+	email: Option<String>,
+	name: Option<String>,
+	role: Option<String>,
+}
+
 fn emit_status(app: &AppHandle, message: &str) {
 	let _ = app.emit("ble-status", message);
 }
@@ -40,7 +49,19 @@ fn auth_token() -> Option<String> {
 }
 
 #[tauri::command]
+fn debug_logs() -> Vec<String> {
+	log::snapshot()
+}
+
+#[tauri::command]
+async fn auth_session() -> Result<Session, String> {
+	log::line("auth session");
+	api::request(Method::GET, "/api/mobile/session", None::<&Value>).await
+}
+
+#[tauri::command]
 async fn auth_login(app: AppHandle, flow: State<'_, AuthFlow>) -> Result<(), String> {
+	log::line("auth login start");
 	let (verifier, state) = auth::new_pkce();
 	let url = auth::authorize_url(&verifier, &state);
 	let rx = flow.wait();
@@ -49,9 +70,17 @@ async fn auth_login(app: AppHandle, flow: State<'_, AuthFlow>) -> Result<(), Str
 		.map_err(|err| err.to_string())?;
 	let callback = tokio::time::timeout(Duration::from_secs(180), rx)
 		.await
-		.map_err(|_| "login timed out".to_string())?
-		.map_err(|_| "login cancelled".to_string())?;
-	auth::exchange_code(&callback, &verifier, &state).await
+		.map_err(|_| {
+			log::line("login timed out");
+			"login timed out".to_string()
+		})?
+		.map_err(|_| {
+			log::line("login cancelled");
+			"login cancelled".to_string()
+		})?;
+	auth::exchange_code(&callback, &verifier, &state).await?;
+	log::line("auth login ok");
+	Ok(())
 }
 
 #[tauri::command]
@@ -61,6 +90,7 @@ fn auth_logout() {
 
 #[tauri::command]
 async fn devices_list() -> Result<DeviceList, String> {
+	log::line("devices list");
 	api::request(Method::GET, "/api/mobile/devices", None::<&Value>).await
 }
 
@@ -169,6 +199,8 @@ pub fn run() {
 			auth_token,
 			auth_login,
 			auth_logout,
+			auth_session,
+			debug_logs,
 			devices_list,
 			devices_unpair,
 			ble_pair,
