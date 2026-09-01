@@ -8,6 +8,7 @@ import {
 	requireAccessibleDevice,
 	requireOwnedDevice,
 	type StoredPairing,
+	updateDeviceLabel,
 	upsertDevice,
 } from "./pairing-store.ts";
 
@@ -45,6 +46,7 @@ function board(
 		login: "ada",
 		email: "ada@gpio-companion.com",
 		claimedAt: "2026-08-31T00:00:00.000Z",
+		label: "",
 		...extra,
 	};
 }
@@ -62,6 +64,12 @@ describe("parseDeviceList", () => {
 
 	test("returns empty for missing records", () => {
 		expect(parseDeviceList(null)).toEqual([]);
+	});
+
+	test("treats a missing label as empty", () => {
+		const raw = board("user-1", "uuid-1");
+		const { label: _label, ...legacy } = raw;
+		expect(parseDeviceList(JSON.stringify(legacy))[0]?.label).toBe("");
 	});
 });
 
@@ -94,6 +102,22 @@ describe("pairing store", () => {
 		const updated = board("user-1", "uuid-1", { key: "rotated" });
 		await upsertDevice(kv, updated);
 		expect(await loadDevices(kv, "user-1")).toEqual([updated]);
+	});
+
+	test("updateDeviceLabel is owner-only and truncates", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "uuid-1"));
+		const named = await updateDeviceLabel(
+			kv,
+			"user-1",
+			"uuid-1",
+			`  bench ${"x".repeat(50)}  `,
+		);
+		expect(named.label).toBe(`bench ${"x".repeat(34)}`);
+		expect((await loadDevices(kv, "user-1"))[0]?.label).toBe(named.label);
+		await expect(
+			updateDeviceLabel(kv, "user-2", "uuid-1", "stolen"),
+		).rejects.toThrow("pair a device first");
 	});
 
 	test("removeDevice drops one board and leaves the rest", async () => {

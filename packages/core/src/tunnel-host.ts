@@ -45,46 +45,63 @@ export function extractT3PairingUrl(text: string): string {
 		return "";
 	}
 	return (
-		matches.find(
-			(url) =>
-				url.includes("pair") ||
-				url.includes("t3.codes") ||
-				url.includes(":3773"),
-		) ??
-		matches[0] ??
+		matches.find((url) => url.includes("/pair")) ??
+		matches.find((url) => /[#?&]token=/.test(url)) ??
+		matches.find((url) => url.includes("pair")) ??
 		""
 	);
 }
 
-export function rewriteT3PairingUrl(raw: string, t3Hostname: string): string {
-	const httpsHost = originFromHostname(t3Hostname);
-	if (!httpsHost) {
-		return raw.trim();
+export function extractT3PairingToken(text: string): string {
+	const labeled = text.match(/(?:^|\n)\s*Token:\s+(\S+)/i);
+	if (labeled?.[1]) {
+		return stripToken(labeled[1]);
 	}
-	const token = extractPairingToken(raw);
-	const hash = token ? `#token=${encodeURIComponent(token)}` : "";
-	return `https://app.t3.codes/pair?host=${encodeURIComponent(httpsHost)}${hash}`;
+	const fromUrl = extractPairingToken(extractT3PairingUrl(text) || text);
+	if (fromUrl) {
+		return fromUrl;
+	}
+	const trimmed = text.trim();
+	if (trimmed.startsWith("{")) {
+		try {
+			const json = JSON.parse(trimmed) as {
+				credential?: unknown;
+				token?: unknown;
+			};
+			if (typeof json.credential === "string" && json.credential) {
+				return json.credential;
+			}
+			if (typeof json.token === "string" && json.token) {
+				return json.token;
+			}
+		} catch {
+			return "";
+		}
+	}
+	return "";
 }
 
-function originFromHostname(hostname: string): string {
-	const host = hostname.trim().replace(/\/+$/, "");
-	if (!host) {
+export function rewriteT3PairingUrl(raw: string, t3Hostname: string): string {
+	const origin = publicDeviceUrl(t3Hostname).replace(/\/+$/, "");
+	const token = extractT3PairingToken(raw);
+	if (!origin || !token) {
 		return "";
 	}
-	if (host.startsWith("http://") || host.startsWith("https://")) {
-		return host;
-	}
-	return `https://${host}`;
+	return `${origin}/pair#token=${encodeURIComponent(token)}`;
 }
 
 function extractPairingToken(raw: string): string {
 	const hashMatch = raw.match(/[#?&]token=([^&\s#]+)/);
 	if (hashMatch?.[1]) {
-		return decodeURIComponent(hashMatch[1]);
+		return stripToken(decodeURIComponent(hashMatch[1]));
 	}
 	try {
-		return new URL(raw).searchParams.get("token") ?? "";
+		return stripToken(new URL(raw).searchParams.get("token") ?? "");
 	} catch {
 		return "";
 	}
+}
+
+function stripToken(token: string): string {
+	return token.replace(/[.,;]+$/, "");
 }

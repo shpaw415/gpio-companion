@@ -68,7 +68,9 @@ export default function DevicesScreen() {
 				}
 				renderItem={({ item }) => (
 					<View style={styles.card}>
-						<Text style={styles.cardTitle}>{item.login || item.uuid}</Text>
+						<Text style={styles.cardTitle}>
+							{item.label?.trim() || item.login || item.uuid}
+						</Text>
 						<Text style={styles.muted}>{item.uuid}</Text>
 						<Pressable
 							onPress={() => {

@@ -210,7 +210,7 @@ It creates `gpio-<pairing-uuid>`, publishes:
 
 `<uuid>` is the pairing UUID with dashes stripped. Replica token lives in `/etc/gpio-companion/cloudflared.env`. Signed `PUT /v1/config/tunnel` can still rewrite it.
 
-T3 pairing stays on the dashboard: after claim it runs `t3 start`, shows `https://app.t3.codes/pair?host=https://t3-…`, then `t3 service install`.
+T3 pairing stays on the dashboard: after claim it runs `t3 serve`, shows the pair code/QR and `https://t3-…/pair#token=…`, then `t3 service install`.
 
 first-setup bakes `GPIO_AI_KEY` and the OpenCode provider pointing at `/api/ai/v1` with default model `@cf/zai-org/glm-5.3`. `POST /api/ai/v1/chat/completions` forwards OpenAI `tools`/`tool_calls` and bills Cloudflare list in/out (cached-in when present) × `GPIO_AI_MARKUP`. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub access is the App install on Keys, not a PAT.
 

@@ -36,7 +36,12 @@ export function getSession(token: string) {
 export function listDevices(token: string) {
 	return request<{
 		paired: boolean;
-		devices: Array<{ uuid: string; deviceUrl: string; login: string }>;
+		devices: Array<{
+			uuid: string;
+			deviceUrl: string;
+			login: string;
+			label?: string;
+		}>;
 	}>(token, "/api/mobile/devices");
 }
 

@@ -24,7 +24,10 @@ import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { unwrapAction } from "../../lib/action.ts";
 import { isAdmin } from "../../lib/auth/role.ts";
-import type { PublicPairing } from "../../lib/pairing-store.ts";
+import {
+	deviceDisplayName,
+	type PublicPairing,
+} from "../../lib/pairing-store.ts";
 
 type DeviceStatus = {
 	hardware?: string;
@@ -33,6 +36,7 @@ type DeviceStatus = {
 	t3?: {
 		running?: boolean;
 		pairingUrl?: string;
+		pairingToken?: string;
 		paired?: boolean;
 		serviceInstalled?: boolean;
 	};
@@ -80,6 +84,7 @@ export default function AdminDevicesPage() {
 		return boards.filter((board) => {
 			const haystack = [
 				board.device.uuid,
+				board.device.label,
 				board.device.userId,
 				board.device.email,
 				board.device.login,
@@ -151,6 +156,7 @@ export default function AdminDevicesPage() {
 								<Table size="small">
 									<TableHead>
 										<TableRow>
+											<TableCell>Label</TableCell>
 											<TableCell>UUID</TableCell>
 											<TableCell>Owner</TableCell>
 											<TableCell>Device URL</TableCell>
@@ -168,6 +174,7 @@ export default function AdminDevicesPage() {
 													setPasteText("");
 												}}
 											>
+												<TableCell>{board.device.label || "—"}</TableCell>
 												<TableCell>{board.device.uuid}</TableCell>
 												<TableCell>
 													{board.device.email ||
@@ -230,7 +237,10 @@ export default function AdminDevicesPage() {
 					{current ? (
 						<Paper className="max-w-2xl p-6" elevation={1}>
 							<Stack spacing={2}>
-								<Typography variant="h6">{current.device.uuid}</Typography>
+								<Typography variant="h6">
+									{deviceDisplayName(current.device)}
+								</Typography>
+								<Typography color="secondary">{current.device.uuid}</Typography>
 								<Typography color="secondary">
 									{current.device.email ||
 										current.device.login ||

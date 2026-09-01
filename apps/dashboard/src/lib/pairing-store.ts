@@ -1,5 +1,7 @@
 import { isAdmin, type UserRole } from "./auth/role.ts";
 
+export const DEVICE_LABEL_MAX = 40;
+
 export type StoredPairing = {
 	userId: string;
 	uuid: string;
@@ -8,6 +10,7 @@ export type StoredPairing = {
 	login: string;
 	email: string;
 	claimedAt: string;
+	label: string;
 };
 
 export type PairingKv = {
@@ -36,6 +39,21 @@ export function pairOwnerKey(uuid: string): string {
 	return `pair:${uuid}`;
 }
 
+export function normalizeDeviceLabel(value: unknown): string {
+	if (typeof value !== "string") {
+		return "";
+	}
+	return value.trim().slice(0, DEVICE_LABEL_MAX);
+}
+
+export function deviceDisplayName(device: {
+	label?: string;
+	uuid: string;
+}): string {
+	const label = device.label?.trim() ?? "";
+	return label || device.uuid;
+}
+
 export function asStoredPairing(value: unknown): StoredPairing {
 	if (!value || typeof value !== "object") {
 		throw new Error("invalid pairing");
@@ -52,6 +70,7 @@ export function asStoredPairing(value: unknown): StoredPairing {
 		login: parsed.login || parsed.giteaLogin || "",
 		email: String(parsed.email ?? ""),
 		claimedAt: String(parsed.claimedAt ?? ""),
+		label: normalizeDeviceLabel(parsed.label),
 	};
 }
 
@@ -113,6 +132,18 @@ export async function removeDevice(
 	}
 	await kv.delete(pairOwnerKey(trimmed));
 	return found;
+}
+
+export async function updateDeviceLabel(
+	kv: PairingKv,
+	userId: string,
+	uuid: string,
+	label: string,
+): Promise<StoredPairing> {
+	const device = await requireOwnedDevice(kv, userId, uuid);
+	const next = { ...device, label: normalizeDeviceLabel(label) };
+	await upsertDevice(kv, next);
+	return next;
 }
 
 export async function requireOwnedDevice(

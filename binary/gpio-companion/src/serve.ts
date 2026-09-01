@@ -301,6 +301,7 @@ export async function handleDeviceRequest(
 			: {
 					running: false,
 					pairingUrl: "",
+					pairingToken: "",
 					paired: false,
 					serviceInstalled: false,
 				};

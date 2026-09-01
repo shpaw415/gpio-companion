@@ -52,13 +52,14 @@ const server = startDeviceApi({
 		async start(hostname) {
 			t3Started += 1;
 			t3Running = true;
-			t3PairingUrl = `https://app.t3.codes/pair?host=https://${hostname}#token=test`;
-			return { pairingUrl: t3PairingUrl };
+			t3PairingUrl = `https://${hostname}/pair#token=test`;
+			return { pairingUrl: t3PairingUrl, pairingToken: "test" };
 		},
 		async status() {
 			return {
 				running: t3Running,
 				pairingUrl: t3PairingUrl,
+				pairingToken: t3PairingUrl ? "test" : "",
 				paired: t3Paired,
 				serviceInstalled: t3Installed > 0,
 			};
@@ -70,6 +71,7 @@ const server = startDeviceApi({
 			return {
 				running: true,
 				pairingUrl: t3PairingUrl,
+				pairingToken: "test",
 				paired: true,
 				serviceInstalled: true,
 			};
@@ -427,8 +429,14 @@ describe("gpio-companion-bin", () => {
 			body: "",
 		});
 		expect(started.status).toBe(200);
-		const startedBody = (await started.json()) as { pairingUrl: string };
-		expect(startedBody.pairingUrl).toContain("app.t3.codes/pair");
+		const startedBody = (await started.json()) as {
+			pairingUrl: string;
+			pairingToken: string;
+		};
+		expect(startedBody.pairingUrl).toBe(
+			"https://t3.gpio.example/pair#token=test",
+		);
+		expect(startedBody.pairingToken).toBe("test");
 		expect(t3Started).toBe(1);
 
 		const persist = await deviceFetch("v1/t3/service-install", {

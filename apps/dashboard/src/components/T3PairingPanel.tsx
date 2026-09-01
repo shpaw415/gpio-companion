@@ -3,15 +3,18 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { extractT3PairingToken } from "gpio-companion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
+import QrCode from "./QrCode.tsx";
 
 export type T3StatusSeed = {
 	running?: boolean;
 	pairingUrl?: string;
+	pairingToken?: string;
 	paired?: boolean;
 	serviceInstalled?: boolean;
 };
@@ -32,6 +35,9 @@ export default function T3PairingPanel({
 	const { run } = useActionError();
 	const [selected, setSelected] = useState(uuid || devices[0]?.uuid || "");
 	const [pairingUrl, setPairingUrl] = useState(initialStatus?.pairingUrl ?? "");
+	const [pairingToken, setPairingToken] = useState(
+		tokenFrom(initialStatus?.pairingUrl, initialStatus?.pairingToken),
+	);
 	const [t3Ready, setT3Ready] = useState(
 		Boolean(initialStatus?.serviceInstalled),
 	);
@@ -40,6 +46,10 @@ export default function T3PairingPanel({
 	const [error, setError] = useState("");
 	const autoStarted = useRef("");
 	const seedUrl = initialStatus?.pairingUrl ?? "";
+	const seedToken = tokenFrom(
+		initialStatus?.pairingUrl,
+		initialStatus?.pairingToken,
+	);
 	const seedReady = Boolean(initialStatus?.serviceInstalled);
 
 	useEffect(() => {
@@ -62,8 +72,10 @@ export default function T3PairingPanel({
 		setStatus("starting T3 Code…");
 		try {
 			const started = unwrapAction(await t3Action("start", boardUuid));
+			const token = tokenFrom(started.pairingUrl, started.pairingToken);
 			setPairingUrl(started.pairingUrl);
-			setStatus("open the pairing URL in the browser");
+			setPairingToken(token);
+			setStatus("scan the QR or open the pairing URL in the browser");
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "T3 start failed");
@@ -75,6 +87,7 @@ export default function T3PairingPanel({
 	useEffect(() => {
 		if (!selected) {
 			setPairingUrl("");
+			setPairingToken("");
 			setT3Ready(false);
 			return;
 		}
@@ -83,10 +96,12 @@ export default function T3PairingPanel({
 		}
 		if (skipFetch) {
 			setPairingUrl(seedUrl);
+			setPairingToken(seedToken);
 			setT3Ready(seedReady);
 			return;
 		}
 		setPairingUrl("");
+		setPairingToken("");
 		setT3Ready(false);
 		void run(getT3(selected)).then((result) => {
 			if (!result) {
@@ -94,12 +109,13 @@ export default function T3PairingPanel({
 			}
 			if (result.pairingUrl) {
 				setPairingUrl(result.pairingUrl);
+				setPairingToken(tokenFrom(result.pairingUrl, result.pairingToken));
 			}
 			if (result.serviceInstalled) {
 				setT3Ready(true);
 			}
 		});
-	}, [selected, run, autoStart, skipFetch, seedUrl, seedReady]);
+	}, [selected, run, autoStart, skipFetch, seedUrl, seedToken, seedReady]);
 
 	useEffect(() => {
 		if (!autoStart || !selected || autoStarted.current === selected) {
@@ -143,8 +159,7 @@ export default function T3PairingPanel({
 		<Stack spacing={1}>
 			<Typography variant="subtitle1">T3 Code pairing</Typography>
 			<Typography variant="body2" color="secondary">
-				Start T3 on the Pi, then open the one-click URL (host + pairing token)
-				on app.t3.codes.
+				Start T3 on the Pi, then scan the QR or open the board pairing URL.
 			</Typography>
 			{!uuid && devices.length > 1 ? (
 				<DeviceSelect
@@ -165,6 +180,10 @@ export default function T3PairingPanel({
 			</Button>
 			{pairingUrl ? (
 				<>
+					{pairingToken ? (
+						<CopyBlock label="T3 pair code" value={pairingToken} />
+					) : null}
+					<QrCode value={pairingUrl} label="T3 pairing QR code" />
 					<Button
 						type="button"
 						variant="contained"
@@ -201,4 +220,14 @@ export default function T3PairingPanel({
 			{error ? <Alert severity="error">{error}</Alert> : null}
 		</Stack>
 	);
+}
+
+function tokenFrom(url?: string, token?: string): string {
+	if (token?.trim()) {
+		return token.trim();
+	}
+	if (!url) {
+		return "";
+	}
+	return extractT3PairingToken(url);
 }

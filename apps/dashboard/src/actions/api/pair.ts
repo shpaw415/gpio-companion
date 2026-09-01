@@ -14,6 +14,7 @@ import {
 import {
 	loadDevices,
 	removeDevice,
+	updateDeviceLabel,
 	upsertDevice,
 } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
@@ -120,6 +121,9 @@ export async function claimDevice(
 	} else {
 		needsBle = true;
 	}
+	const existing = (await loadDevices(env.DYNAMIC_PAGE_KV, identity.id)).find(
+		(device) => device.uuid === input.uuid.trim(),
+	);
 	const pairing = {
 		userId: identity.id,
 		uuid: input.uuid.trim(),
@@ -128,6 +132,7 @@ export async function claimDevice(
 		login,
 		email: identity.email ?? "",
 		claimedAt: new Date().toISOString(),
+		label: existing?.label ?? "",
 	};
 	await upsertDevice(env.DYNAMIC_PAGE_KV, pairing);
 	if (!needsBle && origin) {
@@ -223,6 +228,24 @@ export const POST = wrapAction(async function POST(input: ClaimInput) {
 		{ id: identity.id, email: identity.email },
 		input,
 	);
+});
+
+export const PATCH = wrapAction(async function PATCH(input: {
+	uuid: string;
+	label: string;
+}) {
+	const ctx = getContext<PagesEnv, never, never>(arguments);
+	const identity = await requireIdentity(ctx);
+	if (!identity.id) {
+		throw new Error("sign in first");
+	}
+	const device = await updateDeviceLabel(
+		ctx.env.DYNAMIC_PAGE_KV,
+		identity.id,
+		input.uuid,
+		input.label,
+	);
+	return { ok: true as const, device };
 });
 
 export const DELETE = wrapAction(async function DELETE(uuid: string) {

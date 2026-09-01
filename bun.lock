@@ -37,6 +37,7 @@
         "react-dom": "^19.2.8",
         "superjson": "^2.2.6",
         "tailwindcss": "^4.3.3",
+        "uqr": "^0.1.3",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "^4.20260702.1",
@@ -45,17 +46,6 @@
         "@types/react-dom": "^19.2.5",
         "typescript": "^7.0.2",
         "wrangler": "^4.127.1",
-      },
-    },
-    "apps/web": {
-      "name": "gpio-companion-web",
-      "version": "0.0.0",
-      "dependencies": {
-        "gpio-companion": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-        "typescript": "catalog:",
       },
     },
     "binary/gpio-companion": {
@@ -673,8 +663,6 @@
     "gpio-companion-bin": ["gpio-companion-bin@workspace:binary/gpio-companion"],
 
     "gpio-companion-dashboard": ["gpio-companion-dashboard@workspace:apps/dashboard"],
-
-    "gpio-companion-web": ["gpio-companion-web@workspace:apps/web"],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 

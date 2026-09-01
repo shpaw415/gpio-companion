@@ -13,8 +13,8 @@ export default function PairPage() {
 				the Pi. If Web Bluetooth is unavailable, the dashboard signs a command
 				to paste in LightBlue or nRF Connect. Console printout still works. You
 				can pair more than one board. After claim (or anytime from Devices
-				overview), start T3 Code to get a one-click app.t3.codes URL. Then set
-				WiFi from <a href="/devices/wifi">WiFi over Bluetooth</a> or
+				overview), start T3 Code to get a pair code, QR, and board pairing URL.
+				Then set WiFi from <a href="/devices/wifi">WiFi over Bluetooth</a> or
 				Ethernet/TTY, and connect GitHub on Keys.
 			</Typography>
 			<PairForm />

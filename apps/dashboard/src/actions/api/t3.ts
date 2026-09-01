@@ -29,6 +29,7 @@ export const GET = wrapAction(async function GET(uuid?: string) {
 	return readDeviceJson<{
 		running: boolean;
 		pairingUrl: string;
+		pairingToken: string;
 		paired: boolean;
 		serviceInstalled: boolean;
 	}>(
@@ -54,7 +55,7 @@ export const POST = wrapAction(async function POST(
 		throw new Error("device URL is missing");
 	}
 	if (action === "start") {
-		return readDeviceJson<{ pairingUrl: string }>(
+		return readDeviceJson<{ pairingUrl: string; pairingToken: string }>(
 			await signedDeviceFetch(
 				ctx.env,
 				device.deviceUrl,
@@ -67,6 +68,7 @@ export const POST = wrapAction(async function POST(
 		return readDeviceJson<{
 			running: boolean;
 			pairingUrl: string;
+			pairingToken: string;
 			paired: boolean;
 			serviceInstalled: boolean;
 		}>(

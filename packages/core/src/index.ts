@@ -133,6 +133,7 @@ export {
 export {
 	cloudflareTunnelName,
 	DEVICE_API_PORT,
+	extractT3PairingToken,
 	extractT3PairingUrl,
 	pairingSlug,
 	publicDeviceUrl,

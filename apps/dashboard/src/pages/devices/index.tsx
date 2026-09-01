@@ -7,11 +7,15 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import DeviceLabelField from "../../components/DeviceLabelField.tsx";
 import SectionHub, { SectionHeader } from "../../components/Section.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
-import type { StoredPairing } from "../../lib/pairing-store.ts";
+import {
+	deviceDisplayName,
+	type StoredPairing,
+} from "../../lib/pairing-store.ts";
 
 type DeviceStatus = {
 	hardware?: string;
@@ -20,6 +24,7 @@ type DeviceStatus = {
 	t3?: {
 		running?: boolean;
 		pairingUrl?: string;
+		pairingToken?: string;
 		paired?: boolean;
 		serviceInstalled?: boolean;
 	};
@@ -91,13 +96,32 @@ export default function DevicesPage() {
 			{boards.map((board) => (
 				<Paper key={board.device.uuid} className="max-w-2xl p-6" elevation={1}>
 					<Stack spacing={2}>
-						<Typography variant="h6">Paired board</Typography>
+						<Typography variant="h6">
+							{deviceDisplayName(board.device)}
+						</Typography>
 						<Typography color="secondary">{board.device.uuid}</Typography>
 						{board.device.deviceUrl ? (
 							<Typography color="secondary">
 								{board.device.deviceUrl}
 							</Typography>
 						) : null}
+						<DeviceLabelField
+							key={board.device.uuid}
+							uuid={board.device.uuid}
+							label={board.device.label}
+							onSaved={(label) => {
+								setBoards((current) =>
+									current.map((item) =>
+										item.device.uuid === board.device.uuid
+											? {
+													...item,
+													device: { ...item.device, label },
+												}
+											: item,
+									),
+								);
+							}}
+						/>
 						{board.status ? (
 							<Stack direction="row" spacing={1} className="flex-wrap">
 								{board.status.hardware ? (
@@ -161,7 +185,7 @@ export default function DevicesPage() {
 						href: "/devices/pair",
 						title: "Pair hardware",
 						description:
-							"Claim a board, then start T3 Code to get the one-click app.t3.codes pairing URL.",
+							"Claim a board, then start T3 Code to get a pair code, QR, and board pairing URL.",
 					},
 					{
 						href: "/devices/wifi",

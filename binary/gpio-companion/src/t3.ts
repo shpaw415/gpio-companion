@@ -1,16 +1,26 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { extractT3PairingUrl, rewriteT3PairingUrl } from "gpio-companion";
+import {
+	extractT3PairingToken,
+	publicDeviceUrl,
+	rewriteT3PairingUrl,
+} from "gpio-companion";
+
+export type T3Pairing = {
+	pairingUrl: string;
+	pairingToken: string;
+};
 
 export type T3Status = {
 	running: boolean;
 	pairingUrl: string;
+	pairingToken: string;
 	paired: boolean;
 	serviceInstalled: boolean;
 };
 
 export type T3Controller = {
-	start(t3Hostname: string): Promise<{ pairingUrl: string }>;
+	start(t3Hostname: string): Promise<T3Pairing>;
 	status(): Promise<T3Status>;
 	installService(): Promise<T3Status>;
 	revoke(): Promise<void>;
@@ -25,6 +35,7 @@ type StartHandle = {
 
 let startHandle: StartHandle | undefined;
 let lastPairingUrl = "";
+let lastPairingToken = "";
 let markedPaired = false;
 
 export function liveT3Controller(): T3Controller {
@@ -36,35 +47,41 @@ export function liveT3Controller(): T3Controller {
 	};
 }
 
-export async function startT3(
-	t3Hostname: string,
-): Promise<{ pairingUrl: string }> {
+export async function startT3(t3Hostname: string): Promise<T3Pairing> {
 	if (startHandle) {
 		startHandle.kill();
 		startHandle = undefined;
 	}
-	lastPairingUrl = "";
+	clearPairing();
 	markedPaired = false;
 	const user = gpioUser();
-	const proc = Bun.spawn(t3Command(user, ["start"]), {
-		stdout: "pipe",
-		stderr: "pipe",
-		stdin: "ignore",
-		env: process.env,
-	});
+	if (await portOpen(3773)) {
+		return rememberPairing(await mintPairing(user, t3Hostname));
+	}
+	const proc = Bun.spawn(
+		t3Command(user, ["serve", "--host", "127.0.0.1", "--port", "3773"]),
+		{
+			stdout: "pipe",
+			stderr: "pipe",
+			stdin: "ignore",
+			env: process.env,
+		},
+	);
 	startHandle = {
 		kill() {
 			proc.kill();
 		},
 		exited: proc.exited,
 	};
-	const raw = await readPairingUrl(proc, START_WAIT_MS);
-	const pairingUrl = rewriteT3PairingUrl(raw, t3Hostname);
-	lastPairingUrl = pairingUrl;
-	if (!pairingUrl) {
-		throw new Error("t3 start did not print a pairing URL");
+	const raw = await readPairingOutput(proc, START_WAIT_MS);
+	const fromServe = pairingFromOutput(raw, t3Hostname);
+	if (fromServe.pairingToken) {
+		return rememberPairing(fromServe);
 	}
-	return { pairingUrl };
+	if (await portOpen(3773)) {
+		return rememberPairing(await mintPairing(user, t3Hostname));
+	}
+	throw new Error("t3 serve did not print a pairing token");
 }
 
 export async function t3Status(): Promise<T3Status> {
@@ -78,6 +95,7 @@ export async function t3Status(): Promise<T3Status> {
 	return {
 		running,
 		pairingUrl: lastPairingUrl,
+		pairingToken: lastPairingToken,
 		paired,
 		serviceInstalled,
 	};
@@ -99,7 +117,7 @@ export async function revokeT3Authorization(): Promise<void> {
 		startHandle.kill();
 		startHandle = undefined;
 	}
-	lastPairingUrl = "";
+	clearPairing();
 	markedPaired = false;
 	const user = gpioUser();
 	await spawnT3(user, ["service", "uninstall"]).catch(() => undefined);
@@ -146,6 +164,50 @@ function t3Command(user: string, args: string[]): string[] {
 
 function startProcessAlive(): boolean {
 	return Boolean(startHandle);
+}
+
+function clearPairing(): void {
+	lastPairingUrl = "";
+	lastPairingToken = "";
+}
+
+function rememberPairing(pairing: T3Pairing): T3Pairing {
+	if (!pairing.pairingUrl || !pairing.pairingToken) {
+		throw new Error("t3 serve did not print a pairing token");
+	}
+	lastPairingUrl = pairing.pairingUrl;
+	lastPairingToken = pairing.pairingToken;
+	return pairing;
+}
+
+function pairingFromOutput(raw: string, t3Hostname: string): T3Pairing {
+	const pairingToken = extractT3PairingToken(raw);
+	return {
+		pairingToken,
+		pairingUrl: rewriteT3PairingUrl(raw, t3Hostname),
+	};
+}
+
+async function mintPairing(
+	user: string,
+	t3Hostname: string,
+): Promise<T3Pairing> {
+	const baseUrl = publicDeviceUrl(t3Hostname);
+	const stdout = await spawnT3(user, [
+		"auth",
+		"pairing",
+		"create",
+		"--base-url",
+		baseUrl,
+		"--json",
+	]).catch(() =>
+		spawnT3(user, ["auth", "pairing", "create", "--base-url", baseUrl]),
+	);
+	const pairing = pairingFromOutput(stdout, t3Hostname);
+	if (pairing.pairingToken) {
+		return pairing;
+	}
+	throw new Error("t3 pairing create did not print a pairing token");
 }
 
 async function spawnT3(user: string, args: string[]): Promise<string> {
@@ -200,7 +262,7 @@ async function portOpen(port: number): Promise<boolean> {
 	}
 }
 
-async function readPairingUrl(
+async function readPairingOutput(
 	proc: {
 		stdout: ReadableStream<Uint8Array> | number | null;
 		stderr: ReadableStream<Uint8Array> | number | null;
@@ -217,14 +279,13 @@ async function readPairingUrl(
 	});
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
-		const url = extractT3PairingUrl(buffer);
-		if (url) {
-			return url;
+		if (extractT3PairingToken(buffer)) {
+			return buffer;
 		}
 		await Promise.race([Bun.sleep(200), proc.exited]);
 	}
 	await Promise.race([stdout, stderr, Bun.sleep(0)]);
-	return extractT3PairingUrl(buffer);
+	return buffer;
 }
 
 async function readInto(

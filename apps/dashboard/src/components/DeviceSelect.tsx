@@ -3,6 +3,7 @@ import Select from "@shpaw415/mui-lite/Select";
 export type DeviceOption = {
 	uuid: string;
 	deviceUrl?: string;
+	label?: string;
 };
 
 export default function DeviceSelect({
@@ -29,9 +30,11 @@ export default function DeviceSelect({
 		>
 			{devices.map((device) => (
 				<option key={device.uuid} value={device.uuid}>
-					{device.deviceUrl
-						? `${device.uuid} — ${device.deviceUrl}`
-						: device.uuid}
+					{device.label?.trim()
+						? `${device.label.trim()} — ${device.uuid}`
+						: device.deviceUrl
+							? `${device.uuid} — ${device.deviceUrl}`
+							: device.uuid}
 				</option>
 			))}
 		</Select>
