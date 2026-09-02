@@ -73,6 +73,17 @@ exit 0
 	return { dir, bin };
 }
 
+function t3Env(
+	dir: string,
+	extra: Record<string, string> = {},
+): Record<string, string> {
+	return {
+		GPIO_COMPANION_T3_HOME: join(dir, ".t3"),
+		GPIO_COMPANION_T3_SKIP_RESTART: "1",
+		...extra,
+	};
+}
+
 afterAll(async () => {
 	await Promise.all(
 		dirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -91,12 +102,12 @@ source "${libSh}"
 GPIO_USER=root
 update_t3code 0
 `,
-			{
+			t3Env(dir, {
 				GPIO_T3_NPM_LOG: npmLog,
 				GPIO_T3_CMD_LOG: t3Log,
 				GPIO_T3_INSTALLED: "1.2.3",
 				GPIO_T3_LATEST: "1.2.3",
-			},
+			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 1.2.3 is current");
@@ -116,12 +127,12 @@ source "${libSh}"
 GPIO_USER=root
 update_t3code 0
 `,
-			{
+			t3Env(dir, {
 				GPIO_T3_NPM_LOG: npmLog,
 				GPIO_T3_CMD_LOG: t3Log,
 				GPIO_T3_INSTALLED: "1.2.3",
 				GPIO_T3_LATEST: "1.4.0",
-			},
+			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 1.2.3 -> 1.4.0");
@@ -140,12 +151,12 @@ source "${libSh}"
 GPIO_USER=root
 update_t3code 0
 `,
-			{
+			t3Env(dir, {
 				GPIO_T3_NPM_LOG: npmLog,
 				GPIO_T3_CMD_LOG: t3Log,
 				GPIO_T3_INSTALLED: "",
 				GPIO_T3_LATEST: "2.0.0",
-			},
+			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 none -> 2.0.0");
@@ -163,12 +174,12 @@ source "${libSh}"
 GPIO_USER=root
 update_t3code 0
 `,
-			{
+			t3Env(dir, {
 				GPIO_T3_NPM_LOG: npmLog,
 				GPIO_T3_CMD_LOG: t3Log,
 				GPIO_T3_INSTALLED: "1.2.3",
 				GPIO_T3_LATEST: "",
-			},
+			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stderr).toContain("t3@latest unavailable");
@@ -187,12 +198,12 @@ source "${libSh}"
 GPIO_USER=root
 update_t3code 1
 `,
-			{
+			t3Env(dir, {
 				GPIO_T3_NPM_LOG: npmLog,
 				GPIO_T3_CMD_LOG: t3Log,
 				GPIO_T3_INSTALLED: "1.2.3",
 				GPIO_T3_LATEST: "1.2.3",
-			},
+			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 1.2.3 -> 1.2.3");
@@ -210,13 +221,74 @@ source "${libSh}"
 GPIO_USER=root
 install_t3code
 `,
-			{
+			t3Env(dir, {
 				GPIO_T3_NPM_LOG: npmLog,
 				GPIO_T3_CMD_LOG: t3Log,
-			},
+			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(await Bun.file(npmLog).text()).toContain("install -g t3@latest");
 		expect(await Bun.file(t3Log).text()).toContain("service install");
+	});
+
+	test("locks T3 Code to OpenCode only", async () => {
+		const dir = await tempDir();
+		const settings = join(dir, ".t3", "userdata", "settings.json");
+		await mkdir(join(dir, ".t3", "userdata"), { recursive: true });
+		await writeFile(
+			settings,
+			JSON.stringify({
+				providers: {
+					cursor: { enabled: true },
+					grok: { enabled: true },
+					opencode: { enabled: false },
+				},
+				providerInstances: {
+					claudeAgent: { driver: "claudeAgent", enabled: true },
+					codex: { driver: "codex", enabled: true },
+					opencode: { driver: "opencode", enabled: false },
+				},
+			}),
+		);
+		const result = await bash(
+			`
+source "${libSh}"
+GPIO_USER=root
+configure_t3_opencode_only
+`,
+			t3Env(dir),
+		);
+		expect(result.exit).toBe(0);
+		expect(result.stdout).toContain("T3 Code providers locked to OpenCode");
+		const saved = JSON.parse(await Bun.file(settings).text()) as {
+			providers: Record<string, { enabled: boolean }>;
+			providerInstances: Record<string, { driver: string; enabled: boolean }>;
+		};
+		expect(saved.providers.opencode.enabled).toBe(true);
+		expect(saved.providers.cursor.enabled).toBe(false);
+		expect(saved.providers.grok.enabled).toBe(false);
+		expect(saved.providerInstances.opencode.enabled).toBe(true);
+		expect(saved.providerInstances.claudeAgent.enabled).toBe(false);
+		expect(saved.providerInstances.codex.enabled).toBe(false);
+	});
+
+	test("creates an OpenCode instance when settings are missing", async () => {
+		const dir = await tempDir();
+		const result = await bash(
+			`
+source "${libSh}"
+GPIO_USER=root
+configure_t3_opencode_only
+`,
+			t3Env(dir),
+		);
+		expect(result.exit).toBe(0);
+		const saved = JSON.parse(
+			await Bun.file(join(dir, ".t3", "userdata", "settings.json")).text(),
+		) as {
+			providerInstances: { opencode: { enabled: boolean; driver: string } };
+		};
+		expect(saved.providerInstances.opencode.driver).toBe("opencode");
+		expect(saved.providerInstances.opencode.enabled).toBe(true);
 	});
 });

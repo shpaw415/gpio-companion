@@ -158,10 +158,12 @@ export default function DeviceDebugPanel({
 					/>
 					<Button
 						variant="contained"
-						disabled={!uuid || connection === "connecting"}
+						disabled={
+							!uuid || connection === "connecting" || connection === "live"
+						}
 						onClick={() => void connect()}
 					>
-						Connect
+						{connection === "live" ? "Connected" : "Connect"}
 					</Button>
 					<Button
 						variant="outlined"

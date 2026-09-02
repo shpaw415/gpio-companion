@@ -139,6 +139,135 @@ install_opencode() {
 	sudo -u "$GPIO_USER" bash -lc 'curl -fsSL https://opencode.ai/install | bash'
 }
 
+update_opencode() {
+	echo "gpio-companion update: opencode upgrade"
+	if [[ "$GPIO_USER" == "root" ]]; then
+		if ! command -v opencode >/dev/null 2>&1; then
+			echo "gpio-companion update: opencode not found, skipping upgrade" >&2
+			return 1
+		fi
+		opencode upgrade
+		return
+	fi
+	if ! sudo -u "$GPIO_USER" bash -lc 'command -v opencode >/dev/null 2>&1'; then
+		echo "gpio-companion update: opencode not found, skipping upgrade" >&2
+		return 1
+	fi
+	sudo -u "$GPIO_USER" bash -lc 'opencode upgrade'
+}
+
+t3_home() {
+	if [[ -n "${GPIO_COMPANION_T3_HOME:-}" ]]; then
+		printf '%s\n' "$GPIO_COMPANION_T3_HOME"
+		return
+	fi
+	if [[ "$GPIO_USER" == "root" ]]; then
+		printf '%s\n' "/root/.t3"
+		return
+	fi
+	printf '%s\n' "/home/$GPIO_USER/.t3"
+}
+
+configure_t3_opencode_only() {
+	local home dest result
+	home="$(t3_home)"
+	dest="$home/userdata/settings.json"
+	install -d -m 0755 "$(dirname "$dest")"
+	result="$(GPIO_T3_SETTINGS="$dest" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+path = Path(os.environ["GPIO_T3_SETTINGS"])
+data = {}
+if path.exists():
+    try:
+        loaded = json.loads(path.read_text())
+        if isinstance(loaded, dict):
+            data = loaded
+    except json.JSONDecodeError:
+        data = {}
+
+providers = data.get("providers")
+if not isinstance(providers, dict):
+    providers = {}
+for key, val in list(providers.items()):
+    if not isinstance(val, dict):
+        val = {}
+        providers[key] = val
+    val["enabled"] = key == "opencode"
+for extra in ("cursor", "grok"):
+    entry = providers.get(extra)
+    if not isinstance(entry, dict):
+        entry = {}
+        providers[extra] = entry
+    entry["enabled"] = False
+opencode = providers.get("opencode")
+if not isinstance(opencode, dict):
+    opencode = {}
+    providers["opencode"] = opencode
+opencode["enabled"] = True
+data["providers"] = providers
+
+instances = data.get("providerInstances")
+if not isinstance(instances, dict):
+    instances = {}
+has_opencode = False
+for key, inst in list(instances.items()):
+    if not isinstance(inst, dict):
+        continue
+    driver = inst.get("driver")
+    if driver == "opencode" or key == "opencode":
+        inst["driver"] = "opencode"
+        inst["enabled"] = True
+        has_opencode = True
+    else:
+        inst["enabled"] = False
+if not has_opencode:
+    instances["opencode"] = {
+        "driver": "opencode",
+        "enabled": True,
+        "config": {
+            "binaryPath": "opencode",
+            "serverUrl": "",
+            "serverPassword": "",
+            "customModels": [],
+        },
+    }
+data["providerInstances"] = instances
+text = json.dumps(data, indent=2) + "\n"
+if path.exists() and path.read_text() == text:
+    print("unchanged")
+else:
+    path.write_text(text)
+    print("changed")
+PY
+)"
+	if [[ "$GPIO_USER" != "root" ]]; then
+		chown -R "$GPIO_USER:$GPIO_USER" "$home" 2>/dev/null || true
+	fi
+	if [[ "$result" == "changed" ]]; then
+		echo "gpio-companion: T3 Code providers locked to OpenCode"
+		restart_t3_service || true
+	fi
+}
+
+restart_t3_service() {
+	local uid=""
+	if [[ "${GPIO_COMPANION_T3_SKIP_RESTART:-}" == "1" ]]; then
+		return 0
+	fi
+	if [[ "$GPIO_USER" == "root" ]]; then
+		systemctl --user restart t3code.service
+		return
+	fi
+	uid="$(id -u "$GPIO_USER" 2>/dev/null || true)"
+	if [[ -z "$uid" ]]; then
+		return 1
+	fi
+	sudo -u "$GPIO_USER" -H XDG_RUNTIME_DIR="/run/user/${uid}" systemctl --user restart t3code.service
+}
+
 t3_installed_npm_version() {
 	local ver=""
 	if ! command -v npm >/dev/null 2>&1; then
@@ -166,6 +295,7 @@ t3_latest_npm_version() {
 install_t3code() {
 	npm install -g t3@latest
 	install_t3_service
+	configure_t3_opencode_only
 }
 
 install_t3_service() {
@@ -190,16 +320,19 @@ update_t3code() {
 	if [[ -z "$latest" ]]; then
 		echo "gpio-companion update: t3@latest unavailable, keeping ${current:-none}" >&2
 		install_t3_service || return 1
+		configure_t3_opencode_only || true
 		return 0
 	fi
 	if [[ "$force" != "1" && -n "$current" && "$current" == "$latest" ]]; then
 		echo "gpio-companion update: t3 $current is current"
 		install_t3_service || return 1
+		configure_t3_opencode_only || true
 		return 0
 	fi
 	echo "gpio-companion update: t3 ${current:-none} -> $latest"
 	npm install -g t3@latest
 	install_t3_service
+	configure_t3_opencode_only || true
 }
 
 install_arduino_udev() {
@@ -716,16 +849,20 @@ PY
 
 install_gpio_companion_bin() {
 	local src=""
-	if [[ -x "$REPO_ROOT/binary/gpio-companion/dist/gpio-companion-linux-arm64" ]]; then
-		src="$REPO_ROOT/binary/gpio-companion/dist/gpio-companion-linux-arm64"
-	elif [[ -x "$REPO_ROOT/binary/gpio-companion/dist/gpio-companion" ]]; then
-		src="$REPO_ROOT/binary/gpio-companion/dist/gpio-companion"
-	elif command -v bun >/dev/null 2>&1; then
+	if command -v bun >/dev/null 2>&1; then
+		echo "gpio-companion update: compiling serve binary"
 		(cd "$REPO_ROOT" && bun install)
 		(cd "$REPO_ROOT/binary/gpio-companion" && bun run compile)
 		src="$REPO_ROOT/binary/gpio-companion/dist/gpio-companion"
+	elif [[ -x "$REPO_ROOT/binary/gpio-companion/dist/gpio-companion-linux-arm64" ]]; then
+		src="$REPO_ROOT/binary/gpio-companion/dist/gpio-companion-linux-arm64"
+	elif [[ -x "$REPO_ROOT/binary/gpio-companion/dist/gpio-companion" ]]; then
+		src="$REPO_ROOT/binary/gpio-companion/dist/gpio-companion"
 	else
 		die "gpio-companion binary missing and bun is not installed"
+	fi
+	if [[ ! -x "$src" ]]; then
+		die "gpio-companion binary was not built"
 	fi
 	install -m 0755 "$src" "$BIN_DIR/gpio-companion"
 	install_ble_gatt_script

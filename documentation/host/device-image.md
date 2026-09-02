@@ -29,7 +29,7 @@ The clone does **not** bake a production public key. First-setup fetches it from
 7. Fetches the dashboard Ed25519 public key into `/etc/gpio-companion/device-auth.json` (fails closed if the dashboard is unreachable)
 8. Writes `/etc/gpio-companion/first-setup-complete`
 
-It does **not** collect OpenCode or GitHub secrets. It **does** run `t3 service install`. It does **not** run `t3 pair` (dashboard does that after claim).
+It does **not** collect OpenCode or GitHub secrets. It **does** run `t3 service install` and lock T3 Code to OpenCode as the only provider. It does **not** run `t3 pair` (dashboard does that after claim).
 
 Prints pairing UUID/key plus `https://api-…` and `https://t3-…`. Treat that console output as a physical possession secret.
 
@@ -102,7 +102,8 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 - Copies `opencode/skills` and `opencode/preferences` into the device OpenCode config
 - Fetches `GET /api/device-public-key` and writes `/etc/gpio-companion/device-auth.json` if it changed
 - Rebuilds/restarts `gpio-companion` if `binary/`, `packages/core/`, the unit file, or lockfile changed, or if the registered public key changed
-- Compares installed `t3` to npm `t3@latest` and runs `npm install -g t3@latest` plus `t3 service install` when behind (or on `--force`); registry miss keeps the current package
+- Compares installed `t3` to npm `t3@latest` and runs `npm install -g t3@latest` plus `t3 service install` when behind (or on `--force`); registry miss keeps the current package; re-locks T3 Code to OpenCode-only providers
+- Runs `opencode upgrade` as the GPIO user
 - Force rebuild even when HEAD did not move: `sudo ./scripts/force-update.sh` or `sudo gpio-companion-force-update` (`--force` / `GPIO_COMPANION_UPDATE_FORCE=1`)
 
 Public-key rotations are **dashboard-only** (new Pages secret); Pis pick them up on the next updater run without a git commit. Fetch failure keeps the current file.
