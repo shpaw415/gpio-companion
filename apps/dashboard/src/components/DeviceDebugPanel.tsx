@@ -4,7 +4,11 @@ import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { type DebugEvent, parseDebugEvent } from "gpio-companion";
+import {
+	type DebugEvent,
+	debugProbeMessage,
+	parseDebugEvent,
+} from "gpio-companion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
 import CopyBlock from "./CopyBlock.tsx";
@@ -81,11 +85,7 @@ export default function DeviceDebugPanel({
 			const signed = unwrapAction(await signConnect(uuid));
 			if (!signed.probe.ready) {
 				setConnection("error");
-				setError(
-					signed.probe.status
-						? `${signed.probe.status} ${signed.probe.error}`
-						: signed.probe.error,
-				);
+				setError(debugProbeMessage(signed.probe));
 				return;
 			}
 			const socket = new WebSocket(signed.wsUrl);

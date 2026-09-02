@@ -143,6 +143,22 @@ export function parseDebugProbe(status: number, text: string): DebugProbe {
 	};
 }
 
+export function debugProbeMessage(probe: DebugProbe): string {
+	if (probe.ready) {
+		return "";
+	}
+	if (probe.status === 404 && probe.error === "not found") {
+		return "Companion firmware is too old for debug. SSH: sudo gpio-companion-update";
+	}
+	if (probe.status === 401 && probe.error === "missing device signature") {
+		return "Companion firmware is too old for debug. SSH: sudo gpio-companion-update";
+	}
+	if (!probe.status) {
+		return probe.error;
+	}
+	return `${probe.status} ${probe.error}`;
+}
+
 export function debugAuthHeadersFromRequest(request: Request): Headers {
 	const headers = debugAuthHeadersFromSearch(new URL(request.url).searchParams);
 	for (const name of Object.values(DEVICE_AUTH_HEADERS)) {

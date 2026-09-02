@@ -93,6 +93,7 @@ export {
 	debugAuthHeadersFromSearch,
 	debugAuthQuery,
 	debugLevelFromStatus,
+	debugProbeMessage,
 	debugWsConnectUrl,
 	debugWsUrl,
 	isAllowedDebugOrigin,

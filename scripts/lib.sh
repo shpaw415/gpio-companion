@@ -139,8 +139,32 @@ install_opencode() {
 	sudo -u "$GPIO_USER" bash -lc 'curl -fsSL https://opencode.ai/install | bash'
 }
 
+t3_installed_npm_version() {
+	local ver=""
+	if ! command -v npm >/dev/null 2>&1; then
+		return 1
+	fi
+	ver="$(npm list -g t3 --depth=0 2>/dev/null | sed -n 's/.*t3@//p' | head -n1 | tr -d '[:space:]')" || true
+	if [[ -z "$ver" ]]; then
+		return 1
+	fi
+	printf '%s\n' "$ver"
+}
+
+t3_latest_npm_version() {
+	local ver=""
+	if ! command -v npm >/dev/null 2>&1; then
+		return 1
+	fi
+	ver="$(npm view t3 version 2>/dev/null | tr -d '[:space:]')" || true
+	if [[ -z "$ver" ]]; then
+		return 1
+	fi
+	printf '%s\n' "$ver"
+}
+
 install_t3code() {
-	npm install -g t3
+	npm install -g t3@latest
 	install_t3_service
 }
 
@@ -153,6 +177,29 @@ install_t3_service() {
 		return
 	fi
 	sudo -u "$GPIO_USER" -H t3 service install
+}
+
+update_t3code() {
+	local force="${1:-0}" current="" latest=""
+	if ! command -v npm >/dev/null 2>&1; then
+		echo "gpio-companion update: npm not found, skipping t3" >&2
+		return 1
+	fi
+	current="$(t3_installed_npm_version || true)"
+	latest="$(t3_latest_npm_version || true)"
+	if [[ -z "$latest" ]]; then
+		echo "gpio-companion update: t3@latest unavailable, keeping ${current:-none}" >&2
+		install_t3_service || return 1
+		return 0
+	fi
+	if [[ "$force" != "1" && -n "$current" && "$current" == "$latest" ]]; then
+		echo "gpio-companion update: t3 $current is current"
+		install_t3_service || return 1
+		return 0
+	fi
+	echo "gpio-companion update: t3 ${current:-none} -> $latest"
+	npm install -g t3@latest
+	install_t3_service
 }
 
 install_arduino_udev() {

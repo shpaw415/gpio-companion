@@ -7,6 +7,7 @@ import {
 	debugAuthHeadersFromSearch,
 	debugAuthQuery,
 	debugLevelFromStatus,
+	debugProbeMessage,
 	debugWsConnectUrl,
 	debugWsUrl,
 	isAllowedDebugOrigin,
@@ -124,6 +125,9 @@ describe("debug helpers", () => {
 			ready: false,
 		});
 		expect(parseDebugProbe(404, '{"error":"not found"}').ready).toBe(false);
+		expect(
+			debugProbeMessage(parseDebugProbe(404, '{"error":"not found"}')),
+		).toContain("gpio-companion-update");
 	});
 
 	test("parses debug events", () => {

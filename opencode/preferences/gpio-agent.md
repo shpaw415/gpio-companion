@@ -15,7 +15,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Install with `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
 - cloudflared replica is the per-Pi T3 Code tunnel created at first-setup; token + hostnames can still be set through the device API
 - T3 Code service is installed at first-setup (`t3 service install`); pairing is dashboard-managed after claim (`t3 pair`, pair code/QR on the board URL)
-- Repo updates run via `scripts/update-script.sh` on boot and every 24h (skills, preferences, device server)
+- Repo updates run via `scripts/update-script.sh` on boot and every 24h (skills, preferences, device server, T3 Code `t3@latest`)
 - Image first boot: `scripts/snapshot/gpio-companion-first-boot.sh` clones the repo and runs interactive first-setup
 - The user uses their GitHub account. Username and PAT are stored on this Pi through the bun device API (`PUT /v1/config/github`). Use those credentials to manage project repos. Do not invent a GitHub user.
 - OpenCode talks to the gpio-companion AI proxy with a baked `GPIO_AI_KEY` (first-setup). Default model is `@cf/zai-org/glm-5.3`. Dashboard credits are USD microdollars billed from Workers AI in/out tokens × markup; empty balance returns 402. Do not paste a Cloudflare or OpenCode API key. GitHub PAT is still set via `PUT /v1/config/github`
