@@ -46,8 +46,18 @@ fn emit_status(app: &AppHandle, message: &str) {
 }
 
 #[tauri::command]
-fn auth_token() -> Option<String> {
-	tokens::load().map(|tokens| tokens.access)
+async fn auth_token() -> Option<String> {
+	if tokens::load().is_none() {
+		return None;
+	}
+	if let Err(err) = auth::refresh_access().await {
+		log::line(&format!("auth refresh: {err}"));
+		tokens::clear();
+		return None;
+	}
+	tokens::load()
+		.map(|tokens| tokens.access)
+		.filter(|token| !token.is_empty())
 }
 
 #[tauri::command]

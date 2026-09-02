@@ -91,8 +91,36 @@ pub async fn exchange_code(callback: &str, verifier: &str, expected_state: &str)
 		urlencoding(AUTH_REDIRECT_URI),
 		urlencoding(verifier)
 	);
-	let client = reqwest::Client::new();
 	crate::log::line("auth token exchange");
+	let payload = token_request(body).await.map_err(|err| {
+		format!(
+			"{err}; add redirect {AUTH_REDIRECT_URI} on OpenAuthster public client {AUTH_CLIENT_ID}"
+		)
+	})?;
+	crate::log::line("auth token exchange ok");
+	save_tokens(payload, None)
+}
+
+pub async fn refresh_access() -> Result<(), String> {
+	let Some(current) = tokens::load() else {
+		return Err("sign in first".to_string());
+	};
+	let Some(refresh) = current.refresh.filter(|value| !value.is_empty()) else {
+		crate::log::line("auth refresh skipped (no refresh token)");
+		return Ok(());
+	};
+	let body = format!(
+		"grant_type=refresh_token&client_id={AUTH_CLIENT_ID}&refresh_token={}",
+		urlencoding(&refresh)
+	);
+	crate::log::line("auth refresh");
+	let payload = token_request(body).await?;
+	crate::log::line("auth refresh ok");
+	save_tokens(payload, Some(refresh))
+}
+
+async fn token_request(body: String) -> Result<TokenResponse, String> {
+	let client = reqwest::Client::new();
 	let response = client
 		.post(format!("{ISSUER_URL}/token"))
 		.header("content-type", "application/x-www-form-urlencoded")
@@ -100,35 +128,35 @@ pub async fn exchange_code(callback: &str, verifier: &str, expected_state: &str)
 		.send()
 		.await
 		.map_err(|err| {
-			let message = format!("token exchange network: {err}");
+			let message = format!("token request network: {err}");
 			crate::log::line(&message);
 			message
 		})?;
 	let status = response.status();
 	let text = response.text().await.map_err(|err| {
-		let message = format!("token exchange body: {err}");
+		let message = format!("token request body: {err}");
 		crate::log::line(&message);
 		message
 	})?;
 	if !status.is_success() {
 		let message = format!(
-			"token exchange failed ({status}); body={}; add redirect {} on OpenAuthster public client {}",
-			crate::log::truncate(&text, 400),
-			AUTH_REDIRECT_URI,
-			AUTH_CLIENT_ID
+			"token request failed ({status}); body={}",
+			crate::log::truncate(&text, 400)
 		);
 		crate::log::line(&message);
 		return Err(message);
 	}
-	let payload = serde_json::from_str::<TokenResponse>(&text).map_err(|err| {
+	serde_json::from_str::<TokenResponse>(&text).map_err(|err| {
 		let message = format!(
-			"token exchange not json ({err}); body={}",
+			"token request not json ({err}); body={}",
 			crate::log::truncate(&text, 400)
 		);
 		crate::log::line(&message);
 		message
-	})?;
-	crate::log::line("auth token exchange ok");
+	})
+}
+
+fn save_tokens(payload: TokenResponse, previous_refresh: Option<String>) -> Result<(), String> {
 	let expires_at = payload.expires_in.map(|seconds| {
 		let now = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
@@ -138,7 +166,7 @@ pub async fn exchange_code(callback: &str, verifier: &str, expected_state: &str)
 	});
 	tokens::save(&Tokens {
 		access: payload.access_token,
-		refresh: payload.refresh_token,
+		refresh: payload.refresh_token.filter(|value| !value.is_empty()).or(previous_refresh),
 		expires_at,
 	})
 }
