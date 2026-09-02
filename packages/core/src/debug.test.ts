@@ -14,6 +14,7 @@ import {
 	liveDeviceUrl,
 	normalizeDebugPath,
 	parseDebugEvent,
+	parseDebugProbe,
 	parseLivePingUuid,
 	redactDebugMessage,
 	shouldPublishDebugPath,
@@ -107,6 +108,22 @@ describe("debug helpers", () => {
 		const headers = debugAuthHeadersFromRequest(request);
 		expect(headers.get("x-gpio-key-id")).toBe("gpio-companion-v1");
 		expect(headers.get("x-gpio-timestamp")).toBe("1700000000000");
+	});
+
+	test("parses handshake probe", () => {
+		expect(parseDebugProbe(400, "upgrade failed")).toEqual({
+			status: 400,
+			error: "upgrade failed",
+			ready: true,
+		});
+		expect(
+			parseDebugProbe(401, '{"error":"missing device signature"}'),
+		).toEqual({
+			status: 401,
+			error: "missing device signature",
+			ready: false,
+		});
+		expect(parseDebugProbe(404, '{"error":"not found"}').ready).toBe(false);
 	});
 
 	test("parses debug events", () => {

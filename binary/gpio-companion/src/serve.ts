@@ -84,8 +84,15 @@ export function startDeviceApi(options: ServeOptions) {
 			}
 			const url = new URL(request.url);
 			const path = url.pathname.replace(/\/+$/, "") || "/";
+			const upgrade = request.headers.get("upgrade")?.toLowerCase() ?? "";
+			if (upgrade === "websocket" && path !== DEBUG_PATH) {
+				console.error(`gpio-companion debug: websocket to ${path}`);
+			}
 			if (request.method === "GET" && path === DEBUG_PATH) {
 				const origin = request.headers.get("origin") ?? "";
+				console.log(
+					`gpio-companion debug: handshake origin=${origin || "-"} upgrade=${upgrade || "-"}`,
+				);
 				if (!debug.allowOrigin(origin)) {
 					console.error(`gpio-companion debug: unauthorized origin ${origin}`);
 					return Response.json(

@@ -19,6 +19,11 @@ import {
 	identityToPublicSession,
 	resolveUserIdentity,
 } from "./lib/auth/identity.ts";
+import {
+	attachAccessCookieSync,
+	installAuthAwareFetch,
+	syncAccessCookie,
+} from "./lib/auth/refresh.ts";
 
 export default function ClientWrapper({ children }: { children: JSX.Element }) {
 	const routeChangePromiseRef = useRef<
@@ -78,17 +83,18 @@ function AuthProvider({ children }: { children: JSX.Element }) {
 	const [session, setSession] = useState<PublicSession | null>(null);
 
 	useEffect(() => {
+		const client = auth.current;
+		attachAccessCookieSync(client);
+		const uninstallFetch = installAuthAwareFetch(client);
 		let cancelled = false;
-		auth.current
+		client
 			.init()
-			.then(async (client) => {
+			.then(async (ready) => {
 				if (cancelled) {
 					return;
 				}
-				if (client.getToken()) {
-					client.setTokenToCookie();
-				}
-				const identity = await resolveUserIdentity(client);
+				syncAccessCookie(ready);
+				const identity = await resolveUserIdentity(ready);
 				if (cancelled) {
 					return;
 				}
@@ -105,6 +111,7 @@ function AuthProvider({ children }: { children: JSX.Element }) {
 			});
 		return () => {
 			cancelled = true;
+			uninstallFetch();
 		};
 	}, []);
 

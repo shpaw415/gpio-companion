@@ -18,7 +18,12 @@ export default function DeviceDebugPanel({
 	signConnect,
 }: {
 	devices: DeviceOption[];
-	signConnect: (uuid: string) => Promise<ActionResult<{ wsUrl: string }>>;
+	signConnect: (uuid: string) => Promise<
+		ActionResult<{
+			wsUrl: string;
+			probe: { status: number; error: string; ready: boolean };
+		}>
+	>;
 }) {
 	const [uuid, setUuid] = useState(devices[0]?.uuid ?? "");
 	const [connection, setConnection] = useState<Connection>("idle");
@@ -74,6 +79,15 @@ export default function DeviceDebugPanel({
 		setConnection("connecting");
 		try {
 			const signed = unwrapAction(await signConnect(uuid));
+			if (!signed.probe.ready) {
+				setConnection("error");
+				setError(
+					signed.probe.status
+						? `${signed.probe.status} ${signed.probe.error}`
+						: signed.probe.error,
+				);
+				return;
+			}
 			const socket = new WebSocket(signed.wsUrl);
 			socketRef.current = socket;
 			socket.addEventListener("open", () => {

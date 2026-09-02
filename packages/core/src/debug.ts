@@ -13,6 +13,7 @@ export type DebugEvent = {
 };
 
 export const DEBUG_PATH = "/v1/debug";
+export const DEBUG_UPGRADE_FAILED = "upgrade failed";
 export const DEBUG_LIVE_PATH = "/api/debug/live";
 export const DEBUG_LIVE_TTL_SEC = 120;
 export const DEBUG_LIVE_PING_MS = 30_000;
@@ -116,6 +117,30 @@ export function debugAuthHeadersFromSearch(search: URLSearchParams): Headers {
 		}
 	}
 	return headers;
+}
+
+export type DebugProbe = {
+	status: number;
+	error: string;
+	ready: boolean;
+};
+
+export function parseDebugProbe(status: number, text: string): DebugProbe {
+	const trimmed = text.trim();
+	let error = trimmed || `device ${status}`;
+	try {
+		const json = JSON.parse(trimmed) as { error?: unknown };
+		if (typeof json.error === "string" && json.error.trim()) {
+			error = json.error.trim();
+		}
+	} catch {
+		// keep text
+	}
+	return {
+		status,
+		error,
+		ready: status === 400 && error === DEBUG_UPGRADE_FAILED,
+	};
 }
 
 export function debugAuthHeadersFromRequest(request: Request): Headers {
