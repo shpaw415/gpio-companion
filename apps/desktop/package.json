@@ -13,14 +13,14 @@
 	},
 	"dependencies": {
 		"@shpaw415/mui-lite": "^0.1.6",
-		"@tauri-apps/api": "^2.9.1",
-		"@tauri-apps/plugin-deep-link": "^2.4.6",
-		"@tauri-apps/plugin-opener": "^2.5.3",
+		"@tauri-apps/api": "^2.11.1",
+		"@tauri-apps/plugin-deep-link": "^2.4.10",
+		"@tauri-apps/plugin-opener": "^2.5.5",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^2.9.6",
+		"@tauri-apps/cli": "^2.11.4",
 		"@types/react": "^19.2.18",
 		"@types/react-dom": "^19.2.5",
 		"@vitejs/plugin-react": "^5.1.2",

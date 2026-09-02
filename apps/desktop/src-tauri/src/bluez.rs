@@ -12,17 +12,32 @@ fn system() -> Result<Connection, String> {
 	Connection::new_system().map_err(|err| format!("bluetooth dbus: {err}"))
 }
 
+fn prop_bool(props: &PropMap, key: &str) -> Option<bool> {
+	let variant = props.get(key)?;
+	dbus::arg::cast::<bool>(&variant.0)
+		.copied()
+		.or_else(|| variant.0.as_i64().map(|value| value != 0))
+		.or_else(|| variant.0.as_u64().map(|value| value != 0))
+}
+
 fn adapter_path(conn: &Connection) -> Result<String, String> {
 	let proxy = conn.with_proxy(BLUEZ, "/", Duration::from_secs(5));
 	let objects = proxy
 		.get_managed_objects()
 		.map_err(|err| format!("bluetooth objects: {err}"))?;
-	objects
-		.into_iter()
-		.find_map(|(path, interfaces)| {
-			interfaces.contains_key(ADAPTER).then(|| path.to_string())
-		})
-		.ok_or_else(|| "no bluetooth adapter".to_string())
+	let mut fallback = None;
+	for (path, interfaces) in objects {
+		let Some(props) = interfaces.get(ADAPTER) else {
+			continue;
+		};
+		if prop_bool(props, "Powered").unwrap_or(false) {
+			return Ok(path.to_string());
+		}
+		if fallback.is_none() {
+			fallback = Some(path.to_string());
+		}
+	}
+	fallback.ok_or_else(|| "no bluetooth adapter".to_string())
 }
 
 /// Resolve the real BlueZ object path for a device address instead of guessing
@@ -70,31 +85,63 @@ fn connect_error(err: &dbus::Error) -> String {
 	}
 }
 
-pub fn start_le_discovery() -> Result<(), String> {
-	let conn = system()?;
-	let adapter = adapter_path(&conn)?;
-	crate::log::line(&format!("bluetooth le discovery start {adapter}"));
-	let proxy = conn.with_proxy(BLUEZ, adapter, Duration::from_secs(8));
-	let mut filter: PropMap = HashMap::new();
-	filter.insert("Transport".into(), Variant(Box::new("le".to_string())));
-	filter.insert("DuplicateData".into(), Variant(Box::new(true)));
-	let _: () = proxy
-		.method_call(ADAPTER, "SetDiscoveryFilter", (filter,))
-		.map_err(|err| format!("bluetooth le filter: {err}"))?;
-	let started: Result<(), dbus::Error> = proxy.method_call(ADAPTER, "StartDiscovery", ());
-	match started {
-		Ok(()) => Ok(()),
-		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => Ok(()),
-		Err(err) => Err(format!("bluetooth le scan: {err}")),
+/// BlueZ ties StartDiscovery to the D-Bus client connection. Dropping it
+/// immediately stops LE scan, so the session must stay open for the whole scan.
+pub struct LeDiscovery {
+	conn: Option<Connection>,
+	adapter: String,
+	owned: bool,
+}
+
+impl LeDiscovery {
+	pub fn start() -> Result<Self, String> {
+		let conn = system()?;
+		let adapter = adapter_path(&conn)?;
+		crate::log::line(&format!("bluetooth le discovery start {adapter}"));
+		let proxy = conn.with_proxy(BLUEZ, &adapter, Duration::from_secs(8));
+		let mut filter: PropMap = HashMap::new();
+		filter.insert("Transport".into(), Variant(Box::new("le".to_string())));
+		filter.insert("DuplicateData".into(), Variant(Box::new(true)));
+		let _: () = proxy
+			.method_call(ADAPTER, "SetDiscoveryFilter", (filter,))
+			.map_err(|err| format!("bluetooth le filter: {err}"))?;
+		let started: Result<(), dbus::Error> = proxy.method_call(ADAPTER, "StartDiscovery", ());
+		match started {
+			Ok(()) => Ok(Self {
+				conn: Some(conn),
+				adapter,
+				owned: true,
+			}),
+			Err(err) if err.name() == Some("org.bluez.Error.InProgress") => Ok(Self {
+				conn: Some(conn),
+				adapter,
+				owned: false,
+			}),
+			Err(err) => Err(format!("bluetooth le scan: {err}")),
+		}
+	}
+
+	fn halt(&mut self) {
+		let Some(conn) = self.conn.take() else {
+			return;
+		};
+		if !self.owned {
+			return;
+		}
+		self.owned = false;
+		crate::log::line(&format!("bluetooth le discovery stop {}", self.adapter));
+		let proxy = conn.with_proxy(BLUEZ, &self.adapter, Duration::from_secs(5));
+		let _: Result<(), _> = proxy.method_call(ADAPTER, "StopDiscovery", ());
+	}
+
+	pub fn stop(mut self) {
+		self.halt();
 	}
 }
 
-pub fn stop_le_discovery() {
-	if let Ok(conn) = system() {
-		if let Ok(adapter) = adapter_path(&conn) {
-			let proxy = conn.with_proxy(BLUEZ, adapter, Duration::from_secs(5));
-			let _: Result<(), _> = proxy.method_call(ADAPTER, "StopDiscovery", ());
-		}
+impl Drop for LeDiscovery {
+	fn drop(&mut self) {
+		self.halt();
 	}
 }
 

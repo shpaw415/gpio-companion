@@ -2,7 +2,8 @@ use crate::frames::{
 	self, BLE_CHUNK_SIZE, BLE_CMD_UUID, BLE_INFO_UUID, BLE_STATUS_UUID,
 };
 use btleplug::api::{
-	Central, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
+	Central, CentralState, Characteristic, Manager as _, Peripheral as _, ScanFilter,
+	WriteType,
 };
 use btleplug::platform::{Adapter, Manager, Peripheral};
 use futures::StreamExt;
@@ -46,31 +47,46 @@ async fn adapter() -> Result<btleplug::platform::Adapter, String> {
 		crate::log::line(&message);
 		message
 	})?;
-	manager
-		.adapters()
-		.await
-		.map_err(|err| {
-			let message = format!("bluetooth adapters: {err}");
-			crate::log::line(&message);
-			message
-		})?
-		.into_iter()
-		.next()
-		.ok_or_else(|| {
-			crate::log::line("no bluetooth adapter");
-			"no bluetooth adapter".to_string()
-		})
-}
-
-async fn start_scan(adapter: &btleplug::platform::Adapter) -> Result<(), String> {
-	#[cfg(target_os = "linux")]
-	{
-		match tokio::task::spawn_blocking(crate::bluez::start_le_discovery).await {
-			Ok(Ok(())) => return Ok(()),
-			Ok(Err(err)) => crate::log::line(&err),
-			Err(err) => crate::log::line(&format!("bluetooth le discovery join: {err}")),
+	let adapters = manager.adapters().await.map_err(|err| {
+		let message = format!("bluetooth adapters: {err}");
+		crate::log::line(&message);
+		message
+	})?;
+	let mut fallback = None;
+	for adapter in adapters {
+		match adapter.adapter_state().await {
+			Ok(CentralState::PoweredOn) => return Ok(adapter),
+			_ => {
+				if fallback.is_none() {
+					fallback = Some(adapter);
+				}
+			}
 		}
 	}
+	fallback.ok_or_else(|| {
+		crate::log::line("no bluetooth adapter");
+		"no bluetooth adapter".to_string()
+	})
+}
+
+struct ScanGuard {
+	#[cfg(target_os = "linux")]
+	discovery: Option<crate::bluez::LeDiscovery>,
+}
+
+async fn start_scan(adapter: &btleplug::platform::Adapter) -> Result<ScanGuard, String> {
+	#[cfg(target_os = "linux")]
+	let discovery = match tokio::task::spawn_blocking(crate::bluez::LeDiscovery::start).await {
+		Ok(Ok(session)) => Some(session),
+		Ok(Err(err)) => {
+			crate::log::line(&err);
+			None
+		}
+		Err(err) => {
+			crate::log::line(&format!("bluetooth le discovery join: {err}"));
+			None
+		}
+	};
 	adapter
 		.start_scan(ScanFilter::default())
 		.await
@@ -78,13 +94,23 @@ async fn start_scan(adapter: &btleplug::platform::Adapter) -> Result<(), String>
 			let message = format!("bluetooth scan: {err}");
 			crate::log::line(&message);
 			message
-		})
+		})?;
+	Ok(ScanGuard {
+		#[cfg(target_os = "linux")]
+		discovery,
+	})
 }
 
-async fn stop_scan(adapter: &btleplug::platform::Adapter) {
+async fn stop_scan(adapter: &btleplug::platform::Adapter, guard: ScanGuard) {
 	#[cfg(target_os = "linux")]
 	{
-		let _ = tokio::task::spawn_blocking(crate::bluez::stop_le_discovery).await;
+		if let Some(session) = guard.discovery {
+			let _ = tokio::task::spawn_blocking(move || session.stop()).await;
+		}
+	}
+	#[cfg(not(target_os = "linux"))]
+	{
+		let _ = guard;
 	}
 	let _ = adapter.stop_scan().await;
 }
@@ -204,13 +230,38 @@ fn sorted_nearby(map: HashMap<String, NearbyBoard>) -> Vec<NearbyBoard> {
 }
 
 fn for_picker(boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
+	let matched_live: Vec<NearbyBoard> = boards
+		.iter()
+		.filter(|board| board.matched && board.rssi.is_some())
+		.cloned()
+		.collect();
+	if !matched_live.is_empty() {
+		return matched_live;
+	}
 	let matched: Vec<NearbyBoard> = boards
 		.iter()
 		.filter(|board| board.matched)
 		.cloned()
 		.collect();
+	let live: Vec<NearbyBoard> = boards
+		.iter()
+		.filter(|board| board.rssi.is_some())
+		.cloned()
+		.collect();
 	if !matched.is_empty() {
-		return matched;
+		if live.is_empty() {
+			return matched;
+		}
+		let mut out = matched;
+		for board in live {
+			if !out
+				.iter()
+				.any(|existing| frames::same_ble_id(&existing.id, &board.id))
+			{
+				out.push(board);
+			}
+		}
+		return sort_boards(out);
 	}
 	let candidates: Vec<NearbyBoard> = boards
 		.iter()
@@ -226,7 +277,7 @@ fn for_picker(boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
 pub async fn scan_nearby(timeout_ms: u64) -> Result<Vec<NearbyBoard>, String> {
 	let _lock = BLE.lock().await;
 	let adapter = adapter().await?;
-	start_scan(&adapter).await?;
+	let guard = start_scan(&adapter).await?;
 	let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
 	let mut map = HashMap::new();
 	loop {
@@ -238,7 +289,7 @@ pub async fn scan_nearby(timeout_ms: u64) -> Result<Vec<NearbyBoard>, String> {
 		}
 		sleep(Duration::from_millis(300)).await;
 	}
-	stop_scan(&adapter).await;
+	stop_scan(&adapter, guard).await;
 	let boards = sorted_nearby(map);
 	crate::log::line(&format!(
 		"bluetooth nearby={} matched={}",
@@ -276,20 +327,22 @@ pub async fn find_board(id: &str) -> Result<Peripheral, String> {
 	if let Some(peripheral) = peripheral_by_id(&adapter, id).await? {
 		return Ok(peripheral);
 	}
-	start_scan(&adapter).await?;
+	let guard = start_scan(&adapter).await?;
 	let deadline = tokio::time::Instant::now() + Duration::from_millis(8_000);
-	loop {
+	let found = loop {
 		if let Some(peripheral) = peripheral_by_id(&adapter, id).await? {
-			stop_scan(&adapter).await;
-			sleep(Duration::from_millis(400)).await;
-			return Ok(peripheral);
+			break Ok(peripheral);
 		}
 		if tokio::time::Instant::now() > deadline {
-			stop_scan(&adapter).await;
-			return Err(format!("bluetooth device not found: {id}"));
+			break Err(format!("bluetooth device not found: {id}"));
 		}
 		sleep(Duration::from_millis(300)).await;
+	};
+	stop_scan(&adapter, guard).await;
+	if found.is_ok() {
+		sleep(Duration::from_millis(400)).await;
 	}
+	found
 }
 
 async fn probe_info(peripheral: &Peripheral) -> Option<BleInfo> {
@@ -466,7 +519,10 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 	}
 	let mut last = "connect failed".to_string();
 	for attempt in 1..=2 {
-		match peripheral.connect().await {
+		match peripheral
+			.connect_with_timeout(Duration::from_secs(8))
+			.await
+		{
 			Ok(()) => {
 				crate::log::line(&format!("bluetooth connected attempt={attempt}"));
 				return Ok(());
@@ -484,7 +540,10 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 
 pub async fn read_info(peripheral: &Peripheral) -> Result<BleInfo, String> {
 	ensure_connected(peripheral).await?;
-	peripheral.discover_services().await.map_err(|err| {
+	peripheral
+		.discover_services_with_timeout(Duration::from_secs(10))
+		.await
+		.map_err(|err| {
 		let message = format!("bluetooth discover: {err}");
 		crate::log::line(&message);
 		message
@@ -545,10 +604,19 @@ mod tests {
 	use super::*;
 
 	fn board(id: &str, name: &str, matched: bool) -> NearbyBoard {
+		board_rssi(id, name, matched, None)
+	}
+
+	fn board_rssi(
+		id: &str,
+		name: &str,
+		matched: bool,
+		rssi: Option<i16>,
+	) -> NearbyBoard {
 		NearbyBoard {
 			id: id.to_string(),
 			name: name.to_string(),
-			rssi: None,
+			rssi,
 			matched,
 			pairing_uuid: None,
 			hardware: None,
@@ -585,5 +653,16 @@ mod tests {
 		];
 		let picked = for_picker(boards);
 		assert_eq!(picked.len(), 2);
+	}
+
+	#[test]
+	fn picker_keeps_live_radios_beside_stale_matched() {
+		let boards = vec![
+			board("AA:AA:AA:AA:AA:AA", "gpio-companion", true),
+			board_rssi("C5:4E:5C:2B:26:02", "orangepi3-lts", false, Some(-42)),
+		];
+		let picked = for_picker(boards);
+		assert_eq!(picked.len(), 2);
+		assert!(picked.iter().any(|board| board.id == "C5:4E:5C:2B:26:02"));
 	}
 }
