@@ -331,6 +331,59 @@ dashboard_url() {
 	printf '%s' "$origin"
 }
 
+pairing_uuid() {
+	local uuid="${GPIO_COMPANION_PAIRING_UUID:-}"
+	if [[ -f "$CONFIG_DIR/pairing.env" ]]; then
+		# shellcheck disable=SC1091
+		source "$CONFIG_DIR/pairing.env"
+		uuid="${GPIO_COMPANION_PAIRING_UUID:-$uuid}"
+	fi
+	if [[ -z "$uuid" && -f "${GPIO_COMPANION_PAIRING:-$CONFIG_DIR/pairing.json}" ]]; then
+		uuid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("uuid") or "")' "${GPIO_COMPANION_PAIRING:-$CONFIG_DIR/pairing.json}" 2>/dev/null || true)"
+	fi
+	printf '%s' "$uuid"
+}
+
+local_pairing_claimed() {
+	local path="${GPIO_COMPANION_PAIRING:-$CONFIG_DIR/pairing.json}"
+	if [[ ! -f "$path" ]]; then
+		return 1
+	fi
+	python3 -c 'import json,sys; raise SystemExit(0 if json.load(open(sys.argv[1])).get("claimed") else 1)' "$path" 2>/dev/null
+}
+
+sync_local_pairing_with_dashboard() {
+	local uuid raw paired
+	uuid="$(pairing_uuid)"
+	if [[ -z "$uuid" ]]; then
+		return 0
+	fi
+	raw="$(
+		curl -fsS --max-time 15 "$(dashboard_url)/api/device/paired?uuid=$(
+			UUID="$uuid" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["UUID"]))'
+		)" 2>/dev/null
+	)" || {
+		echo "gpio-companion update: dashboard pairing check failed" >&2
+		return 0
+	}
+	paired="$(
+		raw="$raw" python3 -c 'import json, os; print("1" if json.loads(os.environ["raw"]).get("paired") else "0")' 2>/dev/null || echo x
+	)"
+	if [[ "$paired" != "0" ]]; then
+		return 0
+	fi
+	if ! local_pairing_claimed; then
+		echo "gpio-companion update: dashboard unpaired"
+		return 0
+	fi
+	echo "gpio-companion update: dashboard has no claim, unpairing locally"
+	if [[ -x "$SCRIPT_DIR/unpair.sh" ]]; then
+		"$SCRIPT_DIR/unpair.sh"
+	else
+		echo "gpio-companion update: unpair.sh missing" >&2
+	fi
+}
+
 device_auth_path() {
 	printf '%s' "${GPIO_COMPANION_DEVICE_AUTH:-$CONFIG_DIR/device-auth.json}"
 }

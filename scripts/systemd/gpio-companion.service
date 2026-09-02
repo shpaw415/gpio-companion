@@ -8,6 +8,8 @@ Type=simple
 ExecStart=/usr/local/bin/gpio-companion serve
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=15
+KillMode=mixed
 Environment=GPIO_COMPANION_CONFIG=/etc/gpio-companion/config.json
 Environment=GPIO_COMPANION_TUNNEL_ENV=/etc/gpio-companion/cloudflared.env
 Environment=GPIO_COMPANION_SECRETS=/etc/gpio-companion/secrets.env

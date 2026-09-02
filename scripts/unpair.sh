@@ -81,15 +81,20 @@ fi
 chmod 600 "$GIT_CREDENTIALS" 2>/dev/null || true
 
 if command -v t3 >/dev/null 2>&1; then
+	echo "gpio-companion unpair: t3 logout"
 	if [[ "$GPIO_USER" == root ]]; then
-		t3 logout >/dev/null 2>&1 || true
+		timeout 8 t3 logout >/dev/null 2>&1 || true
 	else
-		sudo -u "$GPIO_USER" -H t3 logout >/dev/null 2>&1 || true
+		timeout 8 sudo -u "$GPIO_USER" -H t3 logout >/dev/null 2>&1 || true
 	fi
 fi
 
-if systemctl cat gpio-companion.service >/dev/null 2>&1; then
-	systemctl restart gpio-companion.service
+if timeout 5 systemctl cat gpio-companion.service >/dev/null 2>&1; then
+	echo "gpio-companion unpair: restarting gpio-companion.service"
+	if ! timeout 20 systemctl restart gpio-companion.service; then
+		echo "gpio-companion unpair: restart timed out, killing service" >&2
+		timeout 5 systemctl kill -s SIGKILL gpio-companion.service >/dev/null 2>&1 || true
+	fi
 fi
 
 echo "gpio-companion unpair: local claim cleared (UUID/key kept)"

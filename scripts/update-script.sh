@@ -93,4 +93,6 @@ if ! install_t3_service; then
 	echo "gpio-companion update: t3 service install skipped" >&2
 fi
 
+sync_local_pairing_with_dashboard
+
 echo "gpio-companion update: done"

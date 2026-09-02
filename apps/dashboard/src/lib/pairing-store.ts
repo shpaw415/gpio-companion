@@ -43,6 +43,17 @@ export function pairOwnerKey(uuid: string): string {
 	return `pair:${uuid}`;
 }
 
+export async function isPairedUuid(
+	kv: PairingKv,
+	uuid?: string,
+): Promise<boolean> {
+	const trimmed = uuid?.trim() ?? "";
+	if (!trimmed) {
+		return false;
+	}
+	return Boolean(await kv.get(pairOwnerKey(trimmed)));
+}
+
 export function normalizeDeviceLabel(value: unknown): string {
 	if (typeof value !== "string") {
 		return "";

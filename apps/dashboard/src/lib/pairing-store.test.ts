@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	clearPendingForUuid,
 	findDeviceByUuid,
+	isPairedUuid,
 	listAllDevices,
 	loadDevices,
 	parseDeviceList,
@@ -98,6 +99,9 @@ describe("pairing store", () => {
 		expect(await loadDevices(kv, "user-1")).toEqual([first, second]);
 		expect(await kv.get("pair:uuid-1")).toBe("user-1");
 		expect(await kv.get("pair:uuid-2")).toBe("user-1");
+		expect(await isPairedUuid(kv, "uuid-1")).toBe(true);
+		expect(await isPairedUuid(kv, "missing")).toBe(false);
+		expect(await isPairedUuid(kv, "")).toBe(false);
 	});
 
 	test("upsert replaces the same uuid in place", async () => {
