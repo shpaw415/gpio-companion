@@ -37,8 +37,10 @@ const NRF_CONNECT =
 
 export default function PairForm({
 	onComplete,
+	variant = "page",
 }: {
-	onComplete?: (deviceUrl: string) => void;
+	onComplete?: (info: { deviceUrl: string; uuid: string }) => void;
+	variant?: "page" | "dialog";
 }) {
 	const session = useAuthSession();
 	const { run } = useActionError();
@@ -191,9 +193,12 @@ export default function PairForm({
 			if ("login" in body) {
 				setPaired(body.login);
 			}
-			if ("deviceUrl" in body) {
-				setDeviceUrl(body.deviceUrl);
-				onComplete?.(body.deviceUrl);
+			const nextUrl =
+				"deviceUrl" in body && typeof body.deviceUrl === "string"
+					? body.deviceUrl
+					: deviceUrl;
+			if (nextUrl) {
+				setDeviceUrl(nextUrl);
 			}
 			const boardUuid =
 				"uuid" in body && typeof body.uuid === "string" ? body.uuid : uuid;
@@ -203,6 +208,7 @@ export default function PairForm({
 			applyDevices(listing?.devices ?? []);
 			setT3Uuid(boardUuid);
 			setT3AutoStart(true);
+			onComplete?.({ deviceUrl: nextUrl, uuid: boardUuid });
 		} catch (caught) {
 			setStatus("");
 			setError(caught instanceof Error ? caught.message : "pair failed");
@@ -220,118 +226,127 @@ export default function PairForm({
 		);
 	}
 
-	return (
-		<Paper className="max-w-xl p-6" elevation={1}>
-			<form onSubmit={onSubmit}>
-				<Stack spacing={2}>
-					{devices.length > 0 ? (
-						<Alert severity="success">
-							{devices.length === 1
-								? `Paired as ${paired || devices[0]?.login}`
-								: `${devices.length} boards paired`}
-						</Alert>
-					) : null}
-					<Button
-						type="button"
-						variant="contained"
-						onClick={() => void retrieveCredentials()}
-					>
-						{bleReady
-							? "Connect over Bluetooth"
-							: "Sign Bluetooth pairing command"}
+	const hideManagedList = variant === "dialog";
+	const form = (
+		<form onSubmit={onSubmit}>
+			<Stack spacing={2}>
+				{!hideManagedList && devices.length > 0 ? (
+					<Alert severity="success">
+						{devices.length === 1
+							? `Paired as ${paired || devices[0]?.login}`
+							: `${devices.length} boards paired`}
+					</Alert>
+				) : null}
+				<Button
+					type="button"
+					variant="contained"
+					onClick={() => void retrieveCredentials()}
+				>
+					{bleReady
+						? "Connect over Bluetooth"
+						: "Sign Bluetooth pairing command"}
+				</Button>
+				<Typography variant="body2" color="secondary">
+					{bleReady
+						? "Checks Web Bluetooth, then asks you to select gpio-companion. If that fails, a signed command is copied for LightBlue or nRF Connect."
+						: "Web Bluetooth is unavailable. Paste the signed command into LightBlue or nRF Connect."}{" "}
+					<Button href={LIGHTBLUE} variant="text">
+						LightBlue
+					</Button>{" "}
+					or{" "}
+					<Button href={NRF_CONNECT} variant="text">
+						nRF Connect
 					</Button>
-					<Typography variant="body2" color="secondary">
-						{bleReady
-							? "Checks Web Bluetooth, then asks you to select gpio-companion. If that fails, a signed command is copied for LightBlue or nRF Connect."
-							: "Web Bluetooth is unavailable. Paste the signed command into LightBlue or nRF Connect."}{" "}
-						<Button href={LIGHTBLUE} variant="text">
-							LightBlue
-						</Button>{" "}
-						or{" "}
-						<Button href={NRF_CONNECT} variant="text">
-							nRF Connect
-						</Button>
-						.
-					</Typography>
-					{bleReady ? null : (
-						<>
-							<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-						</>
-					)}
-					<TextField
-						label="Device URL"
-						placeholder="https://api-<uuid>.gpio-companion.com (optional)"
-						value={deviceUrl}
-						onChange={(event) => setDeviceUrl(event.target.value)}
-						className="w-full"
-					/>
-					<TextField
-						label="Pairing UUID"
-						value={uuid}
-						onChange={(event) => setUuid(event.target.value)}
-						className="w-full"
-					/>
-					<TextField
-						label="Pairing key"
-						type="password"
-						value={key}
-						onChange={(event) => setKey(event.target.value)}
-						className="w-full"
-					/>
-					<Button type="submit" variant="contained">
-						Pair hardware
-					</Button>
-					{devices.length > 0 ? (
-						<>
-							{devices.length > 1 ? (
-								<DeviceSelect
-									devices={devices}
-									value={unpairUuid}
-									onChange={setUnpairUuid}
-									label="Unpair device"
-								/>
-							) : null}
-							<Button
-								type="button"
-								variant="outlined"
-								onClick={() => {
-									const target = unpairUuid || devices[0]?.uuid;
-									if (!target) {
+					.
+				</Typography>
+				{bleReady ? null : (
+					<>
+						<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
+						<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
+					</>
+				)}
+				<TextField
+					label="Device URL"
+					placeholder="https://api-<uuid>.gpio-companion.com (optional)"
+					value={deviceUrl}
+					onChange={(event) => setDeviceUrl(event.target.value)}
+					className="w-full"
+				/>
+				<TextField
+					label="Pairing UUID"
+					value={uuid}
+					onChange={(event) => setUuid(event.target.value)}
+					className="w-full"
+				/>
+				<TextField
+					label="Pairing key"
+					type="password"
+					value={key}
+					onChange={(event) => setKey(event.target.value)}
+					className="w-full"
+				/>
+				<Button type="submit" variant="contained">
+					Pair hardware
+				</Button>
+				{!hideManagedList && devices.length > 0 ? (
+					<>
+						{devices.length > 1 ? (
+							<DeviceSelect
+								devices={devices}
+								value={unpairUuid}
+								onChange={setUnpairUuid}
+								label="Unpair device"
+							/>
+						) : null}
+						<Button
+							type="button"
+							variant="outlined"
+							onClick={() => {
+								const target = unpairUuid || devices[0]?.uuid;
+								if (!target) {
+									return;
+								}
+								void run(unpairDevice(target)).then((result) => {
+									if (!result) {
 										return;
 									}
-									void run(unpairDevice(target)).then((result) => {
-										if (!result) {
-											return;
-										}
-										void run(getPairing()).then((listing) => {
-											applyDevices(listing?.devices ?? []);
-										});
-										if (t3Uuid === target) {
-											setT3Uuid("");
-											setT3AutoStart(false);
-										}
-										setStatus("unpaired");
+									void run(getPairing()).then((listing) => {
+										applyDevices(listing?.devices ?? []);
 									});
-								}}
-							>
-								Unpair (revokes T3 Code)
-							</Button>
-						</>
-					) : null}
-					{pasteText ? (
-						<CopyBlock label="Signed Bluetooth command" value={pasteText} />
-					) : null}
-					<T3PairingPanel
-						key={t3Uuid || "t3"}
-						devices={devices}
-						uuid={t3Uuid || undefined}
-						autoStart={t3AutoStart}
-					/>
-					{status ? <Typography color="secondary">{status}</Typography> : null}
-					{error ? <Alert severity="error">{error}</Alert> : null}
-				</Stack>
-			</form>
+									if (t3Uuid === target) {
+										setT3Uuid("");
+										setT3AutoStart(false);
+									}
+									setStatus("unpaired");
+								});
+							}}
+						>
+							Unpair (revokes T3 Code)
+						</Button>
+					</>
+				) : null}
+				{pasteText ? (
+					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+				) : null}
+				<T3PairingPanel
+					key={t3Uuid || "t3"}
+					devices={devices}
+					uuid={t3Uuid || undefined}
+					autoStart={t3AutoStart}
+				/>
+				{status ? <Typography color="secondary">{status}</Typography> : null}
+				{error ? <Alert severity="error">{error}</Alert> : null}
+			</Stack>
+		</form>
+	);
+
+	if (variant === "dialog") {
+		return form;
+	}
+
+	return (
+		<Paper className="max-w-xl p-6" elevation={1}>
+			{form}
 		</Paper>
 	);
 }

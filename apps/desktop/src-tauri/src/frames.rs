@@ -72,6 +72,18 @@ pub fn probe_candidate(name: &str, id: &str, matched: bool) -> bool {
 	lower.contains("gpio") || lower.contains("orangepi") || lower.contains("raspberry")
 }
 
+/// True when a connect error means BlueZ lost the device object (stale cache /
+/// `org.freedesktop.DBus.Error.UnknownObject`) and a fresh scan can clear it.
+pub fn is_retryable_connect_error(message: &str) -> bool {
+	let lower = message.to_ascii_lowercase();
+	lower.contains("disappeared")
+		|| lower.contains("doesn't exist")
+		|| lower.contains("does not exist")
+		|| lower.contains("unknownobject")
+		|| lower.contains("unknown object")
+		|| lower.contains("not in bluez cache")
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -136,5 +148,18 @@ mod tests {
 		assert!(probe_candidate("", "AA:BB:CC:DD:EE:FF", false));
 		assert!(probe_candidate("orangepi3-lts", "AA:BB:CC:DD:EE:FF", false));
 		assert!(!probe_candidate("WH-1000XM5", "80:99:E7:50:D5:75", false));
+	}
+
+	#[test]
+	fn flags_vanished_device_connect_errors() {
+		assert!(is_retryable_connect_error(
+			"bluetooth device disappeared: move closer or re-scan and connect again"
+		));
+		assert!(is_retryable_connect_error(
+			"bluetooth Connect: Method \"Connect\" with signature \"\" on interface \"org.bluez.Device1\" doesn't exist"
+		));
+		assert!(is_retryable_connect_error("bluetooth device 42:B3:EF:4C:5B:CD not in BlueZ cache"));
+		assert!(!is_retryable_connect_error("bluetooth Connect: Did not receive a reply"));
+		assert!(!is_retryable_connect_error("bluetooth connect: wrong PIN"));
 	}
 }

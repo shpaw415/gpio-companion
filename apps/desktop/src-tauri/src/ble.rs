@@ -382,6 +382,37 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 	find_board(id).await
 }
 
+/// Resolve a board peripheral and read its info, re-scanning once when BlueZ
+/// drops the device object mid-connect (the "Method Connect ... doesn't exist"
+/// / UnknownObject case) so a stale entry does not fail the pairing.
+pub async fn connected_board_info(id: &str) -> Result<(Peripheral, BleInfo), String> {
+	if id.trim().is_empty() {
+		let peripheral = scan_board(12_000).await?;
+		match read_info(&peripheral).await {
+			Ok(info) => return Ok((peripheral, info)),
+			Err(err) if frames::is_retryable_connect_error(&err) => {
+				crate::log::line(&format!("bluetooth retry scan after: {err}"));
+			}
+			Err(err) => return Err(err),
+		}
+		let peripheral = scan_board(12_000).await?;
+		let info = read_info(&peripheral).await?;
+		return Ok((peripheral, info));
+	}
+	let mut attempt = 0;
+	loop {
+		let peripheral = find_board(id.trim()).await?;
+		match read_info(&peripheral).await {
+			Ok(info) => return Ok((peripheral, info)),
+			Err(err) if attempt == 0 && frames::is_retryable_connect_error(&err) => {
+				crate::log::line(&format!("bluetooth retry connect {id} after: {err}"));
+				attempt += 1;
+			}
+			Err(err) => return Err(err),
+		}
+	}
+}
+
 fn find_char(peripheral: &Peripheral, uuid: &str) -> Result<Characteristic, String> {
 	let id = parse_uuid(uuid)?;
 	peripheral
@@ -398,21 +429,34 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 	}
 	#[cfg(target_os = "linux")]
 	{
+		let mut linked = false;
 		if let Ok(Some(props)) = peripheral.properties().await {
 			let addr = props.address.to_string();
-			match tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await {
+			let outcome = tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await;
+			match outcome {
 				Ok(Ok(())) => {
 					for _ in 0..20 {
 						if peripheral.is_connected().await.unwrap_or(false) {
 							crate::log::line("bluetooth connected via Connect");
-							return Ok(());
+							linked = true;
+							break;
 						}
 						sleep(Duration::from_millis(150)).await;
 					}
 				}
-				Ok(Err(err)) => crate::log::line(&err),
+				Ok(Err(err)) => {
+					// BlueZ lost the device object — retrying blindly here would
+					// only repeat the same error, so let the caller re-scan.
+					crate::log::line(&err);
+					if frames::is_retryable_connect_error(&err) {
+						return Err(err);
+					}
+				}
 				Err(err) => crate::log::line(&format!("bluetooth le connect join: {err}")),
 			}
+		}
+		if linked {
+			return Ok(());
 		}
 	}
 	let mut last = "connect failed".to_string();

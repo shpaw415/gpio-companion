@@ -2,38 +2,16 @@ import { GET as getDevice } from "@api/device";
 import { GET as getPairing } from "@api/pair";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
-import Chip from "@shpaw415/mui-lite/Chip";
-import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
-import DeviceLabelField from "../../components/DeviceLabelField.tsx";
+import DeviceBoardCard, {
+	type BoardView,
+	type DeviceStatus,
+} from "../../components/DeviceBoardCard.tsx";
 import SectionHub, { SectionHeader } from "../../components/Section.tsx";
-import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
-import {
-	deviceDisplayName,
-	type StoredPairing,
-} from "../../lib/pairing-store.ts";
-
-type DeviceStatus = {
-	hardware?: string;
-	tunnel?: { configured?: boolean; apiHostname?: string };
-	secrets?: { githubReady?: boolean; gpioAiKey?: boolean };
-	t3?: {
-		running?: boolean;
-		pairingUrl?: string;
-		pairingToken?: string;
-		paired?: boolean;
-		serviceInstalled?: boolean;
-	};
-};
-
-type BoardView = {
-	device: StoredPairing;
-	status: DeviceStatus | null;
-};
 
 export default function DevicesPage() {
 	const session = useAuthSession();
@@ -94,86 +72,20 @@ export default function DevicesPage() {
 			) : null}
 
 			{boards.map((board) => (
-				<Paper key={board.device.uuid} className="max-w-2xl p-6" elevation={1}>
-					<Stack spacing={2}>
-						<Typography variant="h6">
-							{deviceDisplayName(board.device)}
-						</Typography>
-						<Typography color="secondary">{board.device.uuid}</Typography>
-						{board.device.deviceUrl ? (
-							<Typography color="secondary">
-								{board.device.deviceUrl}
-							</Typography>
-						) : null}
-						<DeviceLabelField
-							key={board.device.uuid}
-							uuid={board.device.uuid}
-							label={board.device.label}
-							onSaved={(label) => {
-								setBoards((current) =>
-									current.map((item) =>
-										item.device.uuid === board.device.uuid
-											? {
-													...item,
-													device: { ...item.device, label },
-												}
-											: item,
-									),
-								);
-							}}
-						/>
-						{board.status ? (
-							<Stack direction="row" spacing={1} className="flex-wrap">
-								{board.status.hardware ? (
-									<Chip label={board.status.hardware} variant="outlined" />
-								) : null}
-								<Chip
-									label={
-										board.status.tunnel?.configured
-											? "tunnel ready"
-											: "tunnel pending"
-									}
-									color={
-										board.status.tunnel?.configured ? "success" : "secondary"
-									}
-									variant="outlined"
-								/>
-								<Chip
-									label={
-										board.status.secrets?.githubReady
-											? "GitHub ready"
-											: "GitHub keys pending"
-									}
-									color={
-										board.status.secrets?.githubReady ? "success" : "warning"
-									}
-									variant="outlined"
-								/>
-								<Chip
-									label={
-										board.status.t3?.paired
-											? "T3 Code paired"
-											: board.status.t3?.running
-												? "T3 Code running"
-												: "T3 Code idle"
-									}
-									color={board.status.t3?.paired ? "success" : "secondary"}
-									variant="outlined"
-								/>
-							</Stack>
-						) : (
-							<Typography color="secondary">
-								Board status unavailable — is the Pi online?
-							</Typography>
-						)}
-						<T3PairingPanel
-							devices={[board.device]}
-							uuid={board.device.uuid}
-							initialStatus={board.status?.t3}
-							skipFetch
-						/>
-					</Stack>
-				</Paper>
+				<DeviceBoardCard
+					key={board.device.uuid}
+					device={board.device}
+					status={board.status}
+					onLabelSaved={(label) => {
+						setBoards((current) =>
+							current.map((item) =>
+								item.device.uuid === board.device.uuid
+									? { ...item, device: { ...item.device, label } }
+									: item,
+							),
+						);
+					}}
+				/>
 			))}
 
 			<SectionHub

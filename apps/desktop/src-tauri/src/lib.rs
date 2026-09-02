@@ -142,14 +142,8 @@ async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 #[tauri::command]
 async fn ble_pair(app: AppHandle, id: String) -> Result<Value, String> {
 	emit_status(&app, "Connecting…");
-	let peripheral = if id.trim().is_empty() {
-		ble::scan_board(12_000).await?
-	} else {
-		ble::find_board(id.trim()).await?
-	};
+	let (peripheral, info) = ble::connected_board_info(&id).await?;
 	emit_status(&app, "Reading board…");
-	let info = ble::read_info(&peripheral).await?;
-	emit_status(&app, "Signing credentials…");
 	let envelope = request_value(Method::PUT, "/api/mobile/pair", None).await?;
 	emit_status(&app, "Asking board for pairing key…");
 	let raw = ble::send_envelope(&peripheral, &envelope).await;
@@ -202,12 +196,7 @@ async fn ble_wifi(
 	)
 	.await?;
 	emit_status(&app, "Connecting…");
-	let peripheral = if id.trim().is_empty() {
-		ble::scan_board(12_000).await?
-	} else {
-		ble::find_board(id.trim()).await?
-	};
-	let _ = ble::read_info(&peripheral).await?;
+	let (peripheral, _info) = ble::connected_board_info(&id).await?;
 	emit_status(&app, "Writing…");
 	let raw = ble::send_envelope(&peripheral, &envelope).await;
 	ble::disconnect(&peripheral).await;

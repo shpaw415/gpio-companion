@@ -1,5 +1,5 @@
 use dbus::arg::{PropMap, RefArg, Variant};
-use dbus::blocking::stdintf::org_freedesktop_dbus::ObjectManager;
+use dbus::blocking::stdintf::org_freedesktop_dbus::{ObjectManager, Properties};
 use dbus::blocking::Connection;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -25,12 +25,49 @@ fn adapter_path(conn: &Connection) -> Result<String, String> {
 		.ok_or_else(|| "no bluetooth adapter".to_string())
 }
 
-fn device_path(adapter: &str, addr: &str) -> String {
-	format!(
-		"{}/dev_{}",
-		adapter,
-		addr.replace(':', "_").to_ascii_uppercase()
-	)
+/// Resolve the real BlueZ object path for a device address instead of guessing
+/// `/org/bluez/hciX/dev_...`. The guessed path is stale when BlueZ re-created
+/// the device object or it lives on another adapter, and calling Connect there
+/// fails with `org.freedesktop.DBus.Error.UnknownObject` ("Method Connect ...
+/// doesn't exist").
+fn resolve_device_path(conn: &Connection, addr: &str) -> Result<String, String> {
+	let proxy = conn.with_proxy(BLUEZ, "/", Duration::from_secs(5));
+	let objects = proxy
+		.get_managed_objects()
+		.map_err(|err| format!("bluetooth objects: {err}"))?;
+	let needle = addr.to_ascii_uppercase();
+	objects
+		.into_iter()
+		.find_map(|(path, interfaces)| {
+			let Some(props) = interfaces.get(DEVICE) else {
+				return None;
+			};
+			match prop_str(props, "Address") {
+				Some(address) if address.to_ascii_uppercase() == needle => Some(path.to_string()),
+				_ => None,
+			}
+		})
+		.ok_or_else(|| format!("bluetooth device {addr} not in BlueZ cache"))
+}
+
+fn device_connected(conn: &Connection, path: &str) -> Result<bool, String> {
+	let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(5));
+	Ok(proxy
+		.get::<bool>(DEVICE, "Connected")
+		.map_err(|err| format!("bluetooth device props: {err}"))?)
+}
+
+fn connect_error(err: &dbus::Error) -> String {
+	let name = err.name();
+	let message = err.message().unwrap_or_default();
+	if name == Some("org.freedesktop.DBus.Error.UnknownObject")
+		|| message.contains("doesn't exist")
+		|| message.contains("UnknownObject")
+	{
+		"bluetooth device disappeared: move closer or re-scan and connect again".to_string()
+	} else {
+		format!("bluetooth Connect: {message}")
+	}
 }
 
 pub fn start_le_discovery() -> Result<(), String> {
@@ -121,8 +158,7 @@ pub fn list_le_devices() -> Result<Vec<ListedDevice>, String> {
 
 pub fn disconnect_le(addr: &str) {
 	if let Ok(conn) = system() {
-		if let Ok(adapter) = adapter_path(&conn) {
-			let path = device_path(&adapter, addr);
+		if let Ok(path) = resolve_device_path(&conn, addr) {
 			let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(3));
 			let _: Result<(), _> = proxy.method_call(DEVICE, "Disconnect", ());
 		}
@@ -135,16 +171,21 @@ pub fn connect_le(addr: &str) -> Result<(), String> {
 
 pub fn connect_le_timeout(addr: &str, timeout: Duration) -> Result<(), String> {
 	let conn = system()?;
-	let adapter = adapter_path(&conn)?;
-	let path = device_path(&adapter, addr);
+	let path = resolve_device_path(&conn, addr)?;
 	crate::log::line(&format!("bluetooth le connect {path}"));
-	let proxy = conn.with_proxy(BLUEZ, path, timeout);
-	let _: Result<(), _> = proxy.method_call(DEVICE, "Disconnect", ());
-	std::thread::sleep(Duration::from_millis(150));
+	let proxy = conn.with_proxy(BLUEZ, &path, timeout);
+	// Only disconnect when the link is actually up. BlueZ's Disconnect can
+	// cancel an in-flight Connect and, for non-trusted LE devices, disables
+	// incoming connections until Connect is called again — so an unconditional
+	// pre-disconnect is not safe.
+	if device_connected(&conn, &path).unwrap_or(false) {
+		let _: Result<(), _> = proxy.method_call(DEVICE, "Disconnect", ());
+		std::thread::sleep(Duration::from_millis(150));
+	}
 	match proxy.method_call(DEVICE, "Connect", ()) {
 		Ok(()) => Ok(()),
 		Err(err) if err.name() == Some("org.bluez.Error.AlreadyConnected") => Ok(()),
 		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => Ok(()),
-		Err(err) => Err(format!("bluetooth Connect: {err}")),
+		Err(err) => Err(connect_error(&err)),
 	}
 }
