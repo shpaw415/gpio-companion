@@ -118,6 +118,19 @@ export function debugAuthHeadersFromSearch(search: URLSearchParams): Headers {
 	return headers;
 }
 
+export function debugAuthHeadersFromRequest(request: Request): Headers {
+	const headers = debugAuthHeadersFromSearch(new URL(request.url).searchParams);
+	for (const name of Object.values(DEVICE_AUTH_HEADERS)) {
+		if (!headers.get(name)) {
+			const value = request.headers.get(name);
+			if (value) {
+				headers.set(name, value);
+			}
+		}
+	}
+	return headers;
+}
+
 export function parseDebugEvent(value: unknown): DebugEvent | null {
 	if (!value || typeof value !== "object") {
 		return null;

@@ -98,6 +98,18 @@ describe("device debug suite", () => {
 		expect(invalid.status).toBe(401);
 	});
 
+	test("accepts debug auth from headers when query is missing", async () => {
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: DEBUG_PATH,
+		});
+		const response = await fetch(`${server.url}v1/debug`, { headers });
+		expect(response.status).toBe(400);
+		expect(await response.text()).toBe("upgrade failed");
+	});
+
 	test("rejects expired debug signature", async () => {
 		const query = await signedDebugQuery(Date.now() - 120_000);
 		const response = await fetch(`${server.url}v1/debug?${query}`);

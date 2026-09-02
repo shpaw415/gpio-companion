@@ -4,7 +4,7 @@ import {
 	DEFAULT_DEVICE_MAX_SKEW_MS,
 	DeviceAuthError,
 	type DeviceConfig,
-	debugAuthHeadersFromSearch,
+	debugAuthHeadersFromRequest,
 	mergeDeviceSecrets,
 	pairingCredentials,
 	parseDeviceSecrets,
@@ -87,12 +87,16 @@ export function startDeviceApi(options: ServeOptions) {
 			if (request.method === "GET" && path === DEBUG_PATH) {
 				const origin = request.headers.get("origin") ?? "";
 				if (!debug.allowOrigin(origin)) {
+					console.error(`gpio-companion debug: unauthorized origin ${origin}`);
 					return Response.json(
 						{ error: "unauthorized debug origin" },
 						{ status: 401 },
 					);
 				}
 				if (!options.deviceAuth.publicKeyPem.trim()) {
+					console.error(
+						"gpio-companion debug: device public key not registered",
+					);
 					return Response.json(
 						{ error: "device public key not registered" },
 						{ status: 401 },
@@ -106,13 +110,14 @@ export function startDeviceApi(options: ServeOptions) {
 						method: "GET",
 						path: DEBUG_PATH,
 						body: "",
-						headers: debugAuthHeadersFromSearch(url.searchParams),
+						headers: debugAuthHeadersFromRequest(request),
 						enforceSkew: trusted,
 					});
 					nonces.consume(verified.nonce);
 					await clock.sync(verified.issued, verified.clockBehind);
 				} catch (error) {
 					if (error instanceof DeviceAuthError) {
+						console.error(`gpio-companion debug: ${error.message}`);
 						return Response.json(
 							{ error: error.message },
 							{ status: error.status },
@@ -123,6 +128,7 @@ export function startDeviceApi(options: ServeOptions) {
 				if (server.upgrade(request)) {
 					return undefined as never;
 				}
+				console.error("gpio-companion debug: upgrade failed");
 				return new Response("upgrade failed", { status: 400 });
 			}
 			let response: Response;

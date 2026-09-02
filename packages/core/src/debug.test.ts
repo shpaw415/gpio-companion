@@ -3,6 +3,7 @@ import {
 	DEBUG_LIVE_TTL_SEC,
 	DEBUG_PATH,
 	DEFAULT_DASHBOARD_ORIGIN,
+	debugAuthHeadersFromRequest,
 	debugAuthHeadersFromSearch,
 	debugAuthQuery,
 	debugLevelFromStatus,
@@ -92,6 +93,20 @@ describe("debug helpers", () => {
 		expect(debugAuthHeadersFromSearch(search).get("x-gpio-timestamp")).toBe(
 			"1700000000000",
 		);
+	});
+
+	test("fills debug auth from request headers when query is empty", () => {
+		const request = new Request("https://api.example/v1/debug", {
+			headers: {
+				"x-gpio-key-id": "gpio-companion-v1",
+				"x-gpio-timestamp": "1700000000000",
+				"x-gpio-nonce": "abc",
+				"x-gpio-signature": "c2ln",
+			},
+		});
+		const headers = debugAuthHeadersFromRequest(request);
+		expect(headers.get("x-gpio-key-id")).toBe("gpio-companion-v1");
+		expect(headers.get("x-gpio-timestamp")).toBe("1700000000000");
 	});
 
 	test("parses debug events", () => {

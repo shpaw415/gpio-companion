@@ -87,6 +87,7 @@ export {
 	DEFAULT_DASHBOARD_ORIGIN,
 	type DebugEvent,
 	type DebugLevel,
+	debugAuthHeadersFromRequest,
 	debugAuthHeadersFromSearch,
 	debugAuthQuery,
 	debugLevelFromStatus,
