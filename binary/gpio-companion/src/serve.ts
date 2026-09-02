@@ -4,6 +4,7 @@ import {
 	DEFAULT_DEVICE_MAX_SKEW_MS,
 	DeviceAuthError,
 	type DeviceConfig,
+	debugAuthHeadersFromSearch,
 	mergeDeviceSecrets,
 	pairingCredentials,
 	parseDeviceSecrets,
@@ -21,7 +22,7 @@ import {
 	verifyDeviceRequest,
 	WifiConnectError,
 } from "gpio-companion";
-import { createDebugHub, type DebugHub } from "./debug.ts";
+import { createDebugHub } from "./debug.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
 import {
 	applyClaim,
@@ -84,13 +85,40 @@ export function startDeviceApi(options: ServeOptions) {
 			const url = new URL(request.url);
 			const path = url.pathname.replace(/\/+$/, "") || "/";
 			if (request.method === "GET" && path === DEBUG_PATH) {
-				const ticket = url.searchParams.get("ticket") ?? "";
 				const origin = request.headers.get("origin") ?? "";
-				if (!debug.allow(ticket, origin)) {
+				if (!debug.allowOrigin(origin)) {
 					return Response.json(
-						{ error: "unauthorized debug ticket" },
+						{ error: "unauthorized debug origin" },
 						{ status: 401 },
 					);
+				}
+				if (!options.deviceAuth.publicKeyPem.trim()) {
+					return Response.json(
+						{ error: "device public key not registered" },
+						{ status: 401 },
+					);
+				}
+				try {
+					const trusted = await clock.trusted();
+					const verified = await verifyDeviceRequest({
+						publicKeyPem: options.deviceAuth.publicKeyPem,
+						keyId: options.deviceAuth.keyId,
+						method: "GET",
+						path: DEBUG_PATH,
+						body: "",
+						headers: debugAuthHeadersFromSearch(url.searchParams),
+						enforceSkew: trusted,
+					});
+					nonces.consume(verified.nonce);
+					await clock.sync(verified.issued, verified.clockBehind);
+				} catch (error) {
+					if (error instanceof DeviceAuthError) {
+						return Response.json(
+							{ error: error.message },
+							{ status: error.status },
+						);
+					}
+					throw error;
 				}
 				if (server.upgrade(request)) {
 					return undefined as never;
@@ -112,7 +140,6 @@ export function startDeviceApi(options: ServeOptions) {
 					options.githubCredentials,
 					clock,
 					nonces,
-					debug,
 				);
 			} catch (error) {
 				if (error instanceof DeviceAuthError) {
@@ -160,7 +187,6 @@ export async function handleDeviceRequest(
 	githubCredentials?: () => Promise<GithubInstallationCreds>,
 	clock?: ClockGate,
 	nonces?: NonceGate,
-	debug?: DebugHub,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -349,13 +375,6 @@ export async function handleDeviceRequest(
 			throw new Error("t3 is not configured");
 		}
 		return json(await t3.status());
-	}
-
-	if (method === "POST" && path === "/v1/debug/ticket") {
-		if (!debug) {
-			throw new Error("debug is not configured");
-		}
-		return json(debug.issueTicket());
 	}
 
 	if (method === "GET" && path === "/v1/status") {

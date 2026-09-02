@@ -1,6 +1,7 @@
 import {
 	createSignedEnvelope,
 	DEFAULT_DEVICE_KEY_ID,
+	type DeviceAuthHeaders,
 	type SignedDeviceEnvelope,
 	signDeviceRequest,
 } from "gpio-companion";
@@ -30,6 +31,26 @@ export async function signDeviceEnvelope(
 	});
 }
 
+export async function signDeviceHeaders(
+	env: DeviceSigningEnv,
+	method: string,
+	path: string,
+	body?: unknown,
+): Promise<DeviceAuthHeaders> {
+	const privateKeyPem = env.GPIO_COMPANION_DEVICE_PRIVATE_KEY ?? "";
+	if (!privateKeyPem.trim()) {
+		throw new Error("GPIO_COMPANION_DEVICE_PRIVATE_KEY is not set");
+	}
+	const bodyText = body === undefined ? "" : JSON.stringify(body);
+	return signDeviceRequest({
+		privateKeyPem,
+		keyId: env.GPIO_COMPANION_DEVICE_KEY_ID ?? DEFAULT_DEVICE_KEY_ID,
+		method,
+		path,
+		body: bodyText,
+	});
+}
+
 export async function signedDeviceFetch(
 	env: DeviceSigningEnv,
 	deviceUrl: string,
@@ -37,19 +58,9 @@ export async function signedDeviceFetch(
 	path: string,
 	body?: unknown,
 ): Promise<Response> {
-	const privateKeyPem = env.GPIO_COMPANION_DEVICE_PRIVATE_KEY ?? "";
-	if (!privateKeyPem.trim()) {
-		throw new Error("GPIO_COMPANION_DEVICE_PRIVATE_KEY is not set");
-	}
 	const origin = deviceUrl.replace(/\/+$/, "");
 	const bodyText = body === undefined ? "" : JSON.stringify(body);
-	const headers = await signDeviceRequest({
-		privateKeyPem,
-		keyId: env.GPIO_COMPANION_DEVICE_KEY_ID ?? DEFAULT_DEVICE_KEY_ID,
-		method,
-		path,
-		body: bodyText,
-	});
+	const headers = await signDeviceHeaders(env, method, path, body);
 	return fetch(`${origin}${path}`, {
 		method,
 		headers: {

@@ -1,9 +1,7 @@
 import {
 	DEBUG_MAX_SOCKETS,
 	DEBUG_RING_SIZE,
-	DEBUG_TICKET_TTL_MS,
 	type DebugEvent,
-	type DebugTicket,
 	debugLevelFromStatus,
 	isAllowedDebugOrigin,
 	normalizeDebugPath,
@@ -17,8 +15,7 @@ export type DebugSocket = {
 };
 
 export type DebugHub = {
-	issueTicket(): DebugTicket;
-	allow(ticket: string, origin: string): boolean;
+	allowOrigin(origin: string): boolean;
 	add(ws: DebugSocket): void;
 	remove(ws: DebugSocket): void;
 	publishFromResponse(request: Request, response: Response): Promise<void>;
@@ -28,19 +25,9 @@ export function createDebugHub(options?: {
 	now?: () => number;
 	dashboardUrl?: string;
 }): DebugHub {
-	const tickets = new Map<string, number>();
 	const sockets = new Set<DebugSocket>();
 	const ring: DebugEvent[] = [];
 	const now = options?.now ?? Date.now;
-
-	function prune(): void {
-		const t = now();
-		for (const [ticket, expiresAt] of tickets) {
-			if (expiresAt <= t) {
-				tickets.delete(ticket);
-			}
-		}
-	}
 
 	function publish(event: DebugEvent): void {
 		ring.push(event);
@@ -58,25 +45,8 @@ export function createDebugHub(options?: {
 	}
 
 	return {
-		issueTicket() {
-			prune();
-			const bytes = new Uint8Array(32);
-			crypto.getRandomValues(bytes);
-			const ticket = Buffer.from(bytes).toString("hex");
-			const expiresAt = now() + DEBUG_TICKET_TTL_MS;
-			tickets.set(ticket, expiresAt);
-			return { ticket, expiresAt };
-		},
-		allow(ticket, origin) {
-			prune();
-			if (!ticket.trim()) {
-				return false;
-			}
-			if (!isAllowedDebugOrigin(origin, options?.dashboardUrl)) {
-				return false;
-			}
-			const expiresAt = tickets.get(ticket);
-			return Boolean(expiresAt && expiresAt > now());
+		allowOrigin(origin) {
+			return isAllowedDebugOrigin(origin, options?.dashboardUrl);
 		},
 		add(ws) {
 			if (sockets.size >= DEBUG_MAX_SOCKETS) {

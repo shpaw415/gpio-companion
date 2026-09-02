@@ -1,5 +1,5 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
-import { DEBUG_TICKET_PATH, debugWsUrl } from "gpio-companion";
+import { DEBUG_PATH, debugWsConnectUrl } from "gpio-companion";
 import { wrapAction } from "../../lib/action.ts";
 import { isAdmin } from "../../lib/auth/role.ts";
 import {
@@ -8,7 +8,7 @@ import {
 	listLiveBoards,
 	mergeDebugBoards,
 } from "../../lib/debug-live.ts";
-import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
+import { signDeviceHeaders } from "../../lib/device-api.ts";
 import {
 	listAllDevices,
 	loadDevices,
@@ -22,10 +22,8 @@ type PagesEnv = {
 	GPIO_COMPANION_DEVICE_KEY_ID?: string;
 };
 
-export type DebugTicketResponse = {
+export type DebugConnectResponse = {
 	wsUrl: string;
-	ticket: string;
-	expiresAt: number;
 };
 
 export const GET = wrapAction(async function GET() {
@@ -53,14 +51,10 @@ export const POST = wrapAction(async function POST(uuid: string) {
 		identity,
 		uuid,
 	);
-	const minted = await readDeviceJson<{ ticket: string; expiresAt: number }>(
-		await signedDeviceFetch(ctx.env, deviceUrl, "POST", DEBUG_TICKET_PATH),
-	);
+	const headers = await signDeviceHeaders(ctx.env, "GET", DEBUG_PATH);
 	return {
-		wsUrl: debugWsUrl(deviceUrl),
-		ticket: minted.ticket,
-		expiresAt: minted.expiresAt,
-	} satisfies DebugTicketResponse;
+		wsUrl: debugWsConnectUrl(deviceUrl, headers),
+	} satisfies DebugConnectResponse;
 });
 
 async function resolveDebugDeviceUrl(

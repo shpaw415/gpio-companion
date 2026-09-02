@@ -3,7 +3,9 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	DEBUG_PATH,
 	type DebugEvent,
+	debugAuthQuery,
 	generateDeviceKeyPair,
 	parseDebugEvent,
 	signDeviceRequest,
@@ -66,6 +68,17 @@ async function deviceFetch(
 	});
 }
 
+async function signedDebugQuery(now?: number): Promise<string> {
+	const headers = await signDeviceRequest({
+		privateKeyPem: keys.privateKeyPem,
+		keyId: keys.keyId,
+		method: "GET",
+		path: DEBUG_PATH,
+		now,
+	});
+	return debugAuthQuery(headers);
+}
+
 async function waitFor(predicate: () => boolean, ms = 1000): Promise<void> {
 	const start = Date.now();
 	while (Date.now() - start < ms) {
@@ -78,45 +91,32 @@ async function waitFor(predicate: () => boolean, ms = 1000): Promise<void> {
 }
 
 describe("device debug suite", () => {
-	test("rejects unsigned debug ticket", async () => {
-		const response = await deviceFetch(
-			"v1/debug/ticket",
-			{ method: "POST" },
-			false,
-		);
-		expect(response.status).toBe(401);
-	});
-
-	test("rejects missing and invalid debug tickets", async () => {
+	test("rejects unsigned debug websocket", async () => {
 		const missing = await fetch(`${server.url}v1/debug`);
 		expect(missing.status).toBe(401);
-		const invalid = await fetch(`${server.url}v1/debug?ticket=nope`);
+		const invalid = await fetch(`${server.url}v1/debug?x-gpio-signature=nope`);
 		expect(invalid.status).toBe(401);
 	});
 
+	test("rejects expired debug signature", async () => {
+		const query = await signedDebugQuery(Date.now() - 120_000);
+		const response = await fetch(`${server.url}v1/debug?${query}`);
+		expect(response.status).toBe(403);
+	});
+
 	test("rejects debug origin that is not the dashboard", async () => {
-		const minted = await deviceFetch("v1/debug/ticket", { method: "POST" });
-		expect(minted.status).toBe(200);
-		const body = (await minted.json()) as { ticket: string };
-		const blocked = await fetch(`${server.url}v1/debug?ticket=${body.ticket}`, {
+		const query = await signedDebugQuery();
+		const blocked = await fetch(`${server.url}v1/debug?${query}`, {
 			headers: { origin: "https://evil.example" },
 		});
 		expect(blocked.status).toBe(401);
 	});
 
 	test("streams request warnings without secrets", async () => {
-		const minted = await deviceFetch("v1/debug/ticket", { method: "POST" });
-		expect(minted.status).toBe(200);
-		const body = (await minted.json()) as {
-			ticket: string;
-			expiresAt: number;
-		};
-		expect(body.ticket).toMatch(/^[a-f0-9]{64}$/);
-		expect(body.expiresAt).toBeGreaterThan(Date.now());
-
+		const query = await signedDebugQuery();
 		const events: DebugEvent[] = [];
 		const ws = new WebSocket(
-			`${String(server.url).replace(/^http/, "ws")}v1/debug?ticket=${body.ticket}`,
+			`${String(server.url).replace(/^http/, "ws")}v1/debug?${query}`,
 		);
 		ws.addEventListener("message", (event) => {
 			const parsed = parseDebugEvent(JSON.parse(String(event.data)));
@@ -157,11 +157,10 @@ describe("device debug suite", () => {
 	});
 
 	test("streams not-found warnings", async () => {
-		const minted = await deviceFetch("v1/debug/ticket", { method: "POST" });
-		const body = (await minted.json()) as { ticket: string };
+		const query = await signedDebugQuery();
 		const events: DebugEvent[] = [];
 		const ws = new WebSocket(
-			`${String(server.url).replace(/^http/, "ws")}v1/debug?ticket=${body.ticket}`,
+			`${String(server.url).replace(/^http/, "ws")}v1/debug?${query}`,
 		);
 		ws.addEventListener("message", (event) => {
 			const parsed = parseDebugEvent(JSON.parse(String(event.data)));

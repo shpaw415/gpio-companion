@@ -15,12 +15,10 @@ type Connection = "idle" | "connecting" | "live" | "error";
 
 export default function DeviceDebugPanel({
 	devices,
-	mintTicket,
+	signConnect,
 }: {
 	devices: DeviceOption[];
-	mintTicket: (
-		uuid: string,
-	) => Promise<ActionResult<{ wsUrl: string; ticket: string }>>;
+	signConnect: (uuid: string) => Promise<ActionResult<{ wsUrl: string }>>;
 }) {
 	const [uuid, setUuid] = useState(devices[0]?.uuid ?? "");
 	const [connection, setConnection] = useState<Connection>("idle");
@@ -75,10 +73,8 @@ export default function DeviceDebugPanel({
 		setError("");
 		setConnection("connecting");
 		try {
-			const minted = unwrapAction(await mintTicket(uuid));
-			const socket = new WebSocket(
-				`${minted.wsUrl}?ticket=${encodeURIComponent(minted.ticket)}`,
-			);
+			const signed = unwrapAction(await signConnect(uuid));
+			const socket = new WebSocket(signed.wsUrl);
 			socketRef.current = socket;
 			socket.addEventListener("open", () => {
 				if (socketRef.current === socket) {
@@ -116,7 +112,7 @@ export default function DeviceDebugPanel({
 		} catch (caught) {
 			setConnection("error");
 			setError(
-				caught instanceof Error ? caught.message : "debug ticket failed",
+				caught instanceof Error ? caught.message : "debug connect failed",
 			);
 		}
 	}

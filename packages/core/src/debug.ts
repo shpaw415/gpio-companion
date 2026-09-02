@@ -1,3 +1,4 @@
+import { DEVICE_AUTH_HEADERS, type DeviceAuthHeaders } from "./device-auth.ts";
 import { publicDeviceUrl, tunnelHostnames } from "./tunnel-host.ts";
 
 export type DebugLevel = "error" | "warning";
@@ -11,15 +12,8 @@ export type DebugEvent = {
 	message: string;
 };
 
-export type DebugTicket = {
-	ticket: string;
-	expiresAt: number;
-};
-
 export const DEBUG_PATH = "/v1/debug";
-export const DEBUG_TICKET_PATH = "/v1/debug/ticket";
 export const DEBUG_LIVE_PATH = "/api/debug/live";
-export const DEBUG_TICKET_TTL_MS = 5 * 60 * 1000;
 export const DEBUG_LIVE_TTL_SEC = 120;
 export const DEBUG_LIVE_PING_MS = 30_000;
 export const DEBUG_MAX_SOCKETS = 8;
@@ -95,6 +89,33 @@ export function debugWsUrl(deviceUrl: string): string {
 		return `ws://${origin.slice("http://".length)}${DEBUG_PATH}`;
 	}
 	return `wss://${origin}${DEBUG_PATH}`;
+}
+
+export function debugAuthQuery(headers: DeviceAuthHeaders): string {
+	const params = new URLSearchParams();
+	params.set(DEVICE_AUTH_HEADERS.keyId, headers["X-Gpio-Key-Id"]);
+	params.set(DEVICE_AUTH_HEADERS.timestamp, headers["X-Gpio-Timestamp"]);
+	params.set(DEVICE_AUTH_HEADERS.nonce, headers["X-Gpio-Nonce"]);
+	params.set(DEVICE_AUTH_HEADERS.signature, headers["X-Gpio-Signature"]);
+	return params.toString();
+}
+
+export function debugWsConnectUrl(
+	deviceUrl: string,
+	headers: DeviceAuthHeaders,
+): string {
+	return `${debugWsUrl(deviceUrl)}?${debugAuthQuery(headers)}`;
+}
+
+export function debugAuthHeadersFromSearch(search: URLSearchParams): Headers {
+	const headers = new Headers();
+	for (const name of Object.values(DEVICE_AUTH_HEADERS)) {
+		const value = search.get(name);
+		if (value) {
+			headers.set(name, value);
+		}
+	}
+	return headers;
 }
 
 export function parseDebugEvent(value: unknown): DebugEvent | null {

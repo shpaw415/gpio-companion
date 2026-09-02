@@ -3,7 +3,10 @@ import {
 	DEBUG_LIVE_TTL_SEC,
 	DEBUG_PATH,
 	DEFAULT_DASHBOARD_ORIGIN,
+	debugAuthHeadersFromSearch,
+	debugAuthQuery,
 	debugLevelFromStatus,
+	debugWsConnectUrl,
 	debugWsUrl,
 	isAllowedDebugOrigin,
 	isLiveSeen,
@@ -64,6 +67,30 @@ describe("debug helpers", () => {
 		);
 		expect(debugWsUrl("http://127.0.0.1:4150/")).toBe(
 			"ws://127.0.0.1:4150/v1/debug",
+		);
+	});
+
+	test("puts signed timestamped headers on the websocket url", () => {
+		const headers = {
+			"X-Gpio-Key-Id": "gpio-companion-v1",
+			"X-Gpio-Timestamp": "1700000000000",
+			"X-Gpio-Nonce": "abc",
+			"X-Gpio-Signature": "c2ln",
+		};
+		const url = debugWsConnectUrl(
+			"https://api-abc.gpio-companion.com",
+			headers,
+		);
+		expect(url.startsWith("wss://api-abc.gpio-companion.com/v1/debug?")).toBe(
+			true,
+		);
+		expect(debugAuthQuery(headers)).toContain("x-gpio-timestamp=1700000000000");
+		const search = new URL(url).searchParams;
+		expect(debugAuthHeadersFromSearch(search).get("x-gpio-key-id")).toBe(
+			"gpio-companion-v1",
+		);
+		expect(debugAuthHeadersFromSearch(search).get("x-gpio-timestamp")).toBe(
+			"1700000000000",
 		);
 	});
 

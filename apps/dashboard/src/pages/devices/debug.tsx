@@ -1,4 +1,4 @@
-import { GET as listDebugDevices, POST as mintDebugTicket } from "@api/debug";
+import { GET as listDebugDevices, POST as signDebugConnect } from "@api/debug";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
@@ -74,7 +74,7 @@ export default function DeviceDebugPage() {
 			) : null}
 
 			{loggedIn && devices.length > 0 ? (
-				<DeviceDebugPanel devices={options} mintTicket={mintDebugTicket} />
+				<DeviceDebugPanel devices={options} signConnect={signDebugConnect} />
 			) : null}
 		</Stack>
 	);
