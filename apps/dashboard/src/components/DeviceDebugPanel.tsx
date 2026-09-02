@@ -132,6 +132,7 @@ export default function DeviceDebugPanel({
 						setUuid(next);
 					}}
 					disabled={connection === "connecting"}
+					label="Board"
 				/>
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					<Chip

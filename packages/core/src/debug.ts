@@ -1,3 +1,5 @@
+import { publicDeviceUrl, tunnelHostnames } from "./tunnel-host.ts";
+
 export type DebugLevel = "error" | "warning";
 
 export type DebugEvent = {
@@ -16,7 +18,10 @@ export type DebugTicket = {
 
 export const DEBUG_PATH = "/v1/debug";
 export const DEBUG_TICKET_PATH = "/v1/debug/ticket";
+export const DEBUG_LIVE_PATH = "/api/debug/live";
 export const DEBUG_TICKET_TTL_MS = 5 * 60 * 1000;
+export const DEBUG_LIVE_TTL_SEC = 120;
+export const DEBUG_LIVE_PING_MS = 30_000;
 export const DEBUG_MAX_SOCKETS = 8;
 export const DEBUG_RING_SIZE = 100;
 export const DEFAULT_DASHBOARD_ORIGIN = "https://gpio-companion.com";
@@ -123,4 +128,23 @@ export function parseDebugEvent(value: unknown): DebugEvent | null {
 		status: record.status,
 		message: record.message,
 	};
+}
+
+export function parseLivePingUuid(input: unknown): string {
+	if (!input || typeof input !== "object") {
+		throw new Error("uuid is required");
+	}
+	const uuid = (input as { uuid?: unknown }).uuid;
+	if (typeof uuid !== "string" || !uuid.trim()) {
+		throw new Error("uuid is required");
+	}
+	return uuid.trim();
+}
+
+export function liveDeviceUrl(uuid: string): string {
+	return publicDeviceUrl(tunnelHostnames(uuid).apiHostname);
+}
+
+export function isLiveSeen(seenAt: number, now = Date.now()): boolean {
+	return now - seenAt < DEBUG_LIVE_TTL_SEC * 1000;
 }

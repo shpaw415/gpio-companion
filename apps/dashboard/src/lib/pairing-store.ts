@@ -15,7 +15,11 @@ export type StoredPairing = {
 
 export type PairingKv = {
 	get(key: string): Promise<string | null>;
-	put(key: string, value: string): Promise<void>;
+	put(
+		key: string,
+		value: string,
+		options?: { expirationTtl?: number },
+	): Promise<void>;
 	delete(key: string): Promise<void>;
 	list?(options: { prefix: string; cursor?: string }): Promise<{
 		keys: Array<{ name: string }>;

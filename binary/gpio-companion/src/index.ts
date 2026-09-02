@@ -14,6 +14,7 @@ import {
 	persistGithubLogin,
 	runGitCredentialHelper,
 } from "./github-credentials.ts";
+import { startLivePing } from "./live-ping.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -120,6 +121,7 @@ startBleBridge({
 	port: server.port ?? 4150,
 	deviceUrl: readDeviceUrl(configPath),
 });
+startLivePing({ uuid: pairingUuid });
 
 console.log(
 	`gpio-companion device API on http://${server.hostname}:${server.port}`,

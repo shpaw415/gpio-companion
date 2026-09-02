@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
+	DEBUG_LIVE_TTL_SEC,
 	DEBUG_PATH,
 	DEFAULT_DASHBOARD_ORIGIN,
 	debugLevelFromStatus,
 	debugWsUrl,
 	isAllowedDebugOrigin,
+	isLiveSeen,
+	liveDeviceUrl,
 	normalizeDebugPath,
 	parseDebugEvent,
+	parseLivePingUuid,
 	redactDebugMessage,
 	shouldPublishDebugPath,
 } from "./debug.ts";
@@ -82,5 +86,19 @@ describe("debug helpers", () => {
 			status: 400,
 			message: "wifi network not found",
 		});
+	});
+
+	test("parses live ping uuid and derives the tunnel URL", () => {
+		expect(() => parseLivePingUuid(null)).toThrow("uuid is required");
+		expect(parseLivePingUuid({ uuid: "  abc-def  " })).toBe("abc-def");
+		expect(liveDeviceUrl("abc-def")).toBe(
+			"https://api-abcdef.gpio-companion.com",
+		);
+		expect(isLiveSeen(1_000, 1_000 + (DEBUG_LIVE_TTL_SEC - 1) * 1000)).toBe(
+			true,
+		);
+		expect(isLiveSeen(1_000, 1_000 + (DEBUG_LIVE_TTL_SEC + 1) * 1000)).toBe(
+			false,
+		);
 	});
 });

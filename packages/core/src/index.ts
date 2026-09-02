@@ -78,6 +78,9 @@ export {
 	type TunnelConfig,
 } from "./config.ts";
 export {
+	DEBUG_LIVE_PATH,
+	DEBUG_LIVE_PING_MS,
+	DEBUG_LIVE_TTL_SEC,
 	DEBUG_MAX_SOCKETS,
 	DEBUG_PATH,
 	DEBUG_RING_SIZE,
@@ -90,8 +93,11 @@ export {
 	debugLevelFromStatus,
 	debugWsUrl,
 	isAllowedDebugOrigin,
+	isLiveSeen,
+	liveDeviceUrl,
 	normalizeDebugPath,
 	parseDebugEvent,
+	parseLivePingUuid,
 	redactDebugMessage,
 	shouldPublishDebugPath,
 } from "./debug.ts";
