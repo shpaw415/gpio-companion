@@ -10,10 +10,15 @@ export default function DeviceLabelField({
 	uuid,
 	label,
 	onSaved,
+	persist,
 }: {
 	uuid: string;
 	label: string;
 	onSaved?: (label: string) => void;
+	persist?: (input: {
+		uuid: string;
+		label: string;
+	}) => Promise<{ device: { label: string } }>;
 }) {
 	const [value, setValue] = useState(label);
 	const [busy, setBusy] = useState(false);
@@ -27,7 +32,9 @@ export default function DeviceLabelField({
 		setBusy(true);
 		setError("");
 		try {
-			const result = unwrapAction(await patchPairing({ uuid, label: value }));
+			const result = persist
+				? await persist({ uuid, label: value })
+				: unwrapAction(await patchPairing({ uuid, label: value }));
 			setValue(result.device.label);
 			onSaved?.(result.device.label);
 		} catch (caught) {

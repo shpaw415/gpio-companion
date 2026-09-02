@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import {
+	DEBUG_PATH,
 	DEFAULT_DEVICE_MAX_SKEW_MS,
 	DeviceAuthError,
 	type DeviceConfig,
@@ -20,6 +21,7 @@ import {
 	verifyDeviceRequest,
 	WifiConnectError,
 } from "gpio-companion";
+import { createDebugHub, type DebugHub } from "./debug.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
 import {
 	applyClaim,
@@ -60,6 +62,7 @@ export type ServeOptions = {
 		has(nonce: string): boolean;
 		add(nonce: string): void;
 	};
+	dashboardUrl?: string;
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -67,15 +70,36 @@ export function startDeviceApi(options: ServeOptions) {
 	const hostname = options.hostname ?? "0.0.0.0";
 	const clock = createClockGate(options);
 	const nonces = createNonceGate(options);
+	const debug = createDebugHub({
+		dashboardUrl:
+			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
+	});
 	return Bun.serve({
 		port,
 		hostname,
-		async fetch(request) {
+		async fetch(request, server) {
 			if (request.method === "OPTIONS") {
 				return new Response(null, { status: 204 });
 			}
+			const url = new URL(request.url);
+			const path = url.pathname.replace(/\/+$/, "") || "/";
+			if (request.method === "GET" && path === DEBUG_PATH) {
+				const ticket = url.searchParams.get("ticket") ?? "";
+				const origin = request.headers.get("origin") ?? "";
+				if (!debug.allow(ticket, origin)) {
+					return Response.json(
+						{ error: "unauthorized debug ticket" },
+						{ status: 401 },
+					);
+				}
+				if (server.upgrade(request)) {
+					return undefined as never;
+				}
+				return new Response("upgrade failed", { status: 400 });
+			}
+			let response: Response;
 			try {
-				return await handleDeviceRequest(
+				response = await handleDeviceRequest(
 					request,
 					options.store,
 					options.secrets,
@@ -88,24 +112,37 @@ export function startDeviceApi(options: ServeOptions) {
 					options.githubCredentials,
 					clock,
 					nonces,
+					debug,
 				);
 			} catch (error) {
 				if (error instanceof DeviceAuthError) {
-					return Response.json(
+					response = Response.json(
 						{ error: error.message },
 						{ status: error.status },
 					);
+				} else {
+					const message =
+						error instanceof Error ? error.message : "request failed";
+					const status =
+						message.includes("mismatch") ||
+						message.includes("already paired") ||
+						message.includes("local-only")
+							? 403
+							: 400;
+					response = Response.json({ error: message }, { status });
 				}
-				const message =
-					error instanceof Error ? error.message : "request failed";
-				const status =
-					message.includes("mismatch") ||
-					message.includes("already paired") ||
-					message.includes("local-only")
-						? 403
-						: 400;
-				return Response.json({ error: message }, { status });
 			}
+			void debug.publishFromResponse(request, response);
+			return response;
+		},
+		websocket: {
+			open(ws) {
+				debug.add(ws);
+			},
+			message() {},
+			close(ws) {
+				debug.remove(ws);
+			},
 		},
 	});
 }
@@ -123,6 +160,7 @@ export async function handleDeviceRequest(
 	githubCredentials?: () => Promise<GithubInstallationCreds>,
 	clock?: ClockGate,
 	nonces?: NonceGate,
+	debug?: DebugHub,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -311,6 +349,13 @@ export async function handleDeviceRequest(
 			throw new Error("t3 is not configured");
 		}
 		return json(await t3.status());
+	}
+
+	if (method === "POST" && path === "/v1/debug/ticket") {
+		if (!debug) {
+			throw new Error("debug is not configured");
+		}
+		return json(debug.issueTicket());
 	}
 
 	if (method === "GET" && path === "/v1/status") {

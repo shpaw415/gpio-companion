@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+	clearPendingForUuid,
+	findDeviceByUuid,
 	listAllDevices,
 	loadDevices,
 	parseDeviceList,
@@ -8,7 +10,9 @@ import {
 	requireAccessibleDevice,
 	requireOwnedDevice,
 	type StoredPairing,
+	transferDeviceRecord,
 	updateDeviceLabel,
+	updateDeviceLabelByUuid,
 	upsertDevice,
 } from "./pairing-store.ts";
 
@@ -135,18 +139,57 @@ describe("pairing store", () => {
 	test("transfer moves one uuid without wiping the owner's other boards", async () => {
 		const kv = memoryKv();
 		const keep = board("owner", "keep-uuid");
-		const move = board("owner", "move-uuid");
+		const move = board("owner", "move-uuid", { label: "bench" });
 		await upsertDevice(kv, keep);
 		await upsertDevice(kv, move);
-		const taken = await removeDevice(kv, "owner", "move-uuid");
-		expect(taken).toEqual(move);
-		await upsertDevice(kv, { ...move, userId: "requester" });
+		await kv.put(
+			"pending:move-uuid",
+			JSON.stringify({ uuid: "move-uuid", requesterId: "requester" }),
+		);
+		await kv.put("inbox:owner", JSON.stringify(["move-uuid"]));
+		const transferred = await transferDeviceRecord(kv, move, {
+			userId: "requester",
+			email: "req@gpio-companion.com",
+			login: "req",
+		});
+		expect(transferred.label).toBe("bench");
+		expect(transferred.userId).toBe("requester");
 		expect(await loadDevices(kv, "owner")).toEqual([keep]);
-		expect(await loadDevices(kv, "requester")).toEqual([
-			{ ...move, userId: "requester" },
-		]);
+		expect(await loadDevices(kv, "requester")).toEqual([transferred]);
 		expect(await kv.get("pair:move-uuid")).toBe("requester");
 		expect(await kv.get("pair:keep-uuid")).toBe("owner");
+		expect(await kv.get("pending:move-uuid")).toBeNull();
+		expect(await kv.get("inbox:owner")).toBeNull();
+	});
+
+	test("findDeviceByUuid and admin label use the owner index", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("owner", "uuid-1"));
+		await upsertDevice(kv, board("owner", "uuid-2"));
+		expect(await findDeviceByUuid(kv, "uuid-1")).toEqual(
+			board("owner", "uuid-1"),
+		);
+		await expect(findDeviceByUuid(kv, "missing")).rejects.toThrow(
+			"device is not paired with this account",
+		);
+		const named = await updateDeviceLabelByUuid(kv, "uuid-1", "lab pi");
+		expect(named.label).toBe("lab pi");
+		expect(
+			(await loadDevices(kv, "owner")).find((item) => item.uuid === "uuid-1")
+				?.label,
+		).toBe("lab pi");
+		expect(await loadDevices(kv, "owner")).toHaveLength(2);
+	});
+
+	test("clearPendingForUuid drops inbox entries for one board", async () => {
+		const kv = memoryKv();
+		await kv.put("pending:uuid-1", "{}");
+		await kv.put("inbox:owner", JSON.stringify(["uuid-1", "uuid-2"]));
+		await clearPendingForUuid(kv, "uuid-1", "owner");
+		expect(await kv.get("pending:uuid-1")).toBeNull();
+		expect(JSON.parse((await kv.get("inbox:owner")) as string)).toEqual([
+			"uuid-2",
+		]);
 	});
 });
 

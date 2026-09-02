@@ -78,6 +78,24 @@ export {
 	type TunnelConfig,
 } from "./config.ts";
 export {
+	DEBUG_MAX_SOCKETS,
+	DEBUG_PATH,
+	DEBUG_RING_SIZE,
+	DEBUG_TICKET_PATH,
+	DEBUG_TICKET_TTL_MS,
+	DEFAULT_DASHBOARD_ORIGIN,
+	type DebugEvent,
+	type DebugLevel,
+	type DebugTicket,
+	debugLevelFromStatus,
+	debugWsUrl,
+	isAllowedDebugOrigin,
+	normalizeDebugPath,
+	parseDebugEvent,
+	redactDebugMessage,
+	shouldPublishDebugPath,
+} from "./debug.ts";
+export {
 	canonicalDevicePayload,
 	DEFAULT_DEVICE_MAX_SKEW_MS,
 	DEVICE_AUTH_HEADERS,

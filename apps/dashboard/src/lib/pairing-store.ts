@@ -134,6 +134,72 @@ export async function removeDevice(
 	return found;
 }
 
+export async function findDeviceByUuid(
+	kv: PairingKv,
+	uuid?: string,
+): Promise<StoredPairing> {
+	const trimmed = uuid?.trim() ?? "";
+	if (!trimmed) {
+		throw new Error("uuid is required");
+	}
+	const ownerId = await kv.get(pairOwnerKey(trimmed));
+	if (!ownerId) {
+		throw new Error("device is not paired with this account");
+	}
+	const devices = await loadDevices(kv, ownerId);
+	const device = devices.find((item) => item.uuid === trimmed);
+	if (!device) {
+		throw new Error("device is not paired with this account");
+	}
+	return device;
+}
+
+export async function clearPendingForUuid(
+	kv: PairingKv,
+	uuid: string,
+	ownerId: string,
+): Promise<void> {
+	const trimmed = uuid.trim();
+	await kv.delete(`pending:${trimmed}`);
+	const inboxKey = `inbox:${ownerId}`;
+	const inboxRaw = await kv.get(inboxKey);
+	if (!inboxRaw) {
+		return;
+	}
+	const inbox = JSON.parse(inboxRaw) as string[];
+	const next = inbox.filter((id) => id !== trimmed);
+	if (next.length === 0) {
+		await kv.delete(inboxKey);
+		return;
+	}
+	await kv.put(inboxKey, JSON.stringify(next));
+}
+
+export async function transferDeviceRecord(
+	kv: PairingKv,
+	device: StoredPairing,
+	nextOwner: {
+		userId: string;
+		email: string;
+		login: string;
+		key?: string;
+	},
+): Promise<StoredPairing> {
+	const fromId = device.userId;
+	await clearPendingForUuid(kv, device.uuid, fromId);
+	await removeDevice(kv, fromId, device.uuid);
+	const next: StoredPairing = {
+		...device,
+		userId: nextOwner.userId,
+		email: nextOwner.email,
+		login: nextOwner.login,
+		key: nextOwner.key ?? device.key,
+		claimedAt: new Date().toISOString(),
+	};
+	await upsertDevice(kv, next);
+	return next;
+}
+
 export async function updateDeviceLabel(
 	kv: PairingKv,
 	userId: string,
@@ -141,6 +207,17 @@ export async function updateDeviceLabel(
 	label: string,
 ): Promise<StoredPairing> {
 	const device = await requireOwnedDevice(kv, userId, uuid);
+	const next = { ...device, label: normalizeDeviceLabel(label) };
+	await upsertDevice(kv, next);
+	return next;
+}
+
+export async function updateDeviceLabelByUuid(
+	kv: PairingKv,
+	uuid: string,
+	label: string,
+): Promise<StoredPairing> {
+	const device = await findDeviceByUuid(kv, uuid);
 	const next = { ...device, label: normalizeDeviceLabel(label) };
 	await upsertDevice(kv, next);
 	return next;
@@ -209,16 +286,7 @@ export async function requireAccessibleDevice(
 ): Promise<StoredPairing> {
 	const trimmed = uuid?.trim() ?? "";
 	if (isAdmin(actor.role) && trimmed) {
-		const ownerId = await kv.get(pairOwnerKey(trimmed));
-		if (!ownerId) {
-			throw new Error("device is not paired with this account");
-		}
-		const devices = await loadDevices(kv, ownerId);
-		const device = devices.find((item) => item.uuid === trimmed);
-		if (!device) {
-			throw new Error("device is not paired with this account");
-		}
-		return device;
+		return findDeviceByUuid(kv, trimmed);
 	}
 	return requireOwnedDevice(kv, actor.id, uuid);
 }

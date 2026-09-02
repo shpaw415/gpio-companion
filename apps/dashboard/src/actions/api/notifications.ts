@@ -2,10 +2,8 @@ import { getContext } from "frame-master-plugin-cloudflare-pages-functions-actio
 import { wrapAction } from "../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
 import {
-	removeDevice,
 	requireOwnedDevice,
-	type StoredPairing,
-	upsertDevice,
+	transferDeviceRecord,
 } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
 import { type PendingPairing, parsePendingPairing } from "./pair.ts";
@@ -86,18 +84,12 @@ export const POST = wrapAction(async function POST(input: {
 			),
 		);
 	}
-	const next: StoredPairing = {
-		...owner,
+	await transferDeviceRecord(ctx.env.DYNAMIC_PAGE_KV, owner, {
 		userId: pending.requesterId,
 		email: pending.requesterEmail,
 		login: pending.login,
 		key: pending.key,
-		claimedAt: new Date().toISOString(),
-	};
-	await removeDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, uuid);
-	await upsertDevice(ctx.env.DYNAMIC_PAGE_KV, next);
-	await ctx.env.DYNAMIC_PAGE_KV.delete(`pending:${uuid}`);
-	await removeInbox(ctx.env, identity.id, uuid);
+	});
 	return { ok: true as const, action: "accept" as const };
 });
 

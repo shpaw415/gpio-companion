@@ -203,6 +203,12 @@ export default function DevicesPage() {
 						description:
 							"Accept or reject incoming board transfers from other users.",
 					},
+					{
+						href: "/devices/debug",
+						title: "Debug stream",
+						description:
+							"Watch live companion API errors and warnings over WebSocket.",
+					},
 				]}
 			/>
 		</Stack>

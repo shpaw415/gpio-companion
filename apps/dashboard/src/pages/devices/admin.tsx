@@ -1,4 +1,9 @@
-import { GET as listAdminDevices } from "@api/admin/devices";
+import {
+	POST as adminTransfer,
+	DELETE as adminUnpair,
+	GET as listAdminDevices,
+	PATCH as patchAdminDevice,
+} from "@api/admin/devices";
 import { POST as signWifi } from "@api/wifi";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
@@ -16,8 +21,9 @@ import Table, {
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { envelopeToPasteText } from "gpio-companion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CopyBlock from "../../components/CopyBlock.tsx";
+import DeviceLabelField from "../../components/DeviceLabelField.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
@@ -58,23 +64,33 @@ export default function AdminDevicesPage() {
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
+	const [toUserId, setToUserId] = useState("");
 	const [pasteText, setPasteText] = useState("");
 	const [busy, setBusy] = useState(false);
 
-	useEffect(() => {
-		if (!session.data?.id || !admin) {
-			setBoards([]);
-			return;
-		}
-		void run(listAdminDevices()).then((result) => {
+	const applyList = useCallback(
+		(
+			result: {
+				devices?: Array<{ device: PublicPairing; status: unknown }>;
+			} | null,
+		) => {
 			setBoards(
 				(result?.devices ?? []).map((item) => ({
 					device: item.device,
 					status: item.status as DeviceStatus | null,
 				})),
 			);
-		});
-	}, [session.data?.id, admin, run]);
+		},
+		[],
+	);
+
+	useEffect(() => {
+		if (!session.data?.id || !admin) {
+			setBoards([]);
+			return;
+		}
+		void run(listAdminDevices()).then(applyList);
+	}, [session.data?.id, admin, run, applyList]);
 
 	const filtered = useMemo(() => {
 		const needle = query.trim().toLowerCase();
@@ -122,7 +138,8 @@ export default function AdminDevicesPage() {
 		<Stack spacing={3}>
 			<SectionHeader title="Admin devices">
 				<Typography color="secondary">
-					Debug and maintain every account’s Pi. Status, T3, and WiFi only.
+					Debug every account’s Pi without taking ownership (status, T3, WiFi).
+					Unpair, label, and force-transfer change state.
 				</Typography>
 			</SectionHeader>
 
@@ -246,6 +263,25 @@ export default function AdminDevicesPage() {
 										current.device.login ||
 										current.device.userId}
 								</Typography>
+								<DeviceLabelField
+									uuid={current.device.uuid}
+									label={current.device.label}
+									persist={async (input) =>
+										unwrapAction(await patchAdminDevice(input))
+									}
+									onSaved={(label) => {
+										setBoards((currentBoards) =>
+											currentBoards.map((board) =>
+												board.device.uuid === current.device.uuid
+													? {
+															...board,
+															device: { ...board.device, label },
+														}
+													: board,
+											),
+										);
+									}}
+								/>
 								<T3PairingPanel
 									key={current.device.uuid}
 									devices={[current.device]}
@@ -280,6 +316,74 @@ export default function AdminDevicesPage() {
 										value={pasteText}
 									/>
 								) : null}
+								<TextField
+									label="Transfer to user id"
+									placeholder={session.data?.id || "OpenAuthster user id"}
+									value={toUserId}
+									onChange={(event) => setToUserId(event.target.value)}
+									className="w-full"
+								/>
+								<Button
+									variant="outlined"
+									disabled={busy}
+									onClick={() => {
+										const target = toUserId.trim() || session.data?.id || "";
+										if (
+											!window.confirm(
+												`Transfer ${current.device.uuid} to ${target || "this admin"}?`,
+											)
+										) {
+											return;
+										}
+										setBusy(true);
+										void run(
+											adminTransfer({
+												uuid: current.device.uuid,
+												toUserId: toUserId.trim() || undefined,
+											}),
+										)
+											.then((result) => {
+												if (!result) {
+													return;
+												}
+												setToUserId("");
+												return run(listAdminDevices()).then(applyList);
+											})
+											.finally(() => setBusy(false));
+									}}
+								>
+									Force transfer
+								</Button>
+								<Button
+									color="error"
+									variant="text"
+									disabled={busy}
+									onClick={() => {
+										if (
+											!window.confirm(
+												`Unpair ${current.device.uuid} from ${
+													current.device.email ||
+													current.device.login ||
+													current.device.userId
+												}?`,
+											)
+										) {
+											return;
+										}
+										setBusy(true);
+										void run(adminUnpair(current.device.uuid))
+											.then((result) => {
+												if (!result) {
+													return;
+												}
+												setSelected("");
+												return run(listAdminDevices()).then(applyList);
+											})
+											.finally(() => setBusy(false));
+									}}
+								>
+									Unpair from owner
+								</Button>
 							</Stack>
 						</Paper>
 					) : null}

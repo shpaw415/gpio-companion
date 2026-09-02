@@ -7,8 +7,6 @@ use std::time::Duration;
 const BLUEZ: &str = "org.bluez";
 const ADAPTER: &str = "org.bluez.Adapter1";
 const DEVICE: &str = "org.bluez.Device1";
-const GATT: &str = "00001801-0000-1000-8000-00805f9b34fb";
-const SERVICE: &str = crate::frames::BLE_SERVICE_UUID;
 
 fn system() -> Result<Connection, String> {
 	Connection::new_system().map_err(|err| format!("bluetooth dbus: {err}"))
@@ -121,25 +119,32 @@ pub fn list_le_devices() -> Result<Vec<ListedDevice>, String> {
 	Ok(devices)
 }
 
+pub fn disconnect_le(addr: &str) {
+	if let Ok(conn) = system() {
+		if let Ok(adapter) = adapter_path(&conn) {
+			let path = device_path(&adapter, addr);
+			let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(3));
+			let _: Result<(), _> = proxy.method_call(DEVICE, "Disconnect", ());
+		}
+	}
+}
+
 pub fn connect_le(addr: &str) -> Result<(), String> {
+	connect_le_timeout(addr, Duration::from_secs(8))
+}
+
+pub fn connect_le_timeout(addr: &str, timeout: Duration) -> Result<(), String> {
 	let conn = system()?;
 	let adapter = adapter_path(&conn)?;
 	let path = device_path(&adapter, addr);
 	crate::log::line(&format!("bluetooth le connect {path}"));
-	let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(20));
-	for uuid in [SERVICE, GATT] {
-		let result: Result<(), dbus::Error> =
-			proxy.method_call(DEVICE, "ConnectProfile", (uuid,));
-		match result {
-			Ok(()) => {
-				crate::log::line(&format!("bluetooth ConnectProfile {uuid} ok"));
-				return Ok(());
-			}
-			Err(err) => {
-				crate::log::line(&format!("bluetooth ConnectProfile {uuid}: {err}"));
-			}
-		}
+	let proxy = conn.with_proxy(BLUEZ, path, timeout);
+	let _: Result<(), _> = proxy.method_call(DEVICE, "Disconnect", ());
+	std::thread::sleep(Duration::from_millis(150));
+	match proxy.method_call(DEVICE, "Connect", ()) {
+		Ok(()) => Ok(()),
+		Err(err) if err.name() == Some("org.bluez.Error.AlreadyConnected") => Ok(()),
+		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => Ok(()),
+		Err(err) => Err(format!("bluetooth Connect: {err}")),
 	}
-	let connected: Result<(), dbus::Error> = proxy.method_call(DEVICE, "Connect", ());
-	connected.map_err(|err| format!("bluetooth Connect: {err}"))
 }

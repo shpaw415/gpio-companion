@@ -10,8 +10,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time::{sleep, timeout};
 use uuid::Uuid;
+
+static BLE: Mutex<()> = Mutex::const_new(());
 
 #[derive(Debug, Deserialize)]
 pub struct BleInfo {
@@ -216,6 +219,7 @@ fn for_picker(boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
 }
 
 pub async fn scan_nearby(timeout_ms: u64) -> Result<Vec<NearbyBoard>, String> {
+	let _lock = BLE.lock().await;
 	let adapter = adapter().await?;
 	start_scan(&adapter).await?;
 	let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
@@ -284,7 +288,7 @@ pub async fn find_board(id: &str) -> Result<Peripheral, String> {
 }
 
 async fn probe_info(peripheral: &Peripheral) -> Option<BleInfo> {
-	let result = timeout(Duration::from_secs(4), read_info(peripheral)).await;
+	let result = timeout(Duration::from_secs(10), read_info(peripheral)).await;
 	disconnect(peripheral).await;
 	match result {
 		Ok(Ok(info)) => Some(info),
@@ -306,6 +310,11 @@ pub async fn identify_boards<F>(
 where
 	F: FnMut(&str),
 {
+	if boards.iter().any(|board| board.matched) {
+		on_status("Found gpio-companion");
+		return Ok(for_picker(sort_boards(boards)));
+	}
+	let _lock = BLE.lock().await;
 	let adapter = adapter().await?;
 	let mut candidates: Vec<NearbyBoard> = boards
 		.iter()
@@ -318,9 +327,9 @@ where
 			.unwrap_or(i16::MIN)
 			.cmp(&left.rssi.unwrap_or(i16::MIN))
 	});
-	let mut found = boards.iter().filter(|board| board.matched).count();
-	for board in candidates.into_iter().take(6) {
-		if found >= 2 {
+	let mut found = 0;
+	for board in candidates.into_iter().take(3) {
+		if found >= 1 {
 			break;
 		}
 		on_status(&format!("Checking {}…", board.id));
@@ -329,6 +338,11 @@ where
 			continue;
 		};
 		let Some(info) = probe_info(&peripheral).await else {
+			#[cfg(target_os = "linux")]
+			{
+				let addr = board.id.clone();
+				let _ = tokio::task::spawn_blocking(move || crate::bluez::disconnect_le(&addr)).await;
+			}
 			continue;
 		};
 		found += 1;
@@ -390,7 +404,7 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 				Ok(Ok(())) => {
 					for _ in 0..20 {
 						if peripheral.is_connected().await.unwrap_or(false) {
-							crate::log::line("bluetooth connected via ConnectProfile");
+							crate::log::line("bluetooth connected via Connect");
 							return Ok(());
 						}
 						sleep(Duration::from_millis(150)).await;
@@ -402,7 +416,7 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 		}
 	}
 	let mut last = "connect failed".to_string();
-	for attempt in 1..=3 {
+	for attempt in 1..=2 {
 		match peripheral.connect().await {
 			Ok(()) => {
 				crate::log::line(&format!("bluetooth connected attempt={attempt}"));

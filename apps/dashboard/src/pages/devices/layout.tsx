@@ -10,6 +10,7 @@ const baseTabs = [
 	{ href: "/devices/wifi", label: "WiFi" },
 	{ href: "/devices/keys", label: "Keys" },
 	{ href: "/devices/notifications", label: "Requests" },
+	{ href: "/devices/debug", label: "Debug" },
 ];
 
 const adminTab = { href: "/devices/admin", label: "Admin" };

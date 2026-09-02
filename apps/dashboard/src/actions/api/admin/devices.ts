@@ -1,12 +1,18 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
+import { loginFromEmail } from "gpio-companion";
 import { wrapAction } from "../../../lib/action.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../../lib/device-api.ts";
 import {
+	clearPendingForUuid,
+	findDeviceByUuid,
 	listAllDevices,
 	type PublicPairing,
 	publicPairing,
+	transferDeviceRecord,
+	updateDeviceLabelByUuid,
 } from "../../../lib/pairing-store.ts";
 import { requireAdmin, requireIdentity } from "../../../lib/session.ts";
+import { registerDeviceAiKey, unpairDevice } from "../pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -44,4 +50,77 @@ export const GET = wrapAction(async function GET() {
 		}),
 	);
 	return { devices };
+});
+
+export const PATCH = wrapAction(async function PATCH(input: {
+	uuid: string;
+	label: string;
+}) {
+	const ctx = getContext<PagesEnv, never, never>(arguments);
+	requireAdmin(await requireIdentity(ctx));
+	const device = await updateDeviceLabelByUuid(
+		ctx.env.DYNAMIC_PAGE_KV,
+		input.uuid,
+		input.label,
+	);
+	return { ok: true as const, device: publicPairing(device) };
+});
+
+export const DELETE = wrapAction(async function DELETE(uuid: string) {
+	const ctx = getContext<PagesEnv, never, never>(arguments);
+	requireAdmin(await requireIdentity(ctx));
+	const device = await findDeviceByUuid(ctx.env.DYNAMIC_PAGE_KV, uuid);
+	await clearPendingForUuid(
+		ctx.env.DYNAMIC_PAGE_KV,
+		device.uuid,
+		device.userId,
+	);
+	return unpairDevice(ctx.env, device.userId, device.uuid);
+});
+
+export const POST = wrapAction(async function POST(input: {
+	uuid: string;
+	toUserId?: string;
+}) {
+	const ctx = getContext<PagesEnv, never, never>(arguments);
+	const identity = requireAdmin(await requireIdentity(ctx));
+	const device = await findDeviceByUuid(ctx.env.DYNAMIC_PAGE_KV, input.uuid);
+	const toUserId = input.toUserId?.trim() || identity.id;
+	if (!toUserId) {
+		throw new Error("toUserId is required");
+	}
+	if (device.userId === toUserId) {
+		return { ok: true as const, device: publicPairing(device) };
+	}
+	const login =
+		toUserId === identity.id
+			? loginFromEmail(identity.email ?? "") || identity.id
+			: toUserId;
+	const email = toUserId === identity.id ? (identity.email ?? "") : "";
+	if (device.deviceUrl) {
+		await readDeviceJson(
+			await signedDeviceFetch(
+				ctx.env,
+				device.deviceUrl,
+				"POST",
+				"/v1/pairing/transfer",
+				{
+					uuid: device.uuid,
+					key: device.key,
+					userId: toUserId,
+					email,
+					login,
+				},
+			),
+		).catch(() => undefined);
+	}
+	const next = await transferDeviceRecord(ctx.env.DYNAMIC_PAGE_KV, device, {
+		userId: toUserId,
+		email,
+		login,
+	});
+	if (next.deviceUrl) {
+		await registerDeviceAiKey(ctx.env, next.deviceUrl, toUserId);
+	}
+	return { ok: true as const, device: publicPairing(next) };
 });
