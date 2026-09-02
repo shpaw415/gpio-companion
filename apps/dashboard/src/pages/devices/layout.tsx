@@ -2,10 +2,13 @@ import { navigate } from "@next/client";
 import Box from "@shpaw415/mui-lite/Box";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { usePathname } from "../../hooks/usePathname.tsx";
 import { isAdmin } from "../../lib/auth/role.ts";
+import { isT3Path } from "../../lib/t3-url.ts";
 
 const baseTabs = [
 	{ href: "/devices", label: "Overview" },
+	{ href: "/devices/t3", label: "T3" },
 	{ href: "/devices/pair", label: "Pair" },
 	{ href: "/devices/wifi", label: "WiFi" },
 	{ href: "/devices/keys", label: "Keys" },
@@ -28,14 +31,19 @@ export default function DevicesLayout({
 	children: React.JSX.Element;
 }) {
 	const session = useAuthSession();
+	const pathname = usePathname();
+	const onT3 = isT3Path(pathname);
 	const tabs = isAdmin(session.data?.role) ? [...baseTabs, adminTab] : baseTabs;
-	const value =
-		typeof window === "undefined"
-			? "/devices"
-			: active(window.location.pathname, tabs);
+	const value = active(pathname, tabs);
 
 	return (
-		<Box>
+		<Box
+			sx={
+				onT3
+					? { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }
+					: undefined
+			}
+		>
 			<Tabs
 				value={value}
 				onChange={(_event, next) => navigate(String(next))}
@@ -46,7 +54,22 @@ export default function DevicesLayout({
 					<Tab key={tab.href} value={tab.href} label={tab.label} />
 				))}
 			</Tabs>
-			<Box className="mt-6">{children}</Box>
+			<Box
+				className={onT3 ? undefined : "mt-6"}
+				sx={
+					onT3
+						? {
+								mt: 1,
+								flex: 1,
+								minHeight: 0,
+								display: "flex",
+								flexDirection: "column",
+							}
+						: undefined
+				}
+			>
+				{children}
+			</Box>
 		</Box>
 	);
 }

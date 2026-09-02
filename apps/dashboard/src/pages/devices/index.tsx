@@ -92,6 +92,12 @@ export default function DevicesPage() {
 				description="Everything you can do with a board."
 				items={[
 					{
+						href: "/devices/t3",
+						title: "T3 Code",
+						description:
+							"Open T3 Code on a paired Pi in this dashboard. Switching tabs keeps your place.",
+					},
+					{
 						href: "/devices/pair",
 						title: "Pair hardware",
 						description:

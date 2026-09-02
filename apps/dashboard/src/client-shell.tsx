@@ -13,8 +13,11 @@ import {
 	useState,
 } from "react";
 import { createClient, type PublicSession } from "./auth.ts";
+import T3Frame from "./components/T3Frame.tsx";
 import { AuthCtx, AuthSessionCtx } from "./hooks/useAuth.ts";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
+import { PathnameProvider } from "./hooks/usePathname.tsx";
+import { T3SessionProvider } from "./hooks/useT3Session.tsx";
 import {
 	identityToPublicSession,
 	resolveUserIdentity,
@@ -57,22 +60,27 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 					return res;
 				}}
 			>
-				<ColorModeProvider>
-					<AuthProvider>
-						<RouterHost
-							onRouteChange={async (match) => {
-								matched.current = match;
-								setPathname(match.pathname);
-								if (process.env.NODE_ENV === "development") {
-									setDevKey((prev) => prev + 1);
-								}
-								await routeChangePromiseRef.current.promise;
-							}}
-						>
-							{children}
-						</RouterHost>
-					</AuthProvider>
-				</ColorModeProvider>
+				<PathnameProvider pathname={pathname}>
+					<ColorModeProvider>
+						<AuthProvider>
+							<T3SessionProvider>
+								<RouterHost
+									onRouteChange={async (match) => {
+										matched.current = match;
+										setPathname(match.pathname);
+										if (process.env.NODE_ENV === "development") {
+											setDevKey((prev) => prev + 1);
+										}
+										await routeChangePromiseRef.current.promise;
+									}}
+								>
+									{children}
+								</RouterHost>
+								<T3Frame />
+							</T3SessionProvider>
+						</AuthProvider>
+					</ColorModeProvider>
+				</PathnameProvider>
 			</SSRPropsProvider>
 		</StrictMode>
 	);
