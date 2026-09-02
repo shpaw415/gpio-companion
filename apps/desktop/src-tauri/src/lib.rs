@@ -116,9 +116,31 @@ async fn devices_unpair(uuid: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
-async fn ble_pair(app: AppHandle) -> Result<Value, String> {
+async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 	emit_status(&app, "Scanning…");
-	let peripheral = ble::scan_board(12_000).await?;
+	let boards = ble::scan_nearby(10_000).await?;
+	let matched = boards.iter().filter(|board| board.matched).count();
+	emit_status(
+		&app,
+		&if boards.is_empty() {
+			"No nearby Bluetooth devices".to_string()
+		} else if matched == 0 {
+			format!("Found {} nearby. Select a device to pair with.", boards.len())
+		} else {
+			format!("Found {matched} gpio-companion board(s). Select a device to pair with.")
+		},
+	);
+	Ok(boards)
+}
+
+#[tauri::command]
+async fn ble_pair(app: AppHandle, id: String) -> Result<Value, String> {
+	emit_status(&app, "Connecting…");
+	let peripheral = if id.trim().is_empty() {
+		ble::scan_board(12_000).await?
+	} else {
+		ble::find_board(id.trim()).await?
+	};
 	emit_status(&app, "Reading board…");
 	let info = ble::read_info(&peripheral).await?;
 	emit_status(&app, "Signing credentials…");
@@ -159,7 +181,13 @@ async fn ble_pair(app: AppHandle) -> Result<Value, String> {
 }
 
 #[tauri::command]
-async fn ble_wifi(app: AppHandle, uuid: String, ssid: String, psk: String) -> Result<String, String> {
+async fn ble_wifi(
+	app: AppHandle,
+	uuid: String,
+	ssid: String,
+	psk: String,
+	id: String,
+) -> Result<String, String> {
 	emit_status(&app, "Signing WiFi…");
 	let envelope = request_value(
 		Method::POST,
@@ -167,8 +195,12 @@ async fn ble_wifi(app: AppHandle, uuid: String, ssid: String, psk: String) -> Re
 		Some(&json!({ "uuid": uuid, "ssid": ssid, "psk": psk })),
 	)
 	.await?;
-	emit_status(&app, "Scanning…");
-	let peripheral = ble::scan_board(12_000).await?;
+	emit_status(&app, "Connecting…");
+	let peripheral = if id.trim().is_empty() {
+		ble::scan_board(12_000).await?
+	} else {
+		ble::find_board(id.trim()).await?
+	};
 	let _ = ble::read_info(&peripheral).await?;
 	emit_status(&app, "Writing…");
 	let raw = ble::send_envelope(&peripheral, &envelope).await;
@@ -215,6 +247,7 @@ pub fn run() {
 			debug_logs,
 			devices_list,
 			devices_unpair,
+			ble_scan,
 			ble_pair,
 			ble_wifi
 		])

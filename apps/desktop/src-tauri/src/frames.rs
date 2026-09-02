@@ -22,10 +22,16 @@ pub fn matches_board(name: Option<&str>, service_ids: &[&str]) -> bool {
 		return true;
 	}
 	name.is_some_and(|value| {
-		value
-			.to_ascii_lowercase()
-			.starts_with(BLE_DEVICE_NAME)
+		let lower = value.to_ascii_lowercase();
+		lower.starts_with(BLE_DEVICE_NAME) || lower == "gpio"
 	})
+}
+
+pub fn same_ble_id(left: &str, right: &str) -> bool {
+	fn norm(value: &str) -> String {
+		value.replace(['-', '_'], ":").to_ascii_uppercase()
+	}
+	left == right || norm(left) == norm(right)
 }
 
 #[cfg(test)]
@@ -65,6 +71,17 @@ mod tests {
 			None,
 			&["A1C15E00-6F10-4C9A-9C31-47B0C15E0001"]
 		));
+		assert!(matches_board(Some("gpio"), &[]));
 		assert!(!matches_board(Some("other"), &[]));
+	}
+
+	#[test]
+	fn compares_ble_ids_ignoring_separators() {
+		assert!(same_ble_id("AA:BB:CC:DD:EE:FF", "aa-bb-cc-dd-ee-ff"));
+		assert!(same_ble_id(
+			"AA:BB:CC:DD:EE:FF",
+			"AA_BB_CC_DD_EE_FF"
+		));
+		assert!(!same_ble_id("AA:BB:CC:DD:EE:FF", "00:11:22:33:44:55"));
 	}
 }

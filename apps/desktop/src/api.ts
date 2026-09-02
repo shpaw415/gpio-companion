@@ -20,6 +20,13 @@ export type Session = {
 	role?: string | null;
 };
 
+export type NearbyBoard = {
+	id: string;
+	name: string;
+	rssi: number | null;
+	matched: boolean;
+};
+
 async function call<T>(
 	cmd: string,
 	args?: Record<string, unknown>,
@@ -59,11 +66,20 @@ export function unpairDevice(uuid: string) {
 	return call<unknown>("devices_unpair", { uuid });
 }
 
-export function blePair() {
-	return call<unknown>("ble_pair");
+export function bleScan() {
+	return call<NearbyBoard[]>("ble_scan");
 }
 
-export function bleWifi(input: { uuid: string; ssid: string; psk: string }) {
+export function blePair(id: string) {
+	return call<unknown>("ble_pair", { id });
+}
+
+export function bleWifi(input: {
+	uuid: string;
+	ssid: string;
+	psk: string;
+	id: string;
+}) {
 	return call<string>("ble_wifi", input);
 }
 

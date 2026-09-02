@@ -4,17 +4,38 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
-import { bleWifi, type Device, listDevices, onBleStatus } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import {
+	bleScan,
+	bleWifi,
+	type Device,
+	listDevices,
+	type NearbyBoard,
+	onBleStatus,
+} from "../api";
 import DebugLog from "./DebugLog";
+
+function boardLabel(board: NearbyBoard) {
+	const name = board.name.trim();
+	if (board.matched) {
+		return name || board.id;
+	}
+	if (name && name !== board.id) {
+		return `${name} — ${board.id}`;
+	}
+	return board.id;
+}
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [devices, setDevices] = useState<Device[]>([]);
+	const [boards, setBoards] = useState<NearbyBoard[]>([]);
 	const [uuid, setUuid] = useState("");
+	const [boardId, setBoardId] = useState("");
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
 	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
+	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
@@ -29,11 +50,32 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		return () => unlisten?.();
 	}, []);
 
+	const scan = useCallback(async () => {
+		setScanning(true);
+		setError("");
+		try {
+			const next = await bleScan();
+			setBoards(next);
+			const pick = next.find((board) => board.matched)?.id ?? next[0]?.id ?? "";
+			setBoardId(pick);
+		} catch (caught) {
+			const message = caught instanceof Error ? caught.message : "scan failed";
+			console.error("gpio-companion-desktop wifi scan", message);
+			setError(message);
+		} finally {
+			setScanning(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		void scan();
+	}, [scan]);
+
 	async function send() {
 		setBusy(true);
 		setError("");
 		try {
-			const raw = await bleWifi({ uuid, ssid, psk });
+			const raw = await bleWifi({ uuid, ssid, psk, id: boardId });
 			setStatus(raw || "sent");
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "wifi failed";
@@ -65,6 +107,20 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 					</option>
 				))}
 			</Select>
+			<Select
+				name="board"
+				label="Nearby Bluetooth device"
+				value={boardId}
+				onSelect={(next) => setBoardId(next)}
+				sx={{ width: "100%" }}
+				disabled={boards.length === 0 || scanning || busy}
+			>
+				{boards.map((board) => (
+					<option key={board.id} value={board.id}>
+						{boardLabel(board)}
+					</option>
+				))}
+			</Select>
 			<TextField
 				label="SSID"
 				value={ssid}
@@ -79,8 +135,19 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			{status ? <Typography>{status}</Typography> : null}
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{error ? <DebugLog error={error} /> : null}
-			<Button variant="contained" disabled={busy} onClick={() => void send()}>
+			<Button
+				variant="contained"
+				disabled={busy || scanning || !uuid}
+				onClick={() => void send()}
+			>
 				Send to board
+			</Button>
+			<Button
+				variant="text"
+				disabled={busy || scanning}
+				onClick={() => void scan()}
+			>
+				Scan nearby
 			</Button>
 			<Button variant="text" onClick={onBack}>
 				Back
