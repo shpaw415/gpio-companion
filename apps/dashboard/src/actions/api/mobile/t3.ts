@@ -1,6 +1,10 @@
 "no action";
 
-import { readDeviceJson, signedDeviceFetch } from "../../../lib/device-api.ts";
+import {
+	readDeviceJson,
+	signedDeviceFetch,
+	signedT3Pair,
+} from "../../../lib/device-api.ts";
 import {
 	asString,
 	errorStatus,
@@ -63,16 +67,7 @@ export async function onRequestPost(ctx: MobileContext) {
 			throw new Error("device URL is missing");
 		}
 		if (action === "pair") {
-			return jsonOk(
-				await readDeviceJson(
-					await signedDeviceFetch(
-						ctx.env,
-						device.deviceUrl,
-						"POST",
-						"/v1/t3/pair",
-					),
-				),
-			);
+			return jsonOk(await signedT3Pair(ctx.env, device.deviceUrl));
 		}
 		throw new Error("unknown t3 action");
 	} catch (caught) {

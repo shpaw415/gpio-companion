@@ -133,7 +133,7 @@ async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 		} else if matched == 0 {
 			"No gpio-companion identified. Hold the Pi close and scan again, or pick the strongest nearby signal.".to_string()
 		} else {
-			format!("Found {matched} gpio-companion board(s). Select a device to pair with.")
+			format!("Found {matched} gpio-companion board(s). Select a device.")
 		},
 	);
 	Ok(boards)

@@ -20,7 +20,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [devices, setDevices] = useState<Device[]>([]);
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
 	const [uuid, setUuid] = useState("");
-	const [boardId, setBoardId] = useState("");
+	const [boardId, setBoardId] = useState("auto");
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
 	const [status, setStatus] = useState("");
@@ -46,7 +46,8 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		try {
 			const next = await bleScan();
 			setBoards(next);
-			const pick = next.find((board) => board.matched)?.id ?? next[0]?.id ?? "";
+			const pick =
+				next.find((board) => board.matched)?.id ?? next[0]?.id ?? "auto";
 			setBoardId(pick);
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "scan failed";
@@ -65,7 +66,12 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		setBusy(true);
 		setError("");
 		try {
-			const raw = await bleWifi({ uuid, ssid, psk, id: boardId });
+			const raw = await bleWifi({
+				uuid,
+				ssid,
+				psk,
+				id: boardId === "auto" ? "" : boardId,
+			});
 			setStatus(raw || "sent");
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "wifi failed";
@@ -80,6 +86,10 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
 				WiFi over Bluetooth
+			</Typography>
+			<Typography color="secondary">
+				Pick the Pi in Nearby Bluetooth device, or leave Auto-detect
+				and hold it close.
 			</Typography>
 			<Select
 				name="uuid"
@@ -103,13 +113,22 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				value={boardId}
 				onSelect={(next) => setBoardId(next)}
 				sx={{ width: "100%" }}
-				disabled={boards.length === 0 || scanning || busy}
+				disabled={scanning || busy}
 			>
-				{boards.map((board) => (
-					<option key={board.id} value={board.id}>
-						{nearbyBoardLabel(board)}
-					</option>
-				))}
+				{[
+					<option key="auto" value="auto">
+						{scanning
+							? "Scanning…"
+							: boards.length === 0
+								? "No nearby devices — scan again"
+								: "Auto-detect gpio-companion"}
+					</option>,
+					...boards.map((board) => (
+						<option key={board.id} value={board.id}>
+							{nearbyBoardLabel(board)}
+						</option>
+					)),
+				]}
 			</Select>
 			<TextField
 				label="SSID"

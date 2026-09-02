@@ -359,7 +359,10 @@ export async function handleDeviceRequest(
 		return json(secretsStatus(next));
 	}
 
-	if (method === "POST" && path === "/v1/t3/pair") {
+	if (
+		method === "POST" &&
+		(path === "/v1/t3/pair" || path === "/v1/t3/start")
+	) {
 		if (!t3) {
 			throw new Error("t3 is not configured");
 		}

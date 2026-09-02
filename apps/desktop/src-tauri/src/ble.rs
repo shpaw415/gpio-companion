@@ -212,10 +212,15 @@ fn for_picker(boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
 	if !matched.is_empty() {
 		return matched;
 	}
-	boards
-		.into_iter()
+	let candidates: Vec<NearbyBoard> = boards
+		.iter()
 		.filter(|board| frames::probe_candidate(&board.name, &board.id, false))
-		.collect()
+		.cloned()
+		.collect();
+	if !candidates.is_empty() {
+		return candidates;
+	}
+	boards
 }
 
 pub async fn scan_nearby(timeout_ms: u64) -> Result<Vec<NearbyBoard>, String> {
@@ -533,4 +538,52 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 
 pub async fn disconnect(peripheral: &Peripheral) {
 	let _ = peripheral.disconnect().await;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn board(id: &str, name: &str, matched: bool) -> NearbyBoard {
+		NearbyBoard {
+			id: id.to_string(),
+			name: name.to_string(),
+			rssi: None,
+			matched,
+			pairing_uuid: None,
+			hardware: None,
+		}
+	}
+
+	#[test]
+	fn picker_keeps_matched_gpio_companion() {
+		let boards = vec![
+			board("AA:AA:AA:AA:AA:AA", "WH-1000XM5", false),
+			board("C5:4E:5C:2B:26:02", "gpio-companion", true),
+		];
+		let picked = for_picker(boards);
+		assert_eq!(picked.len(), 1);
+		assert_eq!(picked[0].id, "C5:4E:5C:2B:26:02");
+	}
+
+	#[test]
+	fn picker_keeps_anonymous_when_nothing_matched() {
+		let boards = vec![
+			board("AA:AA:AA:AA:AA:AA", "WH-1000XM5", false),
+			board("42:B3:EF:4C:5B:CD", "", false),
+		];
+		let picked = for_picker(boards);
+		assert_eq!(picked.len(), 1);
+		assert_eq!(picked[0].id, "42:B3:EF:4C:5B:CD");
+	}
+
+	#[test]
+	fn picker_keeps_nearby_radios_when_nothing_gpio_like() {
+		let boards = vec![
+			board("AA:AA:AA:AA:AA:AA", "WH-1000XM5", false),
+			board("55:F2:60:27:56:C8", "JBL Flip 6 de", false),
+		];
+		let picked = for_picker(boards);
+		assert_eq!(picked.len(), 2);
+	}
 }

@@ -569,6 +569,13 @@ describe("gpio-companion-bin", () => {
 		);
 		expect(pairedBody.pairingToken).toBe("test");
 		expect(t3PairedCalls).toBe(1);
+
+		const started = await deviceFetch("v1/t3/start", {
+			method: "POST",
+			body: "",
+		});
+		expect(started.status).toBe(200);
+		expect(t3PairedCalls).toBe(2);
 	});
 
 	test("github token is loopback only", async () => {

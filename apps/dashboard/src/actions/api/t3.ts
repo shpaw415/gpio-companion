@@ -1,6 +1,10 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
 import { wrapAction } from "../../lib/action.ts";
-import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
+import {
+	readDeviceJson,
+	signedDeviceFetch,
+	signedT3Pair,
+} from "../../lib/device-api.ts";
 import { requireAccessibleDevice } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
@@ -55,9 +59,7 @@ export const POST = wrapAction(async function POST(
 		throw new Error("device URL is missing");
 	}
 	if (action === "pair") {
-		return readDeviceJson<{ pairingUrl: string; pairingToken: string }>(
-			await signedDeviceFetch(ctx.env, device.deviceUrl, "POST", "/v1/t3/pair"),
-		);
+		return signedT3Pair(ctx.env, device.deviceUrl);
 	}
 	throw new Error("unknown t3 action");
 });

@@ -86,3 +86,25 @@ export async function readDeviceJson<T>(response: Response): Promise<T> {
 	}
 	return (await response.json()) as T;
 }
+
+export type T3PairingResult = {
+	pairingUrl: string;
+	pairingToken: string;
+};
+
+export async function signedT3Pair(
+	env: DeviceSigningEnv,
+	deviceUrl: string,
+): Promise<T3PairingResult> {
+	const pair = await signedDeviceFetch(env, deviceUrl, "POST", "/v1/t3/pair");
+	if (pair.status !== 404) {
+		return readDeviceJson<T3PairingResult>(pair);
+	}
+	const start = await signedDeviceFetch(env, deviceUrl, "POST", "/v1/t3/start");
+	if (start.status === 404) {
+		throw new Error(
+			"T3 pairing is not available on this board yet. Wait for the companion update, then try again.",
+		);
+	}
+	return readDeviceJson<T3PairingResult>(start);
+}
