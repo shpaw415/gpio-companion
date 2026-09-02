@@ -15,8 +15,9 @@ use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct BleInfo {
-	#[allow(dead_code)]
 	pub uuid: String,
+	pub hardware: Option<String>,
+	pub name: Option<String>,
 	#[serde(rename = "deviceUrl")]
 	pub device_url: Option<String>,
 }
@@ -27,6 +28,9 @@ pub struct NearbyBoard {
 	pub name: String,
 	pub rssi: Option<i16>,
 	pub matched: bool,
+	#[serde(rename = "pairingUuid")]
+	pub pairing_uuid: Option<String>,
+	pub hardware: Option<String>,
 }
 
 fn parse_uuid(value: &str) -> Result<Uuid, String> {
@@ -89,13 +93,22 @@ fn upsert_nearby(map: &mut HashMap<String, NearbyBoard>, board: NearbyBoard) {
 	let key = board.id.replace(['-', '_'], ":").to_ascii_uppercase();
 	match map.get_mut(&key) {
 		Some(existing) => {
-			if existing.name.is_empty() && !board.name.is_empty() {
+			if (existing.name.is_empty()
+				|| frames::anonymous_ble_name(&existing.name, &existing.id))
+				&& !board.name.is_empty()
+			{
 				existing.name = board.name;
 			}
 			if existing.rssi.is_none() {
 				existing.rssi = board.rssi;
 			}
 			existing.matched |= board.matched;
+			if existing.pairing_uuid.is_none() {
+				existing.pairing_uuid = board.pairing_uuid;
+			}
+			if existing.hardware.is_none() {
+				existing.hardware = board.hardware;
+			}
 		}
 		None => {
 			map.insert(key, board);
@@ -109,16 +122,18 @@ fn from_props(
 	rssi: Option<i16>,
 	service_ids: &[&str],
 ) -> NearbyBoard {
-	let name = name.unwrap_or("").trim().to_string();
+	let raw_name = name.unwrap_or("").trim();
 	let matched = frames::matches_board(
-		(!name.is_empty()).then_some(name.as_str()),
+		(!raw_name.is_empty()).then_some(raw_name),
 		service_ids,
 	);
 	NearbyBoard {
+		name: frames::clean_ble_name(raw_name, &id),
 		id,
-		name,
 		rssi,
 		matched,
+		pairing_uuid: None,
+		hardware: None,
 	}
 }
 
@@ -169,8 +184,7 @@ async fn collect_bluez(map: &mut HashMap<String, NearbyBoard>) {
 	}
 }
 
-fn sorted_nearby(map: HashMap<String, NearbyBoard>) -> Vec<NearbyBoard> {
-	let mut boards: Vec<NearbyBoard> = map.into_values().collect();
+fn sort_boards(mut boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
 	boards.sort_by(|left, right| {
 		right
 			.matched
@@ -180,6 +194,25 @@ fn sorted_nearby(map: HashMap<String, NearbyBoard>) -> Vec<NearbyBoard> {
 			.then(left.id.cmp(&right.id))
 	});
 	boards
+}
+
+fn sorted_nearby(map: HashMap<String, NearbyBoard>) -> Vec<NearbyBoard> {
+	sort_boards(map.into_values().collect())
+}
+
+fn for_picker(boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
+	let matched: Vec<NearbyBoard> = boards
+		.iter()
+		.filter(|board| board.matched)
+		.cloned()
+		.collect();
+	if !matched.is_empty() {
+		return matched;
+	}
+	boards
+		.into_iter()
+		.filter(|board| frames::probe_candidate(&board.name, &board.id, false))
+		.collect()
 }
 
 pub async fn scan_nearby(timeout_ms: u64) -> Result<Vec<NearbyBoard>, String> {
@@ -250,8 +283,83 @@ pub async fn find_board(id: &str) -> Result<Peripheral, String> {
 	}
 }
 
+async fn probe_info(peripheral: &Peripheral) -> Option<BleInfo> {
+	let result = timeout(Duration::from_secs(4), read_info(peripheral)).await;
+	disconnect(peripheral).await;
+	match result {
+		Ok(Ok(info)) => Some(info),
+		Ok(Err(err)) => {
+			crate::log::line(&format!("bluetooth probe: {err}"));
+			None
+		}
+		Err(_) => {
+			crate::log::line("bluetooth probe timed out");
+			None
+		}
+	}
+}
+
+pub async fn identify_boards<F>(
+	mut boards: Vec<NearbyBoard>,
+	mut on_status: F,
+) -> Result<Vec<NearbyBoard>, String>
+where
+	F: FnMut(&str),
+{
+	let adapter = adapter().await?;
+	let mut candidates: Vec<NearbyBoard> = boards
+		.iter()
+		.filter(|board| frames::probe_candidate(&board.name, &board.id, board.matched))
+		.cloned()
+		.collect();
+	candidates.sort_by(|left, right| {
+		right
+			.rssi
+			.unwrap_or(i16::MIN)
+			.cmp(&left.rssi.unwrap_or(i16::MIN))
+	});
+	let mut found = boards.iter().filter(|board| board.matched).count();
+	for board in candidates.into_iter().take(6) {
+		if found >= 2 {
+			break;
+		}
+		on_status(&format!("Checking {}…", board.id));
+		crate::log::line(&format!("bluetooth probe {}", board.id));
+		let Some(peripheral) = peripheral_by_id(&adapter, &board.id).await? else {
+			continue;
+		};
+		let Some(info) = probe_info(&peripheral).await else {
+			continue;
+		};
+		found += 1;
+		if let Some(target) = boards
+			.iter_mut()
+			.find(|item| frames::same_ble_id(&item.id, &board.id))
+		{
+			target.matched = true;
+			let info_name = info.name.as_deref().unwrap_or("").trim();
+			target.name = if info_name.is_empty() {
+				"gpio-companion".to_string()
+			} else {
+				frames::clean_ble_name(info_name, &target.id)
+			};
+			if target.name.is_empty() {
+				target.name = "gpio-companion".to_string();
+			}
+			target.pairing_uuid = Some(info.uuid).filter(|value| !value.is_empty());
+			target.hardware = info
+				.hardware
+				.map(|value| value.trim().to_string())
+				.filter(|value| !value.is_empty());
+		}
+	}
+	sleep(Duration::from_millis(300)).await;
+	Ok(for_picker(sort_boards(boards)))
+}
+
 pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 	let boards = scan_nearby(timeout_ms).await?;
+	let boards = identify_boards(boards, |_| {}).await?;
 	let id = boards
 		.iter()
 		.find(|board| board.matched)

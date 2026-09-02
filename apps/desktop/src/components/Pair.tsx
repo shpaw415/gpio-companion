@@ -4,19 +4,14 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
-import { blePair, bleScan, type NearbyBoard, onBleStatus } from "../api";
+import {
+	blePair,
+	bleScan,
+	type NearbyBoard,
+	nearbyBoardLabel,
+	onBleStatus,
+} from "../api";
 import DebugLog from "./DebugLog";
-
-function boardLabel(board: NearbyBoard) {
-	const name = board.name.trim();
-	if (board.matched) {
-		return name || board.id;
-	}
-	if (name && name !== board.id) {
-		return `${name} — ${board.id}`;
-	}
-	return board.id;
-}
 
 export default function Pair({ onBack }: { onBack: () => void }) {
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
@@ -80,8 +75,8 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 				Pair a board
 			</Typography>
 			<Typography color="secondary">
-				Automatic discovery misses some Pi adverts. Scan nearby Bluetooth
-				devices and select the board to pair with.
+				Hold the Pi close. Unnamed radios are checked over GATT so
+				gpio-companion shows up by name, not as a MAC address.
 			</Typography>
 			<Select
 				name="board"
@@ -93,7 +88,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			>
 				{boards.map((board) => (
 					<option key={board.id} value={board.id}>
-						{boardLabel(board)}
+						{nearbyBoardLabel(board)}
 					</option>
 				))}
 			</Select>

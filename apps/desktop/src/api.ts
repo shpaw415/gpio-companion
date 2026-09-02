@@ -25,7 +25,21 @@ export type NearbyBoard = {
 	name: string;
 	rssi: number | null;
 	matched: boolean;
+	pairingUuid?: string | null;
+	hardware?: string | null;
 };
+
+export function nearbyBoardLabel(board: NearbyBoard) {
+	if (board.matched) {
+		const name = board.name.trim() || "gpio-companion";
+		const extra = board.hardware?.trim() || board.pairingUuid?.slice(0, 8);
+		return extra ? `${name} (${extra})` : name;
+	}
+	if (board.rssi != null) {
+		return `Nearby ${board.rssi} dBm — ${board.id}`;
+	}
+	return board.id;
+}
 
 async function call<T>(
 	cmd: string,

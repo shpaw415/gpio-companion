@@ -11,20 +11,10 @@ import {
 	type Device,
 	listDevices,
 	type NearbyBoard,
+	nearbyBoardLabel,
 	onBleStatus,
 } from "../api";
 import DebugLog from "./DebugLog";
-
-function boardLabel(board: NearbyBoard) {
-	const name = board.name.trim();
-	if (board.matched) {
-		return name || board.id;
-	}
-	if (name && name !== board.id) {
-		return `${name} — ${board.id}`;
-	}
-	return board.id;
-}
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [devices, setDevices] = useState<Device[]>([]);
@@ -117,7 +107,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			>
 				{boards.map((board) => (
 					<option key={board.id} value={board.id}>
-						{boardLabel(board)}
+						{nearbyBoardLabel(board)}
 					</option>
 				))}
 			</Select>

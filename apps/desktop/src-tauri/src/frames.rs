@@ -34,6 +34,44 @@ pub fn same_ble_id(left: &str, right: &str) -> bool {
 	left == right || norm(left) == norm(right)
 }
 
+pub fn looks_like_mac(value: &str) -> bool {
+	let hex: String = value
+		.chars()
+		.filter(|ch| ch.is_ascii_hexdigit())
+		.collect();
+	if hex.len() != 12 {
+		return false;
+	}
+	value
+		.chars()
+		.filter(|ch| !ch.is_ascii_hexdigit())
+		.all(|ch| matches!(ch, ':' | '-' | '_'))
+}
+
+pub fn anonymous_ble_name(name: &str, id: &str) -> bool {
+	let name = name.trim();
+	name.is_empty() || same_ble_id(name, id) || looks_like_mac(name)
+}
+
+pub fn clean_ble_name(name: &str, id: &str) -> String {
+	if anonymous_ble_name(name, id) {
+		String::new()
+	} else {
+		name.trim().to_string()
+	}
+}
+
+pub fn probe_candidate(name: &str, id: &str, matched: bool) -> bool {
+	if matched {
+		return false;
+	}
+	if anonymous_ble_name(name, id) {
+		return true;
+	}
+	let lower = name.to_ascii_lowercase();
+	lower.contains("gpio") || lower.contains("orangepi") || lower.contains("raspberry")
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -83,5 +121,20 @@ mod tests {
 			"AA_BB_CC_DD_EE_FF"
 		));
 		assert!(!same_ble_id("AA:BB:CC:DD:EE:FF", "00:11:22:33:44:55"));
+	}
+
+	#[test]
+	fn treats_mac_aliases_as_anonymous() {
+		assert!(looks_like_mac("1E-52-1E-18-26-4B"));
+		assert!(looks_like_mac("1E:52:1E:18:26:4B"));
+		assert!(!looks_like_mac("gpio-companion"));
+		assert!(anonymous_ble_name("1E-52-1E-18-26-4B", "1E:52:1E:18:26:4B"));
+		assert_eq!(
+			clean_ble_name("1E-52-1E-18-26-4B", "1E:52:1E:18:26:4B"),
+			""
+		);
+		assert!(probe_candidate("", "AA:BB:CC:DD:EE:FF", false));
+		assert!(probe_candidate("orangepi3-lts", "AA:BB:CC:DD:EE:FF", false));
+		assert!(!probe_candidate("WH-1000XM5", "80:99:E7:50:D5:75", false));
 	}
 }

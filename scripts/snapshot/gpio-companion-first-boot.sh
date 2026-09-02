@@ -21,8 +21,14 @@ apt-get install -y --no-install-recommends git ca-certificates
 
 if [[ ! -d "$DEST/.git" ]]; then
 	git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$DEST"
+elif [[ -f "$DEST/scripts/lib.sh" ]]; then
+	# shellcheck source=../lib.sh
+	source "$DEST/scripts/lib.sh"
+	REPO_ROOT="$DEST"
+	sync_managed_checkout "$DEST" "$BRANCH" || true
 else
-	git -C "$DEST" fetch origin "$BRANCH" || true
+	find "$DEST/.git/objects" -type f -empty -delete 2>/dev/null || true
+	git -C "$DEST" fetch --depth 1 origin "$BRANCH" || true
 	git -C "$DEST" checkout "$BRANCH" || true
 fi
 

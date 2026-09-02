@@ -98,7 +98,7 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 
 `scripts/update-script.sh` (timer):
 
-- `git fetch` + `reset --hard origin/<branch>` (`/etc/gpio-companion/branch` or `main`)
+- Corruption guard then `git fetch --depth 1` + `reset --hard origin/<branch>` (`/etc/gpio-companion/branch` or `main`): prune empty git objects, retry, reclone `.git` if still corrupt
 - Copies `opencode/skills` and `opencode/preferences` into the device OpenCode config
 - Fetches `GET /api/device-public-key` and writes `/etc/gpio-companion/device-auth.json` if it changed
 - Rebuilds/restarts `gpio-companion` if `binary/`, `packages/core/`, the unit file, or lockfile changed, or if the registered public key changed

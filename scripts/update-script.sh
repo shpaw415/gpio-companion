@@ -25,25 +25,18 @@ fi
 
 cd "$REPO_ROOT"
 
-before="$(git rev-parse HEAD)"
+before="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 branch="main"
 if [[ -f "$CONFIG_DIR/branch" ]]; then
 	branch="$(cat "$CONFIG_DIR/branch")"
 fi
 
-if git remote get-url origin >/dev/null 2>&1; then
-	if ! git fetch origin; then
-		echo "gpio-companion update: fetch failed, using current tree" >&2
-	elif git rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
-		git reset --hard "origin/$branch"
-	else
-		echo "gpio-companion update: origin/$branch not found" >&2
-	fi
-else
-	echo "gpio-companion update: no origin remote, skipping pull"
+if ! sync_managed_checkout "$REPO_ROOT" "$branch"; then
+	echo "gpio-companion update: git sync failed" >&2
+	exit 1
 fi
 
-after="$(git rev-parse HEAD)"
+after="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 echo "gpio-companion update: $before -> $after"
 
 sync_opencode_agent
@@ -60,6 +53,12 @@ paths_changed() {
 	fi
 	if [[ "$before" == "$after" ]]; then
 		return 1
+	fi
+	if [[ "$before" == "unknown" || "$after" == "unknown" ]]; then
+		return 0
+	fi
+	if ! git cat-file -e "$before" >/dev/null 2>&1 || ! git cat-file -e "$after" >/dev/null 2>&1; then
+		return 0
 	fi
 	git diff --name-only "$before" "$after" | grep -Eq "$pattern"
 }

@@ -194,6 +194,137 @@ GPIO_COMPANION_DASHBOARD_URL=$(dashboard_url)
 EOF
 }
 
+git_dir_for() {
+	local root="${1:-$REPO_ROOT}" gitdir
+	gitdir="$(git -C "$root" rev-parse --git-dir 2>/dev/null || true)"
+	if [[ -z "$gitdir" && -d "$root/.git" ]]; then
+		gitdir="$root/.git"
+	fi
+	if [[ -z "$gitdir" ]]; then
+		return 1
+	fi
+	if [[ "$gitdir" != /* ]]; then
+		gitdir="$root/$gitdir"
+	fi
+	printf '%s' "$gitdir"
+}
+
+origin_url_for() {
+	local root="${1:-$REPO_ROOT}" gitdir
+	git -C "$root" remote get-url origin 2>/dev/null && return 0
+	gitdir="$(git_dir_for "$root")" || return 1
+	git config --file "$gitdir/config" --get remote.origin.url
+}
+
+prune_empty_git_objects() {
+	local root="${1:-$REPO_ROOT}" gitdir objects f base
+	gitdir="$(git_dir_for "$root")" || return 0
+	objects="$gitdir/objects"
+	if [[ ! -d "$objects" ]]; then
+		mkdir -p "$objects/info" "$objects/pack"
+		return 0
+	fi
+	while IFS= read -r -d '' f; do
+		rm -f "$f"
+		if [[ "$f" == *.pack || "$f" == *.idx ]]; then
+			base="${f%.pack}"
+			base="${base%.idx}"
+			rm -f "${base}.pack" "${base}.idx"
+		fi
+	done < <(find "$objects" -type f -empty -print0 2>/dev/null || true)
+}
+
+git_checkout_corrupt() {
+	local root="${1:-$REPO_ROOT}" gitdir objects
+	gitdir="$(git_dir_for "$root")" || return 0
+	objects="$gitdir/objects"
+	if [[ ! -d "$objects" ]]; then
+		return 0
+	fi
+	if [[ -n "$(find "$objects" -type f -empty -print -quit 2>/dev/null)" ]]; then
+		return 0
+	fi
+	if ! git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
+		return 0
+	fi
+	if ! git -C "$root" cat-file -e HEAD^{commit} >/dev/null 2>&1; then
+		return 0
+	fi
+	return 1
+}
+
+configure_lowmem_git() {
+	local root="${1:-$REPO_ROOT}"
+	git -C "$root" config --local pack.windowMemory 32m 2>/dev/null || true
+	git -C "$root" config --local pack.threads 1 2>/dev/null || true
+	git -C "$root" config --local pack.deltaCacheSize 16m 2>/dev/null || true
+}
+
+fetch_managed_checkout() {
+	local root="$1" branch="$2"
+	configure_lowmem_git "$root"
+	git -C "$root" fetch --depth 1 origin "$branch"
+}
+
+reset_managed_checkout() {
+	local root="$1" branch="$2"
+	if git -C "$root" rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
+		git -C "$root" reset --hard "origin/$branch"
+	elif git -C "$root" rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+		git -C "$root" reset --hard FETCH_HEAD
+	else
+		return 1
+	fi
+}
+
+reclone_managed_checkout() {
+	local root="$1" branch="$2" url parent tmp
+	url="$(origin_url_for "$root")"
+	parent="$(dirname "$root")"
+	tmp="$(mktemp -d "$parent/.gpio-companion-reclone.XXXXXX")"
+	if ! git clone --depth 1 --branch "$branch" "$url" "$tmp/repo"; then
+		rm -rf "$tmp"
+		return 1
+	fi
+	rm -rf "$root/.git"
+	mv "$tmp/repo/.git" "$root/.git"
+	rm -rf "$tmp"
+	configure_lowmem_git "$root"
+	reset_managed_checkout "$root" "$branch"
+}
+
+sync_managed_checkout() {
+	local root="${1:-$REPO_ROOT}" branch="${2:-main}" attempt
+	if [[ -z "$(origin_url_for "$root" 2>/dev/null || true)" ]]; then
+		echo "gpio-companion update: no origin remote, skipping pull" >&2
+		return 0
+	fi
+	if git_checkout_corrupt "$root"; then
+		echo "gpio-companion update: git corruption detected, repairing" >&2
+	fi
+	prune_empty_git_objects "$root"
+	configure_lowmem_git "$root"
+	attempt=0
+	while [[ "$attempt" -lt 2 ]]; do
+		attempt=$((attempt + 1))
+		if fetch_managed_checkout "$root" "$branch" && reset_managed_checkout "$root" "$branch"; then
+			return 0
+		fi
+		echo "gpio-companion update: fetch failed, repairing git objects" >&2
+		prune_empty_git_objects "$root"
+	done
+	echo "gpio-companion update: fetch failed after repair, recloning" >&2
+	if reclone_managed_checkout "$root" "$branch"; then
+		return 0
+	fi
+	echo "gpio-companion update: fetch failed, using current tree" >&2
+	if git_checkout_corrupt "$root"; then
+		echo "gpio-companion update: git still corrupt" >&2
+		return 1
+	fi
+	return 0
+}
+
 dashboard_url() {
 	local origin="${GPIO_COMPANION_DASHBOARD_URL:-$DEFAULT_DASHBOARD_URL}"
 	origin="${origin%/}"

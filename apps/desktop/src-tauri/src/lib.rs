@@ -118,14 +118,20 @@ async fn devices_unpair(uuid: String) -> Result<Value, String> {
 #[tauri::command]
 async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 	emit_status(&app, "Scanning…");
-	let boards = ble::scan_nearby(10_000).await?;
+	let boards = ble::scan_nearby(8_000).await?;
+	emit_status(&app, "Identifying gpio-companion…");
+	let status_app = app.clone();
+	let boards = ble::identify_boards(boards, move |message| {
+		emit_status(&status_app, message)
+	})
+	.await?;
 	let matched = boards.iter().filter(|board| board.matched).count();
 	emit_status(
 		&app,
 		&if boards.is_empty() {
 			"No nearby Bluetooth devices".to_string()
 		} else if matched == 0 {
-			format!("Found {} nearby. Select a device to pair with.", boards.len())
+			"No gpio-companion identified. Hold the Pi close and scan again, or pick the strongest nearby signal.".to_string()
 		} else {
 			format!("Found {matched} gpio-companion board(s). Select a device to pair with.")
 		},
