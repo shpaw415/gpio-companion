@@ -10,6 +10,7 @@ import DeviceBoardCard, {
 	type DeviceStatus,
 } from "../../components/DeviceBoardCard.tsx";
 import SectionHub, { SectionHeader } from "../../components/Section.tsx";
+import { BoardCardSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
@@ -20,31 +21,38 @@ export default function DevicesPage() {
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [boards, setBoards] = useState<BoardView[]>([]);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		if (!session.data?.id) {
 			setBoards([]);
+			setLoading(false);
 			return;
 		}
-		void run(getPairing()).then(async (result) => {
-			if (!result?.paired) {
-				setBoards([]);
-				return;
-			}
-			const device = await run(getDevice());
-			if (device?.paired) {
-				setBoards(
-					device.devices.map((item) => ({
-						device: item.device,
-						status: item.status as DeviceStatus | null,
-					})),
-				);
-			} else {
-				setBoards(
-					result.devices.map((item) => ({ device: item, status: null })),
-				);
-			}
-		});
+		setLoading(true);
+		void run(getPairing())
+			.then(async (result) => {
+				if (!result?.paired) {
+					setBoards([]);
+					return;
+				}
+				const device = await run(getDevice());
+				if (device?.paired) {
+					setBoards(
+						device.devices.map((item) => ({
+							device: item.device,
+							status: item.status as DeviceStatus | null,
+						})),
+					);
+				} else {
+					setBoards(
+						result.devices.map((item) => ({ device: item, status: null })),
+					);
+				}
+			})
+			.finally(() => {
+				setLoading(false);
+			});
 	}, [session.data?.id, run]);
 
 	useEffect(() => {
@@ -74,7 +82,14 @@ export default function DevicesPage() {
 				</Alert>
 			) : null}
 
-			{loggedIn && boards.length === 0 ? (
+			{loggedIn && loading ? (
+				<>
+					<BoardCardSkeleton />
+					<BoardCardSkeleton />
+				</>
+			) : null}
+
+			{loggedIn && !loading && boards.length === 0 ? (
 				<Alert severity="info">
 					<Button href="/devices/pair" variant="text">
 						Pair a board

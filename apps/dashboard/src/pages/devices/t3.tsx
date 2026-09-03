@@ -7,6 +7,7 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useRef, useState } from "react";
 import DeviceSelect from "../../components/DeviceSelect.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
+import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
@@ -27,18 +28,25 @@ export default function T3Page() {
 	uuidRef.current = uuid;
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [devices, setDevices] = useState<StoredPairing[]>([]);
+	const [loading, setLoading] = useState(true);
 	const src = t3AppUrl(uuid);
 
 	useEffect(() => {
 		if (!session.data?.id) {
 			setDevices([]);
+			setLoading(false);
 			return;
 		}
-		void run(getPairing()).then((result) => {
-			const next = result?.devices ?? [];
-			setDevices(next);
-			setUuid(pickT3DeviceUuid(next, uuidRef.current));
-		});
+		setLoading(true);
+		void run(getPairing())
+			.then((result) => {
+				const next = result?.devices ?? [];
+				setDevices(next);
+				setUuid(pickT3DeviceUuid(next, uuidRef.current));
+			})
+			.finally(() => {
+				setLoading(false);
+			});
 	}, [session.data?.id, run, setUuid]);
 
 	return (
@@ -64,7 +72,9 @@ export default function T3Page() {
 				</Alert>
 			) : null}
 
-			{loggedIn && devices.length === 0 ? (
+			{loggedIn && loading ? <SelectSkeleton /> : null}
+
+			{loggedIn && !loading && devices.length === 0 ? (
 				<Alert severity="info">
 					<Button href="/devices/pair" variant="text">
 						Pair a board

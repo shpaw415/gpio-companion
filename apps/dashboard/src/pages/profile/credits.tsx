@@ -2,6 +2,7 @@ import { GET as getCredits, POST as grantCredits } from "@api/credits";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
@@ -13,18 +14,22 @@ import { formatUsd } from "../../lib/credits.ts";
 export default function CreditsPage() {
 	const session = useAuthSession();
 	const [micros, setMicros] = useState<number | null>(null);
+	const [creditsLoading, setCreditsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState("");
 
 	useEffect(() => {
 		if (!session.data?.id) {
+			setCreditsLoading(false);
 			return;
 		}
+		setCreditsLoading(true);
 		void getCredits()
 			.then((result) => setMicros(unwrapAction(result).micros))
 			.catch((caught: unknown) => {
 				setError(caught instanceof Error ? caught.message : "load failed");
-			});
+			})
+			.finally(() => setCreditsLoading(false));
 	}, [session.data?.id]);
 
 	if (!session.data?.id && !session.data?.email) {
@@ -48,9 +53,13 @@ export default function CreditsPage() {
 			</Typography>
 			<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 				<Stack spacing={2}>
-					<Typography variant="h5">
-						{micros === null ? "…" : formatUsd(micros)}
-					</Typography>
+					{creditsLoading ? (
+						<Skeleton variant="rounded" height={30} width={130} />
+					) : (
+						<Typography variant="h5">
+							{micros === null ? "…" : formatUsd(micros)}
+						</Typography>
+					)}
 					<Button
 						variant="contained"
 						className="w-full min-[900px]:w-auto"

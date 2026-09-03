@@ -22,6 +22,7 @@ import {
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect from "./DeviceSelect.tsx";
+import { SelectSkeleton } from "./skeletons.tsx";
 
 type Status = "idle" | "connecting" | "sending" | "success" | "error";
 
@@ -37,6 +38,7 @@ export default function WifiBleForm() {
 	const [psk, setPsk] = useState("");
 	const [uuid, setUuid] = useState("");
 	const [devices, setDevices] = useState<StoredPairing[]>([]);
+	const [devicesLoading, setDevicesLoading] = useState(true);
 	const [status, setStatus] = useState<Status>("idle");
 	const [message, setMessage] = useState("");
 	const [pasteText, setPasteText] = useState("");
@@ -45,18 +47,24 @@ export default function WifiBleForm() {
 		if (!session.data?.id) {
 			setDevices([]);
 			setUuid("");
+			setDevicesLoading(false);
 			return;
 		}
-		void run(getPairing()).then((result) => {
-			const next = result?.devices ?? [];
-			setDevices(next);
-			setUuid((current) => {
-				if (current && next.some((device) => device.uuid === current)) {
-					return current;
-				}
-				return next[0]?.uuid ?? "";
+		setDevicesLoading(true);
+		void run(getPairing())
+			.then((result) => {
+				const next = result?.devices ?? [];
+				setDevices(next);
+				setUuid((current) => {
+					if (current && next.some((device) => device.uuid === current)) {
+						return current;
+					}
+					return next[0]?.uuid ?? "";
+				});
+			})
+			.finally(() => {
+				setDevicesLoading(false);
 			});
-		});
 	}, [session.data?.id, run]);
 
 	if (!session.data?.id && !session.data?.email) {
@@ -151,7 +159,9 @@ export default function WifiBleForm() {
 							native gpio-companion app will replace this later.
 						</Alert>
 					)}
-					{devices.length === 0 ? (
+					{devicesLoading ? (
+						<SelectSkeleton />
+					) : devices.length === 0 ? (
 						<Alert severity="info">
 							<Button href="/devices/pair" variant="text">
 								Pair a board

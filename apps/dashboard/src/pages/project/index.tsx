@@ -8,6 +8,7 @@ import Stepper, { Step, StepLabel } from "@shpaw415/mui-lite/Stepper";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import { SectionHeader } from "../../components/Section.tsx";
+import { LinesSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import useMobile from "../../hooks/useMobile.ts";
@@ -43,17 +44,24 @@ export default function ProjectPage() {
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [paired, setPaired] = useState(false);
 	const [githubReady, setGithubReady] = useState(false);
+	const [pairingLoading, setPairingLoading] = useState(true);
 
 	useEffect(() => {
 		const userId = session.data?.id;
 		if (!userId) {
 			setPaired(false);
 			setGithubReady(false);
+			setPairingLoading(false);
 			return;
 		}
-		void run(getPairing()).then((result) => {
-			setPaired((result?.devices ?? []).length > 0);
-		});
+		setPairingLoading(true);
+		void run(getPairing())
+			.then((result) => {
+				setPaired((result?.devices ?? []).length > 0);
+			})
+			.finally(() => {
+				setPairingLoading(false);
+			});
 	}, [session.data?.id, run]);
 
 	const step = !loggedIn ? 0 : !paired ? 1 : !githubReady ? 2 : 3;
@@ -68,29 +76,35 @@ export default function ProjectPage() {
 				</Typography>
 			</SectionHeader>
 
-			{step < 3 ? (
+			{step < 3 || pairingLoading ? (
 				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
 					<Stack spacing={3}>
 						<Typography variant="h6">Set up your board</Typography>
-						<Stepper
-							activeStep={step}
-							alternativeLabel={!mobile}
-							orientation={mobile ? "vertical" : "horizontal"}
-						>
-							{STEPS.map((label, index) => (
-								<Step key={label} completed={step > index}>
-									<StepLabel>{label}</StepLabel>
-								</Step>
-							))}
-						</Stepper>
-						{next ? (
-							<Box className="flex flex-wrap items-center justify-between gap-4">
-								<Typography color="secondary">{next.hint}</Typography>
-								<Button href={next.href} variant="contained">
-									{next.label}
-								</Button>
-							</Box>
-						) : null}
+						{pairingLoading ? (
+							<LinesSkeleton lines={2} />
+						) : (
+							<>
+								<Stepper
+									activeStep={step}
+									alternativeLabel={!mobile}
+									orientation={mobile ? "vertical" : "horizontal"}
+								>
+									{STEPS.map((label, index) => (
+										<Step key={label} completed={step > index}>
+											<StepLabel>{label}</StepLabel>
+										</Step>
+									))}
+								</Stepper>
+								{next ? (
+									<Box className="flex flex-wrap items-center justify-between gap-4">
+										<Typography color="secondary">{next.hint}</Typography>
+										<Button href={next.href} variant="contained">
+											{next.label}
+										</Button>
+									</Box>
+								) : null}
+							</>
+						)}
 					</Stack>
 				</Paper>
 			) : null}

@@ -6,6 +6,7 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import DeviceDebugPanel from "../../components/DeviceDebugPanel.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
+import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { isAdmin } from "../../lib/auth/role.ts";
@@ -17,15 +18,22 @@ export default function DeviceDebugPage() {
 	const admin = isAdmin(session.data?.role);
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [devices, setDevices] = useState<DebugBoard[]>([]);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		if (!session.data?.id) {
 			setDevices([]);
+			setLoading(false);
 			return;
 		}
-		void run(listDebugDevices()).then((result) => {
-			setDevices(result?.devices ?? []);
-		});
+		setLoading(true);
+		void run(listDebugDevices())
+			.then((result) => {
+				setDevices(result?.devices ?? []);
+			})
+			.finally(() => {
+				setLoading(false);
+			});
 	}, [session.data?.id, run]);
 
 	const options = useMemo(
@@ -65,7 +73,9 @@ export default function DeviceDebugPage() {
 				</Alert>
 			) : null}
 
-			{loggedIn && devices.length === 0 ? (
+			{loggedIn && loading ? <SelectSkeleton /> : null}
+
+			{loggedIn && !loading && devices.length === 0 ? (
 				<Alert severity="info">
 					{admin
 						? "No live companions. A board appears here when gpio-companion serve pings the dashboard."

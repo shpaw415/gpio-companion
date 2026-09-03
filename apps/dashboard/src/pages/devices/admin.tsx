@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import CopyBlock from "../../components/CopyBlock.tsx";
 import DeviceLabelField from "../../components/DeviceLabelField.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
+import { TableRowsSkeleton } from "../../components/skeletons.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
@@ -61,6 +62,7 @@ export default function AdminDevicesPage() {
 	const mobile = useMobile();
 	const admin = isAdmin(session.data?.role);
 	const [boards, setBoards] = useState<BoardView[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [selected, setSelected] = useState("");
 	const [query, setQuery] = useState("");
 	const [page, setPage] = useState(0);
@@ -90,9 +92,13 @@ export default function AdminDevicesPage() {
 	useEffect(() => {
 		if (!session.data?.id || !admin) {
 			setBoards([]);
+			setLoading(false);
 			return;
 		}
-		void run(listAdminDevices()).then(applyList);
+		setLoading(true);
+		void run(listAdminDevices())
+			.then(applyList)
+			.finally(() => setLoading(false));
 	}, [session.data?.id, admin, run, applyList]);
 
 	const filtered = useMemo(() => {
@@ -184,72 +190,77 @@ export default function AdminDevicesPage() {
 										</TableRow>
 									</TableHead>
 									<TableBody>
-										{paged.map((board) => (
-											<TableRow
-												key={board.device.uuid}
-												hover
-												selected={selected === board.device.uuid}
-												onClick={() => {
-													setSelected(board.device.uuid);
-													setPasteText("");
-												}}
-											>
-												<TableCell className="break-all">
-													{board.device.label || "—"}
-												</TableCell>
-												{mobile ? null : (
+										{loading ? (
+											<TableRowsSkeleton rows={5} columns={mobile ? 3 : 5} />
+										) : (
+											paged.map((board) => (
+												<TableRow
+													key={board.device.uuid}
+													hover
+													selected={selected === board.device.uuid}
+													onClick={() => {
+														setSelected(board.device.uuid);
+														setPasteText("");
+													}}
+												>
 													<TableCell className="break-all">
-														{board.device.uuid}
+														{board.device.label || "—"}
 													</TableCell>
-												)}
-												<TableCell className="break-all">
-													{board.device.email ||
-														board.device.login ||
-														board.device.userId}
-												</TableCell>
-												{mobile ? null : (
+													{mobile ? null : (
+														<TableCell className="break-all">
+															{board.device.uuid}
+														</TableCell>
+													)}
 													<TableCell className="break-all">
-														{board.device.deviceUrl}
+														{board.device.email ||
+															board.device.login ||
+															board.device.userId}
 													</TableCell>
-												)}
-												<TableCell>
-													{board.status ? (
-														<Stack
-															direction="row"
-															spacing={1}
-															className="flex-wrap"
-														>
-															{board.status.model || board.status.hardware ? (
+													{mobile ? null : (
+														<TableCell className="break-all">
+															{board.device.deviceUrl}
+														</TableCell>
+													)}
+													<TableCell>
+														{board.status ? (
+															<Stack
+																direction="row"
+																spacing={1}
+																className="flex-wrap"
+															>
+																{board.status.model || board.status.hardware ? (
+																	<Chip
+																		label={
+																			board.status.model ||
+																			board.status.hardware
+																		}
+																		variant="outlined"
+																	/>
+																) : null}
 																<Chip
 																	label={
-																		board.status.model || board.status.hardware
+																		board.status.t3?.paired
+																			? "T3 paired"
+																			: board.status.t3?.running
+																				? "T3 running"
+																				: "T3 idle"
 																	}
 																	variant="outlined"
 																/>
-															) : null}
-															<Chip
-																label={
-																	board.status.t3?.paired
-																		? "T3 paired"
-																		: board.status.t3?.running
-																			? "T3 running"
-																			: "T3 idle"
-																}
-																variant="outlined"
-															/>
-														</Stack>
-													) : (
-														<Typography color="secondary" variant="body2">
-															offline
-														</Typography>
-													)}
-												</TableCell>
-											</TableRow>
-										))}
+															</Stack>
+														) : (
+															<Typography color="secondary" variant="body2">
+																offline
+															</Typography>
+														)}
+													</TableCell>
+												</TableRow>
+											))
+										)}
 									</TableBody>
 								</Table>
 							</TableContainer>
-							{filtered.length === 0 ? (
+							{loading ? null : filtered.length === 0 ? (
 								<Typography color="secondary">No boards.</Typography>
 							) : (
 								<TablePagination

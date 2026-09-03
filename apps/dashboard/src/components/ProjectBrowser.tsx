@@ -24,6 +24,7 @@ import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
+import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
 
 export default function ProjectBrowser({
 	onConfigured,
@@ -32,6 +33,8 @@ export default function ProjectBrowser({
 }) {
 	const [configured, setConfigured] = useState(true);
 	const [repos, setRepos] = useState<GithubRepo[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [loadingRepo, setLoadingRepo] = useState(false);
 	const [error, setError] = useState("");
 	const [bundle, setBundle] = useState<ProjectBundle | null>(null);
 	const [pcbJson, setPcbJson] = useState<string | null>(null);
@@ -54,6 +57,9 @@ export default function ProjectBrowser({
 				setError(
 					err instanceof Error ? err.message : "failed to list projects",
 				);
+			})
+			.finally(() => {
+				setLoading(false);
 			});
 	}, [onConfigured]);
 
@@ -86,6 +92,7 @@ export default function ProjectBrowser({
 		setError("");
 		setPcbJson(null);
 		setBreadboardJson(null);
+		setLoadingRepo(true);
 		try {
 			const next = unwrapAction(await loadProject(repo.owner, repo.name));
 			setBundle(next);
@@ -108,6 +115,8 @@ export default function ProjectBrowser({
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "failed to load project");
+		} finally {
+			setLoadingRepo(false);
 		}
 	}
 
@@ -127,7 +136,10 @@ export default function ProjectBrowser({
 					<Stack
 						direction={mobile ? "column" : "row"}
 						spacing={2}
-						sx={{ flexWrap: "wrap", alignItems: mobile ? "stretch" : "flex-end" }}
+						sx={{
+							flexWrap: "wrap",
+							alignItems: mobile ? "stretch" : "flex-end",
+						}}
 					>
 						<TextField
 							label="Filter"
@@ -167,28 +179,33 @@ export default function ProjectBrowser({
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{paged.map((repo) => (
-									<TableRow
-										key={repo.full_name}
-										hover
-										selected={
-											bundle?.owner === repo.owner && bundle?.repo === repo.name
-										}
-										onClick={() => void openRepo(repo)}
-									>
-										<TableCell className="break-all">{repo.name}</TableCell>
-										<TableCell className="break-all">{repo.owner}</TableCell>
-										{mobile ? null : (
-											<TableCell className="break-all">
-												{repo.full_name}
-											</TableCell>
-										)}
-									</TableRow>
-								))}
+								{loading ? (
+									<TableRowsSkeleton rows={5} columns={mobile ? 2 : 3} />
+								) : (
+									paged.map((repo) => (
+										<TableRow
+											key={repo.full_name}
+											hover
+											selected={
+												bundle?.owner === repo.owner &&
+												bundle?.repo === repo.name
+											}
+											onClick={() => void openRepo(repo)}
+										>
+											<TableCell className="break-all">{repo.name}</TableCell>
+											<TableCell className="break-all">{repo.owner}</TableCell>
+											{mobile ? null : (
+												<TableCell className="break-all">
+													{repo.full_name}
+												</TableCell>
+											)}
+										</TableRow>
+									))
+								)}
 							</TableBody>
 						</Table>
 					</TableContainer>
-					{filtered.length === 0 ? (
+					{loading ? null : filtered.length === 0 ? (
 						<Typography color="secondary">No matching repos.</Typography>
 					) : (
 						<TablePagination
@@ -206,7 +223,12 @@ export default function ProjectBrowser({
 			</Paper>
 			<Stack spacing={3}>
 				{error ? <Alert severity="error">{error}</Alert> : null}
-				{bundle ? (
+				{loadingRepo ? (
+					<>
+						<PreviewSkeleton />
+						<PreviewSkeleton />
+					</>
+				) : bundle ? (
 					<>
 						<PcbViewer
 							circuitJsonText={pcbJson}

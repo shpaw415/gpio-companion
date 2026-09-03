@@ -3,6 +3,7 @@ import { GET as getPairing } from "@api/pair";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
@@ -16,24 +17,34 @@ export default function KeysForm() {
 	const { run } = useActionError();
 	const [login, setLogin] = useState("");
 	const [installUrl, setInstallUrl] = useState("");
+	const [checking, setChecking] = useState(true);
 	const [devices, setDevices] = useState<StoredPairing[]>([]);
+	const [devicesLoading, setDevicesLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState("");
 
 	useEffect(() => {
 		if (!session.data?.id) {
 			setDevices([]);
+			setDevicesLoading(false);
 			return;
 		}
-		void run(getPairing()).then((result) => {
-			setDevices(result?.devices ?? []);
-		});
+		setDevicesLoading(true);
+		void run(getPairing())
+			.then((result) => {
+				setDevices(result?.devices ?? []);
+			})
+			.finally(() => {
+				setDevicesLoading(false);
+			});
 	}, [session.data?.id, run]);
 
 	useEffect(() => {
 		if (!session.data?.id) {
+			setChecking(false);
 			return;
 		}
+		setChecking(true);
 		const params = new URLSearchParams(window.location.search);
 		const installationId = params.get("installation_id");
 		const state = params.get("state") ?? "";
@@ -53,7 +64,11 @@ export default function KeysForm() {
 				setLogin(current.login);
 				setInstallUrl(current.installUrl);
 			} catch (caught) {
-				setError(caught instanceof Error ? caught.message : "github app failed");
+				setError(
+					caught instanceof Error ? caught.message : "github app failed",
+				);
+			} finally {
+				setChecking(false);
 			}
 		})();
 	}, [session.data?.id]);
@@ -77,16 +92,20 @@ export default function KeysForm() {
 					at git push — nothing to paste, and being offline for more than an
 					hour does not require you to reopen this page.
 				</Typography>
-				{login ? (
+				{checking ? (
+					<Skeleton variant="rounded" height={40} width="60%" />
+				) : login ? (
 					<Alert severity="success">Connected as @{login}</Alert>
 				) : installUrl ? (
 					<Button href={installUrl} variant="contained">
 						Connect GitHub
 					</Button>
 				) : (
-					<Typography color="secondary">Checking GitHub App…</Typography>
+					<Typography color="secondary">GitHub App not connected.</Typography>
 				)}
-				{devices.length === 0 ? (
+				{devicesLoading ? (
+					<Skeleton variant="rounded" height={24} width="75%" />
+				) : devices.length === 0 ? (
 					<Alert severity="info">
 						<Button href="/devices/pair" variant="text">
 							Pair a board

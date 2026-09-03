@@ -10,6 +10,7 @@ import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
+import { ListSkeleton } from "./skeletons.tsx";
 
 type Item = {
 	uuid: string;
@@ -23,18 +24,25 @@ export default function NotificationCenter() {
 	const { run } = useActionError();
 	const mobile = useMobile();
 	const [items, setItems] = useState<Item[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
 
 	useEffect(() => {
 		if (!session.data?.id) {
+			setLoading(false);
 			return;
 		}
-		void run(listNotes()).then((result) => {
-			if (result) {
-				setItems(result.items);
-			}
-		});
+		setLoading(true);
+		void run(listNotes())
+			.then((result) => {
+				if (result) {
+					setItems(result.items);
+				}
+			})
+			.finally(() => {
+				setLoading(false);
+			});
 	}, [session.data?.id]);
 
 	if (!session.data?.id) {
@@ -55,7 +63,9 @@ export default function NotificationCenter() {
 					Incoming pairing transfers wait here until you accept or reject.
 					Accept moves the board and revokes T3 Code for the previous session.
 				</Typography>
-				{items.length === 0 ? (
+				{loading ? (
+					<ListSkeleton items={2} />
+				) : items.length === 0 ? (
 					<Typography color="secondary">
 						No pending pairing requests.
 					</Typography>

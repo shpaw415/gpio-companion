@@ -17,6 +17,7 @@ import type { DeviceStatus } from "../../../components/DeviceBoardCard.tsx";
 import DeviceSelect from "../../../components/DeviceSelect.tsx";
 import DocsMarkdown from "../../../components/DocsMarkdown.tsx";
 import SectionHub, { SectionHeader } from "../../../components/Section.tsx";
+import { SelectSkeleton } from "../../../components/skeletons.tsx";
 import { useActionError } from "../../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../../hooks/useBoardSelection.tsx";
@@ -90,6 +91,7 @@ export default function DocsPage() {
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [boards, setBoards] = useState<BoardView[]>([]);
+	const [boardsLoading, setBoardsLoading] = useState(true);
 	const [query, setQuery] = useState("");
 	const [familyOverride, setFamilyOverride] = useState<
 		DocHardware | "all" | null
@@ -104,27 +106,33 @@ export default function DocsPage() {
 	useEffect(() => {
 		if (!session.data?.id) {
 			setBoards([]);
+			setBoardsLoading(false);
 			return;
 		}
-		void run(getPairing()).then(async (result) => {
-			if (!result?.paired) {
-				setBoards([]);
-				return;
-			}
-			const device = await run(getDevice());
-			if (device?.paired) {
-				setBoards(
-					device.devices.map((item) => ({
-						device: item.device,
-						status: item.status as DeviceStatus | null,
-					})),
-				);
-			} else {
-				setBoards(
-					result.devices.map((item) => ({ device: item, status: null })),
-				);
-			}
-		});
+		setBoardsLoading(true);
+		void run(getPairing())
+			.then(async (result) => {
+				if (!result?.paired) {
+					setBoards([]);
+					return;
+				}
+				const device = await run(getDevice());
+				if (device?.paired) {
+					setBoards(
+						device.devices.map((item) => ({
+							device: item.device,
+							status: item.status as DeviceStatus | null,
+						})),
+					);
+				} else {
+					setBoards(
+						result.devices.map((item) => ({ device: item, status: null })),
+					);
+				}
+			})
+			.finally(() => {
+				setBoardsLoading(false);
+			});
 	}, [session.data?.id, run]);
 
 	const [prevSelectedUuid, setPrevSelectedUuid] = useState(selectedUuid);
@@ -203,7 +211,9 @@ export default function DocsPage() {
 					className="items-stretch min-[900px]:items-center"
 				>
 					<Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-						{loggedIn && boards.length > 0 ? (
+						{boardsLoading ? (
+							<SelectSkeleton />
+						) : loggedIn && boards.length > 0 ? (
 							<DeviceSelect
 								devices={boards.map((board) => board.device)}
 								value={selectedUuid}
