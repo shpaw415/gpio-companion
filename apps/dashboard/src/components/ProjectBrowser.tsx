@@ -19,6 +19,7 @@ import Table, {
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
+import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import BreadboardViewer from "./BreadboardViewer.tsx";
@@ -39,6 +40,7 @@ export default function ProjectBrowser({
 	const [owner, setOwner] = useState("all");
 	const [page, setPage] = useState(0);
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
+	const mobile = useMobile();
 
 	useEffect(() => {
 		listProjects()
@@ -120,12 +122,12 @@ export default function ProjectBrowser({
 
 	return (
 		<Stack spacing={3}>
-			<Paper className="p-4" elevation={1}>
+			<Paper className="p-3 min-[900px]:p-4" elevation={1}>
 				<Stack spacing={2}>
 					<Stack
-						direction="row"
+						direction={mobile ? "column" : "row"}
 						spacing={2}
-						sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
+						sx={{ flexWrap: "wrap", alignItems: mobile ? "stretch" : "flex-end" }}
 					>
 						<TextField
 							label="Filter"
@@ -135,16 +137,17 @@ export default function ProjectBrowser({
 								setQuery(event.target.value);
 								setPage(0);
 							}}
-							className="min-w-[16rem] flex-1"
+							className="min-w-0 w-full flex-1"
 						/>
 						<Select
+							name="owner"
 							label="Owner"
 							value={owner}
 							onSelect={(next) => {
 								setOwner(next);
 								setPage(0);
 							}}
-							className="min-w-[12rem]"
+							className="min-w-0 w-full min-[900px]:w-auto min-[900px]:min-w-[12rem]"
 						>
 							<option value="all">All owners</option>
 							{owners.map((login) => (
@@ -160,7 +163,7 @@ export default function ProjectBrowser({
 								<TableRow>
 									<TableCell>Name</TableCell>
 									<TableCell>Owner</TableCell>
-									<TableCell>Repository</TableCell>
+									{mobile ? null : <TableCell>Repository</TableCell>}
 								</TableRow>
 							</TableHead>
 							<TableBody>
@@ -173,9 +176,13 @@ export default function ProjectBrowser({
 										}
 										onClick={() => void openRepo(repo)}
 									>
-										<TableCell>{repo.name}</TableCell>
-										<TableCell>{repo.owner}</TableCell>
-										<TableCell>{repo.full_name}</TableCell>
+										<TableCell className="break-all">{repo.name}</TableCell>
+										<TableCell className="break-all">{repo.owner}</TableCell>
+										{mobile ? null : (
+											<TableCell className="break-all">
+												{repo.full_name}
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>
@@ -247,6 +254,7 @@ function FileGroup({
 								href={file.download_url}
 								variant="text"
 								size="small"
+								className="max-w-full justify-start break-all"
 							>
 								{file.path}
 							</Button>

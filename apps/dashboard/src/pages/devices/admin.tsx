@@ -28,6 +28,7 @@ import { SectionHeader } from "../../components/Section.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import useMobile from "../../hooks/useMobile.ts";
 import { unwrapAction } from "../../lib/action.ts";
 import { isAdmin } from "../../lib/auth/role.ts";
 import {
@@ -56,6 +57,7 @@ type BoardView = {
 export default function AdminDevicesPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const mobile = useMobile();
 	const admin = isAdmin(session.data?.role);
 	const [boards, setBoards] = useState<BoardView[]>([]);
 	const [selected, setSelected] = useState("");
@@ -158,7 +160,7 @@ export default function AdminDevicesPage() {
 
 			{admin ? (
 				<>
-					<Paper className="p-4" elevation={1}>
+					<Paper className="p-3 min-[900px]:p-4" elevation={1}>
 						<Stack spacing={2}>
 							<TextField
 								label="Filter"
@@ -167,16 +169,16 @@ export default function AdminDevicesPage() {
 									setQuery(event.target.value);
 									setPage(0);
 								}}
-								className="max-w-sm"
+								className="w-full min-[900px]:max-w-sm"
 							/>
 							<TableContainer>
 								<Table size="small">
 									<TableHead>
 										<TableRow>
 											<TableCell>Label</TableCell>
-											<TableCell>UUID</TableCell>
+											{mobile ? null : <TableCell>UUID</TableCell>}
 											<TableCell>Owner</TableCell>
-											<TableCell>Device URL</TableCell>
+											{mobile ? null : <TableCell>Device URL</TableCell>}
 											<TableCell>Status</TableCell>
 										</TableRow>
 									</TableHead>
@@ -191,14 +193,24 @@ export default function AdminDevicesPage() {
 													setPasteText("");
 												}}
 											>
-												<TableCell>{board.device.label || "—"}</TableCell>
-												<TableCell>{board.device.uuid}</TableCell>
-												<TableCell>
+												<TableCell className="break-all">
+													{board.device.label || "—"}
+												</TableCell>
+												{mobile ? null : (
+													<TableCell className="break-all">
+														{board.device.uuid}
+													</TableCell>
+												)}
+												<TableCell className="break-all">
 													{board.device.email ||
 														board.device.login ||
 														board.device.userId}
 												</TableCell>
-												<TableCell>{board.device.deviceUrl}</TableCell>
+												{mobile ? null : (
+													<TableCell className="break-all">
+														{board.device.deviceUrl}
+													</TableCell>
+												)}
 												<TableCell>
 													{board.status ? (
 														<Stack
@@ -252,13 +264,15 @@ export default function AdminDevicesPage() {
 					</Paper>
 
 					{current ? (
-						<Paper className="max-w-2xl p-6" elevation={1}>
+						<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 							<Stack spacing={2}>
 								<Typography variant="h6">
 									{deviceDisplayName(current.device)}
 								</Typography>
-								<Typography color="secondary">{current.device.uuid}</Typography>
-								<Typography color="secondary">
+								<Typography color="secondary" className="break-all">
+									{current.device.uuid}
+								</Typography>
+								<Typography color="secondary" className="break-all">
 									{current.device.email ||
 										current.device.login ||
 										current.device.userId}

@@ -38,11 +38,13 @@ export default function DevicesLayout({
 
 	return (
 		<Box
-			sx={
-				onT3
+			sx={{
+				minWidth: 0,
+				width: "100%",
+				...(onT3
 					? { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }
-					: undefined
-			}
+					: undefined),
+			}}
 		>
 			<Tabs
 				value={value}
@@ -55,7 +57,7 @@ export default function DevicesLayout({
 				))}
 			</Tabs>
 			<Box
-				className={onT3 ? undefined : "mt-6"}
+				className={onT3 ? undefined : "mt-3 min-[900px]:mt-6"}
 				sx={
 					onT3
 						? {

@@ -132,7 +132,7 @@ export default function DeviceDebugPanel({
 	}
 
 	return (
-		<Paper className="max-w-3xl p-6" elevation={1}>
+		<Paper className="w-full max-w-3xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
 				<DeviceSelect
 					devices={devices}

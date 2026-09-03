@@ -345,7 +345,7 @@ export default function PairForm({
 	}
 
 	return (
-		<Paper className="max-w-xl p-6" elevation={1}>
+		<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 			{form}
 		</Paper>
 	);

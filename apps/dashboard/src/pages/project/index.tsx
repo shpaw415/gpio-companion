@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import useMobile from "../../hooks/useMobile.ts";
 
 const STEPS = ["Sign in", "Pair Pi", "GitHub", "Ready"] as const;
 
@@ -38,6 +39,7 @@ const NEXT: Record<
 export default function ProjectPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const mobile = useMobile();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [paired, setPaired] = useState(false);
 	const [githubReady, setGithubReady] = useState(false);
@@ -67,10 +69,14 @@ export default function ProjectPage() {
 			</SectionHeader>
 
 			{step < 3 ? (
-				<Paper className="p-6" elevation={1}>
+				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
 					<Stack spacing={3}>
 						<Typography variant="h6">Set up your board</Typography>
-						<Stepper activeStep={step} alternativeLabel>
+						<Stepper
+							activeStep={step}
+							alternativeLabel={!mobile}
+							orientation={mobile ? "vertical" : "horizontal"}
+						>
 							{STEPS.map((label, index) => (
 								<Step key={label} completed={step > index}>
 									<StepLabel>{label}</StepLabel>

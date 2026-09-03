@@ -2,6 +2,7 @@ import Box from "@shpaw415/mui-lite/Box";
 import Card, { CardActionArea, CardContent } from "@shpaw415/mui-lite/Card";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { type ReactNode } from "react";
+import useMobile from "../hooks/useMobile.ts";
 
 export type SectionItem = {
 	href: string;
@@ -50,9 +51,10 @@ export function SectionHeader({
 	title: string;
 	children?: ReactNode;
 }) {
+	const mobile = useMobile();
 	return (
-		<Box className="mb-4">
-			<Typography variant="h4" Element="h1">
+		<Box className="mb-3 min-[900px]:mb-4">
+			<Typography variant={mobile ? "h5" : "h4"} Element="h1">
 				{title}
 			</Typography>
 			{children ? <Box className="mt-1">{children}</Box> : null}

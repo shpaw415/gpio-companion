@@ -14,9 +14,10 @@ import IconButton from "@shpaw415/mui-lite/IconButton";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Toolbar from "@shpaw415/mui-lite/Toolbar";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode } from "react";
 import { ActionErrorProvider } from "../hooks/useActionError.tsx";
 import { useColorMode } from "../hooks/useColorMode.tsx";
+import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import { isT3Path } from "../lib/t3-url.ts";
 
@@ -40,17 +41,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 	const { isDark, toggleMode } = useColorMode();
 	const pathname = usePathname();
 	const onT3 = isT3Path(pathname);
-	const [mobile, setMobile] = useState(false);
-
-	useEffect(() => {
-		const media = window.matchMedia("(max-width: 899px)");
-		const sync = () => {
-			setMobile(media.matches);
-		};
-		sync();
-		media.addEventListener("change", sync);
-		return () => media.removeEventListener("change", sync);
-	}, []);
+	const mobile = useMobile();
 
 	const section = currentSection(pathname);
 
@@ -64,13 +55,18 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 					flexDirection: "column",
 				}}
 			>
-				<AppBar position="sticky" color="default">
+				<AppBar
+					position="sticky"
+					color="default"
+					sx={{ paddingTop: "env(safe-area-inset-top)" }}
+				>
 					<Toolbar className="gap-2">
 						<Typography
 							variant="h6"
 							Element="a"
 							href="/project"
-							sx={{ flexGrow: 1 }}
+							noWrap
+							sx={{ flexGrow: 1, minWidth: 0 }}
 						>
 							gpio-companion
 						</Typography>
@@ -105,8 +101,8 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 				<Box
 					className={
 						onT3
-							? "flex min-h-0 flex-1 flex-col px-4 pt-2"
-							: "mx-auto max-w-5xl px-4 py-8"
+							? "flex min-h-0 w-full min-w-0 flex-1 flex-col px-3 pt-2 min-[900px]:px-4"
+							: "mx-auto w-full min-w-0 max-w-5xl px-3 py-4 min-[900px]:px-4 min-[900px]:py-8"
 					}
 					sx={{
 						...(onT3

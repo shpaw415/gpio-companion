@@ -5,6 +5,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import { SectionHeader } from "../../components/Section.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { unwrapAction } from "../../lib/action.ts";
 import { formatUsd } from "../../lib/credits.ts";
@@ -39,21 +40,20 @@ export default function CreditsPage() {
 
 	return (
 		<Stack spacing={3}>
-			<Typography variant="h4" Element="h1">
-				Credits
-			</Typography>
+			<SectionHeader title="Credits" />
 			<Typography color="secondary">
 				OpenCode on the Pi spends gpio-companion balance at Cloudflare Workers
 				AI list price (in/out tokens) times markup. Empty balance returns 402.
 				Paid checkout is not wired yet; grant is a host stub.
 			</Typography>
-			<Paper className="max-w-xl p-6" elevation={1}>
+			<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 				<Stack spacing={2}>
 					<Typography variant="h5">
 						{micros === null ? "…" : formatUsd(micros)}
 					</Typography>
 					<Button
 						variant="contained"
+						className="w-full min-[900px]:w-auto"
 						onClick={() => {
 							setError("");
 							void grantCredits(1)

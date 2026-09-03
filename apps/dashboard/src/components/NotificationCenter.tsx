@@ -8,6 +8,7 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 
 type Item = {
@@ -20,6 +21,7 @@ type Item = {
 export default function NotificationCenter() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const mobile = useMobile();
 	const [items, setItems] = useState<Item[]>([]);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
@@ -47,7 +49,7 @@ export default function NotificationCenter() {
 	}
 
 	return (
-		<Paper className="max-w-xl p-6" elevation={1}>
+		<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
 				<Typography>
 					Incoming pairing transfers wait here until you accept or reject.
@@ -60,57 +62,73 @@ export default function NotificationCenter() {
 				) : (
 					<List>
 						{items.map((item) => (
-							<ListItem key={item.uuid}>
+							<ListItem
+								key={item.uuid}
+								sx={{
+									flexDirection: mobile ? "column" : "row",
+									alignItems: mobile ? "stretch" : "center",
+									gap: 1,
+								}}
+							>
 								<ListItemText
 									primary={`${item.requesterEmail || item.login} wants ${item.uuid}`}
 									secondary={item.createdAt}
+									className="min-w-0 break-all"
 								/>
-								<Button
-									variant="contained"
-									onClick={() => {
-										void decideNote({ uuid: item.uuid, action: "accept" })
-											.then(async (result) => {
-												unwrapAction(result);
-												setMessage("transferred");
-												const next = await run(listNotes());
-												if (next) {
-													setItems(next.items);
-												}
-											})
-											.catch((caught: unknown) => {
-												setError(
-													caught instanceof Error
-														? caught.message
-														: "accept failed",
-												);
-											});
-									}}
+								<Stack
+									direction={mobile ? "column" : "row"}
+									spacing={1}
+									className={mobile ? "w-full" : undefined}
 								>
-									Accept
-								</Button>
-								<Button
-									variant="outlined"
-									onClick={() => {
-										void decideNote({ uuid: item.uuid, action: "reject" })
-											.then(async (result) => {
-												unwrapAction(result);
-												setMessage("rejected");
-												const next = await run(listNotes());
-												if (next) {
-													setItems(next.items);
-												}
-											})
-											.catch((caught: unknown) => {
-												setError(
-													caught instanceof Error
-														? caught.message
-														: "reject failed",
-												);
-											});
-									}}
-								>
-									Reject
-								</Button>
+									<Button
+										variant="contained"
+										className={mobile ? "w-full" : undefined}
+										onClick={() => {
+											void decideNote({ uuid: item.uuid, action: "accept" })
+												.then(async (result) => {
+													unwrapAction(result);
+													setMessage("transferred");
+													const next = await run(listNotes());
+													if (next) {
+														setItems(next.items);
+													}
+												})
+												.catch((caught: unknown) => {
+													setError(
+														caught instanceof Error
+															? caught.message
+															: "accept failed",
+													);
+												});
+										}}
+									>
+										Accept
+									</Button>
+									<Button
+										variant="outlined"
+										className={mobile ? "w-full" : undefined}
+										onClick={() => {
+											void decideNote({ uuid: item.uuid, action: "reject" })
+												.then(async (result) => {
+													unwrapAction(result);
+													setMessage("rejected");
+													const next = await run(listNotes());
+													if (next) {
+														setItems(next.items);
+													}
+												})
+												.catch((caught: unknown) => {
+													setError(
+														caught instanceof Error
+															? caught.message
+															: "reject failed",
+													);
+												});
+										}}
+									>
+										Reject
+									</Button>
+								</Stack>
 							</ListItem>
 						))}
 					</List>

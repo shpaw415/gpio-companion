@@ -1,6 +1,7 @@
+import { navigate } from "@next/client";
 import Box from "@shpaw415/mui-lite/Box";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
-import { navigate } from "@next/client";
+import { usePathname } from "../../hooks/usePathname.tsx";
 
 const tabs = [
 	{ href: "/profile", label: "Account" },
@@ -19,23 +20,22 @@ export default function ProfileLayout({
 }: {
 	children: React.JSX.Element;
 }) {
-	const value =
-		typeof window === "undefined"
-			? "/profile"
-			: active(window.location.pathname);
+	const pathname = usePathname();
+	const value = active(pathname);
 
 	return (
 		<Box>
 			<Tabs
 				value={value}
 				onChange={(_event, next) => navigate(String(next))}
+				variant="scrollable"
 				aria-label="Profile sections"
 			>
 				{tabs.map((tab) => (
 					<Tab key={tab.href} value={tab.href} label={tab.label} />
 				))}
 			</Tabs>
-			<Box className="mt-6">{children}</Box>
+			<Box className="mt-3 min-[900px]:mt-6">{children}</Box>
 		</Box>
 	);
 }

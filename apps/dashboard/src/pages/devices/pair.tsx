@@ -14,8 +14,10 @@ import Dialog, {
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
+import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import useMobile from "../../hooks/useMobile.ts";
 
 export default function PairPage() {
 	const session = useAuthSession();
@@ -24,7 +26,7 @@ export default function PairPage() {
 	const [boards, setBoards] = useState<BoardView[]>([]);
 	const [loaded, setLoaded] = useState(false);
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const [mobile, setMobile] = useState(false);
+	const mobile = useMobile();
 	const [t3AutoStartUuid, setT3AutoStartUuid] = useState("");
 	const [unpairing, setUnpairing] = useState("");
 
@@ -60,16 +62,6 @@ export default function PairPage() {
 		void refresh();
 	}, [refresh]);
 
-	useEffect(() => {
-		const media = window.matchMedia("(max-width: 899px)");
-		const sync = () => {
-			setMobile(media.matches);
-		};
-		sync();
-		media.addEventListener("change", sync);
-		return () => media.removeEventListener("change", sync);
-	}, []);
-
 	const showForm = !loggedIn || (loaded && boards.length === 0);
 	const showCards = loggedIn && loaded && boards.length > 0;
 
@@ -77,25 +69,22 @@ export default function PairPage() {
 		<Stack spacing={3}>
 			{showCards ? (
 				<Stack
-					direction="row"
+					direction={mobile ? "column" : "row"}
 					spacing={2}
-					className="flex-wrap items-start justify-between"
+					className="min-[900px]:items-start min-[900px]:justify-between"
 				>
-					<Typography variant="h4" Element="h1">
-						Pair hardware
-					</Typography>
+					<SectionHeader title="Pair hardware" />
 					<Button
 						type="button"
 						variant="contained"
+						className={mobile ? "w-full" : undefined}
 						onClick={() => setDialogOpen(true)}
 					>
 						Pair another device
 					</Button>
 				</Stack>
 			) : (
-				<Typography variant="h4" Element="h1">
-					Pair hardware
-				</Typography>
+				<SectionHeader title="Pair hardware" />
 			)}
 			{showCards ? (
 				<Typography color="secondary">
@@ -162,6 +151,7 @@ export default function PairPage() {
 				fullWidth
 				fullScreen={mobile}
 				scroll="paper"
+				sx={{ zIndex: 1300 }}
 				slotProps={{ paper: { className: "max-w-xl w-full" } }}
 			>
 				<DialogTitle>Pair another device</DialogTitle>

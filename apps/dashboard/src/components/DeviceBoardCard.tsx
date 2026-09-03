@@ -43,12 +43,16 @@ export default function DeviceBoardCard({
 	const online = Boolean(status);
 
 	return (
-		<Paper className="max-w-2xl p-6" elevation={1}>
+		<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
 				<Typography variant="h6">{deviceDisplayName(device)}</Typography>
-				<Typography color="secondary">{device.uuid}</Typography>
+				<Typography color="secondary" className="break-all">
+					{device.uuid}
+				</Typography>
 				{device.deviceUrl ? (
-					<Typography color="secondary">{device.deviceUrl}</Typography>
+					<Typography color="secondary" className="break-all">
+						{device.deviceUrl}
+					</Typography>
 				) : null}
 				<DeviceLabelField
 					key={device.uuid}

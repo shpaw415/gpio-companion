@@ -1,13 +1,11 @@
 import NotificationCenter from "@components/NotificationCenter";
 import Stack from "@shpaw415/mui-lite/Stack";
-import Typography from "@shpaw415/mui-lite/Typography";
+import { SectionHeader } from "../../components/Section.tsx";
 
 export default function NotificationsPage() {
 	return (
 		<Stack spacing={3}>
-			<Typography variant="h4" Element="h1">
-				Notifications
-			</Typography>
+			<SectionHeader title="Notifications" />
 			<NotificationCenter />
 		</Stack>
 	);

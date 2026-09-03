@@ -9,6 +9,7 @@ import DeviceSelect from "../../components/DeviceSelect.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import useMobile from "../../hooks/useMobile.ts";
 import { useT3Session } from "../../hooks/useT3Session.tsx";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
 import {
@@ -21,6 +22,7 @@ export default function T3Page() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const { uuid, setUuid } = useT3Session();
+	const mobile = useMobile();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
@@ -45,10 +47,12 @@ export default function T3Page() {
 			sx={{ flex: 1, minHeight: 0, height: "100%", display: "flex" }}
 		>
 			<SectionHeader title="T3 Code">
-				<Typography color="secondary">
-					Open the T3 Code session on a paired Pi. Leaving this tab keeps the
-					page you were on.
-				</Typography>
+				{mobile ? null : (
+					<Typography color="secondary">
+						Open the T3 Code session on a paired Pi. Leaving this tab keeps the
+						page you were on.
+					</Typography>
+				)}
 			</SectionHeader>
 
 			{!loggedIn ? (
@@ -71,8 +75,12 @@ export default function T3Page() {
 
 			{loggedIn && devices.length > 0 ? (
 				<>
-					<Stack direction="row" spacing={1} className="flex-wrap items-end">
-						<Box sx={{ flex: 1, minWidth: 220 }}>
+					<Stack
+						direction={mobile ? "column" : "row"}
+						spacing={1}
+						className="items-stretch min-[900px]:items-end"
+					>
+						<Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
 							<DeviceSelect
 								devices={devices}
 								value={uuid}
@@ -93,7 +101,7 @@ export default function T3Page() {
 					</Stack>
 					<Box
 						id={T3_FRAME_SLOT_ID}
-						sx={{ flex: 1, minHeight: 240, width: "100%" }}
+						sx={{ flex: 1, minHeight: mobile ? 160 : 240, width: "100%" }}
 					/>
 				</>
 			) : null}

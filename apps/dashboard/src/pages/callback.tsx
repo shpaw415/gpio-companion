@@ -40,7 +40,7 @@ export default function AuthCallbackPage() {
 
 	if (error) {
 		return (
-			<Paper className="mx-auto max-w-md p-8" elevation={1}>
+			<Paper className="mx-auto w-full max-w-md p-6 min-[900px]:p-8" elevation={1}>
 				<Typography color="error" className="mb-4">
 					{error}
 				</Typography>

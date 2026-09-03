@@ -52,7 +52,7 @@ export default function DeviceLabelField({
 					placeholder="Optional name"
 					value={value}
 					onChange={(event) => setValue(event.target.value)}
-					className="min-w-48 flex-1"
+					className="min-w-0 w-full flex-1"
 				/>
 				<Button
 					type="button"

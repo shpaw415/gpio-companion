@@ -168,7 +168,7 @@ export default function BreadboardViewer({ diagramText, previewUrl }: Props) {
 	}
 
 	return (
-		<Paper className="p-6" elevation={1}>
+		<Paper className="p-4 min-[900px]:p-6" elevation={1}>
 			<Typography color="secondary">
 				No breadboard/diagram.json on GitHub yet.
 			</Typography>

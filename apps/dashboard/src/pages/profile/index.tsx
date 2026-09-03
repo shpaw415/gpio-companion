@@ -46,20 +46,26 @@ export default function ProfilePage() {
 				<LoginPanel />
 			) : (
 				<>
-					<Paper className="max-w-2xl p-6" elevation={1}>
+					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 						<Stack spacing={1}>
 							<Typography variant="h6">Account</Typography>
 							{session.data?.name ? (
-								<Typography>{session.data.name}</Typography>
+								<Typography className="break-all">{session.data.name}</Typography>
 							) : null}
 							{session.data?.email ? (
-								<Typography color="secondary">{session.data.email}</Typography>
+								<Typography color="secondary" className="break-all">
+									{session.data.email}
+								</Typography>
 							) : null}
 							<Chip
 								label={session.data?.role === "admin" ? "admin" : "user"}
 								variant="outlined"
 							/>
-							<Stack direction="row" spacing={2} className="mt-4">
+							<Stack
+								direction="row"
+								spacing={2}
+								className="mt-4 flex-wrap"
+							>
 								<Button href="/profile/credits" variant="outlined">
 									Credits
 								</Button>
@@ -69,7 +75,7 @@ export default function ProfilePage() {
 							</Stack>
 						</Stack>
 					</Paper>
-					<Paper className="max-w-2xl p-6" elevation={1}>
+					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 						<Stack spacing={1}>
 							<Typography variant="h6">AI credits</Typography>
 							<Typography color="secondary">
