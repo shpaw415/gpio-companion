@@ -38,6 +38,7 @@ import {
 
 type DeviceStatus = {
 	hardware?: string;
+	model?: string;
 	tunnel?: { configured?: boolean };
 	secrets?: { githubReady?: boolean };
 	t3?: {
@@ -218,9 +219,11 @@ export default function AdminDevicesPage() {
 															spacing={1}
 															className="flex-wrap"
 														>
-															{board.status.hardware ? (
+															{board.status.model || board.status.hardware ? (
 																<Chip
-																	label={board.status.hardware}
+																	label={
+																		board.status.model || board.status.hardware
+																	}
 																	variant="outlined"
 																/>
 															) : null}
@@ -264,7 +267,10 @@ export default function AdminDevicesPage() {
 					</Paper>
 
 					{current ? (
-						<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
+						<Paper
+							className="w-full max-w-2xl p-4 min-[900px]:p-6"
+							elevation={1}
+						>
 							<Stack spacing={2}>
 								<Typography variant="h6">
 									{deviceDisplayName(current.device)}

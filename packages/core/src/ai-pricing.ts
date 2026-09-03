@@ -165,6 +165,68 @@ export function modelRate(model: string): ModelRate | null {
 	return WORKERS_AI_LLM_RATES[model.trim()] ?? null;
 }
 
+export const DEFAULT_EMBEDDING_MODEL = "@cf/baai/bge-base-en-v1.5";
+export const MAX_EMBEDDING_INPUTS = 128;
+
+export type EmbeddingModelInfo = {
+	input: number;
+	dimension: number;
+};
+
+export const WORKERS_AI_EMBEDDING_RATES: Record<string, EmbeddingModelInfo> = {
+	"@cf/baai/bge-small-en-v1.5": {
+		input: usdPerM(0.02),
+		dimension: 384,
+	},
+	"@cf/baai/bge-base-en-v1.5": {
+		input: usdPerM(0.067),
+		dimension: 768,
+	},
+	"@cf/baai/bge-large-en-v1.5": {
+		input: usdPerM(0.204),
+		dimension: 1024,
+	},
+	"@cf/baai/bge-m3": {
+		input: usdPerM(0.012),
+		dimension: 1024,
+	},
+	"@cf/qwen/qwen3-embedding-0.6b": {
+		input: usdPerM(0.012),
+		dimension: 1024,
+	},
+};
+
+export function embeddingModelInfo(model: string): EmbeddingModelInfo | null {
+	return WORKERS_AI_EMBEDDING_RATES[model.trim()] ?? null;
+}
+
+export function embeddingCostMicrodollars(
+	model: string,
+	tokens: number,
+	markup: number = DEFAULT_AI_MARKUP,
+): number | null {
+	const info = embeddingModelInfo(model);
+	if (!info) {
+		return null;
+	}
+	const safeTokens = Math.max(0, Math.floor(tokens || 0));
+	const raw = Math.ceil((safeTokens * info.input) / USD_MICROS);
+	const micros = raw === 0 && safeTokens > 0 ? 1 : raw;
+	return applyMarkup(micros, markup);
+}
+
+export function estimateEmbeddingTokens(input: unknown): number {
+	const values = Array.isArray(input) ? input : [input];
+	let total = 0;
+	for (const value of values) {
+		if (typeof value !== "string") {
+			continue;
+		}
+		total += Math.max(1, Math.ceil(value.length / 4));
+	}
+	return Math.max(total === 0 ? 0 : total, values.length > 0 ? 1 : 0);
+}
+
 export function parseMarkup(value: string | undefined): number {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed) || parsed <= 0) {

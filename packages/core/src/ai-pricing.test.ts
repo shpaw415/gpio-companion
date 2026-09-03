@@ -4,6 +4,10 @@ import {
 	costMicrodollars,
 	DEFAULT_AI_MARKUP,
 	DEFAULT_AI_MODEL,
+	DEFAULT_EMBEDDING_MODEL,
+	embeddingCostMicrodollars,
+	embeddingModelInfo,
+	estimateEmbeddingTokens,
 	estimatePromptTokens,
 	modelRate,
 	parseMarkup,
@@ -82,5 +86,38 @@ describe("ai pricing", () => {
 
 	test("usdToMicros", () => {
 		expect(usdToMicros(1)).toBe(1_000_000);
+	});
+});
+
+describe("embedding pricing", () => {
+	test("default embedding model is bge-base at 768 dims", () => {
+		const info = embeddingModelInfo(DEFAULT_EMBEDDING_MODEL);
+		expect(info).not.toBeNull();
+		expect((info as NonNullable<typeof info>).dimension).toBe(768);
+	});
+
+	test("bills bge-base per M input tokens at 1.25x", () => {
+		// $0.067 per M input tokens => 1M tokens = $0.067 = 67000 micros, x1.25 = 83750
+		expect(
+			embeddingCostMicrodollars(DEFAULT_EMBEDDING_MODEL, 1_000_000, 1.25),
+		).toBe(83_750);
+	});
+
+	test("minimum bill survives markup", () => {
+		expect(embeddingCostMicrodollars(DEFAULT_EMBEDDING_MODEL, 1, 1.25)).toBe(2);
+	});
+
+	test("rejects unknown embedding models", () => {
+		expect(
+			embeddingCostMicrodollars("@cf/unknown-embedding", 1_000, 1.25),
+		).toBeNull();
+	});
+
+	test("estimateEmbeddingTokens is length/4 per string", () => {
+		expect(estimateEmbeddingTokens("abcdabcd")).toBe(2);
+		expect(estimateEmbeddingTokens(["abcd", "abcdefgh"])).toBe(3);
+		expect(estimateEmbeddingTokens(["a", 5, null])).toBe(1);
+		expect(estimateEmbeddingTokens([])).toBe(0);
+		expect(estimateEmbeddingTokens(42)).toBe(1);
 	});
 });

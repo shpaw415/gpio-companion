@@ -1,7 +1,6 @@
 {
 	"extends": "./tsconfig.json",
 	"exclude": [
-		".frame-master",
 		"**/node_modules",
 		"./src/auth.ts",
 		"./src/lib/auth/**",

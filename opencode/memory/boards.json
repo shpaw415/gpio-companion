@@ -1,0 +1,25 @@
+{
+	"boards": [
+		{
+			"slug": "orangepi-3-lts",
+			"dir": "boards/orangepi-3-lts",
+			"hardware": "orangepi",
+			"match": ["orange pi 3 lts"],
+			"exact": true
+		},
+		{
+			"slug": "raspberrypi",
+			"dir": "boards/raspberrypi",
+			"hardware": "raspberrypi",
+			"match": ["raspberry pi"],
+			"exact": false
+		},
+		{
+			"slug": "orangepi",
+			"dir": "boards/orangepi",
+			"hardware": "orangepi",
+			"match": ["orange pi"],
+			"exact": false
+		}
+	]
+}

@@ -120,6 +120,14 @@ if ! update_opencode; then
 	echo "gpio-companion update: opencode upgrade skipped" >&2
 fi
 
+if openviking_enabled; then
+	write_opencode_openviking_plugin
+	if paths_changed '^(opencode/memory/|scripts/openviking-seed)'; then
+		echo "gpio-companion update: openviking seed data changed, reseeding"
+		run_openviking_seed || echo "gpio-companion update: openviking reseed failed" >&2
+	fi
+fi
+
 sync_local_pairing_with_dashboard
 
 echo "gpio-companion update: done"

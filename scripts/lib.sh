@@ -847,6 +847,109 @@ PY
 	fi
 }
 
+openviking_venv_dir() {
+	echo "${GPIO_COMPANION_OPENVIKING_VENV:-$LIB_DIR/openviking}"
+}
+
+set_openviking_flag() {
+	local value="$1"
+	[[ -f "$CONFIG_DIR/config.json" ]] || return 0
+	CONFIG_DIR="$CONFIG_DIR" VALUE="$value" python3 - <<'PY'
+import json, os
+from pathlib import Path
+config_dir = Path(os.environ["CONFIG_DIR"])
+path = config_dir / "config.json"
+try:
+    data = json.loads(path.read_text())
+except (json.JSONDecodeError, OSError):
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+data["openviking"] = os.environ["VALUE"] == "true"
+path.write_text(json.dumps(data, indent="\t") + "\n")
+PY
+}
+
+openviking_enabled() {
+	[[ -x "$(openviking_venv_dir)/bin/openviking-server" ]] || return 1
+	[[ -f "$CONFIG_DIR/config.json" ]] || return 1
+	python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("openviking") is True else 1)' "$CONFIG_DIR/config.json"
+}
+
+run_as_gpio_user() {
+	if [[ "$GPIO_USER" == "root" ]]; then
+		"$@"
+	else
+		sudo -H -u "$GPIO_USER" "$@"
+	fi
+}
+
+run_openviking_seed() {
+	local venv_bin
+	venv_bin="$(openviking_venv_dir)/bin"
+	if [[ ! -x "$venv_bin/ov" ]]; then
+		echo "gpio-companion openviking: ov CLI missing, skipping seed" >&2
+		return 1
+	fi
+	if ! command -v bun >/dev/null 2>&1; then
+		echo "gpio-companion openviking: bun missing, skipping seed" >&2
+		return 1
+	fi
+	OPENVIKING_OV_BIN="$venv_bin/ov" run_as_gpio_user bun "$SCRIPT_DIR/openviking-seed.ts"
+}
+
+write_opencode_openviking_plugin() {
+	local dest
+	dest="$(opencode_home)"
+	install -d -m 0755 "$dest"
+	GPIO_OPENCODE_JSON="$dest/opencode.json" python3 - <<'PY'
+import json, os
+from pathlib import Path
+path = Path(os.environ["GPIO_OPENCODE_JSON"])
+data = {}
+if path.exists():
+    try:
+        loaded = json.loads(path.read_text())
+        if isinstance(loaded, dict):
+            data = loaded
+    except json.JSONDecodeError:
+        data = {}
+plugins = data.get("plugin")
+if not isinstance(plugins, list):
+    plugins = []
+if "@openviking/opencode-plugin" not in plugins:
+    plugins.append("@openviking/opencode-plugin")
+data["plugin"] = plugins
+path.write_text(json.dumps(data, indent="\t") + "\n")
+PY
+	local behavior="$dest/openviking-config.json"
+	if [[ ! -f "$behavior" ]]; then
+		cat >"$behavior" <<'EOF'
+{
+	"enabled": true,
+	"timeoutMs": 30000,
+	"repoContext": { "enabled": true, "cacheTtlMs": 60000 },
+	"autoRecall": {
+		"enabled": true,
+		"limit": 6,
+		"scoreThreshold": 0.35,
+		"maxContentChars": 500,
+		"preferAbstract": true,
+		"tokenBudget": 2000,
+		"minQueryLength": 3
+	},
+	"commitTokenThreshold": 20000,
+	"commitKeepRecentCount": 10,
+	"profileTokenBudget": 10000,
+	"resumeContextBudget": 32000
+}
+EOF
+	fi
+	if [[ "$GPIO_USER" != "root" ]]; then
+		chown -R "$GPIO_USER:$GPIO_USER" "$dest"
+	fi
+}
+
 install_gpio_companion_bin() {
 	local src=""
 	if command -v bun >/dev/null 2>&1; then

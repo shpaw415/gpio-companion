@@ -11,10 +11,16 @@ export {
 	costMicrodollars,
 	DEFAULT_AI_MARKUP,
 	DEFAULT_AI_MODEL,
+	DEFAULT_EMBEDDING_MODEL,
 	DEFAULT_MAX_COMPLETION_TOKENS,
+	type EmbeddingModelInfo,
+	embeddingCostMicrodollars,
+	embeddingModelInfo,
+	estimateEmbeddingTokens,
 	estimatePromptTokens,
 	formatUsd,
 	LEGACY_CREDIT_MICROS,
+	MAX_EMBEDDING_INPUTS,
 	type ModelRate,
 	microsToUsd,
 	modelRate,
@@ -23,6 +29,7 @@ export {
 	tokensToMicrodollars,
 	USD_MICROS,
 	usdToMicros,
+	WORKERS_AI_EMBEDDING_RATES,
 	WORKERS_AI_LLM_RATES,
 } from "./ai-pricing.ts";
 export {
@@ -41,6 +48,15 @@ export {
 	type SignedDeviceEnvelope,
 	splitBleFrames,
 } from "./ble.ts";
+export {
+	type BoardSeedEntry,
+	type BoardSeedManifest,
+	familyFallbackSeed,
+	normalizeBoardModel,
+	parseBoardSeedManifest,
+	type ResolvedBoardSeed,
+	resolveBoardSeed,
+} from "./board-seeds.ts";
 export {
 	BREADBOARD_DIAGRAM_JSON,
 	BREADBOARD_PITCH,

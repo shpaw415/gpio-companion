@@ -8,6 +8,7 @@ import { isT3Path } from "../../lib/t3-url.ts";
 
 const baseTabs = [
 	{ href: "/devices", label: "Overview" },
+	{ href: "/devices/docs", label: "Docs" },
 	{ href: "/devices/t3", label: "T3" },
 	{ href: "/devices/pair", label: "Pair" },
 	{ href: "/devices/wifi", label: "WiFi" },

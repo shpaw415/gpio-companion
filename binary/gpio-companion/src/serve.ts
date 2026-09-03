@@ -22,6 +22,7 @@ import {
 	verifyDeviceRequest,
 	WifiConnectError,
 } from "gpio-companion";
+import { readBoardModel } from "./board-model.ts";
 import { createDebugHub } from "./debug.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
 import {
@@ -408,6 +409,7 @@ export async function handleDeviceRequest(
 				};
 		return json({
 			hardware: config.hardware,
+			model: readBoardModel(),
 			tunnel: {
 				configured: Boolean(config.tunnel.token),
 				hostname: config.tunnel.hostname,

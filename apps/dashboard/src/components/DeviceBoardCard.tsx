@@ -9,6 +9,7 @@ import T3PairingPanel from "./T3PairingPanel.tsx";
 
 export type DeviceStatus = {
 	hardware?: string;
+	model?: string;
 	tunnel?: { configured?: boolean; apiHostname?: string };
 	secrets?: { githubReady?: boolean; gpioAiKey?: boolean };
 	t3?: {
@@ -32,6 +33,8 @@ export default function DeviceBoardCard({
 	onUnpair,
 	unpairing,
 	t3AutoStart,
+	selected,
+	onSelect,
 }: {
 	device: StoredPairing;
 	status: DeviceStatus | null;
@@ -39,6 +42,8 @@ export default function DeviceBoardCard({
 	onUnpair?: (uuid: string) => void;
 	unpairing?: boolean;
 	t3AutoStart?: boolean;
+	selected?: boolean;
+	onSelect?: (uuid: string) => void;
 }) {
 	const online = Boolean(status);
 
@@ -66,8 +71,14 @@ export default function DeviceBoardCard({
 						color={online ? "success" : "secondary"}
 						variant="outlined"
 					/>
-					{status?.hardware ? (
-						<Chip label={status.hardware} variant="outlined" />
+					{selected ? (
+						<Chip label="Selected" color="primary" variant="outlined" />
+					) : null}
+					{status?.model || status?.hardware ? (
+						<Chip
+							label={status?.model || status?.hardware}
+							variant="outlined"
+						/>
 					) : null}
 					{status ? (
 						<>
@@ -108,16 +119,30 @@ export default function DeviceBoardCard({
 					skipFetch={!t3AutoStart}
 					autoStart={t3AutoStart}
 				/>
-				{onUnpair ? (
-					<Button
-						type="button"
-						variant="outlined"
-						disabled={unpairing}
-						onClick={() => onUnpair(device.uuid)}
-					>
-						Unpair (revokes T3 Code)
-					</Button>
-				) : null}
+				<Stack direction="row" spacing={1} className="flex-wrap">
+					{onSelect ? (
+						<Button
+							type="button"
+							variant={selected ? "contained" : "outlined"}
+							size="small"
+							disabled={selected}
+							onClick={() => onSelect(device.uuid)}
+						>
+							{selected ? "Selected board" : "Select board"}
+						</Button>
+					) : null}
+					{onUnpair ? (
+						<Button
+							type="button"
+							variant="outlined"
+							size="small"
+							disabled={unpairing}
+							onClick={() => onUnpair(device.uuid)}
+						>
+							Unpair (revokes T3 Code)
+						</Button>
+					) : null}
+				</Stack>
 			</Stack>
 		</Paper>
 	);

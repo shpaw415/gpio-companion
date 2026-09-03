@@ -32,6 +32,7 @@
 		"frame-master-plugin-tailwind": "^2.0.2",
 		"frame-master-svg-to-jsx-loader": "^0.1.0",
 		"gpio-companion": "workspace:*",
+		"marked": "^18.0.11",
 		"openauthster-shared": "^1.0.2",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",

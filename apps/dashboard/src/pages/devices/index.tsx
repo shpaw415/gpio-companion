@@ -12,10 +12,12 @@ import DeviceBoardCard, {
 import SectionHub, { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 
 export default function DevicesPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [boards, setBoards] = useState<BoardView[]>([]);
 
@@ -44,6 +46,16 @@ export default function DevicesPage() {
 			}
 		});
 	}, [session.data?.id, run]);
+
+	useEffect(() => {
+		if (boards.length === 0) {
+			return;
+		}
+		if (selectedUuid && boards.some((b) => b.device.uuid === selectedUuid)) {
+			return;
+		}
+		selectBoard(boards[0]?.device.uuid ?? "");
+	}, [boards, selectedUuid, selectBoard]);
 
 	return (
 		<Stack spacing={3}>
@@ -76,6 +88,8 @@ export default function DevicesPage() {
 					key={board.device.uuid}
 					device={board.device}
 					status={board.status}
+					selected={board.device.uuid === selectedUuid}
+					onSelect={selectBoard}
 					onLabelSaved={(label) => {
 						setBoards((current) =>
 							current.map((item) =>
@@ -91,6 +105,12 @@ export default function DevicesPage() {
 			<SectionHub
 				description="Everything you can do with a board."
 				items={[
+					{
+						href: "/devices/docs",
+						title: "Documentation",
+						description:
+							"Official gpio-companion docs for the selected board — guides, wiring, and pinouts.",
+					},
 					{
 						href: "/devices/t3",
 						title: "T3 Code",

@@ -1,0 +1,16 @@
+[Unit]
+Description=gpio-companion OpenViking memory server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__GPIO_USER__
+ExecStart=/usr/local/lib/gpio-companion/openviking/bin/openviking-server --config __OPENVIKING_CONF__
+Restart=on-failure
+RestartSec=5
+Nice=10
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

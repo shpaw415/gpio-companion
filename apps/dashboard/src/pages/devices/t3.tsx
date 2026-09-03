@@ -9,8 +9,8 @@ import DeviceSelect from "../../components/DeviceSelect.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import useMobile from "../../hooks/useMobile.ts";
-import { useT3Session } from "../../hooks/useT3Session.tsx";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
 import {
 	pickT3DeviceUuid,
@@ -21,7 +21,7 @@ import {
 export default function T3Page() {
 	const session = useAuthSession();
 	const { run } = useActionError();
-	const { uuid, setUuid } = useT3Session();
+	const { uuid, setUuid } = useBoardSelection();
 	const mobile = useMobile();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;

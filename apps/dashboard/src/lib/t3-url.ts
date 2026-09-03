@@ -2,7 +2,6 @@ import { publicDeviceUrl, tunnelHostnames } from "gpio-companion";
 
 export const T3_PATH = "/devices/t3";
 export const T3_EMBED_PREFIX = "/api/t3-embed";
-export const T3_DEVICE_STORAGE_KEY = "gpio-companion-t3-device";
 export const T3_FRAME_SLOT_ID = "gpio-t3-frame-slot";
 
 export function isT3Path(pathname: string): boolean {

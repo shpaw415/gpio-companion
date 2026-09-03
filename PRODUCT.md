@@ -70,6 +70,9 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - After the user has a GitHub PAT, dashboard Keys pushes username/token to the Pi via `PUT /v1/config/github` and stores them in dashboard KV; OpenCode key via `PUT /v1/config/secrets`
 - Dashboard app: `apps/dashboard` (Frame Master `cloudflare-nextjs`, Cloudflare Pages project `gpio-companion-dashboard`)
 - Dashboard Devices T3 tab (`/devices/t3`) embeds T3 Code in a keep-alive iframe via same-origin Cloudflare Pages proxy `/api/t3-embed/{uuid}/` (strips frame-blocking headers from `https://t3-<slug>.gpio-companion.com`); hidden on other routes so the in-app T3 page is not lost; device selector picks the paired Pi; primary nav stays Project / Devices / Profile
+- Dashboard keeps one selected board (Devices overview `Select board`; localStorage `gpio-companion-selected-board`, reads the legacy T3 key) shared by board-scoped pages: the T3 tab selector and Devices Docs
+- Dashboard Devices Docs tab (`/devices/docs`) shows the official documentation (`documentation/user/*` + `opencode/skills/gpio-pinout-*`) with search (global + in-doc) and board-scoped hardware docs keyed to the selected board's family; readers live at `/devices/docs?id=<doc>`
+- Device API `GET /v1/status` also returns `model` from `/proc/device-tree/model` (NUL-trimmed, best-effort) so the dashboard can show the exact board (e.g. Orange Pi 3 LTS)
 - Dashboard `/projects` shows per-GitHub-repo `pcb/`, `breadboard/`, and `technical/` files plus a PCB viewer (`pcb/circuit.json` / `pcb/preview.svg`) and a breadboard viewer (`breadboard/diagram.json` Wokwi diagram + `@wokwi/elements`)
 - Pairing UUID/key are generated (or taken from env) at first-setup; `POST /v1/pairing/claim` on the device API completes the bind
 - Generate the dashboard Ed25519 pair with `bun run keys:device` (optional `--wrangler`); private key is never committed; Pis fetch the matching public key from the dashboard, not from git

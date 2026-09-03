@@ -15,9 +15,9 @@ import {
 import { createClient, type PublicSession } from "./auth.ts";
 import T3Frame from "./components/T3Frame.tsx";
 import { AuthCtx, AuthSessionCtx } from "./hooks/useAuth.ts";
+import { BoardSelectionProvider } from "./hooks/useBoardSelection.tsx";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
 import { PathnameProvider } from "./hooks/usePathname.tsx";
-import { T3SessionProvider } from "./hooks/useT3Session.tsx";
 import {
 	identityToPublicSession,
 	resolveUserIdentity,
@@ -63,7 +63,7 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 				<PathnameProvider pathname={pathname}>
 					<ColorModeProvider>
 						<AuthProvider>
-							<T3SessionProvider>
+							<BoardSelectionProvider>
 								<RouterHost
 									onRouteChange={async (match) => {
 										matched.current = match;
@@ -77,7 +77,7 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 									{children}
 								</RouterHost>
 								<T3Frame />
-							</T3SessionProvider>
+							</BoardSelectionProvider>
 						</AuthProvider>
 					</ColorModeProvider>
 				</PathnameProvider>
