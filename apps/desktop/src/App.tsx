@@ -8,6 +8,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Toolbar from "@shpaw415/mui-lite/Toolbar";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import logo from "../../../logo/logo.png";
 import { authLogout, authSession, authToken, type Session } from "./api";
 import { useColorMode } from "./color-mode";
 import DevicesHub, { type DeviceTab } from "./components/DevicesHub";
@@ -99,9 +100,33 @@ export default function App() {
 				<CssBaseline />
 				<AppBar position="sticky" color="default">
 					<Toolbar sx={{ gap: 1 }}>
-						<Typography variant="h6" sx={{ flexGrow: 1, minWidth: 0 }} noWrap>
-							gpio-companion
-						</Typography>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								gap: 1.5,
+								flexGrow: 1,
+								minWidth: 0,
+							}}
+						>
+							<img
+								src={logo}
+								alt=""
+								width={32}
+								height={32}
+								style={{
+									width: 32,
+									height: 32,
+									borderRadius: 8,
+									objectFit: "cover",
+									flexShrink: 0,
+									display: "block",
+								}}
+							/>
+							<Typography variant="h6" noWrap>
+								gpio-companion
+							</Typography>
+						</Box>
 						{signedIn
 							? (
 									[
