@@ -1,0 +1,168 @@
+import Alert from "@shpaw415/mui-lite/Alert";
+import Button from "@shpaw415/mui-lite/Button";
+import Paper from "@shpaw415/mui-lite/Paper";
+import Stack from "@shpaw415/mui-lite/Stack";
+import TextField from "@shpaw415/mui-lite/TextField";
+import Typography from "@shpaw415/mui-lite/Typography";
+import { useEffect, useState } from "react";
+import {
+	type AdminDeviceItem,
+	adminTransfer,
+	adminUnpair,
+	deviceDisplayName,
+	listAdminDevices,
+	patchAdminLabel,
+} from "../api";
+import DebugLog from "./DebugLog";
+
+export default function Admin() {
+	const [devices, setDevices] = useState<AdminDeviceItem[]>([]);
+	const [filter, setFilter] = useState("");
+	const [selected, setSelected] = useState("");
+	const [label, setLabel] = useState("");
+	const [error, setError] = useState("");
+
+	useEffect(() => {
+		void listAdminDevices()
+			.then((result) => setDevices(result.devices))
+			.catch((caught) => {
+				setError(caught instanceof Error ? caught.message : "load failed");
+			});
+	}, []);
+
+	const visible = devices.filter((item) => {
+		const hay = `${item.device.label ?? ""} ${item.device.uuid} ${item.device.login} ${item.device.email ?? ""}`.toLowerCase();
+		return hay.includes(filter.trim().toLowerCase());
+	});
+	const current = devices.find((item) => item.device.uuid === selected);
+
+	return (
+		<Stack spacing={2}>
+			<Typography variant="h5" Element="h1">
+				Admin
+			</Typography>
+			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? <DebugLog error={error} /> : null}
+			<TextField
+				label="Filter"
+				value={filter}
+				onChange={(event) => setFilter(event.target.value)}
+			/>
+			{visible.map((item) => (
+				<Paper
+					key={item.device.uuid}
+					sx={{ p: 2, cursor: "pointer" }}
+					elevation={item.device.uuid === selected ? 3 : 1}
+					onClick={() => {
+						setSelected(item.device.uuid);
+						setLabel(item.device.label ?? "");
+					}}
+				>
+					<Typography>{deviceDisplayName(item.device)}</Typography>
+					<Typography color="secondary">
+						{item.status ? "Online" : "Offline"}
+						{item.device.email ? ` · ${item.device.email}` : ""}
+					</Typography>
+				</Paper>
+			))}
+			{current ? (
+				<Paper sx={{ p: 3 }} elevation={1}>
+					<Typography variant="h6">
+						{deviceDisplayName(current.device)}
+					</Typography>
+					<Typography color="secondary" sx={{ wordBreak: "break-all" }}>
+						{current.device.uuid}
+					</Typography>
+					<Stack direction="row" spacing={1} sx={{ mt: 2, alignItems: "flex-end" }}>
+						<TextField
+							label="Label"
+							value={label}
+							onChange={(event) => setLabel(event.target.value)}
+							sx={{ flex: 1 }}
+						/>
+						<Button
+							variant="text"
+							onClick={() => {
+								void patchAdminLabel(current.device.uuid, label)
+									.then(() =>
+										setDevices((items) =>
+											items.map((item) =>
+												item.device.uuid === current.device.uuid
+													? {
+															...item,
+															device: { ...item.device, label },
+														}
+													: item,
+											),
+										),
+									)
+									.catch((caught) => {
+										setError(
+											caught instanceof Error
+												? caught.message
+												: "save failed",
+										);
+									});
+							}}
+						>
+							Save
+						</Button>
+					</Stack>
+					<Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+						<Button
+							variant="text"
+							onClick={() => {
+								void adminTransfer(current.device.uuid)
+									.then((result) =>
+										setDevices((items) =>
+											items.map((item) =>
+												item.device.uuid === current.device.uuid
+													? { ...item, device: result.device }
+													: item,
+											),
+										),
+									)
+									.catch((caught) => {
+										setError(
+											caught instanceof Error
+												? caught.message
+												: "transfer failed",
+										);
+									});
+							}}
+						>
+							Force transfer to me
+						</Button>
+						<Button
+							color="error"
+							variant="text"
+							onClick={() => {
+								if (!window.confirm("Unpair this board from its owner?")) {
+									return;
+								}
+								void adminUnpair(current.device.uuid)
+									.then(() => {
+										setDevices((items) =>
+											items.filter(
+												(item) => item.device.uuid !== current.device.uuid,
+											),
+										);
+										setSelected("");
+									})
+									.catch((caught) => {
+										setError(
+											caught instanceof Error
+												? caught.message
+												: "unpair failed",
+										);
+									});
+							}}
+						>
+							Unpair from owner
+						</Button>
+					</Stack>
+				</Paper>
+			) : null}
+		</Stack>
+	);
+}

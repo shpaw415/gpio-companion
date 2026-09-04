@@ -51,9 +51,9 @@ describe("t3 embed proxy headers", () => {
 			"https://gpio-companion.com",
 			embedPrefixFor("abc"),
 		);
-		expect(headers.get("x-frame-options")).toBe("SAMEORIGIN");
+		expect(headers.get("x-frame-options")).toBeNull();
 		expect(headers.get("content-security-policy")).toBe(
-			"frame-ancestors 'self'",
+			"frame-ancestors 'self' http://tauri.localhost https://tauri.localhost http://localhost:1420 http://127.0.0.1:1420",
 		);
 		expect(headers.get("location")).toBe("/api/t3-embed/abc/pair");
 	});

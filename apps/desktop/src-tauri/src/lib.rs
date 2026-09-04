@@ -129,6 +129,31 @@ async fn devices_unpair(uuid: String) -> Result<Value, String> {
 	api::request(Method::DELETE, &path, None::<&Value>).await
 }
 
+fn parse_method(value: &str) -> Result<Method, String> {
+	match value.to_ascii_uppercase().as_str() {
+		"GET" => Ok(Method::GET),
+		"POST" => Ok(Method::POST),
+		"PUT" => Ok(Method::PUT),
+		"PATCH" => Ok(Method::PATCH),
+		"DELETE" => Ok(Method::DELETE),
+		_ => Err(format!("unsupported method {value}")),
+	}
+}
+
+#[tauri::command]
+async fn api_request(
+	method: String,
+	path: String,
+	body: Option<Value>,
+) -> Result<Value, String> {
+	if !path.starts_with("/api/") {
+		return Err("path must be an /api/ route".to_string());
+	}
+	let method = parse_method(&method)?;
+	let payload = body.filter(|value| !value.is_null());
+	api::request_value(method, &path, payload.as_ref()).await
+}
+
 #[tauri::command]
 async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 	let _ble = ble::acquire().await;
@@ -278,6 +303,7 @@ pub fn run() {
 			debug_logs,
 			devices_list,
 			devices_unpair,
+			api_request,
 			ble_scan,
 			ble_pair,
 			ble_wifi

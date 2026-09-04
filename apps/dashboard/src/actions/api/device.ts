@@ -27,28 +27,21 @@ export type DeviceStatusItem = {
 	status: Record<string, unknown> | null;
 };
 
-export const GET = wrapAction(async function GET() {
-	const ctx = getContext<PagesEnv, never, never>(arguments);
-	const identity = await requireIdentity(ctx);
-	if (!identity.id) {
-		throw new Error("sign in first");
-	}
-	const paired = await loadDevices(ctx.env.DYNAMIC_PAGE_KV, identity.id);
+export async function listDevicesWithStatus(
+	env: PagesEnv,
+	userId: string,
+): Promise<{ paired: boolean; devices: DeviceStatusItem[] }> {
+	const paired = await loadDevices(env.DYNAMIC_PAGE_KV, userId);
 	const devices: DeviceStatusItem[] = [];
 	for (const device of paired) {
 		if (device.deviceUrl) {
-			await registerDeviceAiKey(ctx.env, device.deviceUrl, identity.id);
+			await registerDeviceAiKey(env, device.deviceUrl, userId);
 		}
 		let status: Record<string, unknown> | null = null;
 		if (device.deviceUrl) {
 			try {
 				status = await readDeviceJson<Record<string, unknown>>(
-					await signedDeviceFetch(
-						ctx.env,
-						device.deviceUrl,
-						"GET",
-						"/v1/status",
-					),
+					await signedDeviceFetch(env, device.deviceUrl, "GET", "/v1/status"),
 				);
 			} catch {
 				status = null;
@@ -57,6 +50,15 @@ export const GET = wrapAction(async function GET() {
 		devices.push({ device, status });
 	}
 	return { paired: devices.length > 0, devices };
+}
+
+export const GET = wrapAction(async function GET() {
+	const ctx = getContext<PagesEnv, never, never>(arguments);
+	const identity = await requireIdentity(ctx);
+	if (!identity.id) {
+		throw new Error("sign in first");
+	}
+	return listDevicesWithStatus(ctx.env, identity.id);
 });
 
 export const PUT = wrapAction(async function PUT(patch: DeviceSecretsPatch) {

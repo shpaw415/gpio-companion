@@ -1,28 +1,52 @@
 import { useURL } from "expo-linking";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+	firstParam,
+	resolveAuthCallbackUrl,
+} from "../../src/lib/auth-callback.ts";
 import { useAuth } from "../../src/lib/auth.tsx";
+import { authRedirectUri } from "../../src/lib/config.ts";
 import { colors } from "../../src/lib/theme.ts";
 
 export default function AuthCallbackScreen() {
 	const auth = useAuth();
-	const url = useURL();
+	const linkingUrl = useURL();
+	const params = useLocalSearchParams<{
+		code?: string | string[];
+		state?: string | string[];
+		url?: string | string[];
+	}>();
 	const handled = useRef(false);
 	const [error, setError] = useState("");
 
+	const code = firstParam(params.code);
+	const state = firstParam(params.state);
+	const nestedUrl = firstParam(params.url);
+
 	useEffect(() => {
-		if (!url || handled.current) {
+		if (handled.current) {
+			return;
+		}
+		const callbackUrl = resolveAuthCallbackUrl({
+			redirectUri: authRedirectUri,
+			code,
+			state,
+			nestedUrl,
+			linkingUrl,
+		});
+		if (!callbackUrl) {
 			return;
 		}
 		handled.current = true;
 		void auth
-			.completeAuthCallback(url)
+			.completeAuthCallback(callbackUrl)
 			.then(() => router.replace("/"))
 			.catch((caught) => {
 				setError(caught instanceof Error ? caught.message : "sign-in failed");
 			});
-	}, [url, auth]);
+	}, [code, state, nestedUrl, linkingUrl, auth]);
 
 	if (error) {
 		return (

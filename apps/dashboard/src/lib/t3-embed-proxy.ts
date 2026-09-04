@@ -5,6 +5,18 @@ import {
 	t3AppUrl,
 } from "./t3-url.ts";
 
+export const T3_EMBED_FRAME_ANCESTORS = [
+	"'self'",
+	"http://tauri.localhost",
+	"https://tauri.localhost",
+	"http://localhost:1420",
+	"http://127.0.0.1:1420",
+] as const;
+
+export function t3EmbedFrameAncestors(): string {
+	return `frame-ancestors ${T3_EMBED_FRAME_ANCESTORS.join(" ")}`;
+}
+
 export const STRIP_RESPONSE_HEADERS = [
 	"x-frame-options",
 	"content-security-policy",
@@ -98,8 +110,7 @@ export function filterDownstreamHeaders(
 		}
 		headers.set(key, value);
 	});
-	headers.set("content-security-policy", "frame-ancestors 'self'");
-	headers.set("x-frame-options", "SAMEORIGIN");
+	headers.set("content-security-policy", t3EmbedFrameAncestors());
 	return headers;
 }
 

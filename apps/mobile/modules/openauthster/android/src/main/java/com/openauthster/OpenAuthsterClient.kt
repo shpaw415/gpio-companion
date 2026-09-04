@@ -64,11 +64,12 @@ class OpenAuthsterClient(
 	}
 
 	fun handleCallback(uri: Uri) {
-		val code = uri.getQueryParameter("code") ?: throw IllegalArgumentException("missing code")
+		val callback = resolveCallbackUri(uri)
+		val code = callback.getQueryParameter("code") ?: throw IllegalArgumentException("missing code")
 		val verifier = prefs.getString(KEY_VERIFIER, null) ?: throw IllegalStateException("missing verifier")
 		val expected = prefs.getString(KEY_STATE, null)
 		if (!expected.isNullOrEmpty()) {
-			val received = uri.getQueryParameter("state")
+			val received = callback.getQueryParameter("state")
 			if (received != expected) {
 				prefs.edit().remove(KEY_STATE).remove(KEY_VERIFIER).apply()
 				throw IllegalArgumentException("auth state mismatch")
@@ -133,6 +134,17 @@ class OpenAuthsterClient(
 
 	fun logout() {
 		prefs.edit().clear().apply()
+	}
+
+	private fun resolveCallbackUri(uri: Uri, depth: Int = 0): Uri {
+		if (depth > 4) {
+			return uri
+		}
+		if (!uri.getQueryParameter("code").isNullOrEmpty()) {
+			return uri
+		}
+		val nested = uri.getQueryParameter("url") ?: return uri
+		return resolveCallbackUri(Uri.parse(nested), depth + 1)
 	}
 
 	private fun exchangeTokens(vararg form: Pair<String, String>): JSONObject {

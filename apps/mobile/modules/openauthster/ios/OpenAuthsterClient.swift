@@ -149,7 +149,8 @@ public final class OpenAuthsterClient: NSObject, ASWebAuthenticationPresentation
 	}
 
 	public func handleCallback(_ url: URL, verifier: String) async throws {
-		guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+		let callback = Self.resolveCallbackURL(url)
+		guard let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems,
 		      let code = items.first(where: { $0.name == "code" })?.value
 		else {
 			throw OpenAuthsterError.missingCode
@@ -228,6 +229,24 @@ public final class OpenAuthsterClient: NSObject, ASWebAuthenticationPresentation
 			.map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: allowed) ?? $0.value)" }
 			.joined(separator: "&")
 			.data(using: .utf8) ?? Data()
+	}
+
+	private static func resolveCallbackURL(_ url: URL, depth: Int = 0) -> URL {
+		if depth > 4 {
+			return url
+		}
+		guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else {
+			return url
+		}
+		if items.contains(where: { $0.name == "code" && ($0.value?.isEmpty == false) }) {
+			return url
+		}
+		guard let nested = items.first(where: { $0.name == "url" })?.value,
+		      let nestedURL = URL(string: nested)
+		else {
+			return url
+		}
+		return resolveCallbackURL(nestedURL, depth: depth + 1)
 	}
 
 	private static func exchangeTokens(

@@ -57,3 +57,21 @@ export async function readJsonBody(
 export function asString(value: unknown): string {
 	return typeof value === "string" ? value : "";
 }
+
+export async function runMobile(
+	ctx: MobileContext,
+	handler: (identity: SignedInIdentity) => Promise<unknown>,
+): Promise<Response> {
+	try {
+		const identity = await requireMobileIdentity(ctx);
+		if (!identity.id) {
+			throw new Error("sign in first");
+		}
+		return jsonOk(await handler(identity));
+	} catch (caught) {
+		return jsonFail(
+			caught instanceof Error ? caught.message : "request failed",
+			errorStatus(caught),
+		);
+	}
+}
