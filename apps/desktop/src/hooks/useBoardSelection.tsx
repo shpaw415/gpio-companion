@@ -14,6 +14,7 @@ type BoardSelectionValue = {
 	setUuid: (uuid: string) => void;
 	pairToken: string;
 	openT3Pair: (uuid: string, token: string) => void;
+	clearPairToken: () => void;
 };
 
 const BoardSelectionCtx = createContext<BoardSelectionValue | null>(null);
@@ -71,9 +72,13 @@ export function BoardSelectionProvider({
 		[onOpenT3],
 	);
 
+	const clearPairToken = useCallback(() => {
+		setPairToken("");
+	}, []);
+
 	const value = useMemo(
-		() => ({ uuid, setUuid, pairToken, openT3Pair }),
-		[uuid, setUuid, pairToken, openT3Pair],
+		() => ({ uuid, setUuid, pairToken, openT3Pair, clearPairToken }),
+		[uuid, setUuid, pairToken, openT3Pair, clearPairToken],
 	);
 	return (
 		<BoardSelectionCtx.Provider value={value}>
@@ -90,6 +95,7 @@ export function useBoardSelection(): BoardSelectionValue {
 			setUuid: () => undefined,
 			pairToken: "",
 			openT3Pair: () => undefined,
+			clearPairToken: () => undefined,
 		};
 	}
 	return ctx;

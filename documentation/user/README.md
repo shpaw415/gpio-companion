@@ -9,6 +9,7 @@ This tree is for the person at the desk: Orange Pi or Raspberry Pi on the bench,
 | [getting-started.md](./getting-started.md) | Power on → WiFi → sign in → pair → GitHub → Keys |
 | [wifi-bluetooth.md](./wifi-bluetooth.md) | Chrome Bluetooth, native iOS/Android/desktop apps, and iOS LightBlue / nRF Connect paste |
 | [workflows.md](./workflows.md) | Daily agent work, projects, PCB/breadboard folders, Arduino C |
+| [storage.md](./storage.md) | Extra SD / USB appears in T3 as `~/storage/<label>` |
 
 ## What you have
 

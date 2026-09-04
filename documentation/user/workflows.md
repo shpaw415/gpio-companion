@@ -11,6 +11,8 @@ On Raspberry Pi use **BCM** in code and **physical** pin numbers on sheets. 3.3V
 
 On Orange Pi, power/GND seats match the 40-pin Pi layout; **SoC GPIO numbers are not BCM**. Resolve with `gpioinfo` / WiringOP.
 
+Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home. Open that folder for projects on the stick; see [storage.md](./storage.md).
+
 Arduino firmware is **C**, flashed over USB. No other MCU language unless the product locks one.
 
 ## Projects live in GitHub

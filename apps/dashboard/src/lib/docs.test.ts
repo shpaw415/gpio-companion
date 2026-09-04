@@ -13,7 +13,7 @@ import { renderDocsMarkdown, slugifyHeading } from "./markdown.ts";
 
 describe("docs registry", () => {
 	test("registers guides and per-hardware docs", () => {
-		expect(DOCS.filter((doc) => doc.group === "guides").length).toBe(4);
+		expect(DOCS.filter((doc) => doc.group === "guides").length).toBe(5);
 		expect(
 			DOCS.filter((doc) => doc.group === "hardware").map((doc) => doc.hardware),
 		).toEqual(["raspberrypi", "orangepi"]);

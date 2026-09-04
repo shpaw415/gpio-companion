@@ -41,7 +41,7 @@ Force re-run: `GPIO_COMPANION_FORCE_SETUP=1`.
 
 Shared work: `scripts/lib.sh` → `install_common`.
 
-Packages include: git, zip/unzip, bun, build-essential, node-gyp toolchain, libgpiod, Arduino USB (`avrdude`, `picocom`, …), cloudflared, OpenCode, T3 Code, **bluez**, **python3-dbus**, **python3-gi** (BLE GATT), **network-manager** (`nmcli` for `PUT /v1/config/wifi`).
+Packages include: git, zip/unzip, bun, build-essential, node-gyp toolchain, libgpiod, Arduino USB (`avrdude`, `picocom`, …), cloudflared, OpenCode, T3 Code, **bluez**, **python3-dbus**, **python3-gi** (BLE GATT), **network-manager** (`nmcli` for `PUT /v1/config/wifi`), **dosfstools** (removable SD/USB → `~/storage/<label>`).
 
 - Raspberry Pi extras: optional `pigpio` / `raspi-gpio`
 - Orange Pi extras: optional WiringOP — SoC lines are **not** BCM; agents must use `gpioinfo`
@@ -100,6 +100,7 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 `scripts/update-script.sh` (timer):
 
 - Corruption guard then `git fetch --depth 1` + `reset --hard origin/<branch>` (`/etc/gpio-companion/branch` or `main`): prune empty git objects, retry, reclone `.git` if still corrupt
+- Reinstalls the SD/USB home-link helper (`scripts/storage-link.sh`, udev + systemd) so extra media appears at `~/storage/<label>`
 - Copies `opencode/skills` and `opencode/preferences` into the device OpenCode config
 - Fetches `GET /api/device-public-key` and writes `/etc/gpio-companion/device-auth.json` if it changed
 - Rebuilds/restarts `gpio-companion` if `binary/`, `packages/core/`, the unit file, or lockfile changed, or if the registered public key changed

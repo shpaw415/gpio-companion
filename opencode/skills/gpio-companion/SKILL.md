@@ -28,6 +28,7 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
   - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`
   - `technical/` sheets
   Then `git add`, commit, `git push` on the project remote (`https://github.com/<user>/<project>.git`). The dashboard viewer reads those paths.
+- Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
 - Use Bun for HTTP, dashboards, and automation scripts
 - Generate Arduino firmware in C and send it over USB
 - Load the pinout skill for the current hardware before wiring GPIO

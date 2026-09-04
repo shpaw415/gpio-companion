@@ -34,16 +34,30 @@ export type NearbyBoard = {
 	hardware?: string | null;
 };
 
+function looksLikeMac(value: string) {
+	const hex = value.replace(/[^0-9a-fA-F]/g, "");
+	if (hex.length !== 12) {
+		return false;
+	}
+	return [...value].every((ch) => /[0-9a-fA-F:\-_]/.test(ch));
+}
+
+function rssiSuffix(rssi: number | null) {
+	return rssi != null ? ` (${rssi} dBm)` : "";
+}
+
 export function nearbyBoardLabel(board: NearbyBoard) {
+	const name = board.name.trim();
+	const named = Boolean(name) && !looksLikeMac(name);
 	if (board.matched) {
-		const name = board.name.trim() || "gpio-companion";
+		const display = named ? name : "gpio-companion";
 		const extra = board.hardware?.trim() || board.pairingUuid?.slice(0, 8);
-		return extra ? `${name} (${extra})` : name;
+		return extra ? `${display} (${extra})` : display;
 	}
-	if (board.rssi != null) {
-		return `Nearby ${board.rssi} dBm — ${board.id}`;
+	if (named) {
+		return `${name}${rssiSuffix(board.rssi)}`;
 	}
-	return board.id;
+	return `Nearby radio${rssiSuffix(board.rssi)}`;
 }
 
 async function call<T>(
@@ -361,7 +375,8 @@ export function t3IframeSrc(uuid: string, token = "") {
 	if (!trimmed) {
 		return origin;
 	}
-	return `${origin}/pair#token=${encodeURIComponent(trimmed)}`;
+	const encoded = encodeURIComponent(trimmed);
+	return `${origin}/pair?token=${encoded}#token=${encoded}`;
 }
 
 export function deviceDisplayName(device: {

@@ -5,6 +5,7 @@ import userGuideContent from "@docs/user/README.md" with { type: "text" };
 import wifiBluetoothContent from "@docs/user/wifi-bluetooth.md" with {
 	type: "text",
 };
+import storageContent from "@docs/user/storage.md" with { type: "text" };
 import workflowsContent from "@docs/user/workflows.md" with { type: "text" };
 import pinoutOrangeContent from "@skills/gpio-pinout-orangepi/SKILL.md" with {
 	type: "text",
@@ -42,6 +43,7 @@ const DOC_LINK_TARGETS: Record<string, string> = {
 	"README.md": "user-guide",
 	"wifi-bluetooth.md": "wifi-bluetooth",
 	"workflows.md": "workflows",
+	"storage.md": "storage",
 };
 
 export function stripMarkdownFrontmatter(content: string): string {
@@ -58,7 +60,7 @@ export function stripMarkdownFrontmatter(content: string): string {
 
 export function rewriteDocLinks(content: string): string {
 	return content.replace(
-		/\]\((?:\.\/)?(README|getting-started|wifi-bluetooth|workflows)\.md\)/g,
+		/\]\((?:\.\/)?(README|getting-started|wifi-bluetooth|workflows|storage)\.md\)/g,
 		(_match, file: string) =>
 			`](/devices/docs?id=${DOC_LINK_TARGETS[`${file}.md`]})`,
 	);
@@ -133,6 +135,14 @@ export const DOCS: DocEntry[] = [
 			"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
 		group: "guides",
 		raw: workflowsContent,
+	}),
+	doc({
+		id: "storage",
+		title: "Removable storage",
+		description:
+			"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
+		group: "guides",
+		raw: storageContent,
 	}),
 	doc({
 		id: "pinout-raspberrypi",

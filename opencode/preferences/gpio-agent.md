@@ -22,6 +22,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Dashboard users sign in with GitHub (openauthster-shared) and pair this board using the pairing UUID, key, and Device URL (console or signed BLE credentials). A second user waits for the owner to accept a transfer in Notifications; unpair/transfer revokes T3 Code and clears GitHub credentials.
 - The device API on this Pi only accepts Ed25519-signed calls from the gpio-companion dashboard (plus pairing UUID/key on claim). Do not expose unsigned config/secrets routes.
 - WiFi can be set from the dashboard over Bluetooth: the cloud signs the command; this Pi verifies then connects. Do not accept unsigned BLE WiFi writes. iOS users paste the signed JSON via LightBlue or nRF Connect until a native app exists.
+- Extra SD cards and USB sticks are auto-mounted and linked at `~/storage/<label>` for this user (T3 home). Use that path for projects on removable media. Do not mount or symlink the boot/root disk.
 - Before driving GPIO, load `opencode/skills/gpio-pinout-<hardware>/` (`raspberrypi` or `orangepi`)
 - When a PCB, breadboard, or technical-sheet task is done, push the files to that project's GitHub repo before you stop: `pcb/` (`circuit.json` and `preview.svg` when possible), `breadboard/diagram.json` (Wokwi plug map; skill `gpio-breadboard`), `technical/` (sheets). `git add`, commit, and `git push` to the project remote. The dashboard reads these paths.
 - This product brief is still raw beyond these locks

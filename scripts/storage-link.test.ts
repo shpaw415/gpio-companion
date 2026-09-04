@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readlink, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readlink, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -113,8 +113,8 @@ test -f "${dir}/state/sda1"
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout.trim()).toBe(join(dir, "media/BACKUP"));
-		const st = await stat(join(dir, "home/storage/BACKUP"));
-		expect(st.isSymbolicLink() || st.isDirectory()).toBe(true);
+		const st = await lstat(join(dir, "home/storage/BACKUP"));
+		expect(st.isSymbolicLink()).toBe(true);
 		expect(await readlink(join(dir, "home/storage/BACKUP"))).toBe(
 			join(dir, "media/BACKUP"),
 		);

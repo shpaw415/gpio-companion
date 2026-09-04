@@ -1,6 +1,7 @@
 import gettingStartedContent from "../../../../documentation/user/getting-started.md?raw";
 import userGuideContent from "../../../../documentation/user/README.md?raw";
 import wifiBluetoothContent from "../../../../documentation/user/wifi-bluetooth.md?raw";
+import storageContent from "../../../../documentation/user/storage.md?raw";
 import workflowsContent from "../../../../documentation/user/workflows.md?raw";
 import pinoutOrangeContent from "../../../../opencode/skills/gpio-pinout-orangepi/SKILL.md?raw";
 import pinoutRaspberryContent from "../../../../opencode/skills/gpio-pinout-raspberrypi/SKILL.md?raw";
@@ -34,11 +35,12 @@ const DOC_LINK_TARGETS: Record<string, string> = {
 	"README.md": "user-guide",
 	"wifi-bluetooth.md": "wifi-bluetooth",
 	"workflows.md": "workflows",
+	"storage.md": "storage",
 };
 
 export function rewriteDocLinks(content: string): string {
 	return content.replace(
-		/\]\((?:\.\/)?(README|getting-started|wifi-bluetooth|workflows)\.md\)/g,
+		/\]\((?:\.\/)?(README|getting-started|wifi-bluetooth|workflows|storage)\.md\)/g,
 		(_match, file: string) =>
 			`](#doc:${DOC_LINK_TARGETS[`${file}.md`]})`,
 	);
@@ -128,6 +130,14 @@ export const DOCS: DocEntry[] = [
 			"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
 		group: "guides",
 		raw: workflowsContent,
+	}),
+	doc({
+		id: "storage",
+		title: "Removable storage",
+		description:
+			"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
+		group: "guides",
+		raw: storageContent,
 	}),
 	doc({
 		id: "pinout-raspberrypi",

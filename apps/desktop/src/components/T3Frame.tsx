@@ -1,13 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { t3IframeSrc } from "../api";
+import { t3AppUrl, t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 
 const CHROME = "[data-t3-chrome]";
 
 export default function T3Frame({ visible }: { visible: boolean }) {
-	const { uuid, pairToken } = useBoardSelection();
+	const { uuid, pairToken, clearPairToken } = useBoardSelection();
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const assigned = useRef("");
+	const loads = useRef(0);
+	const uuidRef = useRef(uuid);
+	uuidRef.current = uuid;
+	const pairRef = useRef(pairToken);
+	pairRef.current = pairToken;
 	const [top, setTop] = useState(0);
 
 	useLayoutEffect(() => {
@@ -27,6 +32,16 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 		};
 	}, [visible, uuid]);
 
+	function goHome(el: HTMLIFrameElement) {
+		const home = t3AppUrl(uuidRef.current);
+		pairRef.current = "";
+		clearPairToken();
+		assigned.current = `${uuidRef.current}\0`;
+		if (home) {
+			el.src = home;
+		}
+	}
+
 	useEffect(() => {
 		const el = iframeRef.current;
 		const target = t3IframeSrc(uuid, pairToken);
@@ -38,8 +53,37 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 			return;
 		}
 		assigned.current = navKey;
+		loads.current = 0;
 		el.src = target;
 	}, [uuid, pairToken]);
+
+	useEffect(() => {
+		const el = iframeRef.current;
+		if (!el) {
+			return;
+		}
+		let timer = 0;
+		const onLoad = () => {
+			loads.current += 1;
+			if (!pairRef.current) {
+				return;
+			}
+			if (loads.current >= 2) {
+				goHome(el);
+				return;
+			}
+			timer = window.setTimeout(() => {
+				if (pairRef.current) {
+					goHome(el);
+				}
+			}, 4000);
+		};
+		el.addEventListener("load", onLoad);
+		return () => {
+			el.removeEventListener("load", onLoad);
+			window.clearTimeout(timer);
+		};
+	}, [clearPairToken]);
 
 	if (!uuid) {
 		return null;

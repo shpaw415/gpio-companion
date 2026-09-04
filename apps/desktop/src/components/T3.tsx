@@ -9,7 +9,7 @@ import { useBoardSelection } from "../hooks/useBoardSelection";
 import { SelectSkeleton } from "./skeletons";
 
 export default function T3() {
-	const { uuid, setUuid } = useBoardSelection();
+	const { uuid, setUuid, pairToken, clearPairToken } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
 	const { boards, loading } = useUserBoards();
@@ -57,6 +57,11 @@ export default function T3() {
 							))}
 						</Select>
 					)}
+					{pairToken ? (
+						<Button variant="contained" size="small" onClick={() => clearPairToken()}>
+							Continue to T3
+						</Button>
+					) : null}
 					<Button
 						variant="text"
 						disabled={!uuid}
