@@ -1,0 +1,11 @@
+[Unit]
+Description=gpio-companion removable storage %i
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/gpio-companion/update.env
+ExecStart=/usr/local/lib/gpio-companion/storage-link.sh add %i
+ExecStop=/usr/local/lib/gpio-companion/storage-link.sh remove %i

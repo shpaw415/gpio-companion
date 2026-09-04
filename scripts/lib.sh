@@ -79,11 +79,13 @@ install_apt_base() {
 		picocom \
 		usbutils \
 		udev \
+		dosfstools \
 		bluez \
 		python3-dbus \
 		python3-gi \
 		network-manager
 	systemctl enable --now NetworkManager.service || true
+	apt_install_optional exfatprogs exfat-fuse ntfs-3g
 }
 
 install_node() {
@@ -343,6 +345,17 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", GROUP="dialout", MODE="0660"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", GROUP="dialout", MODE="0660"
 EOF
 	udevadm control --reload-rules || true
+}
+
+install_storage_link() {
+	install -d -m 0755 "$LIB_DIR"
+	install -m 0755 "$SCRIPT_DIR/storage-link.sh" "$LIB_DIR/storage-link.sh"
+	install -d -m 0755 /etc/udev/rules.d
+	install -m 0644 "$SCRIPT_DIR/udev/99-gpio-companion-storage.rules" /etc/udev/rules.d/99-gpio-companion-storage.rules
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-storage@.service" /etc/systemd/system/gpio-companion-storage@.service
+	udevadm control --reload-rules || true
+	udevadm trigger --subsystem-match=block --action=add || true
+	systemctl daemon-reload || true
 }
 
 add_user_groups() {
@@ -1068,6 +1081,7 @@ install_common() {
 	install_cloudflared
 	install_arduino_cli
 	install_arduino_udev
+	install_storage_link
 	add_user_groups
 	install_opencode
 	install_t3code

@@ -1,0 +1,4 @@
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", TAG+="systemd", ENV{SYSTEMD_WANTS}+="gpio-companion-storage@%k.service"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="disk", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}+="gpio-companion-storage@%k.service"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk[0-9]*p[0-9]*", ENV{DEVTYPE}=="partition", TAG+="systemd", ENV{SYSTEMD_WANTS}+="gpio-companion-storage@%k.service"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk[0-9]*", ENV{DEVTYPE}=="disk", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}+="gpio-companion-storage@%k.service"
