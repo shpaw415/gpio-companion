@@ -52,15 +52,21 @@ export default function BoardCard({
 						{device.deviceUrl}
 					</Typography>
 				) : null}
-				<Stack direction="row" spacing={1} sx={{ alignItems: "flex-end" }}>
+				<Stack
+					direction="row"
+					spacing={1}
+					sx={{ alignItems: "flex-end", flexWrap: "wrap" }}
+				>
 					<TextField
 						label="Label"
+						placeholder="Optional name"
 						value={label}
 						onChange={(event) => setLabel(event.target.value)}
-						sx={{ flex: 1 }}
+						sx={{ flex: 1, minWidth: 180 }}
 					/>
 					<Button
-						variant="text"
+						variant="outlined"
+						size="small"
 						disabled={saving}
 						onClick={() => void saveLabel()}
 					>
@@ -115,16 +121,22 @@ export default function BoardCard({
 					) : null}
 				</Stack>
 				<T3Pairing uuid={device.uuid} initial={status?.t3} />
-				<Stack direction="row" spacing={1}>
-					{onSelect && !selected ? (
-						<Button variant="text" onClick={() => onSelect(device.uuid)}>
-							Select board
+				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+					{onSelect ? (
+						<Button
+							variant={selected ? "contained" : "outlined"}
+							size="small"
+							disabled={selected}
+							onClick={() => onSelect(device.uuid)}
+						>
+							{selected ? "Selected" : "Select board"}
 						</Button>
 					) : null}
 					{onUnpair ? (
 						<Button
 							color="error"
 							variant="text"
+							size="small"
 							onClick={() => {
 								if (
 									!window.confirm("Remove this board from your account?")

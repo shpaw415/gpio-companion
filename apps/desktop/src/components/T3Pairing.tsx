@@ -63,17 +63,25 @@ export default function T3Pairing({
 	return (
 		<Stack spacing={1}>
 			{error ? <Alert severity="error">{error}</Alert> : null}
-			{status?.pairingUrl ? (
+			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
-					variant="text"
-					onClick={() => void openExternal(status.pairingUrl ?? "")}
+					variant="outlined"
+					size="small"
+					disabled={busy || !uuid}
+					onClick={() => void pair()}
 				>
-					Open T3 pairing URL
+					{busy ? "Minting T3 link…" : "Pair T3 Code"}
 				</Button>
-			) : null}
-			<Button variant="text" disabled={busy || !uuid} onClick={() => void pair()}>
-				{busy ? "Minting T3 link…" : "Pair T3 Code"}
-			</Button>
+				{status?.pairingUrl ? (
+					<Button
+						variant="text"
+						size="small"
+						onClick={() => void openExternal(status.pairingUrl ?? "")}
+					>
+						Open pairing URL
+					</Button>
+				) : null}
+			</Stack>
 		</Stack>
 	);
 }

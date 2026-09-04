@@ -32,8 +32,8 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 				Sign in with GitHub
 			</Typography>
 			<Typography color="secondary" align="center" sx={{ mt: 2, mb: 6 }}>
-				Pair a board over Bluetooth. Project, Keys, and Credits stay on the web
-				dashboard.
+				Sign in to pair a board, open T3 Code, and manage projects from this
+				app.
 			</Typography>
 			<Stack spacing={2}>
 				<Button

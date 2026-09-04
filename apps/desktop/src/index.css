@@ -1,3 +1,5 @@
+@import "@shpaw415/mui-lite/style.css";
+
 html,
 body,
 #root {
@@ -7,4 +9,6 @@ body,
 
 body {
 	font-family: Roboto, system-ui, sans-serif;
+	background: rgb(var(--bg-main));
+	color: rgb(var(--text-main));
 }
