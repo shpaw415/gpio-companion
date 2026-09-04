@@ -17,7 +17,7 @@ pub struct T3Pane {
 #[cfg(target_os = "linux")]
 mod linux {
 	use gtk::prelude::*;
-	use std::cell::RefCell;
+	use std::cell::{Cell, RefCell};
 	use webkit2gtk::WebViewExt;
 
 	struct Host {
@@ -31,6 +31,13 @@ mod linux {
 
 	thread_local! {
 		static HOST: RefCell<Option<Host>> = const { RefCell::new(None) };
+		static BUSY: Cell<bool> = const { Cell::new(false) };
+	}
+
+	fn clamp_widget(widget: &impl IsA<gtk::Widget>) {
+		widget.set_hexpand(false);
+		widget.set_vexpand(false);
+		widget.set_size_request(1, 1);
 	}
 
 	pub fn install(window: &tauri::Window) -> Result<(), String> {
@@ -41,16 +48,16 @@ mod linux {
 			.find(|child| child.downcast_ref::<webkit2gtk::WebView>().is_some())
 			.ok_or("main webkit widget missing")?;
 		vbox.remove(&main);
+		clamp_widget(&main);
 		let fixed = gtk::Fixed::new();
-		if let Ok(size) = window.inner_size() {
-			main.set_size_request(size.width.max(1) as i32, size.height.max(1) as i32);
-		}
+		fixed.set_hexpand(true);
+		fixed.set_vexpand(true);
 		fixed.put(&main, 0, 0);
 		vbox.pack_start(&fixed, true, true, 0);
 		fixed.show_all();
 		HOST.with(|slot| {
 			*slot.borrow_mut() = Some(Host {
-				fixed,
+				fixed: fixed.clone(),
 				main,
 				t3: None,
 				chrome_px: 48,
@@ -58,15 +65,35 @@ mod linux {
 				url: String::new(),
 			});
 		});
+		fixed.connect_size_allocate(|_, _| {
+			relayout();
+		});
 		Ok(())
 	}
 
 	fn place(fixed: &gtk::Fixed, widget: &impl IsA<gtk::Widget>, x: i32, y: i32, w: i32, h: i32) {
-		widget.set_size_request(w.max(1), h.max(1));
 		fixed.move_(widget, x, y);
+		widget.size_allocate(&gtk::Allocation::new(x, y, w.max(1), h.max(1)));
 	}
 
-	fn layout(host: &Host, width: i32, height: i32) {
+	fn layout(host: &Host) {
+		if BUSY.get() {
+			return;
+		}
+		BUSY.set(true);
+		struct Reset;
+		impl Drop for Reset {
+			fn drop(&mut self) {
+				BUSY.set(false);
+			}
+		}
+		let _reset = Reset;
+		let alloc = host.fixed.allocation();
+		let width = alloc.width();
+		let height = alloc.height();
+		if width <= 1 || height <= 1 {
+			return;
+		}
 		place(&host.fixed, &host.main, 0, 0, width, height);
 		let Some(t3) = &host.t3 else {
 			return;
@@ -80,13 +107,7 @@ mod linux {
 		t3.show();
 	}
 
-	pub fn show(
-		url: &str,
-		chrome_h: f64,
-		scale: f64,
-		width_px: i32,
-		height_px: i32,
-	) -> Result<(), String> {
+	pub fn show(url: &str, chrome_h: f64, scale: f64) -> Result<(), String> {
 		HOST.with(|slot| {
 			let mut slot = slot.borrow_mut();
 			let host = slot
@@ -96,6 +117,7 @@ mod linux {
 			host.chrome_px = (chrome_h * scale).round() as i32;
 			if host.t3.is_none() {
 				let t3 = webkit2gtk::WebView::new();
+				clamp_widget(&t3);
 				t3.load_uri(url);
 				host.fixed.put(&t3, 0, 0);
 				host.url = url.to_string();
@@ -106,24 +128,24 @@ mod linux {
 				}
 				host.url = url.to_string();
 			}
-			layout(host, width_px, height_px);
+			layout(host);
 			Ok(())
 		})
 	}
 
-	pub fn hide(width_px: i32, height_px: i32) {
+	pub fn hide() {
 		HOST.with(|slot| {
 			if let Some(host) = slot.borrow_mut().as_mut() {
 				host.visible = false;
-				layout(host, width_px, height_px);
+				layout(host);
 			}
 		});
 	}
 
-	pub fn relayout(width_px: i32, height_px: i32) {
+	pub fn relayout() {
 		HOST.with(|slot| {
 			if let Some(host) = slot.borrow().as_ref() {
-				layout(host, width_px, height_px);
+				layout(host);
 			}
 		});
 	}
@@ -201,10 +223,8 @@ pub async fn t3_pane_show(
 	}
 	#[cfg(target_os = "linux")]
 	{
-		let (width, height, scale) = physical_inner(&app)?;
-		return run_gtk(&app, move || {
-			linux::show(&url, chrome_h, scale, width as i32, height as i32)
-		})?;
+		let (_, _, scale) = physical_inner(&app)?;
+		return run_gtk(&app, move || linux::show(&url, chrome_h, scale))?;
 	}
 	#[cfg(not(target_os = "linux"))]
 	{
@@ -239,10 +259,7 @@ pub async fn t3_pane_hide(app: AppHandle, state: State<'_, Mutex<T3Pane>>) -> Re
 	}
 	#[cfg(target_os = "linux")]
 	{
-		let (width, height, _) = physical_inner(&app)?;
-		run_gtk(&app, move || {
-			linux::hide(width as i32, height as i32);
-		})?;
+		run_gtk(&app, linux::hide)?;
 		return Ok(());
 	}
 	#[cfg(not(target_os = "linux"))]
@@ -272,7 +289,8 @@ pub fn attach_resize(app: &AppHandle) {
 		};
 		#[cfg(target_os = "linux")]
 		{
-			linux::relayout(size.width as i32, size.height as i32);
+			let _ = size;
+			linux::relayout();
 			return;
 		}
 		#[cfg(not(target_os = "linux"))]
