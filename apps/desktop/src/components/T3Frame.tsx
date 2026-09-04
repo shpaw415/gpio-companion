@@ -1,113 +1,80 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useEffect, useRef } from "react";
 import { t3AppUrl, t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 
-const CHROME = "[data-t3-chrome]";
+const LABEL = "t3";
+
+function waitCreated(view: WebviewWindow) {
+	return new Promise<void>((resolve, reject) => {
+		view.once("tauri://created", () => resolve());
+		view.once("tauri://error", (event) => {
+			reject(new Error(String(event.payload ?? "t3 window failed")));
+		});
+	});
+}
 
 export default function T3Frame({ visible }: { visible: boolean }) {
-	const { uuid, pairToken, clearPairToken } = useBoardSelection();
-	const iframeRef = useRef<HTMLIFrameElement>(null);
-	const assigned = useRef("");
-	const loads = useRef(0);
-	const uuidRef = useRef(uuid);
-	uuidRef.current = uuid;
-	const pairRef = useRef(pairToken);
-	pairRef.current = pairToken;
-	const [top, setTop] = useState(0);
-
-	useLayoutEffect(() => {
-		if (!visible) {
-			return;
-		}
-		const sync = () => {
-			const chrome = document.querySelector(CHROME);
-			setTop(chrome ? chrome.getBoundingClientRect().bottom : 0);
-		};
-		sync();
-		window.addEventListener("resize", sync);
-		const timer = window.setInterval(sync, 250);
-		return () => {
-			window.removeEventListener("resize", sync);
-			window.clearInterval(timer);
-		};
-	}, [visible, uuid]);
-
-	function goHome(el: HTMLIFrameElement) {
-		const home = t3AppUrl(uuidRef.current);
-		pairRef.current = "";
-		clearPairToken();
-		assigned.current = `${uuidRef.current}\0`;
-		if (home) {
-			el.src = home;
-		}
-	}
+	const { uuid, pairToken } = useBoardSelection();
+	const urlRef = useRef("");
 
 	useEffect(() => {
-		const el = iframeRef.current;
-		const target = t3IframeSrc(uuid, pairToken);
-		if (!el || !target) {
+		if (!isTauri()) {
 			return;
 		}
-		const navKey = `${uuid}\0${pairToken}`;
-		if (assigned.current === navKey) {
-			return;
-		}
-		assigned.current = navKey;
-		loads.current = 0;
-		el.src = target;
-	}, [uuid, pairToken]);
-
-	useEffect(() => {
-		const el = iframeRef.current;
-		if (!el) {
-			return;
-		}
-		let timer = 0;
-		const onLoad = () => {
-			loads.current += 1;
-			if (!pairRef.current) {
-				return;
-			}
-			if (loads.current >= 2) {
-				goHome(el);
-				return;
-			}
-			timer = window.setTimeout(() => {
-				if (pairRef.current) {
-					goHome(el);
+		let cancelled = false;
+		void (async () => {
+			try {
+				const home = t3AppUrl(uuid);
+				const pair = t3IframeSrc(uuid, pairToken);
+				const existing = await WebviewWindow.getByLabel(LABEL);
+				if (!visible || !home) {
+					await existing?.hide();
+					return;
 				}
-			}, 4000);
-		};
-		el.addEventListener("load", onLoad);
+				const want = pairToken ? pair : urlRef.current || home;
+				if (existing && urlRef.current === want) {
+					await existing.show();
+					await existing.setFocus();
+					return;
+				}
+				if (pairToken && existing && urlRef.current !== pair) {
+					await existing.close().catch(() => undefined);
+				} else if (existing && !pairToken) {
+					await existing.show();
+					await existing.setFocus();
+					return;
+				} else if (existing) {
+					await existing.close().catch(() => undefined);
+				}
+				if (cancelled) {
+					return;
+				}
+				const view = new WebviewWindow(LABEL, {
+					url: want,
+					title: "T3 Code",
+					width: 1400,
+					height: 900,
+					focus: true,
+					visible: true,
+				});
+				await waitCreated(view);
+				if (cancelled) {
+					await view.close().catch(() => undefined);
+					return;
+				}
+				urlRef.current = want;
+			} catch (caught) {
+				console.error("gpio-companion-desktop t3 window", caught);
+			}
+		})();
 		return () => {
-			el.removeEventListener("load", onLoad);
-			window.clearTimeout(timer);
+			cancelled = true;
 		};
-	}, [clearPairToken]);
+	}, [uuid, pairToken, visible]);
 
-	if (!uuid) {
-		return null;
-	}
-
-	return (
-		<iframe
-			ref={iframeRef}
-			title="T3 Code"
-			allow="clipboard-read; clipboard-write; fullscreen"
-			style={{
-				position: "fixed",
-				top,
-				left: 0,
-				width: "100vw",
-				height: `calc(100vh - ${top}px)`,
-				border: 0,
-				zIndex: 30,
-				visibility: visible ? "visible" : "hidden",
-				pointerEvents: visible ? "auto" : "none",
-				background: "#111",
-			}}
-		/>
-	);
+	return null;
 }
 
 export const T3_FRAME_SLOT_ID = "gpio-t3-frame-slot";

@@ -33,7 +33,8 @@ export function encodeFrames(payload: string): string[] {
 }
 
 export function matchesBoard(name: string, serviceUUIDs: string[]): boolean {
-	if (name.startsWith(BLE_DEVICE_NAME)) {
+	const lower = name.toLowerCase();
+	if (lower.startsWith(BLE_DEVICE_NAME) || lower === "gpio") {
 		return true;
 	}
 	const wanted = BLE_SERVICE_UUID.toLowerCase();

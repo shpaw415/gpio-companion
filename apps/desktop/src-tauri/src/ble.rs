@@ -17,6 +17,8 @@ use uuid::Uuid;
 
 static BLE: Mutex<()> = Mutex::const_new(());
 
+pub const SCAN_NEARBY_MS: u64 = 20_000;
+
 /// Serialize the whole scan/connect/envelope lifecycle. Every `ble_*` command
 /// holds this lock from start to finish so a concurrent scan can never
 /// interleave BlueZ Start/StopDiscovery with an in-flight GATT connect.
@@ -335,7 +337,7 @@ pub async fn find_board(id: &str) -> Result<Peripheral, String> {
 		return Ok(peripheral);
 	}
 	let guard = start_scan(&adapter).await?;
-	let deadline = tokio::time::Instant::now() + Duration::from_millis(8_000);
+	let deadline = tokio::time::Instant::now() + Duration::from_millis(SCAN_NEARBY_MS);
 	let found = loop {
 		if let Some(peripheral) = peripheral_by_id(&adapter, id).await? {
 			break Ok(peripheral);
@@ -453,7 +455,7 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 /// Caller must hold [`acquire`].
 pub async fn connected_board_info(id: &str) -> Result<(Peripheral, BleInfo), String> {
 	if id.trim().is_empty() {
-		let peripheral = scan_board(12_000).await?;
+		let peripheral = scan_board(SCAN_NEARBY_MS).await?;
 		match read_info(&peripheral).await {
 			Ok(info) => return Ok((peripheral, info)),
 			Err(err) if frames::is_retryable_connect_error(&err) => {
@@ -461,7 +463,7 @@ pub async fn connected_board_info(id: &str) -> Result<(Peripheral, BleInfo), Str
 			}
 			Err(err) => return Err(err),
 		}
-		let peripheral = scan_board(12_000).await?;
+		let peripheral = scan_board(SCAN_NEARBY_MS).await?;
 		let info = read_info(&peripheral).await?;
 		return Ok((peripheral, info));
 	}

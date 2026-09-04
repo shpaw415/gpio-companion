@@ -54,7 +54,8 @@ describe("encodeFrames", () => {
 describe("matchesBoard", () => {
 	test("matches the advertised name prefix", () => {
 		expect(matchesBoard(`${BLE_DEVICE_NAME}-1`, [])).toBe(true);
-		expect(matchesBoard("gpio", [])).toBe(false);
+		expect(matchesBoard("gpio", [])).toBe(true);
+		expect(matchesBoard("GPIO", [])).toBe(true);
 		expect(matchesBoard("", [])).toBe(false);
 	});
 

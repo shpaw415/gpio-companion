@@ -90,7 +90,7 @@ export async function ensureBluetoothOn(): Promise<void> {
 	});
 }
 
-export async function scanBoard(timeoutMs = 12_000): Promise<Device> {
+export async function scanBoard(timeoutMs = 20_000): Promise<Device> {
 	const ble = getManager();
 	return new Promise<Device>((resolve, reject) => {
 		let settled = false;
@@ -110,7 +110,7 @@ export async function scanBoard(timeoutMs = 12_000): Promise<Device> {
 			() => finish(() => reject(new Error("no gpio-companion board found nearby"))),
 			timeoutMs,
 		);
-		void ble.startDeviceScan(null, { allowDuplicates: false }, (error, device) => {
+		void ble.startDeviceScan(null, { allowDuplicates: true }, (error, device) => {
 			if (error) {
 				finish(() => reject(new Error(error.message)));
 				return;

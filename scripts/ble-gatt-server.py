@@ -177,12 +177,18 @@ class CommandCharacteristic(Characteristic):
 
 def advertisement_payloads():
 	uuid = dbus.Array([SERVICE_UUID], signature="s")
-	return (
+	cores = (
 		{"Type": "peripheral", "ServiceUUIDs": uuid, "LocalName": LOCAL_NAME},
 		{"Type": "peripheral", "ServiceUUIDs": uuid, "LocalName": "gpio"},
 		{"Type": "peripheral", "ServiceUUIDs": uuid},
 		{"Type": "peripheral", "LocalName": LOCAL_NAME},
 	)
+	fast = {
+		"MinInterval": dbus.UInt32(20),
+		"MaxInterval": dbus.UInt32(100),
+		"TxPower": dbus.Int16(4),
+	}
+	return tuple({**fast, **core} for core in cores) + cores
 
 
 class Advertisement(dbus.service.Object):

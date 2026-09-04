@@ -158,7 +158,7 @@ async fn api_request(
 async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 	let _ble = ble::acquire().await;
 	emit_status(&app, "Scanning…");
-	let boards = ble::scan_nearby(8_000).await?;
+	let boards = ble::scan_nearby(ble::SCAN_NEARBY_MS).await?;
 	emit_status(&app, "Identifying gpio-companion…");
 	let status_app = app.clone();
 	let boards = ble::identify_boards(boards, move |message| {

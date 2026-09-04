@@ -9,7 +9,7 @@ import { useBoardSelection } from "../hooks/useBoardSelection";
 import { SelectSkeleton } from "./skeletons";
 
 export default function T3() {
-	const { uuid, setUuid, pairToken, clearPairToken } = useBoardSelection();
+	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
 	const { boards, loading } = useUserBoards();
@@ -57,11 +57,6 @@ export default function T3() {
 							))}
 						</Select>
 					)}
-					{pairToken ? (
-						<Button variant="contained" size="small" onClick={() => clearPairToken()}>
-							Continue to T3
-						</Button>
-					) : null}
 					<Button
 						variant="text"
 						disabled={!uuid}
@@ -71,6 +66,10 @@ export default function T3() {
 					</Button>
 				</Stack>
 			</div>
+			<Typography color="secondary">
+				T3 Code opens in its own window so pairing can finish and the dashboard
+				can load. Use Open in dashboard from Overview after minting a code.
+			</Typography>
 			{loading || uuid ? null : (
 				<Typography color="secondary">
 					Pair a board to embed T3 Code.
