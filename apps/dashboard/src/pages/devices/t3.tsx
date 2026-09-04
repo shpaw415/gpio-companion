@@ -15,6 +15,7 @@ import useMobile from "../../hooks/useMobile.ts";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
 import {
 	pickT3DeviceUuid,
+	readT3PairLocation,
 	T3_FRAME_SLOT_ID,
 	t3AppUrl,
 } from "../../lib/t3-url.ts";
@@ -42,7 +43,12 @@ export default function T3Page() {
 			.then((result) => {
 				const next = result?.devices ?? [];
 				setDevices(next);
-				setUuid(pickT3DeviceUuid(next, uuidRef.current));
+				setUuid(
+					pickT3DeviceUuid(
+						next,
+						readT3PairLocation().uuid || uuidRef.current,
+					),
+				);
 			})
 			.finally(() => {
 				setLoading(false);

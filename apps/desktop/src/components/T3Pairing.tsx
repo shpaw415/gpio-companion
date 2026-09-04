@@ -2,13 +2,37 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-	getT3Status,
+	DASHBOARD_URL,
 	openExternal,
 	startT3Pair,
 	type T3Status,
 } from "../api";
+
+function tokenFrom(status?: T3Status): string {
+	const direct = status?.pairingToken?.trim() ?? "";
+	if (direct) {
+		return direct;
+	}
+	const url = status?.pairingUrl ?? "";
+	const match = url.match(/[#?&]token=([^&\s#]+)/);
+	if (!match?.[1]) {
+		return "";
+	}
+	try {
+		return decodeURIComponent(match[1]);
+	} catch {
+		return match[1];
+	}
+}
+
+function dashboardPairUrl(uuid: string, token: string): string {
+	if (!uuid.trim() || !token.trim()) {
+		return "";
+	}
+	return `${DASHBOARD_URL}/devices/t3?uuid=${encodeURIComponent(uuid.trim())}#token=${encodeURIComponent(token.trim())}`;
+}
 
 export default function T3Pairing({
 	uuid,
@@ -20,26 +44,8 @@ export default function T3Pairing({
 	const [status, setStatus] = useState<T3Status | undefined>(initial);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
-
-	useEffect(() => {
-		if (!uuid || status?.paired) {
-			return;
-		}
-		let cancelled = false;
-		const timer = window.setInterval(() => {
-			void getT3Status(uuid)
-				.then((next) => {
-					if (!cancelled) {
-						setStatus(next);
-					}
-				})
-				.catch(() => undefined);
-		}, 4000);
-		return () => {
-			cancelled = true;
-			window.clearInterval(timer);
-		};
-	}, [uuid, status?.paired]);
+	const token = tokenFrom(status);
+	const dashboardUrl = dashboardPairUrl(uuid, token);
 
 	async function pair() {
 		setBusy(true);
@@ -54,15 +60,14 @@ export default function T3Pairing({
 		}
 	}
 
-	if (status?.paired) {
-		return (
-			<Typography color="secondary">T3 Code is paired on this board.</Typography>
-		);
-	}
-
 	return (
 		<Stack spacing={1}>
 			{error ? <Alert severity="error">{error}</Alert> : null}
+			{status?.paired ? (
+				<Typography color="secondary">
+					T3 Code is paired. Mint a new link anytime to pair another session.
+				</Typography>
+			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
 					variant="outlined"
@@ -70,7 +75,11 @@ export default function T3Pairing({
 					disabled={busy || !uuid}
 					onClick={() => void pair()}
 				>
-					{busy ? "Minting T3 link…" : "Pair T3 Code"}
+					{busy
+						? "Minting T3 link…"
+						: status?.pairingUrl || status?.paired
+							? "New pairing link"
+							: "Pair T3 Code"}
 				</Button>
 				{status?.pairingUrl ? (
 					<Button
@@ -81,7 +90,21 @@ export default function T3Pairing({
 						Open pairing URL
 					</Button>
 				) : null}
+				{dashboardUrl ? (
+					<Button
+						variant="contained"
+						size="small"
+						onClick={() => void openExternal(dashboardUrl)}
+					>
+						Open in dashboard
+					</Button>
+				) : null}
 			</Stack>
+			{token ? (
+				<Typography color="secondary" sx={{ wordBreak: "break-all" }}>
+					Pair code: {token}
+				</Typography>
+			) : null}
 		</Stack>
 	);
 }

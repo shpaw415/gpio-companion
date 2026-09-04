@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { usePathname } from "../hooks/usePathname.tsx";
-import { isT3Path, T3_FRAME_SLOT_ID, t3AppUrl } from "../lib/t3-url.ts";
+import {
+	isT3Path,
+	readT3PairLocation,
+	T3_FRAME_SLOT_ID,
+	t3IframeSrc,
+} from "../lib/t3-url.ts";
 
 type FrameRect = {
 	top: number;
@@ -12,9 +17,10 @@ type FrameRect = {
 
 export default function T3Frame() {
 	const pathname = usePathname();
-	const { uuid } = useBoardSelection();
+	const { uuid, setUuid } = useBoardSelection();
 	const visible = isT3Path(pathname);
-	const nextSrc = t3AppUrl(uuid);
+	const [pairToken, setPairToken] = useState("");
+	const nextSrc = t3IframeSrc(uuid, pairToken);
 	const [src, setSrc] = useState("");
 	const [rect, setRect] = useState<FrameRect>({
 		top: 0,
@@ -22,6 +28,19 @@ export default function T3Frame() {
 		width: 0,
 		height: 0,
 	});
+
+	useEffect(() => {
+		const apply = () => {
+			const next = readT3PairLocation();
+			if (next.uuid) {
+				setUuid(next.uuid);
+			}
+			setPairToken(next.token);
+		};
+		apply();
+		window.addEventListener("hashchange", apply);
+		return () => window.removeEventListener("hashchange", apply);
+	}, [pathname, setUuid]);
 
 	useEffect(() => {
 		if (nextSrc) {

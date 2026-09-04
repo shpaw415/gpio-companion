@@ -1,4 +1,9 @@
-import { publicDeviceUrl, tunnelHostnames } from "gpio-companion";
+import {
+	parseDashboardT3PairLocation,
+	publicDeviceUrl,
+	t3PairPageUrl,
+	tunnelHostnames,
+} from "gpio-companion";
 
 export const T3_PATH = "/devices/t3";
 export const T3_EMBED_PREFIX = "/api/t3-embed";
@@ -14,6 +19,28 @@ export function t3AppUrl(uuid: string): string {
 		return "";
 	}
 	return publicDeviceUrl(tunnelHostnames(trimmed).t3Hostname);
+}
+
+export function t3IframeSrc(uuid: string, token = ""): string {
+	const trimmed = uuid.trim();
+	if (!trimmed) {
+		return "";
+	}
+	const pair = t3PairPageUrl(tunnelHostnames(trimmed).t3Hostname, token);
+	if (pair) {
+		return pair;
+	}
+	return t3AppUrl(trimmed);
+}
+
+export function readT3PairLocation(): { uuid: string; token: string } {
+	if (typeof window === "undefined") {
+		return { uuid: "", token: "" };
+	}
+	return parseDashboardT3PairLocation(
+		window.location.search,
+		window.location.hash,
+	);
 }
 
 export function t3EmbedUrl(uuid: string): string {

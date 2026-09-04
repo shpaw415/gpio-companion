@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
 	cloudflareTunnelName,
+	dashboardT3PairPath,
+	dashboardT3PairUrl,
 	extractT3PairingToken,
 	extractT3PairingUrl,
 	pairingSlug,
+	parseDashboardT3PairLocation,
 	publicDeviceUrl,
 	rewriteT3PairingUrl,
+	t3PairPageUrl,
 	tunnelHostnames,
 } from "./tunnel-host.ts";
 
@@ -58,5 +62,34 @@ describe("tunnel hostnames", () => {
 		expect(publicDeviceUrl("api-x.gpio-companion.com")).toBe(
 			"https://api-x.gpio-companion.com",
 		);
+	});
+
+	test("builds dashboard one-click t3 pair urls", () => {
+		expect(t3PairPageUrl("t3-abc.gpio-companion.com", "abc123")).toBe(
+			"https://t3-abc.gpio-companion.com/pair#token=abc123",
+		);
+		expect(dashboardT3PairPath("550e8400-e29b-41d4-a716-446655440000", "abc123")).toBe(
+			"/devices/t3?uuid=550e8400-e29b-41d4-a716-446655440000#token=abc123",
+		);
+		expect(
+			dashboardT3PairUrl("550e8400-e29b-41d4-a716-446655440000", "abc123"),
+		).toBe(
+			"https://gpio-companion.com/devices/t3?uuid=550e8400-e29b-41d4-a716-446655440000#token=abc123",
+		);
+		expect(
+			parseDashboardT3PairLocation(
+				"?uuid=550e8400-e29b-41d4-a716-446655440000",
+				"#token=abc123",
+			),
+		).toEqual({
+			uuid: "550e8400-e29b-41d4-a716-446655440000",
+			token: "abc123",
+		});
+		expect(
+			parseDashboardT3PairLocation(
+				"?uuid=x&token=from-query",
+				"",
+			),
+		).toEqual({ uuid: "x", token: "from-query" });
 	});
 });

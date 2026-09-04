@@ -6,6 +6,7 @@ import {
 	rewriteT3EmbedUrl,
 	t3AppUrl,
 	t3EmbedUrl,
+	t3IframeSrc,
 } from "./t3-url.ts";
 
 describe("t3 app url", () => {
@@ -17,6 +18,15 @@ describe("t3 app url", () => {
 
 	test("returns empty for a blank uuid", () => {
 		expect(t3AppUrl("  ")).toBe("");
+	});
+
+	test("iframe src is the pair page when a token is present", () => {
+		expect(t3IframeSrc("550e8400-e29b-41d4-a716-446655440000")).toBe(
+			"https://t3-550e8400e29b41d4a716446655440000.gpio-companion.com",
+		);
+		expect(t3IframeSrc("550e8400-e29b-41d4-a716-446655440000", "abc123")).toBe(
+			"https://t3-550e8400e29b41d4a716446655440000.gpio-companion.com/pair#token=abc123",
+		);
 	});
 
 	test("builds a same-origin dashboard proxy path", () => {

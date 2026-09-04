@@ -576,6 +576,18 @@ describe("gpio-companion-bin", () => {
 		});
 		expect(started.status).toBe(200);
 		expect(t3PairedCalls).toBe(2);
+
+		const again = await deviceFetch("v1/t3/pair", {
+			method: "POST",
+			body: "",
+		});
+		expect(again.status).toBe(200);
+		const againBody = (await again.json()) as {
+			pairingUrl: string;
+			pairingToken: string;
+		};
+		expect(againBody.pairingToken).toBe("test");
+		expect(t3PairedCalls).toBe(3);
 	});
 
 	test("github token is loopback only", async () => {

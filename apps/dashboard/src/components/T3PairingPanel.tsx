@@ -1,9 +1,10 @@
 import { GET as getT3, POST as t3Action } from "@api/t3";
+import { navigate } from "@next/client";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { extractT3PairingToken } from "gpio-companion";
+import { dashboardT3PairPath, extractT3PairingToken } from "gpio-companion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { unwrapAction } from "../lib/action.ts";
@@ -184,6 +185,22 @@ export default function T3PairingPanel({
 					>
 						Open pairing URL
 					</Button>
+					{pairingToken ? (
+						<Button
+							type="button"
+							variant="outlined"
+							onClick={() => {
+								const path = dashboardT3PairPath(selected, pairingToken);
+								if (!path) {
+									return;
+								}
+								navigate(`/devices/t3?uuid=${encodeURIComponent(selected)}`);
+								window.location.hash = `token=${encodeURIComponent(pairingToken)}`;
+							}}
+						>
+							Open T3 tab
+						</Button>
+					) : null}
 					<CopyBlock label="T3 pairing URL" value={pairingUrl} />
 				</>
 			) : null}

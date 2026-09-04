@@ -175,12 +175,21 @@ export function signWifi(
 	});
 }
 
+export type T3Pairing = {
+	pairingUrl?: string;
+	pairingToken?: string;
+	paired?: boolean;
+};
+
 export function t3Status(token: string, uuid: string) {
-	return request(token, `/api/mobile/t3?uuid=${encodeURIComponent(uuid)}`);
+	return request<T3Pairing>(
+		token,
+		`/api/mobile/t3?uuid=${encodeURIComponent(uuid)}`,
+	);
 }
 
 export function t3Action(token: string, action: "pair", uuid: string) {
-	return request(token, "/api/mobile/t3", {
+	return request<T3Pairing>(token, "/api/mobile/t3", {
 		method: "POST",
 		body: JSON.stringify({ action, uuid }),
 	});

@@ -4,6 +4,7 @@ import {
 	ActivityIndicator,
 	Alert,
 	FlatList,
+	Linking,
 	Platform,
 	Pressable,
 	RefreshControl,
@@ -11,8 +12,9 @@ import {
 	Text,
 	View,
 } from "react-native";
-import { listDevices, unpairDevice } from "../src/lib/api.ts";
+import { listDevices, t3Action, unpairDevice } from "../src/lib/api.ts";
 import { useAuth } from "../src/lib/auth.tsx";
+import { dashboardUrl } from "../src/lib/config.ts";
 import { colors } from "../src/lib/theme.ts";
 
 type BoardDevice = {
@@ -27,6 +29,7 @@ export default function DevicesScreen() {
 	const [devices, setDevices] = useState<BoardDevice[]>([]);
 	const [error, setError] = useState("");
 	const [refreshing, setRefreshing] = useState(false);
+	const [t3Busy, setT3Busy] = useState("");
 
 	const load = useCallback(async () => {
 		if (!auth.token) {
@@ -98,6 +101,58 @@ export default function DevicesScreen() {
 						</Text>
 						<Text style={styles.muted}>{item.uuid}</Text>
 						<Pressable
+							disabled={t3Busy === item.uuid || !auth.token}
+							onPress={() => {
+								if (!auth.token) {
+									return;
+								}
+								setT3Busy(item.uuid);
+								void t3Action(auth.token, "pair", item.uuid)
+									.then((result) => {
+										const token =
+											result.pairingToken?.trim() ||
+											result.pairingUrl?.match(/[#?&]token=([^&\s#]+)/)?.[1] ||
+											"";
+										const decoded = (() => {
+											try {
+												return decodeURIComponent(token);
+											} catch {
+												return token;
+											}
+										})();
+										const url = `${dashboardUrl}/devices/t3?uuid=${encodeURIComponent(item.uuid)}#token=${encodeURIComponent(decoded)}`;
+										Alert.alert(
+											"T3 pairing",
+											decoded
+												? `Pair code: ${decoded}`
+												: "Pairing link ready",
+											[
+												{
+													text: "Open dashboard",
+													onPress: () => void Linking.openURL(url),
+												},
+												{ text: "OK" },
+											],
+										);
+										setError("");
+									})
+									.catch((caught) => {
+										setError(
+											caught instanceof Error
+												? caught.message
+												: "T3 pair failed",
+										);
+									})
+									.finally(() => setT3Busy(""));
+							}}
+						>
+							<Text style={styles.primaryLink}>
+								{t3Busy === item.uuid
+									? "Minting T3 link…"
+									: "New T3 pairing link"}
+							</Text>
+						</Pressable>
+						<Pressable
 							onPress={() => {
 								Alert.alert("Unpair", "Remove this board from your account?", [
 									{ text: "Cancel", style: "cancel" },
@@ -164,6 +219,7 @@ const styles = StyleSheet.create({
 	muted: { color: colors.muted },
 	error: { color: colors.danger },
 	danger: { color: colors.danger, marginTop: 8 },
+	primaryLink: { color: colors.primary, marginTop: 8 },
 	card: {
 		backgroundColor: colors.surface,
 		padding: 16,

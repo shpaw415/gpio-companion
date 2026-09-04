@@ -1,4 +1,6 @@
 export const TUNNEL_ZONE = "gpio-companion.com";
+export const DASHBOARD_ORIGIN = `https://${TUNNEL_ZONE}`;
+export const T3_DASHBOARD_PATH = "/devices/t3";
 export const T3_ORIGIN_PORT = 3773;
 export const DEVICE_API_PORT = 4150;
 
@@ -82,12 +84,57 @@ export function extractT3PairingToken(text: string): string {
 }
 
 export function rewriteT3PairingUrl(raw: string, t3Hostname: string): string {
+	return t3PairPageUrl(t3Hostname, extractT3PairingToken(raw));
+}
+
+export function t3PairPageUrl(t3Hostname: string, token: string): string {
 	const origin = publicDeviceUrl(t3Hostname).replace(/\/+$/, "");
-	const token = extractT3PairingToken(raw);
-	if (!origin || !token) {
+	const trimmed = token.trim();
+	if (!origin || !trimmed) {
 		return "";
 	}
-	return `${origin}/pair#token=${encodeURIComponent(token)}`;
+	return `${origin}/pair#token=${encodeURIComponent(trimmed)}`;
+}
+
+export function dashboardT3PairPath(uuid: string, token: string): string {
+	const id = uuid.trim();
+	const trimmed = token.trim();
+	if (!id || !trimmed) {
+		return "";
+	}
+	return `${T3_DASHBOARD_PATH}?uuid=${encodeURIComponent(id)}#token=${encodeURIComponent(trimmed)}`;
+}
+
+export function dashboardT3PairUrl(
+	uuid: string,
+	token: string,
+	origin = DASHBOARD_ORIGIN,
+): string {
+	const path = dashboardT3PairPath(uuid, token);
+	if (!path) {
+		return "";
+	}
+	return `${origin.replace(/\/+$/, "")}${path}`;
+}
+
+export function parseDashboardT3PairLocation(
+	search: string,
+	hash: string,
+): { uuid: string; token: string } {
+	const query = search.startsWith("?") ? search.slice(1) : search;
+	const params = new URLSearchParams(query);
+	const uuid = params.get("uuid")?.trim() ?? "";
+	const fromQuery = params.get("token")?.trim() ?? "";
+	const fromHash = hash.match(/[#&?]token=([^&]+)/);
+	let token = fromQuery;
+	if (fromHash?.[1]) {
+		try {
+			token = decodeURIComponent(fromHash[1]);
+		} catch {
+			token = fromHash[1];
+		}
+	}
+	return { uuid, token: stripToken(token) };
 }
 
 function extractPairingToken(raw: string): string {
