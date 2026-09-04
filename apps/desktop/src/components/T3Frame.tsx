@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 
@@ -6,8 +6,8 @@ const SLOT_ID = "gpio-t3-frame-slot";
 
 export default function T3Frame({ visible }: { visible: boolean }) {
 	const { uuid, pairToken } = useBoardSelection();
-	const nextSrc = t3IframeSrc(uuid, pairToken);
-	const [src, setSrc] = useState("");
+	const iframeRef = useRef<HTMLIFrameElement>(null);
+	const assigned = useRef("");
 	const [rect, setRect] = useState({
 		top: 0,
 		left: 0,
@@ -16,13 +16,21 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 	});
 
 	useEffect(() => {
-		if (nextSrc) {
-			setSrc(nextSrc);
+		const el = iframeRef.current;
+		const target = t3IframeSrc(uuid, pairToken);
+		if (!el || !target) {
+			return;
 		}
-	}, [nextSrc]);
+		const navKey = `${uuid}\0${pairToken}`;
+		if (assigned.current === navKey) {
+			return;
+		}
+		assigned.current = navKey;
+		el.src = target;
+	}, [uuid, pairToken]);
 
 	useEffect(() => {
-		if (!src || !visible) {
+		if (!uuid || !visible) {
 			return;
 		}
 		let cancelled = false;
@@ -67,9 +75,9 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 			observer?.disconnect();
 			window.removeEventListener("resize", sync);
 		};
-	}, [src, visible]);
+	}, [uuid, visible]);
 
-	if (!src) {
+	if (!uuid) {
 		return null;
 	}
 
@@ -88,9 +96,8 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 			}}
 		>
 			<iframe
-				key={src}
+				ref={iframeRef}
 				title="T3 Code"
-				src={src}
 				allow="clipboard-read; clipboard-write; fullscreen"
 				style={{ width: "100%", height: "100%", border: 0 }}
 			/>
