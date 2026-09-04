@@ -1,20 +1,23 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
-import { useEffect } from "react";
-import { t3IframeSrc } from "../api";
+import { isTauri } from "@tauri-apps/api/core";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useEffect, useRef } from "react";
+import { t3AppUrl, t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 
-const CHROME = "[data-t3-chrome]";
+const LABEL = "t3";
 
-function chromeHeight() {
-	const chrome = document.querySelector(CHROME);
-	if (!chrome) {
-		return 0;
-	}
-	return Math.ceil(chrome.getBoundingClientRect().bottom);
+function waitCreated(view: WebviewWindow) {
+	return new Promise<void>((resolve, reject) => {
+		view.once("tauri://created", () => resolve());
+		view.once("tauri://error", (event) => {
+			reject(new Error(String(event.payload ?? "t3 window failed")));
+		});
+	});
 }
 
 export default function T3Frame({ visible }: { visible: boolean }) {
 	const { uuid, pairToken } = useBoardSelection();
+	const urlRef = useRef("");
 
 	useEffect(() => {
 		if (!isTauri()) {
@@ -22,39 +25,54 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 		}
 		let cancelled = false;
 		void (async () => {
-			const target = t3IframeSrc(uuid, pairToken);
-			if (!visible || !target) {
-				await invoke("t3_pane_hide").catch(() => undefined);
-				return;
+			try {
+				const home = t3AppUrl(uuid);
+				const pair = t3IframeSrc(uuid, pairToken);
+				const existing = await WebviewWindow.getByLabel(LABEL);
+				if (!visible || !home) {
+					await existing?.hide();
+					return;
+				}
+				const want = pairToken ? pair : urlRef.current || home;
+				if (existing && urlRef.current === want) {
+					await existing.show();
+					await existing.setFocus();
+					return;
+				}
+				if (pairToken && existing && urlRef.current !== pair) {
+					await existing.close().catch(() => undefined);
+				} else if (existing && !pairToken) {
+					await existing.show();
+					await existing.setFocus();
+					return;
+				} else if (existing) {
+					await existing.close().catch(() => undefined);
+				}
+				if (cancelled) {
+					return;
+				}
+				const view = new WebviewWindow(LABEL, {
+					url: want,
+					title: "T3 Code",
+					width: 1400,
+					height: 900,
+					focus: true,
+					visible: true,
+				});
+				await waitCreated(view);
+				if (cancelled) {
+					await view.close().catch(() => undefined);
+					return;
+				}
+				urlRef.current = want;
+			} catch (caught) {
+				console.error("gpio-companion-desktop t3 window", caught);
 			}
-			let top = chromeHeight();
-			for (let i = 0; i < 20 && top < 40; i += 1) {
-				await new Promise((resolve) => window.setTimeout(resolve, 50));
-				top = chromeHeight();
-			}
-			if (cancelled) {
-				return;
-			}
-			await invoke("t3_pane_show", {
-				url: target,
-				chromeH: top,
-			});
-		})().catch((caught) => {
-			console.error("gpio-companion-desktop t3 pane", caught);
-			void invoke("t3_pane_hide").catch(() => undefined);
-		});
+		})();
 		return () => {
 			cancelled = true;
 		};
 	}, [uuid, pairToken, visible]);
-
-	useEffect(() => {
-		return () => {
-			if (isTauri()) {
-				void invoke("t3_pane_hide").catch(() => undefined);
-			}
-		};
-	}, []);
 
 	return null;
 }
