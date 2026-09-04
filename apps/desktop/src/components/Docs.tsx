@@ -6,6 +6,7 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import { type BoardView, listDeviceStatus } from "../api";
+import DocsMarkdown from "./DocsMarkdown";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import {
 	DOC_HARDWARE_LABELS,
@@ -82,28 +83,33 @@ export default function Docs() {
 					<Button variant="text" onClick={() => setDocId("")}>
 						Back to catalog
 					</Button>
-					<Typography variant="h6">{doc.title}</Typography>
-					<Stack spacing={1} sx={{ mt: 2 }}>
+					<Typography variant="h6" sx={{ mt: 1 }}>
+						{doc.title}
+					</Typography>
+					<Stack spacing={0.5} sx={{ mt: 2, mb: 3 }}>
 						{docSections(doc.content)
-							.filter((section) => section.level > 0)
+							.filter((section) => section.level > 0 && section.level <= 3)
 							.map((section) => (
-								<Typography key={section.id} color="secondary">
+								<Button
+									key={section.id}
+									variant="text"
+									size="small"
+									sx={{
+										justifyContent: "flex-start",
+										pl: Math.max(0, section.level - 1) * 2,
+									}}
+									onClick={() =>
+										document.getElementById(section.id)?.scrollIntoView({
+											behavior: "smooth",
+											block: "start",
+										})
+									}
+								>
 									{section.title}
-								</Typography>
+								</Button>
 							))}
 					</Stack>
-					<Typography
-						Element="pre"
-						sx={{
-							mt: 2,
-							whiteSpace: "pre-wrap",
-							wordBreak: "break-word",
-							fontFamily: "inherit",
-							fontSize: 14,
-						}}
-					>
-						{doc.content}
-					</Typography>
+					<DocsMarkdown content={doc.content} onOpenDoc={setDocId} />
 				</Paper>
 			) : (
 				<>

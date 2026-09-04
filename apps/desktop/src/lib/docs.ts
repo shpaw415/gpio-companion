@@ -4,6 +4,7 @@ import wifiBluetoothContent from "../../../../documentation/user/wifi-bluetooth.
 import workflowsContent from "../../../../documentation/user/workflows.md?raw";
 import pinoutOrangeContent from "../../../../opencode/skills/gpio-pinout-orangepi/SKILL.md?raw";
 import pinoutRaspberryContent from "../../../../opencode/skills/gpio-pinout-raspberrypi/SKILL.md?raw";
+import { slugifyHeading } from "./markdown";
 
 export type DocHardware = "raspberrypi" | "orangepi";
 
@@ -28,13 +29,19 @@ export const DOC_HARDWARE_LABELS: Record<DocHardware, string> = {
 	orangepi: "Orange Pi",
 };
 
-export function slugifyHeading(text: string): string {
-	return text
-		.toLowerCase()
-		.replace(/[`*_~]/g, "")
-		.replace(/<[^>]*>/g, "")
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
+const DOC_LINK_TARGETS: Record<string, string> = {
+	"getting-started.md": "getting-started",
+	"README.md": "user-guide",
+	"wifi-bluetooth.md": "wifi-bluetooth",
+	"workflows.md": "workflows",
+};
+
+export function rewriteDocLinks(content: string): string {
+	return content.replace(
+		/\]\((?:\.\/)?(README|getting-started|wifi-bluetooth|workflows)\.md\)/g,
+		(_match, file: string) =>
+			`](#doc:${DOC_LINK_TARGETS[`${file}.md`]})`,
+	);
 }
 
 export function stripMarkdownFrontmatter(content: string): string {
@@ -83,7 +90,10 @@ export function docSections(content: string): DocSection[] {
 
 function doc(entry: Omit<DocEntry, "content"> & { raw: string }): DocEntry {
 	const { raw, ...rest } = entry;
-	return { ...rest, content: stripMarkdownFrontmatter(raw) };
+	return {
+		...rest,
+		content: rewriteDocLinks(stripMarkdownFrontmatter(raw)),
+	};
 }
 
 export const DOCS: DocEntry[] = [
