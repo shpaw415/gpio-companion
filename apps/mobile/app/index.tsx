@@ -12,50 +12,58 @@ import {
 	Text,
 	View,
 } from "react-native";
-import { listDevices, t3Action, unpairDevice } from "../src/lib/api.ts";
+import {
+	listDebugBoards,
+	loadDeviceLogs,
+	type MaintenanceReport,
+	t3Action,
+	unpairDevice,
+} from "../src/lib/api.ts";
 import { useAuth } from "../src/lib/auth.tsx";
 import { dashboardUrl } from "../src/lib/config.ts";
+import { useUserDevices } from "../src/lib/device-cache.tsx";
 import { colors } from "../src/lib/theme.ts";
-
-type BoardDevice = {
-	uuid: string;
-	deviceUrl: string;
-	login: string;
-	label?: string;
-};
 
 export default function DevicesScreen() {
 	const auth = useAuth();
-	const [devices, setDevices] = useState<BoardDevice[]>([]);
+	const { devices, error: loadError, refetch, removeDevice } = useUserDevices();
 	const [error, setError] = useState("");
 	const [refreshing, setRefreshing] = useState(false);
 	const [t3Busy, setT3Busy] = useState("");
+	const [logBusy, setLogBusy] = useState("");
+	const [maintenance, setMaintenance] = useState<
+		Record<string, MaintenanceReport | null>
+	>({});
 
-	const load = useCallback(async () => {
+	const loadMaintenance = useCallback(async () => {
 		if (!auth.token) {
+			setMaintenance({});
 			return;
 		}
-		try {
-			const result = await listDevices(auth.token);
-			setDevices(result.devices);
-			setError("");
-		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "load failed");
+		const debug = await listDebugBoards(auth.token);
+		const next: Record<string, MaintenanceReport | null> = {};
+		for (const board of debug.devices) {
+			next[board.uuid] = board.maintenance ?? null;
 		}
+		setMaintenance(next);
 	}, [auth.token]);
 
 	useEffect(() => {
-		void load();
-	}, [load]);
+		void loadMaintenance().catch(() => undefined);
+	}, [loadMaintenance]);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
 		try {
-			await load();
+			await refetch({ force: true });
+			await loadMaintenance().catch(() => undefined);
+			setError("");
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "load failed");
 		} finally {
 			setRefreshing(false);
 		}
-	}, [load]);
+	}, [refetch, loadMaintenance]);
 
 	if (!auth.ready) {
 		return (
@@ -84,12 +92,17 @@ export default function DevicesScreen() {
 	return (
 		<View style={styles.page}>
 			<Text style={styles.title}>Devices</Text>
-			{error ? <Text style={styles.error}>{error}</Text> : null}
+			{error || loadError ? (
+				<Text style={styles.error}>{error || loadError}</Text>
+			) : null}
 			<FlatList
 				data={devices}
 				keyExtractor={(item) => item.uuid}
 				refreshControl={
-					<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={() => void onRefresh()}
+					/>
 				}
 				ListEmptyComponent={
 					<Text style={styles.muted}>No boards yet. Pair one nearby.</Text>
@@ -100,6 +113,44 @@ export default function DevicesScreen() {
 							{item.label?.trim() || item.login || item.uuid}
 						</Text>
 						<Text style={styles.muted}>{item.uuid}</Text>
+						{maintenance[item.uuid]?.diskAvailMb != null &&
+						maintenance[item.uuid]?.diskTotalMb ? (
+							<Text style={styles.muted}>
+								{maintenance[item.uuid]?.diskAvailMb} MB free of{" "}
+								{maintenance[item.uuid]?.diskTotalMb} MB
+								{maintenance[item.uuid]?.reclaimedBytes
+									? ` · cleaned ${maintenance[item.uuid]?.reclaimedBytes} B`
+									: ""}
+							</Text>
+						) : null}
+						<Pressable
+							disabled={logBusy === item.uuid || !auth.token}
+							onPress={() => {
+								if (!auth.token) {
+									return;
+								}
+								setLogBusy(item.uuid);
+								void loadDeviceLogs(auth.token, item.uuid)
+									.then((result) => {
+										Alert.alert(
+											"Last 24h logs",
+											result.text.trim() ||
+												"No journal lines in the last 24 hours.",
+										);
+										setError("");
+									})
+									.catch((caught) => {
+										setError(
+											caught instanceof Error ? caught.message : "logs failed",
+										);
+									})
+									.finally(() => setLogBusy(""));
+							}}
+						>
+							<Text style={styles.primaryLink}>
+								{logBusy === item.uuid ? "Loading logs…" : "Last 24h logs"}
+							</Text>
+						</Pressable>
 						<Pressable
 							disabled={t3Busy === item.uuid || !auth.token}
 							onPress={() => {
@@ -123,9 +174,7 @@ export default function DevicesScreen() {
 										const url = `${dashboardUrl}/devices/t3?uuid=${encodeURIComponent(item.uuid)}#token=${encodeURIComponent(decoded)}`;
 										Alert.alert(
 											"T3 pairing",
-											decoded
-												? `Pair code: ${decoded}`
-												: "Pairing link ready",
+											decoded ? `Pair code: ${decoded}` : "Pairing link ready",
 											[
 												{
 													text: "Open dashboard",
@@ -165,11 +214,7 @@ export default function DevicesScreen() {
 											}
 											void unpairDevice(auth.token, item.uuid)
 												.then(() => {
-													setDevices((current) =>
-														current.filter(
-															(device) => device.uuid !== item.uuid,
-														),
-													);
+													removeDevice(item.uuid);
 													setError("");
 												})
 												.catch((caught) => {

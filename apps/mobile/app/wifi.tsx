@@ -7,7 +7,7 @@ import {
 	TextInput,
 	View,
 } from "react-native";
-import { listDevices, signWifi } from "../src/lib/api.ts";
+import { signWifi } from "../src/lib/api.ts";
 import { useAuth } from "../src/lib/auth.tsx";
 import {
 	createBoardLoss,
@@ -17,17 +17,12 @@ import {
 	scanBoard,
 	sendEnvelope,
 } from "../src/lib/ble.ts";
+import { useUserDevices } from "../src/lib/device-cache.tsx";
 import { colors } from "../src/lib/theme.ts";
-
-type BoardDevice = {
-	uuid: string;
-	login: string;
-	label?: string;
-};
 
 export default function WifiScreen() {
 	const auth = useAuth();
-	const [devices, setDevices] = useState<BoardDevice[]>([]);
+	const { devices, error: loadError } = useUserDevices();
 	const [uuid, setUuid] = useState("");
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
@@ -36,23 +31,13 @@ export default function WifiScreen() {
 	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
-		if (!auth.token) {
-			return;
-		}
-		void listDevices(auth.token)
-			.then((result) => {
-				setDevices(result.devices);
-				setUuid((current) => {
-					if (result.devices.some((board) => board.uuid === current)) {
-						return current;
-					}
-					return result.devices[0]?.uuid ?? "";
-				});
-			})
-			.catch((caught) => {
-				setError(caught instanceof Error ? caught.message : "load failed");
-			});
-	}, [auth.token]);
+		setUuid((current) => {
+			if (devices.some((board) => board.uuid === current)) {
+				return current;
+			}
+			return devices[0]?.uuid ?? "";
+		});
+	}, [devices]);
 
 	async function send() {
 		if (busy) {
@@ -151,7 +136,9 @@ export default function WifiScreen() {
 				autoCorrect={false}
 			/>
 			<Text>{status}</Text>
-			{error ? <Text style={styles.error}>{error}</Text> : null}
+			{error || loadError ? (
+				<Text style={styles.error}>{error || loadError}</Text>
+			) : null}
 			{busy ? <ActivityIndicator /> : null}
 			<Pressable
 				style={[styles.button, busy ? styles.buttonDisabled : null]}

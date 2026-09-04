@@ -7,6 +7,8 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	type DebugEvent,
 	debugProbeMessage,
+	formatDiskFree,
+	type MaintenanceReport,
 	parseDebugEvent,
 } from "gpio-companion";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,25 +19,35 @@ import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
 type Filter = "all" | "error" | "warning";
 type Connection = "idle" | "connecting" | "live" | "error";
 
+export type DebugPanelDevice = DeviceOption & {
+	maintenance?: MaintenanceReport | null;
+};
+
 export default function DeviceDebugPanel({
 	devices,
 	signConnect,
+	loadLogs,
 }: {
-	devices: DeviceOption[];
+	devices: DebugPanelDevice[];
 	signConnect: (uuid: string) => Promise<
 		ActionResult<{
 			wsUrl: string;
 			probe: { status: number; error: string; ready: boolean };
 		}>
 	>;
+	loadLogs: (uuid: string) => Promise<ActionResult<{ text: string }>>;
 }) {
 	const [uuid, setUuid] = useState(devices[0]?.uuid ?? "");
 	const [connection, setConnection] = useState<Connection>("idle");
 	const [error, setError] = useState("");
 	const [filter, setFilter] = useState<Filter>("all");
 	const [events, setEvents] = useState<DebugEvent[]>([]);
+	const [journal, setJournal] = useState("");
+	const [journalBusy, setJournalBusy] = useState(false);
 	const socketRef = useRef<WebSocket | null>(null);
 	const logRef = useRef<HTMLPreElement | null>(null);
+	const selected = devices.find((device) => device.uuid === uuid);
+	const maintenance = selected?.maintenance ?? null;
 
 	useEffect(() => {
 		if (!uuid && devices[0]) {
@@ -72,6 +84,22 @@ export default function DeviceDebugPanel({
 		socketRef.current?.close();
 		socketRef.current = null;
 		setConnection("idle");
+	}
+
+	async function fetchLogs() {
+		if (!uuid) {
+			return;
+		}
+		setJournalBusy(true);
+		setError("");
+		try {
+			const next = unwrapAction(await loadLogs(uuid));
+			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "logs failed");
+		} finally {
+			setJournalBusy(false);
+		}
 	}
 
 	async function connect() {
@@ -139,11 +167,49 @@ export default function DeviceDebugPanel({
 					value={uuid}
 					onChange={(next) => {
 						disconnect();
+						setJournal("");
 						setUuid(next);
 					}}
 					disabled={connection === "connecting"}
 					label="Board"
 				/>
+				{maintenance ? (
+					<Typography color="secondary" variant="body2">
+						{formatDiskFree({
+							totalMb: maintenance.diskTotalMb,
+							availMb: maintenance.diskAvailMb,
+						})}
+						{maintenance.reclaimedBytes
+							? ` · last cleanup reclaimed ${maintenance.reclaimedBytes} B`
+							: ""}
+						{maintenance.at
+							? ` · ${new Date(maintenance.at).toISOString()}`
+							: ""}
+					</Typography>
+				) : (
+					<Typography color="secondary" variant="body2">
+						Disk snapshot appears after the hourly cleanup runs.
+					</Typography>
+				)}
+				<Stack direction="row" spacing={1} className="flex-wrap">
+					<Button
+						variant="outlined"
+						disabled={!uuid || journalBusy}
+						onClick={() => void fetchLogs()}
+					>
+						{journalBusy ? "Loading" : "Load last 24h"}
+					</Button>
+				</Stack>
+				{journal ? (
+					<>
+						<Paper className="p-3" elevation={0} variant="outlined">
+							<pre className="m-0 max-h-80 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">
+								{journal}
+							</pre>
+						</Paper>
+						<CopyBlock label="Journal excerpt" value={journal} />
+					</>
+				) : null}
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					<Chip
 						label={connection}

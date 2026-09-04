@@ -13,8 +13,13 @@ export default function Overview() {
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
-	const { boards, loading, error: loadError, removeBoard, patchLabel } =
-		useUserBoards();
+	const {
+		boards,
+		loading,
+		error: loadError,
+		removeBoard,
+		patchLabel,
+	} = useUserBoards();
 	const [error, setError] = useState("");
 
 	useEffect(() => {
@@ -62,9 +67,7 @@ export default function Overview() {
 								})
 								.catch((caught) => {
 									setError(
-										caught instanceof Error
-											? caught.message
-											: "unpair failed",
+										caught instanceof Error ? caught.message : "unpair failed",
 									);
 								});
 						}}

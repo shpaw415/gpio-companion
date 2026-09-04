@@ -1004,6 +1004,45 @@ EOF
 	chmod 0755 /usr/local/sbin/gpio-companion-force-update
 }
 
+install_cleanup_wrapper() {
+	install -d -m 0755 /usr/local/sbin
+	cat >/usr/local/sbin/gpio-companion-cleanup <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
+REPO="$(cat "$CONFIG_DIR/repo.path")"
+exec /bin/bash "$REPO/scripts/cleanup-script.sh" "$@"
+EOF
+	chmod 0755 /usr/local/sbin/gpio-companion-cleanup
+}
+
+install_journald_retention() {
+	local dest="/etc/systemd/journald.conf.d/gpio-companion.conf"
+	local previous=""
+	install -d -m 0755 /etc/systemd/journald.conf.d
+	if [[ -f "$dest" ]]; then
+		previous="$(cat "$dest")"
+	fi
+	cat >"$dest" <<'EOF'
+[Journal]
+MaxRetentionSec=1day
+SystemMaxUse=64M
+RuntimeMaxUse=32M
+EOF
+	if [[ "$previous" != "$(cat "$dest")" ]]; then
+		systemctl restart systemd-journald.service || true
+	fi
+}
+
+install_cleanup_units() {
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-cleanup.service" /etc/systemd/system/gpio-companion-cleanup.service
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-cleanup.timer" /etc/systemd/system/gpio-companion-cleanup.timer
+	install_cleanup_wrapper
+	install_journald_retention
+	systemctl daemon-reload
+	systemctl enable --now gpio-companion-cleanup.timer
+}
+
 install_systemd_units() {
 	local hardware="$1"
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion.service" /etc/systemd/system/gpio-companion.service
@@ -1012,6 +1051,7 @@ install_systemd_units() {
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	sed -i "s/^Environment=GPIO_COMPANION_HARDWARE=.*/Environment=GPIO_COMPANION_HARDWARE=$hardware/" /etc/systemd/system/gpio-companion.service
 	install_update_wrapper
+	install_cleanup_units
 	systemctl daemon-reload
 	systemctl enable --now gpio-companion.service
 	systemctl enable --now gpio-companion-update.timer

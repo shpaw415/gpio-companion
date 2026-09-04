@@ -84,6 +84,7 @@ server_needs_build() {
 }
 
 install_ble_gatt_script
+install_cleanup_units
 
 if server_needs_build; then
 	if [[ "$FORCE" -eq 1 ]]; then

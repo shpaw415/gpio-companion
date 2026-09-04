@@ -19,7 +19,7 @@ describe("maintenance helpers", () => {
 
 	test("parses and caps a maintenance report", () => {
 		expect(() => parseMaintenanceReport({ uuid: "  abc  " })).toThrow(
-			"disk stats are required",
+			"at is required",
 		);
 		expect(
 			parseMaintenanceReport({
@@ -46,7 +46,9 @@ describe("maintenance helpers", () => {
 		expect(capLogText(lines.join("\n"), 10_000, 5)).toBe(
 			"line-7\nline-8\nline-9\nline-10\nline-11",
 		);
-		expect(Buffer.byteLength(capLogText("x".repeat(200), 16), "utf8")).toBe(16);
+		expect(
+			new TextEncoder().encode(capLogText("x".repeat(200), 16)).byteLength,
+		).toBe(16);
 	});
 
 	test("formats disk free", () => {

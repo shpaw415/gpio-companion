@@ -81,6 +81,8 @@ const server = startDeviceApi({
 		clockSets.push(issuedMs);
 	},
 	clockTrusted: () => true,
+	readDisk: () => ({ totalMb: 7456, availMb: 1800 }),
+	readLogs: async () => "token ghs_abcDEF123 failed",
 });
 
 afterAll(() => {
@@ -188,6 +190,20 @@ describe("gpio-companion-bin", () => {
 		};
 		expect(statusBody.tunnel.configured).toBe(true);
 		expect(statusBody.t3codePairing).toBe("dashboard");
+		expect(
+			(statusBody as { disk?: { totalMb: number; availMb: number } }).disk,
+		).toEqual({ totalMb: 7456, availMb: 1800 });
+	});
+
+	test("returns redacted journal excerpt", async () => {
+		const denied = await deviceFetch("v1/logs", {}, false);
+		expect(denied.status).toBe(401);
+		const response = await deviceFetch("v1/logs");
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			text: "token [redacted] failed",
+			sinceHours: 24,
+		});
 	});
 
 	test("quotes tunnel env values", () => {

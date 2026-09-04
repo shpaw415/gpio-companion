@@ -166,6 +166,15 @@ export type PendingRequest = {
 	createdAt?: string;
 };
 
+export type MaintenanceReport = {
+	uuid?: string;
+	at?: number;
+	diskTotalMb?: number;
+	diskAvailMb?: number;
+	reclaimedBytes?: number;
+	actions?: string[];
+};
+
 export type DebugBoard = {
 	uuid: string;
 	deviceUrl: string;
@@ -175,6 +184,7 @@ export type DebugBoard = {
 	userId?: string;
 	paired?: boolean;
 	live?: boolean;
+	maintenance?: MaintenanceReport | null;
 };
 
 export type DebugConnect = {
@@ -287,6 +297,13 @@ export function listDebugBoards() {
 
 export function connectDebug(uuid: string) {
 	return apiRequest<DebugConnect>("POST", "/api/mobile/debug", { uuid });
+}
+
+export function loadDeviceLogs(uuid: string) {
+	return apiRequest<{ text: string }>(
+		"GET",
+		`/api/mobile/logs?uuid=${encodeURIComponent(uuid)}`,
+	);
 }
 
 export function listAdminDevices() {

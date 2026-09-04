@@ -8,6 +8,7 @@ import {
 	connectDebug,
 	deviceDisplayName,
 	listDebugBoards,
+	loadDeviceLogs,
 } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
@@ -23,36 +24,32 @@ type LogLine = {
 };
 
 export default function Debug() {
-	const [boards, setBoards] = useState<DebugBoard[]>([]);
+	const query = useCachedQuery(CACHE_KEYS.debugBoards, listDebugBoards);
+	const boards = query.data?.devices ?? [];
 	const [lines, setLines] = useState<LogLine[]>([]);
 	const [error, setError] = useState("");
 	const [active, setActive] = useState("");
-	const [loading, setLoading] = useState(true);
+	const [journal, setJournal] = useState("");
+	const [journalFor, setJournalFor] = useState("");
+	const loading = query.loading;
 	const socket = useRef<WebSocket | null>(null);
 
 	useEffect(() => {
-		let cancelled = false;
-		void listDebugBoards()
-			.then((result) => {
-				if (!cancelled) {
-					setBoards(result.devices);
-				}
-			})
-			.catch((caught) => {
-				if (!cancelled) {
-					setError(caught instanceof Error ? caught.message : "load failed");
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
 		return () => {
-			cancelled = true;
 			socket.current?.close();
 		};
 	}, []);
+
+	async function fetchLogs(uuid: string) {
+		setError("");
+		try {
+			const next = await loadDeviceLogs(uuid);
+			setJournalFor(uuid);
+			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "logs failed");
+		}
+	}
 
 	async function connect(uuid: string) {
 		setError("");
@@ -87,26 +84,48 @@ export default function Debug() {
 			<Typography variant="h5" Element="h1">
 				Debug
 			</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || query.error ? (
+				<Alert severity="error">{error || query.error}</Alert>
+			) : null}
+			{error || query.error ? <DebugLog error={error || query.error} /> : null}
 			{loading ? <ListSkeleton items={3} /> : null}
 			{loading
 				? null
 				: boards.map((board) => (
-				<Paper key={board.uuid} sx={{ p: 2 }} elevation={1}>
-					<Typography>{deviceDisplayName(board)}</Typography>
-					<Typography color="secondary">
-						{board.live ? "live" : "offline"}
-						{board.email ? ` · ${board.email}` : ""}
-					</Typography>
-					<Button
-						variant="text"
-						onClick={() => void connect(board.uuid)}
-					>
-						{active === board.uuid ? "Reconnect" : "Connect"}
-					</Button>
-				</Paper>
-			))}
+						<Paper key={board.uuid} sx={{ p: 2 }} elevation={1}>
+							<Typography>{deviceDisplayName(board)}</Typography>
+							<Typography color="secondary">
+								{board.live ? "live" : "offline"}
+								{board.email ? ` · ${board.email}` : ""}
+								{board.maintenance?.diskAvailMb != null &&
+								board.maintenance.diskTotalMb
+									? ` · ${board.maintenance.diskAvailMb} MB free of ${board.maintenance.diskTotalMb} MB`
+									: ""}
+							</Typography>
+							<Button variant="text" onClick={() => void connect(board.uuid)}>
+								{active === board.uuid ? "Reconnect" : "Connect"}
+							</Button>
+							<Button variant="text" onClick={() => void fetchLogs(board.uuid)}>
+								Last 24h
+							</Button>
+						</Paper>
+					))}
+			{journal ? (
+				<Typography
+					Element="pre"
+					sx={{
+						m: 0,
+						maxHeight: 240,
+						overflow: "auto",
+						whiteSpace: "pre-wrap",
+						fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+						fontSize: 12,
+					}}
+				>
+					{journalFor ? `${journalFor}\n` : ""}
+					{journal}
+				</Typography>
+			) : null}
 			{lines.length > 0 ? (
 				<Typography
 					Element="pre"

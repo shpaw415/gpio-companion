@@ -2,6 +2,7 @@ import {
 	DEBUG_LIVE_TTL_SEC,
 	isLiveSeen,
 	liveDeviceUrl,
+	type MaintenanceReport,
 	parseLivePingUuid,
 } from "gpio-companion";
 import type { PairingKv, PublicPairing } from "./pairing-store.ts";
@@ -24,6 +25,7 @@ export type DebugBoard = {
 	paired: boolean;
 	live: boolean;
 	seenAt: number | null;
+	maintenance: MaintenanceReport | null;
 };
 
 export function liveKey(uuid: string): string {
@@ -111,7 +113,7 @@ export function mergeDebugBoards(
 	includeUnpaired: boolean,
 ): DebugBoard[] {
 	const liveByUuid = new Map(live.map((board) => [board.uuid, board]));
-	const boards = paired.map((device) => {
+	const boards: DebugBoard[] = paired.map((device) => {
 		const ping = liveByUuid.get(device.uuid);
 		return {
 			uuid: device.uuid,
@@ -123,7 +125,8 @@ export function mergeDebugBoards(
 			paired: true,
 			live: Boolean(ping),
 			seenAt: ping?.seenAt ?? null,
-		} satisfies DebugBoard;
+			maintenance: null,
+		};
 	});
 	if (includeUnpaired) {
 		const pairedIds = new Set(paired.map((device) => device.uuid));
@@ -141,6 +144,7 @@ export function mergeDebugBoards(
 				paired: false,
 				live: true,
 				seenAt: board.seenAt,
+				maintenance: null,
 			});
 		}
 	}

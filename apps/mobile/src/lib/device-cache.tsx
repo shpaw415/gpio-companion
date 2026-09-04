@@ -152,7 +152,7 @@ export function useUserDevices() {
 	return {
 		devices: hit.hit ? hit.value.devices : [],
 		error,
-		loading,
+		loading: Boolean(token) && !hit.hit && loading,
 		setData,
 		refetch,
 		removeDevice,

@@ -11,6 +11,7 @@ import {
 	nearbyBoardLabel,
 	onBleStatus,
 } from "../api";
+import { useUserBoards } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 
 export default function Pair({ onBack }: { onBack: () => void }) {
@@ -22,6 +23,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 	const [busy, setBusy] = useState(false);
 	const [paired, setPaired] = useState(false);
 	const scanRef = useRef(0);
+	const { refetch: refetchBoards } = useUserBoards();
 
 	useEffect(() => {
 		let unlisten: (() => void) | undefined;
@@ -72,6 +74,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			await blePair(selected);
 			setPaired(true);
 			setStatus("Paired");
+			void refetchBoards({ force: true }).catch(() => undefined);
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "pair failed";
 			console.error("gpio-companion-desktop pair", message);
@@ -107,23 +110,23 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			<Typography>{status}</Typography>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{error ? <DebugLog error={error} /> : null}
-		<Button
-			variant="contained"
-			disabled={busy || scanning || !selected || paired}
-			onClick={() => void pair()}
-		>
-			Pair selected device
-		</Button>
-		{paired ? (
-			<Button variant="contained" color="secondary" onClick={onBack}>
-				Back to Devices
+			<Button
+				variant="contained"
+				disabled={busy || scanning || !selected || paired}
+				onClick={() => void pair()}
+			>
+				Pair selected device
 			</Button>
-		) : null}
-		<Button
-			variant="text"
-			disabled={busy || scanning}
-			onClick={() => void scan()}
-		>
+			{paired ? (
+				<Button variant="contained" color="secondary" onClick={onBack}>
+					Back to Devices
+				</Button>
+			) : null}
+			<Button
+				variant="text"
+				disabled={busy || scanning}
+				onClick={() => void scan()}
+			>
 				Scan nearby
 			</Button>
 			<Button variant="text" onClick={onBack}>

@@ -196,6 +196,7 @@ info = {
 		"gpio-companion": unit("gpio-companion.service"),
 		"cloudflared-gpio": unit("cloudflared-gpio.service"),
 		"gpio-companion-update.timer": unit("gpio-companion-update.timer"),
+		"gpio-companion-cleanup.timer": unit("gpio-companion-cleanup.timer"),
 		"port": int(os.environ["GPIO_INFO_PORT"]),
 		"listen": sh(f"ss -ltn 2>/dev/null | awk '$4 ~ /:{os.environ['GPIO_INFO_PORT']}$/{{print $4; exit}}'"),
 	},

@@ -96,129 +96,129 @@ export default function App() {
 			}}
 		>
 			<ApiCacheProvider signedIn={signedIn}>
-			<Box
-				sx={{
-					height: "100%",
-					minHeight: 0,
-					bgcolor: "bg-main",
-					display: "flex",
-					flexDirection: "column",
-					overflow: onT3 ? "hidden" : undefined,
-				}}
-			>
-				<CssBaseline />
-				<AppBar position="sticky" color="default" sx={{ flexShrink: 0 }}>
-					<Toolbar sx={{ gap: 1 }}>
-						<Box
-							sx={{
-								display: "flex",
-								alignItems: "center",
-								gap: 1.5,
-								flexGrow: 1,
-								minWidth: 0,
-							}}
-						>
-							<img
-								src={logo}
-								alt=""
-								width={32}
-								height={32}
-								style={{
-									width: 32,
-									height: 32,
-									borderRadius: 8,
-									objectFit: "cover",
-									flexShrink: 0,
-									display: "block",
-								}}
-							/>
-							<Typography variant="h6" noWrap>
-								gpio-companion
-							</Typography>
-						</Box>
-						{signedIn
-							? (
-									[
-										["project", "Project"],
-										["devices", "Devices"],
-										["profile", "Profile"],
-									] as const
-								).map(([id, label]) => (
-									<Button
-										key={id}
-										variant={section === id ? "contained" : "text"}
-										size="small"
-										onClick={() => setSection(id)}
-									>
-										{label}
-									</Button>
-								))
-							: null}
-						<IconButton
-							aria-label={
-								isDark ? "Switch to light mode" : "Switch to dark mode"
-							}
-							color="secondary"
-							onClick={toggleMode}
-							size="small"
-						>
-							{isDark ? <SunIcon /> : <MoonIcon />}
-						</IconButton>
-					</Toolbar>
-				</AppBar>
 				<Box
 					sx={{
-						...(onT3
-							? {
-									flex: 1,
-									minHeight: 0,
-									display: "flex",
-									flexDirection: "column",
-									overflow: "hidden",
-									px: 1,
-									pt: 0,
-									pb: 0,
-								}
-							: {
-									mx: "auto",
-									width: "100%",
-									maxWidth: 1024,
-									p: 3,
-								}),
+						height: "100%",
+						minHeight: 0,
+						bgcolor: "bg-main",
+						display: "flex",
+						flexDirection: "column",
+						overflow: onT3 ? "hidden" : undefined,
 					}}
 				>
-					{signedIn ? (
-						section === "project" ? (
-							<Project />
-						) : section === "profile" ? (
-							<Profile
-								session={session}
-								onSignOut={() => {
-									void authLogout().then(() => {
-										setSignedIn(false);
-										setSection("devices");
-										setDeviceTab("overview");
-									});
+					<CssBaseline />
+					<AppBar position="sticky" color="default" sx={{ flexShrink: 0 }}>
+						<Toolbar sx={{ gap: 1 }}>
+							<Box
+								sx={{
+									display: "flex",
+									alignItems: "center",
+									gap: 1.5,
+									flexGrow: 1,
+									minWidth: 0,
+								}}
+							>
+								<img
+									src={logo}
+									alt=""
+									width={32}
+									height={32}
+									style={{
+										width: 32,
+										height: 32,
+										borderRadius: 8,
+										objectFit: "cover",
+										flexShrink: 0,
+										display: "block",
+									}}
+								/>
+								<Typography variant="h6" noWrap>
+									gpio-companion
+								</Typography>
+							</Box>
+							{signedIn
+								? (
+										[
+											["project", "Project"],
+											["devices", "Devices"],
+											["profile", "Profile"],
+										] as const
+									).map(([id, label]) => (
+										<Button
+											key={id}
+											variant={section === id ? "contained" : "text"}
+											size="small"
+											onClick={() => setSection(id)}
+										>
+											{label}
+										</Button>
+									))
+								: null}
+							<IconButton
+								aria-label={
+									isDark ? "Switch to light mode" : "Switch to dark mode"
+								}
+								color="secondary"
+								onClick={toggleMode}
+								size="small"
+							>
+								{isDark ? <SunIcon /> : <MoonIcon />}
+							</IconButton>
+						</Toolbar>
+					</AppBar>
+					<Box
+						sx={{
+							...(onT3
+								? {
+										flex: 1,
+										minHeight: 0,
+										display: "flex",
+										flexDirection: "column",
+										overflow: "hidden",
+										px: 1,
+										pt: 0,
+										pb: 0,
+									}
+								: {
+										mx: "auto",
+										width: "100%",
+										maxWidth: 1024,
+										p: 3,
+									}),
+						}}
+					>
+						{signedIn ? (
+							section === "project" ? (
+								<Project />
+							) : section === "profile" ? (
+								<Profile
+									session={session}
+									onSignOut={() => {
+										void authLogout().then(() => {
+											setSignedIn(false);
+											setSection("devices");
+											setDeviceTab("overview");
+										});
+									}}
+								/>
+							) : (
+								<DevicesHub
+									tab={deviceTab}
+									onTab={setDeviceTab}
+									admin={Boolean(admin)}
+								/>
+							)
+						) : (
+							<Login
+								onSignedIn={() => {
+									setSignedIn(true);
+									setSection("devices");
 								}}
 							/>
-						) : (
-							<DevicesHub
-								tab={deviceTab}
-								onTab={setDeviceTab}
-								admin={Boolean(admin)}
-							/>
-						)
-					) : (
-						<Login
-							onSignedIn={() => {
-								setSignedIn(true);
-								setSection("devices");
-							}}
-						/>
-					)}
+						)}
+					</Box>
+					{signedIn ? <T3Frame visible={onT3} /> : null}
 				</Box>
-				{signedIn ? <T3Frame visible={onT3} /> : null}
-			</Box>
 			</ApiCacheProvider>
 		</BoardSelectionProvider>
 	);

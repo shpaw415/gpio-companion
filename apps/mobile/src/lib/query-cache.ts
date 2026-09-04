@@ -53,11 +53,7 @@ export class QueryCache {
 		this.notify();
 	}
 
-	get<T>(
-		key: string,
-		fetcher: () => Promise<T>,
-		force = false,
-	): Promise<T> {
+	get<T>(key: string, fetcher: () => Promise<T>, force = false): Promise<T> {
 		if (!force) {
 			const cached = this.peek<T>(key);
 			if (cached.hit) {

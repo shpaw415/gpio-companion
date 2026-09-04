@@ -1,4 +1,5 @@
 import { GET as listDebugDevices, POST as signDebugConnect } from "@api/debug";
+import { GET as loadDeviceLogs } from "@api/debug/logs";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
@@ -49,6 +50,7 @@ export default function DeviceDebugPage() {
 					uuid: device.uuid,
 					deviceUrl: device.deviceUrl,
 					label: bits.join(" · ") || device.uuid,
+					maintenance: device.maintenance,
 				};
 			}),
 		[admin, devices],
@@ -58,9 +60,9 @@ export default function DeviceDebugPage() {
 		<Stack spacing={3}>
 			<SectionHeader title="Debug">
 				<Typography color="secondary">
-					Live errors and warnings from the companion API over WebSocket. Boards
-					ping the dashboard when they are up; admins can connect without
-					pairing.
+					Live companion API errors over WebSocket, plus disk space and a
+					redacted last-24h journal excerpt. Boards ping when they are up;
+					hourly cleanup keeps logs for a day.
 				</Typography>
 			</SectionHeader>
 
@@ -84,7 +86,11 @@ export default function DeviceDebugPage() {
 			) : null}
 
 			{loggedIn && devices.length > 0 ? (
-				<DeviceDebugPanel devices={options} signConnect={signDebugConnect} />
+				<DeviceDebugPanel
+					devices={options}
+					signConnect={signDebugConnect}
+					loadLogs={loadDeviceLogs}
+				/>
 			) : null}
 		</Stack>
 	);

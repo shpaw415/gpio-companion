@@ -5,7 +5,6 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useMemo, useState } from "react";
-import DocsMarkdown from "./DocsMarkdown";
 import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import {
@@ -17,6 +16,7 @@ import {
 	hardwareFromStatus,
 	searchDocs,
 } from "../lib/docs";
+import DocsMarkdown from "./DocsMarkdown";
 
 export default function Docs() {
 	const { uuid } = useBoardSelection();
@@ -109,7 +109,11 @@ export default function Docs() {
 				<>
 					{hits.length > 0
 						? hits.map((hit) => (
-								<Paper key={`${hit.docId}-${hit.sectionTitle}`} sx={{ p: 2 }} elevation={1}>
+								<Paper
+									key={`${hit.docId}-${hit.sectionTitle}`}
+									sx={{ p: 2 }}
+									elevation={1}
+								>
 									<Button variant="text" onClick={() => setDocId(hit.docId)}>
 										{hit.docTitle}
 									</Button>

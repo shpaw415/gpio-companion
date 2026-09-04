@@ -4,51 +4,35 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-	type AdminDeviceItem,
 	adminTransfer,
 	adminUnpair,
 	deviceDisplayName,
 	listAdminDevices,
 	patchAdminLabel,
 } from "../api";
+import {
+	CACHE_KEYS,
+	useCachedQuery,
+	useUserBoards,
+} from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
 export default function Admin() {
-	const [devices, setDevices] = useState<AdminDeviceItem[]>([]);
+	const query = useCachedQuery(CACHE_KEYS.adminDevices, listAdminDevices);
+	const { refetch: refetchBoards } = useUserBoards();
+	const devices = query.data?.devices ?? [];
 	const [filter, setFilter] = useState("");
 	const [selected, setSelected] = useState("");
 	const [label, setLabel] = useState("");
 	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		let cancelled = false;
-		void listAdminDevices()
-			.then((result) => {
-				if (!cancelled) {
-					setDevices(result.devices);
-				}
-			})
-			.catch((caught) => {
-				if (!cancelled) {
-					setError(caught instanceof Error ? caught.message : "load failed");
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
+	const loading = query.loading;
 
 	const visible = devices.filter((item) => {
-		const hay = `${item.device.label ?? ""} ${item.device.uuid} ${item.device.login} ${item.device.email ?? ""}`.toLowerCase();
+		const hay =
+			`${item.device.label ?? ""} ${item.device.uuid} ${item.device.login} ${item.device.email ?? ""}`.toLowerCase();
 		return hay.includes(filter.trim().toLowerCase());
 	});
 	const current = devices.find((item) => item.device.uuid === selected);
@@ -58,8 +42,10 @@ export default function Admin() {
 			<Typography variant="h5" Element="h1">
 				Admin
 			</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || query.error ? (
+				<Alert severity="error">{error || query.error}</Alert>
+			) : null}
+			{error || query.error ? <DebugLog error={error || query.error} /> : null}
 			<TextField
 				label="Filter"
 				value={filter}
@@ -69,22 +55,22 @@ export default function Admin() {
 			{loading
 				? null
 				: visible.map((item) => (
-				<Paper
-					key={item.device.uuid}
-					sx={{ p: 2, cursor: "pointer" }}
-					elevation={item.device.uuid === selected ? 3 : 1}
-					onClick={() => {
-						setSelected(item.device.uuid);
-						setLabel(item.device.label ?? "");
-					}}
-				>
-					<Typography>{deviceDisplayName(item.device)}</Typography>
-					<Typography color="secondary">
-						{item.status ? "Online" : "Offline"}
-						{item.device.email ? ` · ${item.device.email}` : ""}
-					</Typography>
-				</Paper>
-			))}
+						<Paper
+							key={item.device.uuid}
+							sx={{ p: 2, cursor: "pointer" }}
+							elevation={item.device.uuid === selected ? 3 : 1}
+							onClick={() => {
+								setSelected(item.device.uuid);
+								setLabel(item.device.label ?? "");
+							}}
+						>
+							<Typography>{deviceDisplayName(item.device)}</Typography>
+							<Typography color="secondary">
+								{item.status ? "Online" : "Offline"}
+								{item.device.email ? ` · ${item.device.email}` : ""}
+							</Typography>
+						</Paper>
+					))}
 			{current ? (
 				<Paper sx={{ p: 3 }} elevation={1}>
 					<Typography variant="h6">
@@ -93,7 +79,11 @@ export default function Admin() {
 					<Typography color="secondary" sx={{ wordBreak: "break-all" }}>
 						{current.device.uuid}
 					</Typography>
-					<Stack direction="row" spacing={1} sx={{ mt: 2, alignItems: "flex-end" }}>
+					<Stack
+						direction="row"
+						spacing={1}
+						sx={{ mt: 2, alignItems: "flex-end" }}
+					>
 						<TextField
 							label="Label"
 							value={label}
@@ -104,9 +94,9 @@ export default function Admin() {
 							variant="text"
 							onClick={() => {
 								void patchAdminLabel(current.device.uuid, label)
-									.then(() =>
-										setDevices((items) =>
-											items.map((item) =>
+									.then(() => {
+										query.setData((currentList) => ({
+											devices: (currentList?.devices ?? []).map((item) =>
 												item.device.uuid === current.device.uuid
 													? {
 															...item,
@@ -114,13 +104,12 @@ export default function Admin() {
 														}
 													: item,
 											),
-										),
-									)
+										}));
+										void refetchBoards({ force: true }).catch(() => undefined);
+									})
 									.catch((caught) => {
 										setError(
-											caught instanceof Error
-												? caught.message
-												: "save failed",
+											caught instanceof Error ? caught.message : "save failed",
 										);
 									});
 							}}
@@ -133,15 +122,16 @@ export default function Admin() {
 							variant="text"
 							onClick={() => {
 								void adminTransfer(current.device.uuid)
-									.then((result) =>
-										setDevices((items) =>
-											items.map((item) =>
+									.then((result) => {
+										query.setData((currentList) => ({
+											devices: (currentList?.devices ?? []).map((item) =>
 												item.device.uuid === current.device.uuid
 													? { ...item, device: result.device }
 													: item,
 											),
-										),
-									)
+										}));
+										void refetchBoards({ force: true }).catch(() => undefined);
+									})
 									.catch((caught) => {
 										setError(
 											caught instanceof Error
@@ -162,12 +152,13 @@ export default function Admin() {
 								}
 								void adminUnpair(current.device.uuid)
 									.then(() => {
-										setDevices((items) =>
-											items.filter(
+										query.setData((currentList) => ({
+											devices: (currentList?.devices ?? []).filter(
 												(item) => item.device.uuid !== current.device.uuid,
 											),
-										);
+										}));
 										setSelected("");
+										void refetchBoards({ force: true }).catch(() => undefined);
 									})
 									.catch((caught) => {
 										setError(

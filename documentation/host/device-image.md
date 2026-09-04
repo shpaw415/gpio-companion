@@ -52,6 +52,7 @@ Systemd:
 
 - `gpio-companion.service` — `gpio-companion serve` on port **4150**, after network + bluetooth
 - `gpio-companion-update.timer` — updater OnBootSec=2min and every 24h (`Persistent=true`)
+- `gpio-companion-cleanup.timer` — disk/log cleanup OnBootSec=1min and every hour (`Persistent=true`); journals `MaxRetentionSec=1day`
 
 Env the unit loads:
 
@@ -70,7 +71,7 @@ The binary also reads `/etc/gpio-companion/device-auth.json` (`keyId`, `publicKe
 | Route | Auth |
 | --- | --- |
 | `GET /health` | none |
-| `GET /v1/status`, pairing, config, secrets, github, **wifi**, **t3** | Ed25519 dashboard signature (60s skew once NTP/clock is trusted; nonce replay list while offline) |
+| `GET /v1/status`, `GET /v1/logs`, pairing, config, secrets, github, **wifi**, **t3** | Ed25519 dashboard signature (60s skew once NTP/clock is trusted; nonce replay list while offline) |
 | `POST /v1/pairing/claim` | signature **and** pairing UUID + key |
 | `POST /v1/t3/pair` | signature |
 

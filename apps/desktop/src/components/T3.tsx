@@ -52,40 +52,45 @@ export default function T3() {
 			}}
 		>
 			<div ref={chromeRef}>
-			<Stack
-				direction="row"
-				spacing={1}
-				sx={{ alignItems: "center", flexShrink: 0, px: 0.5, py: 0.5 }}
-			>
-				<Typography variant="subtitle1" Element="h1" sx={{ flexGrow: 1 }} noWrap>
-					T3 Code
-				</Typography>
-				{loading ? (
-					<SelectSkeleton />
-				) : (
-					<Select
-						name="board"
-						label="Board"
-						value={uuid}
-						onSelect={setUuid}
-						disabled={boards.length === 0}
-						sx={{ minWidth: 240 }}
-					>
-						{boards.map((board) => (
-							<option key={board.device.uuid} value={board.device.uuid}>
-								{deviceDisplayName(board.device)}
-							</option>
-						))}
-					</Select>
-				)}
-				<Button
-					variant="text"
-					disabled={!uuid}
-					onClick={() => void openExternal(t3AppUrl(uuid))}
+				<Stack
+					direction="row"
+					spacing={1}
+					sx={{ alignItems: "center", flexShrink: 0, px: 0.5, py: 0.5 }}
 				>
-					Open in browser
-				</Button>
-			</Stack>
+					<Typography
+						variant="subtitle1"
+						Element="h1"
+						sx={{ flexGrow: 1 }}
+						noWrap
+					>
+						T3 Code
+					</Typography>
+					{loading ? (
+						<SelectSkeleton />
+					) : (
+						<Select
+							name="board"
+							label="Board"
+							value={uuid}
+							onSelect={setUuid}
+							disabled={boards.length === 0}
+							sx={{ minWidth: 240 }}
+						>
+							{boards.map((board) => (
+								<option key={board.device.uuid} value={board.device.uuid}>
+									{deviceDisplayName(board.device)}
+								</option>
+							))}
+						</Select>
+					)}
+					<Button
+						variant="text"
+						disabled={!uuid}
+						onClick={() => void openExternal(t3AppUrl(uuid))}
+					>
+						Open in browser
+					</Button>
+				</Stack>
 			</div>
 			{loading ? null : uuid ? (
 				<div

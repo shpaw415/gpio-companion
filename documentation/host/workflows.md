@@ -38,6 +38,8 @@ Host debug on the board (SSH/serial):
 curl -sS http://127.0.0.1:4150/health
 sudo systemctl status gpio-companion
 sudo journalctl -u gpio-companion -n 80 --no-pager
+sudo systemctl status gpio-companion-cleanup.timer
+sudo gpio-companion-cleanup
 # pairing UUID only (not the key) if they lost the printout — the key is in pairing.env mode 600
 sudo grep GPIO_COMPANION_PAIRING_UUID /etc/gpio-companion/pairing.env
 ```

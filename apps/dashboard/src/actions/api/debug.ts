@@ -8,6 +8,7 @@ import {
 	listLiveBoards,
 	mergeDebugBoards,
 } from "../../lib/debug-live.ts";
+import { attachMaintenance } from "../../lib/debug-maintenance.ts";
 import { signDeviceHeaders, signedDeviceFetch } from "../../lib/device-api.ts";
 import {
 	listAllDevices,
@@ -42,7 +43,12 @@ export const GET = wrapAction(async function GET() {
 		? await listAllDevices(ctx.env.DYNAMIC_PAGE_KV)
 		: await loadDevices(ctx.env.DYNAMIC_PAGE_KV, identity.id);
 	const live = await listLiveBoards(ctx.env.DYNAMIC_PAGE_KV);
-	return { devices: mergeDebugBoards(paired, live, admin) };
+	return {
+		devices: await attachMaintenance(
+			ctx.env.DYNAMIC_PAGE_KV,
+			mergeDebugBoards(paired, live, admin),
+		),
+	};
 });
 
 export const POST = wrapAction(async function POST(uuid: string) {

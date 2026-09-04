@@ -121,8 +121,8 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				WiFi over Bluetooth
 			</Typography>
 			<Typography color="secondary">
-				Pick the Pi in Nearby Bluetooth device, or leave Auto-detect
-				and hold it close.
+				Pick the Pi in Nearby Bluetooth device, or leave Auto-detect and hold it
+				close.
 			</Typography>
 			{devicesLoading ? (
 				<SelectSkeleton height={56} width="100%" />

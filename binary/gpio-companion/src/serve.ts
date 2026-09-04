@@ -1,10 +1,14 @@
 import { readFileSync } from "node:fs";
 import {
+	capLogText,
 	DEBUG_PATH,
 	DEFAULT_DEVICE_MAX_SKEW_MS,
 	DeviceAuthError,
 	type DeviceConfig,
+	type DiskStats,
 	debugAuthHeadersFromRequest,
+	LOGS_PATH,
+	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
 	pairingCredentials,
 	parseDeviceSecrets,
@@ -17,6 +21,7 @@ import {
 	publicWifiFailure,
 	publicWifiStatus,
 	redactDeviceConfig,
+	redactLogText,
 	secretsStatus,
 	VERSION,
 	verifyDeviceRequest,
@@ -24,7 +29,9 @@ import {
 } from "gpio-companion";
 import { readBoardModel } from "./board-model.ts";
 import { createDebugHub } from "./debug.ts";
+import { readDiskStats } from "./disk.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
+import { readJournalLogs } from "./logs.ts";
 import {
 	applyClaim,
 	applyTransfer,
@@ -65,6 +72,13 @@ export type ServeOptions = {
 		add(nonce: string): void;
 	};
 	dashboardUrl?: string;
+	readDisk?: () => DiskStats | null;
+	readLogs?: () => Promise<string>;
+};
+
+export type DeviceRequestExtras = {
+	readDisk?: () => DiskStats | null;
+	readLogs?: () => Promise<string>;
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -76,6 +90,10 @@ export function startDeviceApi(options: ServeOptions) {
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
 	});
+	const extras: DeviceRequestExtras = {
+		readDisk: options.readDisk ?? readDiskStats,
+		readLogs: options.readLogs ?? readJournalLogs,
+	};
 	return Bun.serve({
 		port,
 		hostname,
@@ -154,6 +172,7 @@ export function startDeviceApi(options: ServeOptions) {
 					options.githubCredentials,
 					clock,
 					nonces,
+					extras,
 				);
 			} catch (error) {
 				if (error instanceof DeviceAuthError) {
@@ -201,6 +220,7 @@ export async function handleDeviceRequest(
 	githubCredentials?: () => Promise<GithubInstallationCreds>,
 	clock?: ClockGate,
 	nonces?: NonceGate,
+	extras?: DeviceRequestExtras,
 ): Promise<Response> {
 	const url = new URL(request.url);
 	const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -394,6 +414,14 @@ export async function handleDeviceRequest(
 		return json(await t3.status());
 	}
 
+	if (method === "GET" && path === LOGS_PATH) {
+		const raw = extras?.readLogs ? await extras.readLogs() : "";
+		return json({
+			text: capLogText(redactLogText(raw)),
+			sinceHours: LOGS_SINCE_HOURS,
+		});
+	}
+
 	if (method === "GET" && path === "/v1/status") {
 		const config = await store.read();
 		const secrets = await secretsStore.read();
@@ -407,6 +435,7 @@ export async function handleDeviceRequest(
 					paired: false,
 					serviceInstalled: false,
 				};
+		const disk = extras?.readDisk ? extras.readDisk() : null;
 		return json({
 			hardware: config.hardware,
 			model: readBoardModel(),
@@ -419,6 +448,7 @@ export async function handleDeviceRequest(
 			pairing: publicPairing(pairing),
 			t3codePairing: "dashboard",
 			t3: t3Status,
+			disk: disk ?? undefined,
 		});
 	}
 

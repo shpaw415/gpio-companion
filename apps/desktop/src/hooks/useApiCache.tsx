@@ -8,11 +8,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	type BoardView,
-	type Device,
-	listDeviceStatus,
-} from "../api";
+import { type BoardView, listDeviceStatus } from "../api";
 import { QueryCache } from "../lib/query-cache";
 
 export const CACHE_KEYS = {
@@ -57,7 +53,9 @@ export function ApiCacheProvider({
 			cache.clear();
 			return;
 		}
-		void cache.get(CACHE_KEYS.userBoards, listDeviceStatus).catch(() => undefined);
+		void cache
+			.get(CACHE_KEYS.userBoards, listDeviceStatus)
+			.catch(() => undefined);
 	}, [signedIn, cache]);
 
 	const value = useMemo(() => ({ cache, version }), [cache, version]);
@@ -131,7 +129,7 @@ export function useCachedQuery<T>(key: string, fetcher: () => Promise<T>) {
 	return {
 		data: hit.hit ? hit.value : undefined,
 		error,
-		loading,
+		loading: !hit.hit && loading,
 		setData,
 		refetch,
 	};
@@ -140,26 +138,24 @@ export function useCachedQuery<T>(key: string, fetcher: () => Promise<T>) {
 export function useUserBoards() {
 	const query = useCachedQuery(CACHE_KEYS.userBoards, listDeviceStatus);
 	const boards = query.data?.devices ?? [];
-	const devices = useMemo(
-		() => boards.map((board) => board.device),
-		[boards],
-	);
+	const devices = useMemo(() => boards.map((board) => board.device), [boards]);
+	const { setData, refetch, error, loading } = query;
 
 	const removeBoard = useCallback(
 		(uuid: string) => {
-			query.setData((current) => {
+			setData((current) => {
 				const next = (current?.devices ?? []).filter(
 					(item) => item.device.uuid !== uuid,
 				);
 				return { paired: next.length > 0, devices: next };
 			});
 		},
-		[query.setData],
+		[setData],
 	);
 
 	const patchLabel = useCallback(
 		(uuid: string, label: string) => {
-			query.setData((current) => {
+			setData((current) => {
 				const next = (current?.devices ?? []).map((item) =>
 					item.device.uuid === uuid
 						? { ...item, device: { ...item.device, label } }
@@ -171,17 +167,17 @@ export function useUserBoards() {
 				};
 			});
 		},
-		[query.setData],
+		[setData],
 	);
 
 	return {
 		boards,
-		devices: devices as Device[],
+		devices,
 		paired: boards.length > 0,
-		error: query.error,
-		loading: query.loading,
-		setData: query.setData,
-		refetch: query.refetch,
+		error,
+		loading,
+		setData,
+		refetch,
 		removeBoard,
 		patchLabel,
 	};

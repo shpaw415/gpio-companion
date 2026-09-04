@@ -7,18 +7,22 @@ import {
 	listLiveBoards,
 	mergeDebugBoards,
 } from "../../../lib/debug-live.ts";
-import { signDeviceHeaders, signedDeviceFetch } from "../../../lib/device-api.ts";
+import { attachMaintenance } from "../../../lib/debug-maintenance.ts";
 import {
-	listAllDevices,
-	loadDevices,
-	requireAccessibleDevice,
-} from "../../../lib/pairing-store.ts";
+	signDeviceHeaders,
+	signedDeviceFetch,
+} from "../../../lib/device-api.ts";
 import {
 	asString,
 	type MobileContext,
 	readJsonBody,
 	runMobile,
 } from "../../../lib/mobile-http.ts";
+import {
+	listAllDevices,
+	loadDevices,
+	requireAccessibleDevice,
+} from "../../../lib/pairing-store.ts";
 
 export async function onRequestGet(ctx: MobileContext) {
 	return runMobile(ctx, async (identity) => {
@@ -27,7 +31,12 @@ export async function onRequestGet(ctx: MobileContext) {
 			? await listAllDevices(ctx.env.DYNAMIC_PAGE_KV)
 			: await loadDevices(ctx.env.DYNAMIC_PAGE_KV, identity.id);
 		const live = await listLiveBoards(ctx.env.DYNAMIC_PAGE_KV);
-		return { devices: mergeDebugBoards(paired, live, admin) };
+		return {
+			devices: await attachMaintenance(
+				ctx.env.DYNAMIC_PAGE_KV,
+				mergeDebugBoards(paired, live, admin),
+			),
+		};
 	});
 }
 
@@ -60,7 +69,8 @@ export async function onRequestPost(ctx: MobileContext) {
 		} catch (caught) {
 			probe = {
 				status: 0,
-				error: caught instanceof Error ? caught.message : "companion unreachable",
+				error:
+					caught instanceof Error ? caught.message : "companion unreachable",
 				ready: false,
 			};
 		}

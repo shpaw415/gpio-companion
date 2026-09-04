@@ -45,16 +45,16 @@ export default function Requests() {
 			{error || query.error ? (
 				<Alert severity="error">{error || query.error}</Alert>
 			) : null}
-			{error || query.error ? (
-				<DebugLog error={error || query.error} />
-			) : null}
+			{error || query.error ? <DebugLog error={error || query.error} /> : null}
 			{loading ? <ListSkeleton items={2} /> : null}
 			{loading ? null : items.length === 0 ? (
 				<Typography color="secondary">No pending transfer requests.</Typography>
 			) : (
 				items.map((item) => (
 					<Paper key={item.uuid} sx={{ p: 2 }} elevation={1}>
-						<Typography>{item.login || item.requesterEmail || item.uuid}</Typography>
+						<Typography>
+							{item.login || item.requesterEmail || item.uuid}
+						</Typography>
 						<Typography color="secondary">{item.uuid}</Typography>
 						<Stack direction="row" spacing={1} sx={{ mt: 1 }}>
 							<Button

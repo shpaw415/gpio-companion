@@ -44,7 +44,9 @@ async function fetchOnce(
 			caught instanceof Error &&
 			(caught.name === "AbortError" || /abort/i.test(caught.message))
 		) {
-			throw new Error("request timed out — check your connection and try again");
+			throw new Error(
+				"request timed out — check your connection and try again",
+			);
 		}
 		throw new Error(
 			`could not reach gpio-companion.com — ${
@@ -193,4 +195,28 @@ export function t3Action(token: string, action: "pair", uuid: string) {
 		method: "POST",
 		body: JSON.stringify({ action, uuid }),
 	});
+}
+
+export type MaintenanceReport = {
+	at?: number;
+	diskTotalMb?: number;
+	diskAvailMb?: number;
+	reclaimedBytes?: number;
+	actions?: string[];
+};
+
+export type DebugBoard = {
+	uuid: string;
+	maintenance?: MaintenanceReport | null;
+};
+
+export function listDebugBoards(token: string) {
+	return request<{ devices: DebugBoard[] }>(token, "/api/mobile/debug");
+}
+
+export function loadDeviceLogs(token: string, uuid: string) {
+	return request<{ text: string }>(
+		token,
+		`/api/mobile/logs?uuid=${encodeURIComponent(uuid)}`,
+	);
 }

@@ -148,6 +148,22 @@ export {
 	timingSafeEqualString,
 } from "./github-app.ts";
 export {
+	capLogText,
+	DEBUG_MAINTENANCE_PATH,
+	DEBUG_MAINTENANCE_TTL_SEC,
+	type DiskStats,
+	formatDiskFree,
+	LOG_JOURNAL_UNITS,
+	LOGS_MAX_BYTES,
+	LOGS_MAX_LINES,
+	LOGS_PATH,
+	LOGS_SINCE_HOURS,
+	type MaintenanceReport,
+	parseDiskStats,
+	parseMaintenanceReport,
+	redactLogText,
+} from "./maintenance.ts";
+export {
 	emptyPairingState,
 	loginFromEmail,
 	type PairingClaim,
@@ -179,9 +195,9 @@ export {
 export {
 	cloudflareTunnelName,
 	DASHBOARD_ORIGIN,
+	DEVICE_API_PORT,
 	dashboardT3PairPath,
 	dashboardT3PairUrl,
-	DEVICE_API_PORT,
 	extractT3PairingToken,
 	extractT3PairingUrl,
 	pairingSlug,
@@ -190,9 +206,9 @@ export {
 	rewriteT3PairingUrl,
 	T3_DASHBOARD_PATH,
 	T3_ORIGIN_PORT,
-	t3PairPageUrl,
 	TUNNEL_ZONE,
 	type TunnelHostnames,
+	t3PairPageUrl,
 	tunnelHostnames,
 } from "./tunnel-host.ts";
 export {

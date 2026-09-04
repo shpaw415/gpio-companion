@@ -1,6 +1,12 @@
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
+import { useState } from "react";
+import {
+	ActivityIndicator,
+	Pressable,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native";
 import { claimDevice, signCredentials } from "../src/lib/api.ts";
 import { useAuth } from "../src/lib/auth.tsx";
 import {
@@ -11,10 +17,12 @@ import {
 	scanBoard,
 	sendEnvelope,
 } from "../src/lib/ble.ts";
+import { useUserDevices } from "../src/lib/device-cache.tsx";
 import { colors } from "../src/lib/theme.ts";
 
 export default function PairScreen() {
 	const auth = useAuth();
+	const { refetch: refetchDevices } = useUserDevices();
 	const [status, setStatus] = useState("Ready to scan");
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
@@ -59,6 +67,7 @@ export default function PairScreen() {
 					key: creds.key,
 					deviceUrl: creds.deviceUrl || info.deviceUrl,
 				});
+				await refetchDevices({ force: true }).catch(() => undefined);
 				setStatus("Paired");
 				setPaired(true);
 			} finally {

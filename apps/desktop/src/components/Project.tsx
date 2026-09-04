@@ -16,16 +16,20 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import {
-	getGithubApp,
-	type GithubAppStatus,
 	type GithubContent,
 	type GithubRepo,
-	listDevices,
+	getGithubApp,
 	listProjects,
 	loadProject,
 	openExternal,
 	type ProjectBundle,
 } from "../api";
+import {
+	CACHE_KEYS,
+	useApiCache,
+	useCachedQuery,
+	useUserBoards,
+} from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { ListSkeleton, PreviewSkeleton } from "./skeletons";
 
@@ -88,11 +92,7 @@ function FileGroup({
 }) {
 	return (
 		<Paper sx={{ p: 2 }} elevation={1}>
-			<Stack
-				direction="row"
-				spacing={1}
-				sx={{ alignItems: "center", mb: 1 }}
-			>
+			<Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
 				<Typography variant="subtitle1">{title}</Typography>
 				<Chip label={`${files.length}`} size="small" variant="outlined" />
 			</Stack>
@@ -126,43 +126,39 @@ function FileGroup({
 }
 
 export default function Project() {
-	const [app, setApp] = useState<GithubAppStatus | null>(null);
-	const [repos, setRepos] = useState<GithubRepo[]>([]);
-	const [configured, setConfigured] = useState(false);
-	const [paired, setPaired] = useState(false);
-	const [bundle, setBundle] = useState<ProjectBundle | null>(null);
+	const { cache } = useApiCache();
+	const githubQuery = useCachedQuery(CACHE_KEYS.githubApp, getGithubApp);
+	const projectsQuery = useCachedQuery(CACHE_KEYS.projects, listProjects);
+	const { paired } = useUserBoards();
+	const app = githubQuery.data ?? null;
+	const repos = projectsQuery.data?.repos ?? [];
+	const configured = projectsQuery.data?.configured ?? false;
+	const loading = githubQuery.loading || projectsQuery.loading;
+	const [bundle, setBundle] = useState<ProjectBundle | null>(() => {
+		try {
+			const stored = window.localStorage.getItem(LAST_REPO_KEY) ?? "";
+			if (!stored) {
+				return null;
+			}
+			const slash = stored.indexOf("/");
+			if (slash <= 0) {
+				return null;
+			}
+			const hit = cache.peek<ProjectBundle>(
+				CACHE_KEYS.projectBundle(
+					stored.slice(0, slash),
+					stored.slice(slash + 1),
+				),
+			);
+			return hit.hit ? hit.value : null;
+		} catch {
+			return null;
+		}
+	});
 	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(true);
 	const [opening, setOpening] = useState(false);
 	const [query, setQuery] = useState("");
 	const [owner, setOwner] = useState("all");
-
-	useEffect(() => {
-		let cancelled = false;
-		void Promise.all([getGithubApp(), listProjects(), listDevices()])
-			.then(([github, projects, devices]) => {
-				if (cancelled) {
-					return;
-				}
-				setApp(github);
-				setConfigured(projects.configured);
-				setRepos(projects.repos);
-				setPaired(devices.devices.length > 0);
-			})
-			.catch((caught) => {
-				if (!cancelled) {
-					setError(caught instanceof Error ? caught.message : "load failed");
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	useEffect(() => {
 		if (app?.connected || loading) {
@@ -171,14 +167,13 @@ export default function Project() {
 		const timer = window.setInterval(() => {
 			void Promise.all([getGithubApp(), listProjects()])
 				.then(([github, projects]) => {
-					setApp(github);
-					setConfigured(projects.configured);
-					setRepos(projects.repos);
+					githubQuery.setData(github);
+					projectsQuery.setData(projects);
 				})
 				.catch(() => undefined);
 		}, 2500);
 		return () => window.clearInterval(timer);
-	}, [app?.connected, loading]);
+	}, [app?.connected, loading, githubQuery.setData, projectsQuery.setData]);
 
 	const owners = useMemo(
 		() => [...new Set(repos.map((repo) => repo.owner))].sort(),
@@ -203,9 +198,22 @@ export default function Project() {
 
 	async function openRepo(repo: GithubRepo) {
 		setError("");
+		const key = CACHE_KEYS.projectBundle(repo.owner, repo.name);
+		const hit = cache.peek<ProjectBundle>(key);
+		if (hit.hit) {
+			setBundle(hit.value);
+			try {
+				window.localStorage.setItem(LAST_REPO_KEY, lastRepoKey(repo));
+			} catch {
+				return;
+			}
+			return;
+		}
 		setOpening(true);
 		try {
-			const next = await loadProject(repo.owner, repo.name);
+			const next = await cache.get(key, () =>
+				loadProject(repo.owner, repo.name),
+			);
 			setBundle(next);
 			try {
 				window.localStorage.setItem(LAST_REPO_KEY, lastRepoKey(repo));
@@ -213,7 +221,9 @@ export default function Project() {
 				return;
 			}
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "failed to load project");
+			setError(
+				caught instanceof Error ? caught.message : "failed to load project",
+			);
 		} finally {
 			setOpening(false);
 		}
@@ -251,15 +261,23 @@ export default function Project() {
 					GitHub. Pick a repo to see the board.
 				</Typography>
 			</Stack>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || githubQuery.error || projectsQuery.error ? (
+				<Alert severity="error">
+					{error || githubQuery.error || projectsQuery.error}
+				</Alert>
+			) : null}
+			{error || githubQuery.error || projectsQuery.error ? (
+				<DebugLog error={error || githubQuery.error || projectsQuery.error} />
+			) : null}
 
 			{loading ? <ListSkeleton items={4} /> : null}
 
 			{loading || app?.connected ? null : (
 				<Paper sx={{ p: 4 }} elevation={1}>
 					<Stack spacing={2}>
-						<Typography variant="h6">Connect GitHub to see your bench</Typography>
+						<Typography variant="h6">
+							Connect GitHub to see your bench
+						</Typography>
 						<Typography color="secondary">
 							Install the gpio-companion GitHub App. The Pi pushes pcb/,
 							breadboard/, and technical/ here. This page updates when the

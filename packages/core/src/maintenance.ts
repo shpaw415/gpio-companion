@@ -76,7 +76,10 @@ export function parseMaintenanceReport(input: unknown): MaintenanceReport {
 	}
 	const rawActions = Array.isArray(record.actions) ? record.actions : [];
 	const actions = rawActions
-		.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+		.filter(
+			(item): item is string =>
+				typeof item === "string" && Boolean(item.trim()),
+		)
 		.map((item) => item.trim().slice(0, MAX_ACTION_LEN))
 		.slice(0, MAX_ACTIONS);
 	return {
@@ -93,6 +96,10 @@ export function redactLogText(text: string): string {
 	return redactDebugMessage(text);
 }
 
+function utf8Bytes(text: string): number {
+	return new TextEncoder().encode(text).byteLength;
+}
+
 export function capLogText(
 	text: string,
 	maxBytes = LOGS_MAX_BYTES,
@@ -100,24 +107,27 @@ export function capLogText(
 ): string {
 	const lines = text.replace(/\r\n/g, "\n").split("\n").slice(-maxLines);
 	let next = lines.join("\n");
-	if (Buffer.byteLength(next, "utf8") <= maxBytes) {
+	if (utf8Bytes(next) <= maxBytes) {
 		return next;
 	}
-	while (lines.length > 1 && Buffer.byteLength(next, "utf8") > maxBytes) {
+	while (lines.length > 1 && utf8Bytes(next) > maxBytes) {
 		lines.shift();
 		next = lines.join("\n");
 	}
-	if (Buffer.byteLength(next, "utf8") <= maxBytes) {
+	if (utf8Bytes(next) <= maxBytes) {
 		return next;
 	}
 	let end = next.length;
-	while (end > 0 && Buffer.byteLength(next.slice(0, end), "utf8") > maxBytes) {
+	while (end > 0 && utf8Bytes(next.slice(0, end)) > maxBytes) {
 		end -= 1;
 	}
 	return next.slice(0, end);
 }
 
 export function formatDiskFree(disk: DiskStats): string {
-	const pct = Math.max(0, Math.min(100, Math.round((disk.availMb / disk.totalMb) * 100)));
+	const pct = Math.max(
+		0,
+		Math.min(100, Math.round((disk.availMb / disk.totalMb) * 100)),
+	);
 	return `${disk.availMb} MB free (${pct}%)`;
 }

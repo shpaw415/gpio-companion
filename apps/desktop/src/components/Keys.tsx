@@ -5,7 +5,11 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect } from "react";
 import { getGithubApp, openExternal } from "../api";
-import { CACHE_KEYS, useCachedQuery, useUserBoards } from "../hooks/useApiCache";
+import {
+	CACHE_KEYS,
+	useCachedQuery,
+	useUserBoards,
+} from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { LinesSkeleton } from "./skeletons";
 
