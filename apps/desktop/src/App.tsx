@@ -96,10 +96,12 @@ export default function App() {
 		>
 			<Box
 				sx={{
-					minHeight: "100dvh",
+					height: "100%",
+					minHeight: 0,
 					bgcolor: "bg-main",
 					display: "flex",
 					flexDirection: "column",
+					overflow: onT3 ? "hidden" : undefined,
 				}}
 			>
 				<CssBaseline />
@@ -170,8 +172,10 @@ export default function App() {
 									minHeight: 0,
 									display: "flex",
 									flexDirection: "column",
-									px: 2,
-									pt: 1,
+									overflow: "hidden",
+									px: 1,
+									pt: 0,
+									pb: 0,
 								}
 							: {
 									mx: "auto",

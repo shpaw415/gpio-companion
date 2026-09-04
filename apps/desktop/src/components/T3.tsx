@@ -52,11 +52,22 @@ export default function T3() {
 
 	return (
 		<Stack
-			spacing={1}
-			sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+			spacing={0.5}
+			sx={{
+				flex: 1,
+				minHeight: 0,
+				height: "100%",
+				display: "flex",
+				flexDirection: "column",
+				overflow: "hidden",
+			}}
 		>
-			<Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-				<Typography variant="h5" Element="h1" sx={{ flexGrow: 1 }}>
+			<Stack
+				direction="row"
+				spacing={1}
+				sx={{ alignItems: "center", flexShrink: 0, px: 0.5, py: 0.5 }}
+			>
+				<Typography variant="subtitle1" Element="h1" sx={{ flexGrow: 1 }} noWrap>
 					T3 Code
 				</Typography>
 				{loading ? (
@@ -88,7 +99,12 @@ export default function T3() {
 			{loading ? null : uuid ? (
 				<div
 					id={T3_FRAME_SLOT_ID}
-					style={{ flex: 1, minHeight: 480, width: "100%" }}
+					style={{
+						flex: 1,
+						minHeight: 0,
+						width: "100%",
+						height: "100%",
+					}}
 				/>
 			) : (
 				<Typography color="secondary">

@@ -51,8 +51,15 @@ export default function DevicesHub({
 			sx={{
 				minWidth: 0,
 				width: "100%",
+				height: onT3 ? "100%" : undefined,
 				...(onT3
-					? { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }
+					? {
+							display: "flex",
+							flexDirection: "column",
+							flex: 1,
+							minHeight: 0,
+							overflow: "hidden",
+						}
 					: undefined),
 			}}
 		>
@@ -70,11 +77,12 @@ export default function DevicesHub({
 				sx={
 					onT3
 						? {
-								mt: 1,
+								mt: 0,
 								flex: 1,
 								minHeight: 0,
 								display: "flex",
 								flexDirection: "column",
+								overflow: "hidden",
 							}
 						: { mt: 3 }
 				}

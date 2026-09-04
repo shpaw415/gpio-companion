@@ -46,8 +46,8 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 			setRect({
 				top: next.top,
 				left: next.left,
-				width: next.width,
-				height: next.height,
+				width: Math.max(next.width, window.innerWidth - next.left),
+				height: Math.max(next.height, window.innerHeight - next.top),
 			});
 		};
 		const wait = () => {
