@@ -6,6 +6,7 @@ mod bluez;
 mod config;
 mod frames;
 mod log;
+mod t3;
 mod tokens;
 
 use api::request_value;
@@ -13,6 +14,7 @@ use auth::AuthFlow;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -273,6 +275,7 @@ pub fn run() {
 		.plugin(tauri_plugin_opener::init())
 		.plugin(tauri_plugin_deep_link::init())
 		.manage(AuthFlow::default())
+		.manage(Mutex::new(t3::T3Pane::default()))
 		.setup(|app| {
 			#[cfg(any(windows, target_os = "linux"))]
 			{
@@ -293,6 +296,7 @@ pub fn run() {
 					app.state::<AuthFlow>().complete(url.as_str());
 				}
 			}
+			t3::attach_resize(app.handle());
 			Ok(())
 		})
 		.invoke_handler(tauri::generate_handler![
@@ -306,7 +310,9 @@ pub fn run() {
 			api_request,
 			ble_scan,
 			ble_pair,
-			ble_wifi
+			ble_wifi,
+			t3::t3_pane_show,
+			t3::t3_pane_hide
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running gpio-companion desktop");
