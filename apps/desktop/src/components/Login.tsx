@@ -14,9 +14,6 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 	async function start() {
 		setBusy(true);
 		setError("");
-		setTimeout(() => {
-			setBusy(false);
-		}, 5000);
 		try {
 			await authLogin();
 			onSignedIn();
@@ -44,7 +41,7 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 					disabled={busy}
 					onClick={() => void start()}
 				>
-					Continue with GitHub
+					{busy ? "Waiting for GitHub in your browser…" : "Continue with GitHub"}
 				</Button>
 			</Stack>
 			{error ? (

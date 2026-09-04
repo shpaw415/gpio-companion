@@ -52,8 +52,17 @@ async fn auth_token() -> Option<String> {
 	}
 	if let Err(err) = auth::refresh_access().await {
 		log::line(&format!("auth refresh: {err}"));
-		tokens::clear();
-		return None;
+		match err {
+			auth::RefreshError::Rejected(_) => {
+				// The issuer rejected the refresh token — a clean sign-out.
+				tokens::clear();
+				return None;
+			}
+			auth::RefreshError::Transient(_) => {
+				// Offline or flaky network: keep the stored tokens and try
+				// the (possibly stale) access token; the 401 path self-heals.
+			}
+		}
 	}
 	tokens::load()
 		.map(|tokens| tokens.access)
@@ -76,13 +85,18 @@ async fn auth_login(app: AppHandle, flow: State<'_, AuthFlow>) -> Result<(), Str
 	log::line("auth login start");
 	let (verifier, state) = auth::new_pkce();
 	let url = auth::authorize_url(&verifier, &state);
-	let rx = flow.wait();
-	app.opener()
-		.open_url(&url, None::<&str>)
-		.map_err(|err| err.to_string())?;
+	let rx = flow.wait().map_err(|err| {
+		log::line(&err);
+		err
+	})?;
+	app.opener().open_url(&url, None::<&str>).map_err(|err| {
+		flow.cancel();
+		err.to_string()
+	})?;
 	let callback = tokio::time::timeout(Duration::from_secs(180), rx)
 		.await
 		.map_err(|_| {
+			flow.cancel();
 			log::line("login timed out");
 			"login timed out".to_string()
 		})?
@@ -117,6 +131,7 @@ async fn devices_unpair(uuid: String) -> Result<Value, String> {
 
 #[tauri::command]
 async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
+	let _ble = ble::acquire().await;
 	emit_status(&app, "Scanning…");
 	let boards = ble::scan_nearby(8_000).await?;
 	emit_status(&app, "Identifying gpio-companion…");
@@ -141,10 +156,17 @@ async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 
 #[tauri::command]
 async fn ble_pair(app: AppHandle, id: String) -> Result<Value, String> {
+	let _ble = ble::acquire().await;
 	emit_status(&app, "Connecting…");
 	let (peripheral, info) = ble::connected_board_info(&id).await?;
 	emit_status(&app, "Reading board…");
-	let envelope = request_value(Method::PUT, "/api/mobile/pair", None).await?;
+	let envelope = match request_value(Method::PUT, "/api/mobile/pair", None).await {
+		Ok(envelope) => envelope,
+		Err(err) => {
+			ble::disconnect(&peripheral).await;
+			return Err(err);
+		}
+	};
 	emit_status(&app, "Asking board for pairing key…");
 	let raw = ble::send_envelope(&peripheral, &envelope).await;
 	ble::disconnect(&peripheral).await;
@@ -188,15 +210,25 @@ async fn ble_wifi(
 	psk: String,
 	id: String,
 ) -> Result<String, String> {
+	let _ble = ble::acquire().await;
+	emit_status(&app, "Connecting…");
+	let (peripheral, _info) = ble::connected_board_info(&id).await?;
 	emit_status(&app, "Signing WiFi…");
-	let envelope = request_value(
+	// Sign AFTER connecting: a fresh envelope survives the Pi's clock skew,
+	// and a scan+connect can eat 20s of the envelope's validity window.
+	let envelope = match request_value(
 		Method::POST,
 		"/api/mobile/wifi",
 		Some(&json!({ "uuid": uuid, "ssid": ssid, "psk": psk })),
 	)
-	.await?;
-	emit_status(&app, "Connecting…");
-	let (peripheral, _info) = ble::connected_board_info(&id).await?;
+	.await
+	{
+		Ok(envelope) => envelope,
+		Err(err) => {
+			ble::disconnect(&peripheral).await;
+			return Err(err);
+		}
+	};
 	emit_status(&app, "Writing…");
 	let raw = ble::send_envelope(&peripheral, &envelope).await;
 	ble::disconnect(&peripheral).await;
@@ -219,7 +251,11 @@ pub fn run() {
 		.setup(|app| {
 			#[cfg(any(windows, target_os = "linux"))]
 			{
-				app.deep_link().register_all()?;
+				// Registration failing (sandboxed home, policy) must not stop
+				// the app from starting — the existing OS mapping still works.
+				if let Err(err) = app.deep_link().register_all() {
+					log::line(&format!("deep link register: {err}"));
+				}
 			}
 			let handle = app.handle().clone();
 			app.deep_link().on_open_url(move |event| {

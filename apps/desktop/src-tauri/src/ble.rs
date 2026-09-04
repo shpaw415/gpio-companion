@@ -17,6 +17,13 @@ use uuid::Uuid;
 
 static BLE: Mutex<()> = Mutex::const_new(());
 
+/// Serialize the whole scan/connect/envelope lifecycle. Every `ble_*` command
+/// holds this lock from start to finish so a concurrent scan can never
+/// interleave BlueZ Start/StopDiscovery with an in-flight GATT connect.
+pub async fn acquire() -> tokio::sync::MutexGuard<'static, ()> {
+	BLE.lock().await
+}
+
 #[derive(Debug, Deserialize)]
 pub struct BleInfo {
 	pub uuid: String,
@@ -274,8 +281,8 @@ fn for_picker(boards: Vec<NearbyBoard>) -> Vec<NearbyBoard> {
 	boards
 }
 
+/// Caller must hold [`acquire`].
 pub async fn scan_nearby(timeout_ms: u64) -> Result<Vec<NearbyBoard>, String> {
-	let _lock = BLE.lock().await;
 	let adapter = adapter().await?;
 	let guard = start_scan(&adapter).await?;
 	let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
@@ -361,6 +368,7 @@ async fn probe_info(peripheral: &Peripheral) -> Option<BleInfo> {
 	}
 }
 
+/// Caller must hold [`acquire`].
 pub async fn identify_boards<F>(
 	mut boards: Vec<NearbyBoard>,
 	mut on_status: F,
@@ -372,7 +380,6 @@ where
 		on_status("Found gpio-companion");
 		return Ok(for_picker(sort_boards(boards)));
 	}
-	let _lock = BLE.lock().await;
 	let adapter = adapter().await?;
 	let mut candidates: Vec<NearbyBoard> = boards
 		.iter()
@@ -443,6 +450,7 @@ pub async fn scan_board(timeout_ms: u64) -> Result<Peripheral, String> {
 /// Resolve a board peripheral and read its info, re-scanning once when BlueZ
 /// drops the device object mid-connect (the "Method Connect ... doesn't exist"
 /// / UnknownObject case) so a stale entry does not fail the pairing.
+/// Caller must hold [`acquire`].
 pub async fn connected_board_info(id: &str) -> Result<(Peripheral, BleInfo), String> {
 	if id.trim().is_empty() {
 		let peripheral = scan_board(12_000).await?;
@@ -581,6 +589,9 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 			.write(&cmd_char, &frame, WriteType::WithoutResponse)
 			.await
 			.map_err(|err| err.to_string())?;
+		// Pace without-response writes: back-to-back frames can overflow the
+		// board's BLE queue (the mobile app paces the same way).
+		sleep(Duration::from_millis(20)).await;
 	}
 	let notified = timeout(Duration::from_secs(30), async {
 		while let Some(notification) = notifications.next().await {

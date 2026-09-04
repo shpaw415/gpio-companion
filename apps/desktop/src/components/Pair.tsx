@@ -3,7 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	blePair,
 	bleScan,
@@ -20,6 +20,8 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 	const [error, setError] = useState("");
 	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const [paired, setPaired] = useState(false);
+	const scanRef = useRef(0);
 
 	useEffect(() => {
 		let unlisten: (() => void) | undefined;
@@ -30,19 +32,28 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 	}, []);
 
 	const scan = useCallback(async () => {
+		const generation = ++scanRef.current;
 		setScanning(true);
 		setError("");
 		try {
 			const next = await bleScan();
+			if (scanRef.current !== generation) {
+				return;
+			}
 			setBoards(next);
 			const pick = next.find((board) => board.matched)?.id ?? next[0]?.id ?? "";
 			setSelected(pick);
 		} catch (caught) {
+			if (scanRef.current !== generation) {
+				return;
+			}
 			const message = caught instanceof Error ? caught.message : "scan failed";
 			console.error("gpio-companion-desktop scan", message);
 			setError(message);
 		} finally {
-			setScanning(false);
+			if (scanRef.current === generation) {
+				setScanning(false);
+			}
 		}
 	}, []);
 
@@ -59,6 +70,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 		setError("");
 		try {
 			await blePair(selected);
+			setPaired(true);
 			setStatus("Paired");
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "pair failed";
@@ -95,18 +107,23 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			<Typography>{status}</Typography>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{error ? <DebugLog error={error} /> : null}
-			<Button
-				variant="contained"
-				disabled={busy || scanning || !selected}
-				onClick={() => void pair()}
-			>
-				Pair selected device
+		<Button
+			variant="contained"
+			disabled={busy || scanning || !selected || paired}
+			onClick={() => void pair()}
+		>
+			Pair selected device
+		</Button>
+		{paired ? (
+			<Button variant="contained" color="secondary" onClick={onBack}>
+				Back to Devices
 			</Button>
-			<Button
-				variant="text"
-				disabled={busy || scanning}
-				onClick={() => void scan()}
-			>
+		) : null}
+		<Button
+			variant="text"
+			disabled={busy || scanning}
+			onClick={() => void scan()}
+		>
 				Scan nearby
 			</Button>
 			<Button variant="text" onClick={onBack}>

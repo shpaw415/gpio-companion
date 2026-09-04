@@ -78,11 +78,25 @@ export default function Devices({
 								if (!window.confirm("Remove this board from your account?")) {
 									return;
 								}
-								void unpairDevice(device.uuid).then(() =>
+							void unpairDevice(device.uuid)
+								.then(() =>
 									setDevices((current) =>
-										current.filter((item) => item.uuid !== device.uuid),
+										current.filter(
+											(item) => item.uuid !== device.uuid,
+										),
 									),
-								);
+								)
+								.catch((caught) => {
+									const message =
+										caught instanceof Error
+											? caught.message
+											: "unpair failed";
+									console.error(
+										"gpio-companion-desktop unpair",
+										message,
+									);
+									setError(message);
+								});
 							}}
 						>
 							Unpair

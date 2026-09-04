@@ -7,17 +7,25 @@ import { debugLogs } from "../api";
 export default function DebugLog({ error }: { error: string }) {
 	const [lines, setLines] = useState<string[] | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [copyFailed, setCopyFailed] = useState(false);
 
 	async function load() {
 		const next = await debugLogs();
 		setLines(next);
 		setCopied(false);
+		setCopyFailed(false);
 	}
 
 	async function copy() {
 		const text = [error, ...(lines ?? [])].join("\n");
-		await navigator.clipboard.writeText(text);
-		setCopied(true);
+		setCopyFailed(false);
+		try {
+			await navigator.clipboard.writeText(text);
+			setCopied(true);
+		} catch {
+			setCopied(false);
+			setCopyFailed(true);
+		}
 	}
 
 	return (
@@ -27,9 +35,13 @@ export default function DebugLog({ error }: { error: string }) {
 			</Button>
 			{lines ? (
 				<>
-					<Button variant="text" onClick={() => void copy()}>
-						{copied ? "Copied" : "Copy debug log"}
-					</Button>
+				<Button variant="text" onClick={() => void copy()}>
+					{copyFailed
+						? "Copy failed — select the text below"
+						: copied
+							? "Copied"
+							: "Copy debug log"}
+				</Button>
 					<Typography
 						Element="pre"
 						color="secondary"

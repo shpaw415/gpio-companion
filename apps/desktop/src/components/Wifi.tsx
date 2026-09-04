@@ -4,7 +4,7 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	bleScan,
 	bleWifi,
@@ -27,12 +27,20 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [error, setError] = useState("");
 	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const scanRef = useRef(0);
 
 	useEffect(() => {
-		void listDevices().then((result) => {
-			setDevices(result.devices);
-			setUuid(result.devices.at(-1)?.uuid ?? "");
-		});
+		void listDevices()
+			.then((result) => {
+				setDevices(result.devices);
+				setUuid(result.devices.at(-1)?.uuid ?? "");
+			})
+			.catch((caught) => {
+				const message =
+					caught instanceof Error ? caught.message : "load failed";
+				console.error("gpio-companion-desktop wifi devices", message);
+				setError(message);
+			});
 		let unlisten: (() => void) | undefined;
 		void onBleStatus(setStatus).then((fn) => {
 			unlisten = fn;
@@ -41,20 +49,29 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	}, []);
 
 	const scan = useCallback(async () => {
+		const generation = ++scanRef.current;
 		setScanning(true);
 		setError("");
 		try {
 			const next = await bleScan();
+			if (scanRef.current !== generation) {
+				return;
+			}
 			setBoards(next);
 			const pick =
 				next.find((board) => board.matched)?.id ?? next[0]?.id ?? "auto";
 			setBoardId(pick);
 		} catch (caught) {
+			if (scanRef.current !== generation) {
+				return;
+			}
 			const message = caught instanceof Error ? caught.message : "scan failed";
 			console.error("gpio-companion-desktop wifi scan", message);
 			setError(message);
 		} finally {
-			setScanning(false);
+			if (scanRef.current === generation) {
+				setScanning(false);
+			}
 		}
 	}, []);
 
@@ -63,12 +80,21 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	}, [scan]);
 
 	async function send() {
+		const trimmedSsid = ssid.trim();
+		if (!trimmedSsid) {
+			setError("Enter a WiFi network name (SSID)");
+			return;
+		}
+		if (psk.length < 8) {
+			setError("WiFi password must be at least 8 characters");
+			return;
+		}
 		setBusy(true);
 		setError("");
 		try {
 			const raw = await bleWifi({
 				uuid,
-				ssid,
+				ssid: trimmedSsid,
 				psk,
 				id: boardId === "auto" ? "" : boardId,
 			});
