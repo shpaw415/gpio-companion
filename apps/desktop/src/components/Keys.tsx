@@ -19,42 +19,35 @@ export default function Keys() {
 
 	useEffect(() => {
 		let cancelled = false;
-		async function load() {
-			try {
-				const [app, devices] = await Promise.all([
-					getGithubApp(),
-					listDevices(),
-				]);
-				if (!cancelled) {
-					setStatus(app);
-					setPaired(devices.devices.length);
-					setError("");
+		void Promise.all([getGithubApp(), listDevices()])
+			.then(([app, devices]) => {
+				if (cancelled) {
+					return;
 				}
-			} catch (caught) {
+				setStatus(app);
+				setPaired(devices.devices.length);
+				setError("");
+			})
+			.catch((caught) => {
 				if (!cancelled) {
-					setError(
-						caught instanceof Error ? caught.message : "load failed",
-					);
+					setError(caught instanceof Error ? caught.message : "load failed");
 				}
-			}
-		}
-		void load();
-		const timer = window.setInterval(() => {
-			if (status?.connected) {
-				return;
-			}
-			void getGithubApp()
-				.then((app) => {
-					if (!cancelled) {
-						setStatus(app);
-					}
-				})
-				.catch(() => undefined);
-		}, 2500);
+			});
 		return () => {
 			cancelled = true;
-			window.clearInterval(timer);
 		};
+	}, []);
+
+	useEffect(() => {
+		if (status?.connected) {
+			return;
+		}
+		const timer = window.setInterval(() => {
+			void getGithubApp()
+				.then(setStatus)
+				.catch(() => undefined);
+		}, 2500);
+		return () => window.clearInterval(timer);
 	}, [status?.connected]);
 
 	return (
@@ -82,9 +75,7 @@ export default function Keys() {
 						<Button
 							variant="contained"
 							disabled={!status?.installUrl}
-							onClick={() =>
-								void openExternal(status?.installUrl ?? "")
-							}
+							onClick={() => void openExternal(status?.installUrl ?? "")}
 						>
 							Connect GitHub App
 						</Button>
