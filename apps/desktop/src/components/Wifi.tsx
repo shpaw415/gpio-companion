@@ -8,17 +8,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	bleScan,
 	bleWifi,
-	type Device,
-	listDevices,
 	type NearbyBoard,
 	nearbyBoardLabel,
 	onBleStatus,
 } from "../api";
+import { useUserBoards } from "../hooks/useApiCache";
+import { useBoardSelection } from "../hooks/useBoardSelection";
 import DebugLog from "./DebugLog";
 import { SelectSkeleton } from "./skeletons";
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
-	const [devices, setDevices] = useState<Device[]>([]);
+	const {
+		devices,
+		loading: devicesLoading,
+		error: devicesError,
+	} = useUserBoards();
+	const { uuid: selectedBoard } = useBoardSelection();
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
 	const [uuid, setUuid] = useState("");
 	const [boardId, setBoardId] = useState("auto");
@@ -28,22 +33,21 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [error, setError] = useState("");
 	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [devicesLoading, setDevicesLoading] = useState(true);
 	const scanRef = useRef(0);
 
 	useEffect(() => {
-		void listDevices()
-			.then((result) => {
-				setDevices(result.devices);
-				setUuid(result.devices.at(-1)?.uuid ?? "");
-			})
-			.catch((caught) => {
-				const message =
-					caught instanceof Error ? caught.message : "load failed";
-				console.error("gpio-companion-desktop wifi devices", message);
-				setError(message);
-			})
-			.finally(() => setDevicesLoading(false));
+		setUuid((current) => {
+			if (devices.some((device) => device.uuid === current)) {
+				return current;
+			}
+			if (devices.some((device) => device.uuid === selectedBoard)) {
+				return selectedBoard;
+			}
+			return devices.at(-1)?.uuid ?? "";
+		});
+	}, [devices, selectedBoard]);
+
+	useEffect(() => {
 		let unlisten: (() => void) | undefined;
 		void onBleStatus(setStatus).then((fn) => {
 			unlisten = fn;
@@ -175,8 +179,12 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				onChange={(event) => setPsk(event.target.value)}
 			/>
 			{status ? <Typography>{status}</Typography> : null}
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || devicesError ? (
+				<Alert severity="error">{error || devicesError}</Alert>
+			) : null}
+			{error || devicesError ? (
+				<DebugLog error={error || devicesError} />
+			) : null}
 			<Button
 				variant="contained"
 				disabled={busy || scanning || !uuid}

@@ -3,36 +3,33 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { listNotifications, resolveNotification } from "../api";
 import {
-	listNotifications,
-	type PendingRequest,
-	resolveNotification,
-} from "../api";
+	CACHE_KEYS,
+	useCachedQuery,
+	useUserBoards,
+} from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
 export default function Requests() {
-	const [items, setItems] = useState<PendingRequest[]>([]);
+	const query = useCachedQuery(CACHE_KEYS.notifications, listNotifications);
+	const { refetch: refetchBoards } = useUserBoards();
+	const items = query.data?.items ?? [];
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState("");
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		void listNotifications()
-			.then((result) => setItems(result.items))
-			.catch((caught) => {
-				setError(caught instanceof Error ? caught.message : "load failed");
-			})
-			.finally(() => setLoading(false));
-	}, []);
+	const loading = query.loading;
 
 	async function act(uuid: string, action: "accept" | "reject") {
 		setBusy(uuid);
 		setError("");
 		try {
 			await resolveNotification(uuid, action);
-			setItems((current) => current.filter((item) => item.uuid !== uuid));
+			query.setData((current) => ({
+				items: (current?.items ?? []).filter((item) => item.uuid !== uuid),
+			}));
+			void refetchBoards({ force: true }).catch(() => undefined);
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "request failed");
 		} finally {
@@ -45,8 +42,12 @@ export default function Requests() {
 			<Typography variant="h5" Element="h1">
 				Requests
 			</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || query.error ? (
+				<Alert severity="error">{error || query.error}</Alert>
+			) : null}
+			{error || query.error ? (
+				<DebugLog error={error || query.error} />
+			) : null}
 			{loading ? <ListSkeleton items={2} /> : null}
 			{loading ? null : items.length === 0 ? (
 				<Typography color="secondary">No pending transfer requests.</Typography>

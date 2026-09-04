@@ -68,6 +68,7 @@ export default function DevicesHub({
 				onChange={(_event, next) => onTab(String(next) as DeviceTab)}
 				variant="scrollable"
 				aria-label="Devices sections"
+				sx={{ flex: "0 0 auto", height: "auto", flexShrink: 0 }}
 			>
 				{tabs.map((item) => (
 					<Tab key={item.id} value={item.id} label={item.label} />

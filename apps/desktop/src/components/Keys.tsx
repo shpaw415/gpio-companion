@@ -3,59 +3,31 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
-import {
-	getGithubApp,
-	type GithubAppStatus,
-	listDevices,
-	openExternal,
-} from "../api";
+import { useEffect } from "react";
+import { getGithubApp, openExternal } from "../api";
+import { CACHE_KEYS, useCachedQuery, useUserBoards } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { LinesSkeleton } from "./skeletons";
 
 export default function Keys() {
-	const [status, setStatus] = useState<GithubAppStatus | null>(null);
-	const [paired, setPaired] = useState(0);
-	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(true);
+	const github = useCachedQuery(CACHE_KEYS.githubApp, getGithubApp);
+	const { devices } = useUserBoards();
+	const status = github.data;
+	const paired = devices.length;
+	const error = github.error;
+	const loading = github.loading;
 
 	useEffect(() => {
-		let cancelled = false;
-		void Promise.all([getGithubApp(), listDevices()])
-			.then(([app, devices]) => {
-				if (cancelled) {
-					return;
-				}
-				setStatus(app);
-				setPaired(devices.devices.length);
-				setError("");
-			})
-			.catch((caught) => {
-				if (!cancelled) {
-					setError(caught instanceof Error ? caught.message : "load failed");
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
-
-	useEffect(() => {
-		if (status?.connected) {
+		if (status?.connected || loading) {
 			return;
 		}
 		const timer = window.setInterval(() => {
 			void getGithubApp()
-				.then(setStatus)
+				.then((next) => github.setData(next))
 				.catch(() => undefined);
 		}, 2500);
 		return () => window.clearInterval(timer);
-	}, [status?.connected]);
+	}, [status?.connected, loading, github.setData]);
 
 	return (
 		<Stack spacing={2}>

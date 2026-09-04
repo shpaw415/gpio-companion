@@ -3,13 +3,9 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
-import {
-	type Credits,
-	getCredits,
-	grantCredits,
-	type Session,
-} from "../api";
+import { useState } from "react";
+import { getCredits, grantCredits, type Session } from "../api";
+import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { LinesSkeleton } from "./skeletons";
 
@@ -20,27 +16,23 @@ export default function Profile({
 	session: Session | null;
 	onSignOut: () => void;
 }) {
-	const [credits, setCredits] = useState<Credits | null>(null);
+	const creditsQuery = useCachedQuery(CACHE_KEYS.credits, getCredits);
+	const credits = creditsQuery.data ?? null;
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		void getCredits()
-			.then(setCredits)
-			.catch((caught) => {
-				setError(caught instanceof Error ? caught.message : "load failed");
-			})
-			.finally(() => setLoading(false));
-	}, []);
+	const loading = creditsQuery.loading;
 
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
 				Profile
 			</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || creditsQuery.error ? (
+				<Alert severity="error">{error || creditsQuery.error}</Alert>
+			) : null}
+			{error || creditsQuery.error ? (
+				<DebugLog error={error || creditsQuery.error} />
+			) : null}
 			<Paper sx={{ p: 3 }} elevation={1}>
 				<Typography variant="subtitle1">Account</Typography>
 				<Typography>{session?.name || "Signed in"}</Typography>
@@ -75,7 +67,7 @@ export default function Profile({
 					onClick={() => {
 						setBusy(true);
 						void grantCredits(1)
-							.then(setCredits)
+							.then((next) => creditsQuery.setData(next))
 							.catch((caught) => {
 								setError(
 									caught instanceof Error ? caught.message : "grant failed",

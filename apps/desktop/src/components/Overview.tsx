@@ -2,11 +2,8 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useRef, useState } from "react";
-import {
-	type BoardView,
-	listDeviceStatus,
-	unpairDevice,
-} from "../api";
+import { unpairDevice } from "../api";
+import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import BoardCard from "./BoardCard";
 import DebugLog from "./DebugLog";
@@ -16,52 +13,28 @@ export default function Overview() {
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
-	const [boards, setBoards] = useState<BoardView[]>([]);
+	const { boards, loading, error: loadError, removeBoard, patchLabel } =
+		useUserBoards();
 	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		let cancelled = false;
-		setLoading(true);
-		void listDeviceStatus()
-			.then((result) => {
-				if (cancelled) {
-					return;
-				}
-				setBoards(result.devices);
-				if (
-					result.devices.length > 0 &&
-					!result.devices.some(
-						(board) => board.device.uuid === uuidRef.current,
-					)
-				) {
-					setUuid(result.devices[0]?.device.uuid ?? "");
-				}
-			})
-			.catch((caught) => {
-				if (!cancelled) {
-					setError(
-						caught instanceof Error ? caught.message : "load failed",
-					);
-				}
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [setUuid]);
+		if (
+			boards.length > 0 &&
+			!boards.some((board) => board.device.uuid === uuidRef.current)
+		) {
+			setUuid(boards[0]?.device.uuid ?? "");
+		}
+	}, [boards, setUuid]);
 
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
 				Devices
 			</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{error || loadError ? (
+				<Alert severity="error">{error || loadError}</Alert>
+			) : null}
+			{error || loadError ? <DebugLog error={error || loadError} /> : null}
 			{loading ? (
 				<>
 					<BoardCardSkeleton />
@@ -78,24 +51,11 @@ export default function Overview() {
 						board={board}
 						selected={board.device.uuid === uuid}
 						onSelect={setUuid}
-						onLabelSaved={(id, label) =>
-							setBoards((current) =>
-								current.map((item) =>
-									item.device.uuid === id
-										? {
-												...item,
-												device: { ...item.device, label },
-											}
-										: item,
-								),
-							)
-						}
+						onLabelSaved={(id, label) => patchLabel(id, label)}
 						onUnpair={(id) => {
 							void unpairDevice(id)
 								.then(() => {
-									setBoards((current) =>
-										current.filter((item) => item.device.uuid !== id),
-									);
+									removeBoard(id);
 									if (uuid === id) {
 										setUuid("");
 									}

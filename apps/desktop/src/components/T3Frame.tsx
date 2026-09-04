@@ -43,11 +43,13 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 				return;
 			}
 			const next = slot.getBoundingClientRect();
+			const top = Math.max(0, next.top);
+			const left = Math.max(0, next.left);
 			setRect({
-				top: next.top,
-				left: next.left,
-				width: Math.max(next.width, window.innerWidth - next.left),
-				height: Math.max(next.height, window.innerHeight - next.top),
+				top,
+				left,
+				width: Math.max(1, window.innerWidth - left),
+				height: Math.max(1, window.innerHeight - top),
 			});
 		};
 		const wait = () => {

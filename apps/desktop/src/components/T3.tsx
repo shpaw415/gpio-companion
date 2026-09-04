@@ -2,14 +2,9 @@ import Button from "@shpaw415/mui-lite/Button";
 import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useRef, useState } from "react";
-import {
-	type BoardView,
-	deviceDisplayName,
-	listDeviceStatus,
-	openExternal,
-	t3AppUrl,
-} from "../api";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { deviceDisplayName, openExternal, t3AppUrl } from "../api";
+import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import { SelectSkeleton } from "./skeletons";
 import { T3_FRAME_SLOT_ID } from "./T3Frame";
@@ -18,37 +13,31 @@ export default function T3() {
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
-	const [boards, setBoards] = useState<BoardView[]>([]);
-	const [loading, setLoading] = useState(true);
+	const { boards, loading } = useUserBoards();
+	const chromeRef = useRef<HTMLDivElement>(null);
+	const [slotTop, setSlotTop] = useState(0);
 
 	useEffect(() => {
-		let cancelled = false;
-		setLoading(true);
-		void listDeviceStatus()
-			.then((result) => {
-				if (cancelled) {
-					return;
-				}
-				setBoards(result.devices);
-				if (
-					result.devices.length > 0 &&
-					!result.devices.some(
-						(board) => board.device.uuid === uuidRef.current,
-					)
-				) {
-					setUuid(result.devices[0]?.device.uuid ?? "");
-				}
-			})
-			.catch(() => undefined)
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
-		return () => {
-			cancelled = true;
+		if (
+			boards.length > 0 &&
+			!boards.some((board) => board.device.uuid === uuidRef.current)
+		) {
+			setUuid(boards[0]?.device.uuid ?? "");
+		}
+	}, [boards, setUuid]);
+
+	useLayoutEffect(() => {
+		const sync = () => {
+			const chrome = chromeRef.current;
+			if (!chrome) {
+				return;
+			}
+			setSlotTop(chrome.getBoundingClientRect().bottom);
 		};
-	}, [setUuid]);
+		sync();
+		window.addEventListener("resize", sync);
+		return () => window.removeEventListener("resize", sync);
+	}, [loading]);
 
 	return (
 		<Stack
@@ -62,6 +51,7 @@ export default function T3() {
 				overflow: "hidden",
 			}}
 		>
+			<div ref={chromeRef}>
 			<Stack
 				direction="row"
 				spacing={1}
@@ -96,14 +86,17 @@ export default function T3() {
 					Open in browser
 				</Button>
 			</Stack>
+			</div>
 			{loading ? null : uuid ? (
 				<div
 					id={T3_FRAME_SLOT_ID}
 					style={{
-						flex: 1,
-						minHeight: 0,
+						position: "fixed",
+						top: slotTop,
+						left: 0,
+						right: 0,
+						bottom: 0,
 						width: "100%",
-						height: "100%",
 					}}
 				/>
 			) : (

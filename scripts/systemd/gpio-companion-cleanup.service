@@ -1,0 +1,12 @@
+[Unit]
+Description=gpio-companion disk and log cleanup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/gpio-companion/pairing.env
+EnvironmentFile=-/etc/gpio-companion/update.env
+Environment=GPIO_COMPANION_DASHBOARD_URL=https://gpio-companion.com
+ExecStart=/usr/local/sbin/gpio-companion-cleanup
+Nice=15

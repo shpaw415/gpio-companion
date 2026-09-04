@@ -16,6 +16,7 @@ import Login from "./components/Login";
 import Profile from "./components/Profile";
 import Project from "./components/Project";
 import T3Frame from "./components/T3Frame";
+import { ApiCacheProvider } from "./hooks/useApiCache";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection";
 
 type Section = "project" | "devices" | "profile";
@@ -94,6 +95,7 @@ export default function App() {
 				setDeviceTab("t3");
 			}}
 		>
+			<ApiCacheProvider signedIn={signedIn}>
 			<Box
 				sx={{
 					height: "100%",
@@ -105,7 +107,7 @@ export default function App() {
 				}}
 			>
 				<CssBaseline />
-				<AppBar position="sticky" color="default">
+				<AppBar position="sticky" color="default" sx={{ flexShrink: 0 }}>
 					<Toolbar sx={{ gap: 1 }}>
 						<Box
 							sx={{
@@ -217,6 +219,7 @@ export default function App() {
 				</Box>
 				{signedIn ? <T3Frame visible={onT3} /> : null}
 			</Box>
+			</ApiCacheProvider>
 		</BoardSelectionProvider>
 	);
 }

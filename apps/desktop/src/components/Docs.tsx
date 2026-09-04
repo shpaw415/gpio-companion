@@ -4,9 +4,9 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useMemo, useState } from "react";
-import { type BoardView, listDeviceStatus } from "../api";
+import { useMemo, useState } from "react";
 import DocsMarkdown from "./DocsMarkdown";
+import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import {
 	DOC_HARDWARE_LABELS,
@@ -23,13 +23,7 @@ export default function Docs() {
 	const [query, setQuery] = useState("");
 	const [family, setFamily] = useState<DocHardware | "all">("all");
 	const [docId, setDocId] = useState("");
-	const [boards, setBoards] = useState<BoardView[]>([]);
-
-	useEffect(() => {
-		void listDeviceStatus()
-			.then((result) => setBoards(result.devices))
-			.catch(() => undefined);
-	}, []);
+	const { boards } = useUserBoards();
 
 	const selected = boards.find((board) => board.device.uuid === uuid);
 	const inferred = hardwareFromStatus(

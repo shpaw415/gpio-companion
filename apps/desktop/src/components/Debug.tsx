@@ -6,10 +6,10 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useRef, useState } from "react";
 import {
 	connectDebug,
-	type DebugBoard,
 	deviceDisplayName,
 	listDebugBoards,
 } from "../api";
+import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
