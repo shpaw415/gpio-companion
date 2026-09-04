@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { t3AppUrl } from "../api";
+import { t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 
 const SLOT_ID = "gpio-t3-frame-slot";
 
 export default function T3Frame({ visible }: { visible: boolean }) {
-	const { uuid } = useBoardSelection();
-	const nextSrc = t3AppUrl(uuid);
+	const { uuid, pairToken } = useBoardSelection();
+	const nextSrc = t3IframeSrc(uuid, pairToken);
 	const [src, setSrc] = useState("");
 	const [rect, setRect] = useState({
 		top: 0,
@@ -88,6 +88,7 @@ export default function T3Frame({ visible }: { visible: boolean }) {
 			}}
 		>
 			<iframe
+				key={src}
 				title="T3 Code"
 				src={src}
 				allow="clipboard-read; clipboard-write; fullscreen"

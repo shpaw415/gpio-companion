@@ -12,6 +12,8 @@ const STORAGE_KEY = "gpio-companion-selected-board";
 type BoardSelectionValue = {
 	uuid: string;
 	setUuid: (uuid: string) => void;
+	pairToken: string;
+	openT3Pair: (uuid: string, token: string) => void;
 };
 
 const BoardSelectionCtx = createContext<BoardSelectionValue | null>(null);
@@ -36,14 +38,43 @@ function writeStoredUuid(uuid: string) {
 	}
 }
 
-export function BoardSelectionProvider({ children }: { children: ReactNode }) {
+export function BoardSelectionProvider({
+	children,
+	onOpenT3,
+}: {
+	children: ReactNode;
+	onOpenT3?: () => void;
+}) {
 	const [uuid, setUuidState] = useState(readStoredUuid);
+	const [pairToken, setPairToken] = useState("");
+
 	const setUuid = useCallback((next: string) => {
 		const trimmed = next.trim();
-		setUuidState(trimmed);
+		setUuidState((current) => {
+			if (current !== trimmed) {
+				setPairToken("");
+			}
+			return trimmed;
+		});
 		writeStoredUuid(trimmed);
 	}, []);
-	const value = useMemo(() => ({ uuid, setUuid }), [uuid, setUuid]);
+
+	const openT3Pair = useCallback(
+		(nextUuid: string, token: string) => {
+			const trimmed = nextUuid.trim();
+			const pair = token.trim();
+			setUuidState(trimmed);
+			writeStoredUuid(trimmed);
+			setPairToken(pair);
+			onOpenT3?.();
+		},
+		[onOpenT3],
+	);
+
+	const value = useMemo(
+		() => ({ uuid, setUuid, pairToken, openT3Pair }),
+		[uuid, setUuid, pairToken, openT3Pair],
+	);
 	return (
 		<BoardSelectionCtx.Provider value={value}>
 			{children}
@@ -54,7 +85,12 @@ export function BoardSelectionProvider({ children }: { children: ReactNode }) {
 export function useBoardSelection(): BoardSelectionValue {
 	const ctx = useContext(BoardSelectionCtx);
 	if (!ctx) {
-		return { uuid: "", setUuid: () => undefined };
+		return {
+			uuid: "",
+			setUuid: () => undefined,
+			pairToken: "",
+			openT3Pair: () => undefined,
+		};
 	}
 	return ctx;
 }

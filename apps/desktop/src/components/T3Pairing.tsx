@@ -3,12 +3,8 @@ import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
-import {
-	DASHBOARD_URL,
-	openExternal,
-	startT3Pair,
-	type T3Status,
-} from "../api";
+import { openExternal, startT3Pair, type T3Status } from "../api";
+import { useBoardSelection } from "../hooks/useBoardSelection";
 
 function tokenFrom(status?: T3Status): string {
 	const direct = status?.pairingToken?.trim() ?? "";
@@ -27,13 +23,6 @@ function tokenFrom(status?: T3Status): string {
 	}
 }
 
-function dashboardPairUrl(uuid: string, token: string): string {
-	if (!uuid.trim() || !token.trim()) {
-		return "";
-	}
-	return `${DASHBOARD_URL}/devices/t3?uuid=${encodeURIComponent(uuid.trim())}#token=${encodeURIComponent(token.trim())}`;
-}
-
 export default function T3Pairing({
 	uuid,
 	initial,
@@ -41,11 +30,11 @@ export default function T3Pairing({
 	uuid: string;
 	initial?: T3Status;
 }) {
+	const { openT3Pair } = useBoardSelection();
 	const [status, setStatus] = useState<T3Status | undefined>(initial);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const token = tokenFrom(status);
-	const dashboardUrl = dashboardPairUrl(uuid, token);
 
 	async function pair() {
 		setBusy(true);
@@ -90,11 +79,11 @@ export default function T3Pairing({
 						Open pairing URL
 					</Button>
 				) : null}
-				{dashboardUrl ? (
+				{token ? (
 					<Button
 						variant="contained"
 						size="small"
-						onClick={() => void openExternal(dashboardUrl)}
+						onClick={() => openT3Pair(uuid, token)}
 					>
 						Open in dashboard
 					</Button>

@@ -88,7 +88,12 @@ export default function App() {
 	const admin = session?.role === "admin";
 
 	return (
-		<BoardSelectionProvider>
+		<BoardSelectionProvider
+			onOpenT3={() => {
+				setSection("devices");
+				setDeviceTab("t3");
+			}}
+		>
 			<Box
 				sx={{
 					minHeight: "100dvh",
