@@ -1,48 +1,74 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
 import { claimDevice, signCredentials } from "../src/lib/api.ts";
 import { useAuth } from "../src/lib/auth.tsx";
-import { readInfo, scanBoard, sendEnvelope } from "../src/lib/ble.ts";
+import {
+	createBoardLoss,
+	ensureBluetoothOn,
+	openBoardSession,
+	readInfo,
+	scanBoard,
+	sendEnvelope,
+} from "../src/lib/ble.ts";
 import { colors } from "../src/lib/theme.ts";
 
 export default function PairScreen() {
 	const auth = useAuth();
 	const [status, setStatus] = useState("Ready to scan");
 	const [error, setError] = useState("");
+	const [busy, setBusy] = useState(false);
+	const [paired, setPaired] = useState(false);
 
 	async function pair() {
+		if (busy) {
+			return;
+		}
 		if (!auth.token) {
 			setError("sign in first");
 			return;
 		}
+		setBusy(true);
+		setPaired(false);
 		setError("");
 		try {
+			await ensureBluetoothOn();
 			setStatus("Scanning…");
 			const device = await scanBoard();
-			setStatus("Reading board…");
-			const info = await readInfo(device);
-			setStatus("Signing credentials…");
-			const envelope = await signCredentials(auth.token);
-			setStatus("Asking board for pairing key…");
-			const raw = await sendEnvelope(device, envelope);
-			const creds = JSON.parse(raw) as {
-				uuid?: string;
-				key?: string;
-				deviceUrl?: string;
-			};
-			if (!creds.uuid || !creds.key) {
-				throw new Error("device did not return pairing credentials");
+			const loss = createBoardLoss();
+			setStatus("Connecting…");
+			const session = await openBoardSession(device, (why) => loss.lose(why));
+			try {
+				setStatus("Reading board…");
+				const info = await readInfo(session.device);
+				setStatus("Signing credentials…");
+				const envelope = await signCredentials(auth.token);
+				setStatus("Asking board for pairing key…");
+				const raw = await sendEnvelope(session.device, envelope, loss);
+				const creds = JSON.parse(raw) as {
+					uuid?: string;
+					key?: string;
+					deviceUrl?: string;
+				};
+				if (!creds.uuid || !creds.key) {
+					throw new Error("device did not return pairing credentials");
+				}
+				setStatus("Claiming…");
+				await claimDevice(auth.token, {
+					uuid: creds.uuid,
+					key: creds.key,
+					deviceUrl: creds.deviceUrl || info.deviceUrl,
+				});
+				setStatus("Paired");
+				setPaired(true);
+			} finally {
+				await session.close();
 			}
-			setStatus("Claiming…");
-			await claimDevice(auth.token, {
-				uuid: creds.uuid,
-				key: creds.key,
-				deviceUrl: creds.deviceUrl || info.deviceUrl,
-			});
-			setStatus("Paired");
-			await device.cancelConnection();
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "pair failed");
+			setStatus("Ready to scan");
+		} finally {
+			setBusy(false);
 		}
 	}
 
@@ -55,7 +81,19 @@ export default function PairScreen() {
 			</Text>
 			<Text>{status}</Text>
 			{error ? <Text style={styles.error}>{error}</Text> : null}
-			<Pressable style={styles.button} onPress={() => void pair()}>
+			{busy ? <ActivityIndicator /> : null}
+			{paired ? (
+				<Link href="/" asChild>
+					<Pressable style={styles.secondary}>
+						<Text style={styles.secondaryLabel}>Back to devices</Text>
+					</Pressable>
+				</Link>
+			) : null}
+			<Pressable
+				style={[styles.button, busy ? styles.buttonDisabled : null]}
+				disabled={busy}
+				onPress={() => void pair()}
+			>
 				<Text style={styles.buttonLabel}>Scan gpio-companion</Text>
 			</Pressable>
 		</View>
@@ -73,5 +111,8 @@ const styles = StyleSheet.create({
 		borderRadius: 999,
 		alignItems: "center",
 	},
+	buttonDisabled: { opacity: 0.6 },
 	buttonLabel: { color: "#fff", fontWeight: "600" },
+	secondary: { padding: 14, alignItems: "center" },
+	secondaryLabel: { color: colors.primary, fontWeight: "600" },
 });

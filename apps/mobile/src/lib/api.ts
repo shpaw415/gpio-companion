@@ -4,25 +4,119 @@ export type ActionResult<T> =
 	| { ok: true; data: T }
 	| { ok: false; error: string };
 
+export class UnauthorizedError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "UnauthorizedError";
+	}
+}
+
+export type TokenProvider = () => Promise<string | null>;
+
+const REQUEST_TIMEOUT_MS = 15_000;
+
+let tokenProvider: TokenProvider | null = null;
+
+export function setTokenProvider(provider: TokenProvider | null): void {
+	tokenProvider = provider;
+}
+
+async function fetchOnce(
+	token: string,
+	path: string,
+	init: RequestInit,
+): Promise<Response> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+	try {
+		return await fetch(`${dashboardUrl}${path}`, {
+			...init,
+			headers: {
+				accept: "application/json",
+				"content-type": "application/json",
+				authorization: `Bearer ${token}`,
+				...init.headers,
+			},
+			signal: controller.signal,
+		});
+	} catch (caught) {
+		if (
+			caught instanceof Error &&
+			(caught.name === "AbortError" || /abort/i.test(caught.message))
+		) {
+			throw new Error("request timed out — check your connection and try again");
+		}
+		throw new Error(
+			`could not reach gpio-companion.com — ${
+				caught instanceof Error ? caught.message : "network error"
+			}`,
+		);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+type Parsed<T> =
+	| { ok: true; data: T }
+	| { ok: false; unauthorized: boolean; error: string };
+
+async function parseResponse<T>(response: Response): Promise<Parsed<T>> {
+	const text = await response.text();
+	let body: unknown = null;
+	if (text) {
+		try {
+			body = JSON.parse(text);
+		} catch {
+			body = null;
+		}
+	}
+	if (
+		!body ||
+		typeof body !== "object" ||
+		typeof (body as { ok?: unknown }).ok !== "boolean"
+	) {
+		return {
+			ok: false,
+			unauthorized: response.status === 401,
+			error: `gpio-companion.com error (HTTP ${response.status})`,
+		};
+	}
+	const result = body as ActionResult<T>;
+	if (result.ok) {
+		return { ok: true, data: result.data };
+	}
+	const error =
+		typeof result.error === "string" && result.error.trim().length > 0
+			? result.error
+			: `request failed (HTTP ${response.status})`;
+	const unauthorized =
+		response.status === 401 ||
+		error === "sign in first" ||
+		error === "login first";
+	return { ok: false, unauthorized, error };
+}
+
 async function request<T>(
 	token: string,
 	path: string,
 	init: RequestInit = {},
+	retried = false,
 ): Promise<T> {
-	const response = await fetch(`${dashboardUrl}${path}`, {
-		...init,
-		headers: {
-			accept: "application/json",
-			"content-type": "application/json",
-			authorization: `Bearer ${token}`,
-			...init.headers,
-		},
-	});
-	const body = (await response.json()) as ActionResult<T>;
-	if (!body.ok) {
-		throw new Error(body.error);
+	const response = await fetchOnce(token, path, init);
+	const parsed = await parseResponse<T>(response);
+	if (parsed.ok) {
+		return parsed.data;
 	}
-	return body.data;
+	if (parsed.unauthorized && !retried) {
+		const next = tokenProvider ? await tokenProvider() : null;
+		if (next) {
+			return request(next, path, init, true);
+		}
+	}
+	if (parsed.unauthorized) {
+		throw new UnauthorizedError(parsed.error);
+	}
+	throw new Error(parsed.error);
 }
 
 export function getSession(token: string) {

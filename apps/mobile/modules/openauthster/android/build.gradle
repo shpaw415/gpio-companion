@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.openauthster'
+version = '1.0.2'
+
+android {
+  namespace "expo.modules.openauthster"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.2"
+  }
+}
+
+dependencies {
+  api "androidx.browser:browser:1.6.0"
+  implementation "androidx.security:security-crypto:1.1.0-alpha06"
+}

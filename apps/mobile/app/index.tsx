@@ -1,11 +1,12 @@
 import { Link } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	ActivityIndicator,
 	Alert,
 	FlatList,
 	Platform,
 	Pressable,
+	RefreshControl,
 	StyleSheet,
 	Text,
 	View,
@@ -14,23 +15,44 @@ import { listDevices, unpairDevice } from "../src/lib/api.ts";
 import { useAuth } from "../src/lib/auth.tsx";
 import { colors } from "../src/lib/theme.ts";
 
+type BoardDevice = {
+	uuid: string;
+	deviceUrl: string;
+	login: string;
+	label?: string;
+};
+
 export default function DevicesScreen() {
 	const auth = useAuth();
-	const [devices, setDevices] = useState<
-		Array<{ uuid: string; deviceUrl: string; login: string }>
-	>([]);
+	const [devices, setDevices] = useState<BoardDevice[]>([]);
 	const [error, setError] = useState("");
+	const [refreshing, setRefreshing] = useState(false);
 
-	useEffect(() => {
+	const load = useCallback(async () => {
 		if (!auth.token) {
 			return;
 		}
-		void listDevices(auth.token)
-			.then((result) => setDevices(result.devices))
-			.catch((caught) =>
-				setError(caught instanceof Error ? caught.message : "load failed"),
-			);
+		try {
+			const result = await listDevices(auth.token);
+			setDevices(result.devices);
+			setError("");
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "load failed");
+		}
 	}, [auth.token]);
+
+	useEffect(() => {
+		void load();
+	}, [load]);
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true);
+		try {
+			await load();
+		} finally {
+			setRefreshing(false);
+		}
+	}, [load]);
 
 	if (!auth.ready) {
 		return (
@@ -63,6 +85,9 @@ export default function DevicesScreen() {
 			<FlatList
 				data={devices}
 				keyExtractor={(item) => item.uuid}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+				}
 				ListEmptyComponent={
 					<Text style={styles.muted}>No boards yet. Pair one nearby.</Text>
 				}
@@ -83,11 +108,22 @@ export default function DevicesScreen() {
 											if (!auth.token) {
 												return;
 											}
-											void unpairDevice(auth.token, item.uuid).then(() =>
-												setDevices((current) =>
-													current.filter((device) => device.uuid !== item.uuid),
-												),
-											);
+											void unpairDevice(auth.token, item.uuid)
+												.then(() => {
+													setDevices((current) =>
+														current.filter(
+															(device) => device.uuid !== item.uuid,
+														),
+													);
+													setError("");
+												})
+												.catch((caught) => {
+													setError(
+														caught instanceof Error
+															? caught.message
+															: "unpair failed",
+													);
+												});
 										},
 									},
 								]);

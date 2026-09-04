@@ -1,11 +1,34 @@
-import { BleManager, type Device, type Subscription } from "react-native-ble-plx";
+import {
+	BleManager,
+	State,
+	type Device,
+	type Subscription,
+} from "react-native-ble-plx";
 
-export const BLE_SERVICE_UUID = "a1c15e00-6f10-4c9a-9c31-47b0c15e0001";
-export const BLE_INFO_UUID = "a1c15e00-6f10-4c9a-9c31-47b0c15e0002";
-export const BLE_CMD_UUID = "a1c15e00-6f10-4c9a-9c31-47b0c15e0003";
-export const BLE_STATUS_UUID = "a1c15e00-6f10-4c9a-9c31-47b0c15e0004";
-export const BLE_DEVICE_NAME = "gpio-companion";
-export const BLE_CHUNK_SIZE = 160;
+import {
+	BLE_CMD_UUID,
+	BLE_INFO_UUID,
+	BLE_SERVICE_UUID,
+	BLE_STATUS_UUID,
+	encodeFrames,
+	matchesBoard,
+	type BleInfo,
+} from "./ble-frame.ts";
+
+export {
+	BLE_CHUNK_SIZE,
+	BLE_DEVICE_NAME,
+	BLE_SERVICE_UUID,
+	encodeFrames,
+	matchesBoard,
+} from "./ble-frame.ts";
+export type { BleInfo } from "./ble-frame.ts";
+
+const CONNECT_TIMEOUT_MS = 15_000;
+const OP_TIMEOUT_MS = 15_000;
+const RESPONSE_TIMEOUT_MS = 30_000;
+const FRAME_GAP_MS = 20;
+const BLUETOOTH_WAIT_MS = 5_000;
 
 let manager: BleManager | null = null;
 
@@ -22,76 +45,142 @@ function getManager(): BleManager {
 	return manager;
 }
 
-export type BleInfo = {
-	uuid: string;
-	hardware: string;
-	name: string;
-	deviceUrl?: string;
-};
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function encodeFrames(payload: string): string[] {
-	const body = new TextEncoder().encode(payload);
-	const all = new Uint8Array(4 + body.length);
-	new DataView(all.buffer).setUint32(0, body.length);
-	all.set(body, 4);
-	const frames: string[] = [];
-	for (let offset = 0; offset < all.length; offset += BLE_CHUNK_SIZE) {
-		frames.push(toBase64(all.slice(offset, offset + BLE_CHUNK_SIZE)));
-	}
-	return frames;
-}
-
-function toBase64(bytes: Uint8Array): string {
-	let binary = "";
-	for (const byte of bytes) {
-		binary += String.fromCharCode(byte);
-	}
-	return btoa(binary);
-}
-
-export async function scanBoard(timeoutMs = 12_000): Promise<Device> {
-	const ble = getManager();
-	return new Promise((resolve, reject) => {
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
 		const timer = setTimeout(() => {
-			ble.stopDeviceScan();
-			reject(new Error("no gpio-companion board found"));
-		}, timeoutMs);
-		void ble.startDeviceScan(
-			null,
-			{ allowDuplicates: false },
-			(error, device) => {
-				if (error) {
-					clearTimeout(timer);
-					ble.stopDeviceScan();
-					reject(error);
-					return;
-				}
-				if (!device) {
-					return;
-				}
-				const name = device.name ?? device.localName ?? "";
-				const services = device.serviceUUIDs ?? [];
-				if (
-					name.startsWith(BLE_DEVICE_NAME) ||
-					services.some(
-						(id) => id.toLowerCase() === BLE_SERVICE_UUID.toLowerCase(),
-					)
-				) {
-					clearTimeout(timer);
-					ble.stopDeviceScan();
-					resolve(device);
-				}
+			reject(new Error(`${message} (timed out)`));
+		}, ms);
+		promise.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(caught) => {
+				clearTimeout(timer);
+				reject(caught instanceof Error ? caught : new Error(String(caught)));
 			},
 		);
 	});
 }
 
+export async function ensureBluetoothOn(): Promise<void> {
+	const ble = getManager();
+	const state = await ble.state();
+	if (state === State.PoweredOn) {
+		return;
+	}
+	const label =
+		state === State.PoweredOff
+			? "Bluetooth is off — turn it on and try again"
+			: `Bluetooth is unavailable (${state}) — try again`;
+	await new Promise<void>((resolve, reject) => {
+		const timer = setTimeout(() => {
+			subscription.remove();
+			reject(new Error(label));
+		}, BLUETOOTH_WAIT_MS);
+		const subscription = ble.onStateChange((next) => {
+			if (next === State.PoweredOn) {
+				clearTimeout(timer);
+				subscription.remove();
+				resolve();
+			}
+		}, true);
+	});
+}
+
+export async function scanBoard(timeoutMs = 12_000): Promise<Device> {
+	const ble = getManager();
+	return new Promise<Device>((resolve, reject) => {
+		let settled = false;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const finish = (settle: () => void) => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			if (timer) {
+				clearTimeout(timer);
+			}
+			ble.stopDeviceScan();
+			settle();
+		};
+		timer = setTimeout(
+			() => finish(() => reject(new Error("no gpio-companion board found nearby"))),
+			timeoutMs,
+		);
+		void ble.startDeviceScan(null, { allowDuplicates: false }, (error, device) => {
+			if (error) {
+				finish(() => reject(new Error(error.message)));
+				return;
+			}
+			if (!device) {
+				return;
+			}
+			const name = device.name ?? device.localName ?? "";
+			if (matchesBoard(name, device.serviceUUIDs ?? [])) {
+				finish(() => resolve(device));
+			}
+		});
+	});
+}
+
+export type BoardSession = {
+	device: Device;
+	close: () => Promise<void>;
+};
+
+export async function openBoardSession(
+	device: Device,
+	onLost?: (reason: string) => void,
+	timeoutMs = CONNECT_TIMEOUT_MS,
+): Promise<BoardSession> {
+	try {
+		await withTimeout(
+			device.connect({ autoConnect: false }),
+			timeoutMs,
+			"board did not accept the bluetooth connection",
+		);
+	} catch (caught) {
+		void device.cancelConnection().catch(() => undefined);
+		throw caught;
+	}
+	const subscription = device.onDisconnected((error) => {
+		onLost?.(
+			error
+				? `board disconnected (${error.message})`
+				: "board disconnected — try again",
+		);
+	});
+	let closed = false;
+	return {
+		device,
+		close: async () => {
+			if (closed) {
+				return;
+			}
+			closed = true;
+			subscription.remove();
+			try {
+				await device.cancelConnection();
+			} catch {
+				// the board may already be gone
+			}
+		},
+	};
+}
+
 export async function readInfo(device: Device): Promise<BleInfo> {
-	await device.connect();
-	await device.discoverAllServicesAndCharacteristics();
-	const info = await device.readCharacteristicForService(
-		BLE_SERVICE_UUID,
-		BLE_INFO_UUID,
+	await withTimeout(
+		device.discoverAllServicesAndCharacteristics(),
+		OP_TIMEOUT_MS,
+		"board did not expose its bluetooth services",
+	);
+	const info = await withTimeout(
+		device.readCharacteristicForService(BLE_SERVICE_UUID, BLE_INFO_UUID),
+		OP_TIMEOUT_MS,
+		"board did not share its info",
 	);
 	if (!info.value) {
 		throw new Error("invalid bluetooth info");
@@ -99,33 +188,76 @@ export async function readInfo(device: Device): Promise<BleInfo> {
 	return JSON.parse(atob(info.value)) as BleInfo;
 }
 
+export type BoardLoss = {
+	signal: AbortSignal;
+	reason: () => string;
+	lose: (why?: string) => void;
+};
+
+export function createBoardLoss(): BoardLoss {
+	const controller = new AbortController();
+	let why = "board disconnected — try again";
+	return {
+		signal: controller.signal,
+		reason: () => why,
+		lose: (reason?: string) => {
+			if (controller.signal.aborted) {
+				return;
+			}
+			if (reason && reason.length > 0) {
+				why = reason;
+			}
+			controller.abort();
+		},
+	};
+}
+
 export async function sendEnvelope(
 	device: Device,
 	envelope: unknown,
+	loss?: BoardLoss,
 ): Promise<string> {
 	const frames = encodeFrames(JSON.stringify(envelope));
-	return new Promise((resolve, reject) => {
+	return new Promise<string>((resolve, reject) => {
 		let subscription: Subscription | undefined;
-		const timer = setTimeout(() => {
+		let settled = false;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const finish = (settle: () => void) => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			if (timer) {
+				clearTimeout(timer);
+			}
+			loss?.signal.removeEventListener("abort", onAbort);
 			subscription?.remove();
-			reject(new Error("bluetooth timed out"));
-		}, 30_000);
+			settle();
+		};
+		const onAbort = () => {
+			finish(() => reject(new Error(loss ? loss.reason() : "board disconnected")));
+		};
+		timer = setTimeout(
+			() =>
+				finish(() =>
+					reject(new Error("board did not respond over bluetooth (timed out)")),
+				),
+			RESPONSE_TIMEOUT_MS,
+		);
+		loss?.signal.addEventListener("abort", onAbort);
 		subscription = device.monitorCharacteristicForService(
 			BLE_SERVICE_UUID,
 			BLE_STATUS_UUID,
 			(error, characteristic) => {
 				if (error) {
-					clearTimeout(timer);
-					subscription?.remove();
-					reject(error);
+					finish(() => reject(new Error(error.message)));
 					return;
 				}
 				if (!characteristic?.value) {
 					return;
 				}
-				clearTimeout(timer);
-				subscription?.remove();
-				resolve(atob(characteristic.value));
+				const value = characteristic.value;
+				finish(() => resolve(atob(value)));
 			},
 		);
 		void (async () => {
@@ -136,11 +268,14 @@ export async function sendEnvelope(
 						BLE_CMD_UUID,
 						frame,
 					);
+					await sleep(FRAME_GAP_MS);
 				}
 			} catch (caught) {
-				clearTimeout(timer);
-				subscription?.remove();
-				reject(caught);
+				finish(() =>
+					reject(
+						caught instanceof Error ? caught : new Error("bluetooth write failed"),
+					),
+				);
 			}
 		})();
 	});

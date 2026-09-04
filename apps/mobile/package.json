@@ -7,6 +7,7 @@
 		"start": "expo start",
 		"android": "expo run:android",
 		"ios": "expo run:ios",
+		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
@@ -27,6 +28,7 @@
 		"react-native-web": "~0.21.0"
 	},
 	"devDependencies": {
+		"@types/bun": "^1.4.0",
 		"@types/react": "~19.1.10",
 		"typescript": "~5.9.2"
 	}
