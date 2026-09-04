@@ -15,7 +15,18 @@ import {
 	type NearbyRadio,
 } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import {
+	loadSavedNetworks,
+	rememberNetwork,
+} from "../lib/wifi-networks-store.ts";
+import {
+	MANUAL_NETWORK,
+	networkValue,
+	ssidFromValue,
+	type SavedNetwork,
+} from "../lib/wifi-networks.ts";
 import { NearbyPicker } from "../components/NearbyPicker.tsx";
+import { SavedWifiPicker } from "../components/SavedWifiPicker.tsx";
 import {
 	Busy,
 	ErrorText,
@@ -35,6 +46,8 @@ export default function Wifi() {
 	const [uuid, setLocalUuid] = useState(selectedUuid);
 	const [boardId, setBoardId] = useState("");
 	const [boards, setBoards] = useState<NearbyRadio[]>([]);
+	const [networks, setNetworks] = useState<SavedNetwork[]>([]);
+	const [networkId, setNetworkId] = useState(MANUAL_NETWORK);
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -52,6 +65,10 @@ export default function Wifi() {
 			return selectedUuid || devices[0]?.uuid || "";
 		});
 	}, [devices, selectedUuid]);
+
+	useEffect(() => {
+		void loadSavedNetworks().then(setNetworks);
+	}, []);
 
 	const scan = useCallback(async () => {
 		const generation = ++scanRef.current;
@@ -88,6 +105,20 @@ export default function Wifi() {
 	useEffect(() => {
 		void scan();
 	}, [scan]);
+
+	function pickNetwork(next: string) {
+		setNetworkId(next);
+		if (next === MANUAL_NETWORK) {
+			return;
+		}
+		const found = networks.find(
+			(network) => network.ssid === ssidFromValue(next),
+		);
+		if (found) {
+			setSsid(found.ssid);
+			setPsk(found.psk);
+		}
+	}
 
 	async function send() {
 		if (busy || scanning) {
@@ -135,6 +166,13 @@ export default function Wifi() {
 				setStatus("Writing…");
 				const raw = await sendEnvelope(session.device, envelope, loss);
 				setStatus(raw || "sent");
+				try {
+					const next = await rememberNetwork(ssid.trim(), psk);
+					setNetworks(next);
+					setNetworkId(networkValue(ssid.trim()));
+				} catch {
+					// keep local fields; remember is best-effort
+				}
 			} finally {
 				await session.close();
 			}
@@ -151,6 +189,7 @@ export default function Wifi() {
 			<Title>WiFi over Bluetooth</Title>
 			<Muted>
 				Pick the Pi in Nearby Bluetooth device, then send the network name and password.
+				Choose a saved network to fill both, or enter them manually.
 			</Muted>
 			<Muted>Paired board</Muted>
 			{devices.length === 0 ? (
@@ -198,6 +237,12 @@ export default function Wifi() {
 				label="Scan nearby"
 				disabled={scanning || busy}
 				onPress={() => void scan()}
+			/>
+			<SavedWifiPicker
+				networks={networks}
+				selectedId={networkId}
+				onSelect={pickNetwork}
+				disabled={busy}
 			/>
 			<Field label="Network name" value={ssid} onChangeText={setSsid} placeholder="SSID" />
 			<Field

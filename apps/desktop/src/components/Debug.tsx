@@ -1,9 +1,16 @@
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
+import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+	filterJournalByAge,
+	JOURNAL_WINDOWS,
+	type JournalWindowId,
+	journalWindowMs,
+} from "../lib/journal";
 import {
 	connectDebug,
 	deviceDisplayName,
@@ -32,35 +39,68 @@ export default function Debug() {
 	const [active, setActive] = useState("");
 	const [journal, setJournal] = useState("");
 	const [journalFor, setJournalFor] = useState("");
+	const [journalWindow, setJournalWindow] = useState<JournalWindowId>("24h");
+	const [journalBusy, setJournalBusy] = useState("");
+	const [updateBusy, setUpdateBusy] = useState("");
 	const [updateNote, setUpdateNote] = useState("");
 	const loading = query.loading;
 	const socket = useRef<WebSocket | null>(null);
+	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		return () => {
 			socket.current?.close();
+			if (updateLock.current) {
+				clearTimeout(updateLock.current);
+			}
 		};
 	}, []);
 
+	const journalView = useMemo(() => {
+		if (!journal) {
+			return "";
+		}
+		return (
+			filterJournalByAge(journal, journalWindowMs(journalWindow)) ||
+			`No journal lines in the last ${journalWindow}.`
+		);
+	}, [journal, journalWindow]);
+
 	async function fetchLogs(uuid: string) {
 		setError("");
+		setJournalBusy(uuid);
 		try {
 			const next = await loadDeviceLogs(uuid);
 			setJournalFor(uuid);
 			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "logs failed");
+		} finally {
+			setJournalBusy("");
 		}
 	}
 
 	async function runUpdate(uuid: string) {
+		if (updateBusy) {
+			return;
+		}
+		if (updateLock.current) {
+			clearTimeout(updateLock.current);
+			updateLock.current = null;
+		}
 		setError("");
 		setUpdateNote("");
+		setUpdateBusy(uuid);
 		try {
 			await startDeviceUpdate(uuid);
 			setUpdateNote("Update started. The board may restart.");
+			updateLock.current = setTimeout(() => {
+				setUpdateBusy("");
+				updateLock.current = null;
+			}, 120_000);
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "update failed");
+			setUpdateBusy("");
 		}
 	}
 
@@ -119,29 +159,56 @@ export default function Debug() {
 							<Button variant="text" onClick={() => void connect(board.uuid)}>
 								{active === board.uuid ? "Reconnect" : "Connect"}
 							</Button>
-							<Button variant="text" onClick={() => void fetchLogs(board.uuid)}>
-								Last 24h
+							<Button
+								variant="text"
+								disabled={journalBusy === board.uuid}
+								onClick={() => void fetchLogs(board.uuid)}
+							>
+								{journalBusy === board.uuid ? "Loading…" : "Last 24h"}
 							</Button>
-							<Button variant="text" onClick={() => void runUpdate(board.uuid)}>
-								Update companion
+							<Button
+								variant="text"
+								disabled={Boolean(updateBusy)}
+								onClick={() => void runUpdate(board.uuid)}
+							>
+								{updateBusy === board.uuid ? "Updating…" : "Update companion"}
 							</Button>
 						</Paper>
 					))}
 			{journal ? (
-				<Typography
-					Element="pre"
-					sx={{
-						m: 0,
-						maxHeight: 240,
-						overflow: "auto",
-						whiteSpace: "pre-wrap",
-						fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-						fontSize: 12,
-					}}
-				>
-					{journalFor ? `${journalFor}\n` : ""}
-					{journal}
-				</Typography>
+				<Paper sx={{ p: 2 }} elevation={1}>
+					<Typography color="secondary" variant="body2">
+						{journalFor}
+					</Typography>
+					<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", my: 1 }}>
+						{JOURNAL_WINDOWS.map((item) => (
+							<Chip
+								key={item.id}
+								label={item.id}
+								color={journalWindow === item.id ? "primary" : "secondary"}
+								variant={journalWindow === item.id ? "filled" : "outlined"}
+								onClick={() => setJournalWindow(item.id)}
+							/>
+						))}
+					</Stack>
+					<Paper
+						sx={{ maxHeight: 320, overflow: "auto", p: 1.5 }}
+						elevation={0}
+						variant="outlined"
+					>
+						<Typography
+							Element="pre"
+							sx={{
+								m: 0,
+								whiteSpace: "pre-wrap",
+								fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+								fontSize: 12,
+							}}
+						>
+							{journalView}
+						</Typography>
+					</Paper>
+				</Paper>
 			) : null}
 			{lines.length > 0 ? (
 				<Typography

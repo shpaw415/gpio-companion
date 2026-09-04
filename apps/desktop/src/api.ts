@@ -116,6 +116,42 @@ export function bleWifi(input: {
 	return call<string>("ble_wifi", input);
 }
 
+export function bleInfo(input: { uuid: string; id?: string }) {
+	return call<unknown>("ble_info", {
+		uuid: input.uuid,
+		id: input.id ?? "",
+	});
+}
+
+export type KnownNetwork = {
+	ssid: string;
+	psk: string;
+	source: "os" | "saved";
+	current: boolean;
+};
+
+export function wifiKnownNetworks() {
+	return call<KnownNetwork[]>("wifi_known_networks");
+}
+
+export function wifiNetworkPsk(ssid: string) {
+	return call<string>("wifi_network_psk", { ssid });
+}
+
+export function wifiRememberNetwork(ssid: string, psk: string) {
+	return call<void>("wifi_remember_network", { ssid, psk });
+}
+
+export function knownNetworkLabel(network: KnownNetwork) {
+	if (network.current) {
+		return `${network.ssid} (this computer)`;
+	}
+	if (network.source === "saved") {
+		return `${network.ssid} (saved)`;
+	}
+	return network.ssid;
+}
+
 export function onBleStatus(
 	handler: (status: string) => void,
 ): Promise<UnlistenFn> {
@@ -134,6 +170,12 @@ export type DeviceStatus = {
 		paired?: boolean;
 		serviceInstalled?: boolean;
 	};
+	network?: {
+		type?: "ethernet" | "wifi" | "unknown";
+		ssid?: string;
+		interface?: string;
+		connection?: string;
+	} | null;
 };
 
 export type BoardView = {
@@ -317,6 +359,13 @@ export function loadDeviceLogs(uuid: string) {
 	return apiRequest<{ text: string }>(
 		"GET",
 		`/api/mobile/logs?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function loadDeviceInfo(uuid: string) {
+	return apiRequest<{ info: unknown }>(
+		"GET",
+		`/api/mobile/info?uuid=${encodeURIComponent(uuid)}`,
 	);
 }
 

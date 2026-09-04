@@ -119,9 +119,8 @@ tunnel_token=""
 
 register_device_public_key
 
-echo "baking gpio-companion AI proxy key for OpenCode..."
-ai_key="$(ensure_gpio_ai_key)"
-write_opencode_ai_provider "$ai_key"
+echo "writing OpenCode loopback AI provider..."
+write_opencode_ai_provider
 
 openviking_install=0
 if [[ -n "${GPIO_COMPANION_OPENVIKING:-}" ]]; then

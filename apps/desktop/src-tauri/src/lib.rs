@@ -7,6 +7,7 @@ mod config;
 mod frames;
 mod log;
 mod tokens;
+mod wifi;
 
 use api::request_value;
 use auth::AuthFlow;
@@ -260,6 +261,62 @@ async fn ble_wifi(
 	raw
 }
 
+#[tauri::command]
+async fn ble_info(app: AppHandle, uuid: String, id: String) -> Result<Value, String> {
+	let _ble = ble::acquire().await;
+	emit_status(&app, "Connecting…");
+	let (peripheral, info) = ble::connected_board_info(&id).await?;
+	if !uuid.is_empty() && !info.uuid.is_empty() && info.uuid != uuid {
+		ble::disconnect(&peripheral).await;
+		return Err("this board is not the selected paired device".to_string());
+	}
+	emit_status(&app, "Signing companion info…");
+	let envelope = match request_value(
+		Method::POST,
+		"/api/mobile/info",
+		Some(&json!({ "uuid": uuid })),
+	)
+	.await
+	{
+		Ok(envelope) => envelope,
+		Err(err) => {
+			ble::disconnect(&peripheral).await;
+			return Err(err);
+		}
+	};
+	emit_status(&app, "Reading…");
+	let raw = ble::send_envelope(&peripheral, &envelope).await;
+	ble::disconnect(&peripheral).await;
+	let raw = raw?;
+	let parsed: Value = serde_json::from_str(&raw)
+		.map_err(|_| "board did not return companion info".to_string())?;
+	if let Some(error) = parsed.get("error").and_then(Value::as_str) {
+		return Err(error.to_string());
+	}
+	Ok(parsed)
+}
+
+#[tauri::command]
+async fn wifi_known_networks() -> Vec<wifi::KnownNetwork> {
+	tokio::task::spawn_blocking(wifi::known_networks)
+		.await
+		.unwrap_or_default()
+}
+
+#[tauri::command]
+async fn wifi_network_psk(ssid: String) -> String {
+	tokio::task::spawn_blocking(move || wifi::network_psk(&ssid))
+		.await
+		.unwrap_or_default()
+}
+
+#[tauri::command]
+async fn wifi_remember_network(ssid: String, psk: String) -> Result<(), String> {
+	tokio::task::spawn_blocking(move || wifi::remember_network(&ssid, &psk))
+		.await
+		.map_err(|_| "wifi remember failed".to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
 	let mut builder = tauri::Builder::default();
@@ -306,7 +363,11 @@ pub fn run() {
 			api_request,
 			ble_scan,
 			ble_pair,
-			ble_wifi
+			ble_wifi,
+			ble_info,
+			wifi_known_networks,
+			wifi_network_psk,
+			wifi_remember_network
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running gpio-companion desktop");

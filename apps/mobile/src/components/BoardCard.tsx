@@ -7,6 +7,8 @@ import {
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import { formatNetworkLabel } from "../lib/device-info.ts";
+import CompanionInfo from "./CompanionInfo.tsx";
 import T3Pairing from "./T3Pairing.tsx";
 import { Chip, Field, Paper, Row, TextButton } from "./ui.tsx";
 
@@ -27,6 +29,7 @@ export default function BoardCard({
 	const colors = useColors();
 	const { device, status } = board;
 	const online = Boolean(status);
+	const networkLabel = formatNetworkLabel(status?.network);
 	const [label, setLabel] = useState(device.label ?? "");
 	const [saving, setSaving] = useState(false);
 
@@ -56,26 +59,41 @@ export default function BoardCard({
 					{device.deviceUrl}
 				</Text>
 			) : null}
-			<Field label="Label" value={label} onChangeText={setLabel} placeholder="Optional name" />
+			<Field
+				label="Label"
+				value={label}
+				onChangeText={setLabel}
+				placeholder="Optional name"
+			/>
 			<TextButton
 				label={saving ? "Saving…" : "Save"}
 				disabled={saving}
 				onPress={() => void saveLabel()}
 			/>
 			<Row>
-				<Chip label={online ? "Online" : "Offline"} tone={online ? "success" : "muted"} />
+				<Chip
+					label={online ? "Online" : "Offline"}
+					tone={online ? "success" : "muted"}
+				/>
 				{selected ? <Chip label="Selected" tone="primary" filled /> : null}
 				{status?.model || status?.hardware ? (
 					<Chip label={status?.model || status?.hardware || ""} />
 				) : null}
+				{networkLabel ? <Chip label={networkLabel} /> : null}
 				{status ? (
 					<>
 						<Chip
-							label={status.tunnel?.configured ? "tunnel ready" : "tunnel pending"}
+							label={
+								status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
+							}
 							tone={status.tunnel?.configured ? "success" : "muted"}
 						/>
 						<Chip
-							label={status.secrets?.githubReady ? "GitHub ready" : "GitHub keys pending"}
+							label={
+								status.secrets?.githubReady
+									? "GitHub ready"
+									: "GitHub keys pending"
+							}
 							tone={status.secrets?.githubReady ? "success" : "warning"}
 						/>
 						<Chip
@@ -92,6 +110,7 @@ export default function BoardCard({
 				) : null}
 			</Row>
 			<T3Pairing uuid={device.uuid} initial={status?.t3} />
+			<CompanionInfo key={device.uuid} uuid={device.uuid} />
 			<Row>
 				{onSelect ? (
 					<TextButton

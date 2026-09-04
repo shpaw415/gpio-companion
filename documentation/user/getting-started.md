@@ -1,6 +1,6 @@
 # Getting started (user)
 
-Do this in order. GitHub token is **not** typed on the Pi; it comes from dashboard Keys after pair. OpenCode uses a baked gpio-companion AI key and dashboard credits.
+Do this in order. GitHub token is **not** typed on the Pi; it comes from dashboard Keys after pair. OpenCode uses dashboard credits through a local gpio-companion proxy (no AI key to paste).
 
 ## 1. Power the board
 

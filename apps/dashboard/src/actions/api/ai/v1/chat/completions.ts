@@ -2,6 +2,10 @@
 
 import { parseMarkup, type TokenUsage } from "gpio-companion";
 import {
+	bearerToken,
+	userIdForAiAuth,
+} from "../../../../../lib/ai-credentials.ts";
+import {
 	billedMicros,
 	buildAiInput,
 	type ChatBody,
@@ -14,13 +18,13 @@ import {
 import {
 	consumeMicrodollars,
 	creditsBalance,
-	userIdForAiKey,
 } from "../../../../../lib/credits.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
 	AI?: Ai;
 	GPIO_AI_MARKUP?: string;
+	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
 };
 
 const CORS = {
@@ -28,12 +32,6 @@ const CORS = {
 	"access-control-allow-headers": "authorization,content-type",
 	"access-control-allow-methods": "POST,OPTIONS",
 };
-
-function bearer(request: Request): string {
-	const header = request.headers.get("authorization") ?? "";
-	const match = header.match(/^Bearer\s+(\S+)/i);
-	return match?.[1]?.trim() ?? "";
-}
 
 export async function onRequestOptions() {
 	return new Response(null, {
@@ -43,11 +41,11 @@ export async function onRequestOptions() {
 }
 
 export async function onRequestPost(ctx: { request: Request; env: PagesEnv }) {
-	const key = bearer(ctx.request);
+	const key = bearerToken(ctx.request);
 	if (!key) {
 		return error(401, "missing api key");
 	}
-	const userId = await userIdForAiKey(ctx.env.DYNAMIC_PAGE_KV, key);
+	const userId = await userIdForAiAuth(ctx.env, key);
 	if (!userId) {
 		return error(401, "unknown api key");
 	}

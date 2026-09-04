@@ -122,7 +122,10 @@ if ! update_opencode; then
 	echo "gpio-companion update: opencode upgrade skipped" >&2
 fi
 
+write_opencode_ai_provider
+
 if openviking_enabled; then
+	write_openviking_ai_loopback
 	write_opencode_openviking_plugin
 	if paths_changed '^(opencode/memory/|scripts/openviking-seed)'; then
 		echo "gpio-companion update: openviking seed data changed, reseeding"

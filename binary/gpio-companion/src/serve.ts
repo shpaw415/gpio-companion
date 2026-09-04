@@ -7,9 +7,11 @@ import {
 	type DeviceConfig,
 	type DiskStats,
 	debugAuthHeadersFromRequest,
+	INFO_PATH,
 	LOGS_PATH,
 	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
+	type NetworkStatus,
 	pairingCredentials,
 	parseDeviceSecrets,
 	parsePairingClaim,
@@ -28,11 +30,14 @@ import {
 	verifyDeviceRequest,
 	WifiConnectError,
 } from "gpio-companion";
+import { type FetchLike, proxyAiRequest } from "./ai-credentials.ts";
 import { readBoardModel } from "./board-model.ts";
 import { createDebugHub } from "./debug.ts";
 import { readDiskStats } from "./disk.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
+import { readDeviceInfoJson } from "./info.ts";
 import { readJournalLogs } from "./logs.ts";
+import { readNetworkStatus } from "./network.ts";
 import {
 	applyClaim,
 	applyTransfer,
@@ -75,14 +80,21 @@ export type ServeOptions = {
 		add(nonce: string): void;
 	};
 	dashboardUrl?: string;
+	fetchImpl?: FetchLike;
 	readDisk?: () => DiskStats | null;
 	readLogs?: () => Promise<string>;
+	readNetwork?: () => NetworkStatus | null;
+	readInfo?: () => Promise<Record<string, unknown>>;
 };
 
 export type DeviceRequestExtras = {
 	readDisk?: () => DiskStats | null;
 	readLogs?: () => Promise<string>;
+	readNetwork?: () => NetworkStatus | null;
+	readInfo?: () => Promise<Record<string, unknown>>;
 	applyUpdate?: ApplyUpdate;
+	dashboardUrl?: string;
+	fetchImpl?: FetchLike;
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -97,7 +109,12 @@ export function startDeviceApi(options: ServeOptions) {
 	const extras: DeviceRequestExtras = {
 		readDisk: options.readDisk ?? readDiskStats,
 		readLogs: options.readLogs ?? readJournalLogs,
+		readNetwork: options.readNetwork ?? readNetworkStatus,
+		readInfo: options.readInfo ?? (async () => readDeviceInfoJson()),
 		applyUpdate: options.applyUpdate,
+		dashboardUrl:
+			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
+		fetchImpl: options.fetchImpl,
 	};
 	return Bun.serve({
 		port,
@@ -247,6 +264,22 @@ export async function handleDeviceRequest(
 		return json(await githubCredentials());
 	}
 
+	if (path === "/v1/ai" || path.startsWith("/v1/ai/")) {
+		if (!isLoopback(url)) {
+			throw new Error("ai proxy is local-only");
+		}
+		const pairing = await pairingStore.read();
+		return proxyAiRequest({
+			request,
+			path,
+			bodyText,
+			uuid: pairing.uuid,
+			key: pairing.key,
+			origin: extras?.dashboardUrl,
+			fetchImpl: extras?.fetchImpl,
+		});
+	}
+
 	if (!deviceAuth.publicKeyPem.trim()) {
 		throw new DeviceAuthError("device public key not registered", 401);
 	}
@@ -348,7 +381,7 @@ export async function handleDeviceRequest(
 
 	if (method === "GET" && path === "/v1/config/ai-key") {
 		const secrets = await secretsStore.read();
-		return json({ gpioAiKey: secrets.gpioAiKey });
+		return json({ gpioAiKey: Boolean(secrets.gpioAiKey) });
 	}
 
 	if (method === "GET" && path === "/v1/config/secrets") {
@@ -427,6 +460,17 @@ export async function handleDeviceRequest(
 		});
 	}
 
+	if (method === "GET" && path === INFO_PATH) {
+		if (!extras?.readInfo) {
+			return json({ error: "companion info is unavailable" }, 503);
+		}
+		try {
+			return json(await extras.readInfo());
+		} catch {
+			return json({ error: "companion info is unavailable" }, 503);
+		}
+	}
+
 	if (method === "POST" && path === UPDATE_PATH) {
 		if (!extras?.applyUpdate) {
 			throw new Error("update is not configured");
@@ -449,6 +493,7 @@ export async function handleDeviceRequest(
 					serviceInstalled: false,
 				};
 		const disk = extras?.readDisk ? extras.readDisk() : null;
+		const network = extras?.readNetwork ? extras.readNetwork() : null;
 		return json({
 			hardware: config.hardware,
 			model: readBoardModel(),
@@ -462,6 +507,7 @@ export async function handleDeviceRequest(
 			t3codePairing: "dashboard",
 			t3: t3Status,
 			disk: disk ?? undefined,
+			network: network ?? undefined,
 		});
 	}
 

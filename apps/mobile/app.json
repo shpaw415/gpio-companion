@@ -6,7 +6,12 @@
 		"version": "0.0.0",
 		"orientation": "portrait",
 		"userInterfaceStyle": "automatic",
-		"plugins": ["react-native-ble-plx", "expo-router", "expo-web-browser"],
+		"plugins": [
+			"react-native-ble-plx",
+			"expo-router",
+			"expo-web-browser",
+			"expo-secure-store"
+		],
 		"ios": {
 			"supportsTablet": true,
 			"bundleIdentifier": "com.gpiocompanion.app",

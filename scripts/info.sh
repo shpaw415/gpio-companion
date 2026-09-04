@@ -129,6 +129,80 @@ health = http_json(f"http://127.0.0.1:{os.environ['GPIO_INFO_PORT']}/health")
 ssid = sh("nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '$1==\"yes\"{print $2; exit}'")
 ntp = sh("timedatectl show -p NTPSynchronized --value 2>/dev/null")
 
+def split_nmcli(line):
+	parts = []
+	buf = []
+	esc = False
+	for ch in line:
+		if esc:
+			buf.append(ch)
+			esc = False
+		elif ch == "\\":
+			esc = True
+		elif ch == ":":
+			parts.append("".join(buf))
+			buf = []
+		else:
+			buf.append(ch)
+	parts.append("".join(buf))
+	return parts
+
+def network_type(raw):
+	kind = (raw or "").lower()
+	if kind in ("ethernet", "802-3-ethernet"):
+		return "ethernet"
+	if kind in ("wifi", "802-11-wireless", "wireless"):
+		return "wifi"
+	return "unknown"
+
+def collect_network(wifi_ssid):
+	devices = []
+	for line in (sh("nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status 2>/dev/null") or "").splitlines():
+		parts = split_nmcli(line)
+		if len(parts) < 3:
+			continue
+		device, kind, state = parts[0], parts[1], parts[2]
+		connection = parts[3] if len(parts) > 3 else ""
+		if state != "connected" or kind == "loopback":
+			continue
+		devices.append({"device": device, "type": kind, "connection": connection})
+	routes = []
+	for line in (sh("ip -4 route show default 2>/dev/null") or "").splitlines():
+		bits = line.split()
+		dev = bits[bits.index("dev") + 1] if "dev" in bits and bits.index("dev") + 1 < len(bits) else ""
+		metric = 10000
+		if "metric" in bits and bits.index("metric") + 1 < len(bits):
+			try:
+				metric = int(bits[bits.index("metric") + 1])
+			except Exception:
+				pass
+		if dev:
+			routes.append({"device": dev, "metric": metric})
+	routes.sort(key=lambda item: item["metric"])
+	primary = None
+	for route in routes:
+		match = next((item for item in devices if item["device"] == route["device"]), None)
+		if match:
+			primary = match
+			break
+	if primary is None and devices:
+		wired = next((item for item in devices if network_type(item["type"]) == "ethernet"), None)
+		primary = wired or devices[0]
+	if primary is None:
+		return {"type": "unknown", "ssid": wifi_ssid, "interface": "", "connection": ""}
+	kind = network_type(primary["type"])
+	shown = wifi_ssid if kind == "wifi" else ""
+	if kind == "wifi" and not shown:
+		shown = primary["connection"]
+	return {
+		"type": kind,
+		"ssid": shown,
+		"interface": primary["device"],
+		"connection": primary["connection"],
+	}
+
+network = collect_network(ssid)
+
 info = {
 	"host": {
 		"hostname": socket.gethostname(),
@@ -140,6 +214,7 @@ info = {
 		"wifiSsid": ssid,
 		"ntpSynchronized": ntp == "yes",
 	},
+	"network": network,
 	"versions": {
 		"gpioCompanion": sh("gpio-companion version 2>/dev/null"),
 		"bun": sh("bun --version 2>/dev/null"),

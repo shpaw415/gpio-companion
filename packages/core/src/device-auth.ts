@@ -236,6 +236,30 @@ async function importPublicKey(pem: string): Promise<CryptoKey> {
 	);
 }
 
+export async function signEd25519Message(
+	privateKeyPem: string,
+	message: Uint8Array,
+): Promise<Uint8Array> {
+	const key = await importPrivateKey(privateKeyPem);
+	return new Uint8Array(
+		await crypto.subtle.sign("Ed25519", key, asBufferSource(message)),
+	);
+}
+
+export async function verifyEd25519Message(
+	publicKeyPem: string,
+	message: Uint8Array,
+	signature: Uint8Array,
+): Promise<boolean> {
+	const key = await importPublicKey(publicKeyPem);
+	return crypto.subtle.verify(
+		"Ed25519",
+		key,
+		asBufferSource(signature),
+		asBufferSource(message),
+	);
+}
+
 function asBufferSource(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
 	return new Uint8Array(bytes) as Uint8Array<ArrayBuffer>;
 }

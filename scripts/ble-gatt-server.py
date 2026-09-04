@@ -332,7 +332,7 @@ def forward_envelope(payload, status_char):
 				**{str(k): str(v) for k, v in headers.items()},
 			},
 		)
-		with urllib.request.urlopen(req, timeout=30) as resp:
+		with urllib.request.urlopen(req, timeout=45) as resp:
 			status_char.set_value(resp.read())
 	except Exception as error:
 		message = b'{"error":"ble forward failed"}'

@@ -9,10 +9,15 @@ import {
 	embeddingModelInfo,
 	estimateEmbeddingTokens,
 	estimatePromptTokens,
+	llmModelDisplayName,
 	modelRate,
+	openaiChatModelList,
+	opencodeProviderModels,
 	parseMarkup,
 	tokensToMicrodollars,
 	usdToMicros,
+	WORKERS_AI_EMBEDDING_RATES,
+	WORKERS_AI_LLM_RATES,
 } from "./ai-pricing.ts";
 
 describe("ai pricing", () => {
@@ -86,6 +91,42 @@ describe("ai pricing", () => {
 
 	test("usdToMicros", () => {
 		expect(usdToMicros(1)).toBe(1_000_000);
+	});
+});
+
+describe("opencode provider models", () => {
+	test("lists every priced LLM", () => {
+		expect(Object.keys(opencodeProviderModels()).sort()).toEqual(
+			Object.keys(WORKERS_AI_LLM_RATES).sort(),
+		);
+	});
+
+	test("names glm-5.3 GLM-5.3", () => {
+		expect(llmModelDisplayName(DEFAULT_AI_MODEL)).toBe("GLM-5.3");
+	});
+
+	test("exposes thinking-effort variants on reasoning models", () => {
+		const glm = opencodeProviderModels()[DEFAULT_AI_MODEL];
+		expect(glm?.reasoning).toBe(true);
+		expect(glm?.variants).toEqual({
+			low: { reasoningEffort: "low" },
+			medium: { reasoningEffort: "medium" },
+			high: { reasoningEffort: "high" },
+		});
+	});
+
+	test("omits variants on non-reasoning models", () => {
+		const llama = opencodeProviderModels()["@cf/meta/llama-3.2-1b-instruct"];
+		expect(llama?.reasoning).toBeUndefined();
+		expect(llama?.variants).toBeUndefined();
+	});
+
+	test("openai list matches priced LLMs and excludes embeddings", () => {
+		const ids = openaiChatModelList().map((item) => item.id);
+		expect(ids).toContain(DEFAULT_AI_MODEL);
+		expect(ids).toContain("@cf/moonshotai/kimi-k2.7-code");
+		expect(ids).not.toContain(Object.keys(WORKERS_AI_EMBEDDING_RATES)[0]);
+		expect(ids.sort()).toEqual(Object.keys(WORKERS_AI_LLM_RATES).sort());
 	});
 });
 

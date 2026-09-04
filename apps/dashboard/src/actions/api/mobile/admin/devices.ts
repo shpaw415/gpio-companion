@@ -1,7 +1,10 @@
 "no action";
 
 import { loginFromEmail } from "gpio-companion";
-import { readDeviceJson, signedDeviceFetch } from "../../../../lib/device-api.ts";
+import {
+	readDeviceJson,
+	signedDeviceFetch,
+} from "../../../../lib/device-api.ts";
 import {
 	asString,
 	type MobileContext,
@@ -17,7 +20,7 @@ import {
 	updateDeviceLabelByUuid,
 } from "../../../../lib/pairing-store.ts";
 import { requireAdmin } from "../../../../lib/session.ts";
-import { registerDeviceAiKey, unpairDevice } from "../../pair.ts";
+import { unpairDevice } from "../../pair.ts";
 
 export async function onRequestGet(ctx: MobileContext) {
 	return runMobile(ctx, async (identity) => {
@@ -115,9 +118,6 @@ export async function onRequestPost(ctx: MobileContext) {
 			email,
 			login,
 		});
-		if (next.deviceUrl) {
-			await registerDeviceAiKey(ctx.env, next.deviceUrl, toUserId);
-		}
 		return { ok: true as const, device: publicPairing(next) };
 	});
 }

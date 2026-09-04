@@ -5,11 +5,9 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
-import {
-	type BoardView,
-	deviceDisplayName,
-	patchDeviceLabel,
-} from "../api";
+import { type BoardView, deviceDisplayName, patchDeviceLabel } from "../api";
+import { formatNetworkLabel } from "../device-info";
+import CompanionInfo from "./CompanionInfo";
 import T3Pairing from "./T3Pairing";
 
 export default function BoardCard({
@@ -27,6 +25,7 @@ export default function BoardCard({
 }) {
 	const { device, status } = board;
 	const online = Boolean(status);
+	const networkLabel = formatNetworkLabel(status?.network);
 	const [label, setLabel] = useState(device.label ?? "");
 	const [saving, setSaving] = useState(false);
 
@@ -88,6 +87,9 @@ export default function BoardCard({
 							variant="outlined"
 						/>
 					) : null}
+					{networkLabel ? (
+						<Chip label={networkLabel} variant="outlined" />
+					) : null}
 					{status ? (
 						<>
 							<Chip
@@ -121,6 +123,7 @@ export default function BoardCard({
 					) : null}
 				</Stack>
 				<T3Pairing uuid={device.uuid} initial={status?.t3} />
+				<CompanionInfo key={device.uuid} uuid={device.uuid} />
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 					{onSelect ? (
 						<Button
@@ -138,9 +141,7 @@ export default function BoardCard({
 							variant="text"
 							size="small"
 							onClick={() => {
-								if (
-									!window.confirm("Remove this board from your account?")
-								) {
+								if (!window.confirm("Remove this board from your account?")) {
 									return;
 								}
 								onUnpair(device.uuid);

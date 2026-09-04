@@ -25,6 +25,8 @@ export type ChatBody = {
 	n?: number | null;
 	stream?: boolean | null;
 	stream_options?: { include_usage?: boolean };
+	reasoning_effort?: "low" | "medium" | "high" | null;
+	reasoningEffort?: "low" | "medium" | "high" | null;
 };
 
 type LegacyToolCall = {
@@ -59,6 +61,16 @@ export function estimateUsage(body: ChatBody): TokenUsage {
 		}),
 		completion_tokens: maxCompletionTokens(body),
 	};
+}
+
+export function resolveReasoningEffort(
+	body: ChatBody,
+): "low" | "medium" | "high" | undefined {
+	const raw = body.reasoning_effort ?? body.reasoningEffort;
+	if (raw === "low" || raw === "medium" || raw === "high") {
+		return raw;
+	}
+	return undefined;
 }
 
 export function billedMicros(
@@ -116,6 +128,10 @@ export function buildAiInput(
 	}
 	if (body.n != null) {
 		input.n = body.n;
+	}
+	const effort = resolveReasoningEffort(body);
+	if (effort) {
+		input.reasoning_effort = effort;
 	}
 	if (stream) {
 		input.stream = true;

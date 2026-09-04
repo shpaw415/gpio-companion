@@ -18,6 +18,7 @@ import {
 	useCachedQuery,
 	useUserBoards,
 } from "../hooks/useApiCache";
+import CompanionInfo from "./CompanionInfo";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
@@ -141,6 +142,9 @@ export default function Admin() {
 						>
 							Update companion
 						</Button>
+					</Stack>
+					<CompanionInfo key={current.device.uuid} uuid={current.device.uuid} />
+					<Stack direction="row" spacing={1} sx={{ mt: 2 }}>
 						<Button
 							variant="text"
 							onClick={() => {

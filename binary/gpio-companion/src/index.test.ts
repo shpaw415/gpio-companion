@@ -87,6 +87,21 @@ const server = startDeviceApi({
 	clockTrusted: () => true,
 	readDisk: () => ({ totalMb: 7456, availMb: 1800 }),
 	readLogs: async () => "token ghs_abcDEF123 failed",
+	readNetwork: () => ({
+		type: "wifi",
+		ssid: "bench",
+		interface: "wlan0",
+		connection: "bench",
+	}),
+	readInfo: async () => ({
+		host: { hostname: "orangepi" },
+		network: {
+			type: "ethernet",
+			ssid: "",
+			interface: "eth0",
+			connection: "Wired",
+		},
+	}),
 });
 
 afterAll(() => {
@@ -197,6 +212,39 @@ describe("gpio-companion-bin", () => {
 		expect(
 			(statusBody as { disk?: { totalMb: number; availMb: number } }).disk,
 		).toEqual({ totalMb: 7456, availMb: 1800 });
+		expect(
+			(
+				statusBody as {
+					network?: {
+						type: string;
+						ssid: string;
+						interface: string;
+						connection: string;
+					};
+				}
+			).network,
+		).toEqual({
+			type: "wifi",
+			ssid: "bench",
+			interface: "wlan0",
+			connection: "bench",
+		});
+	});
+
+	test("returns companion info when signed", async () => {
+		const denied = await deviceFetch("v1/info", {}, false);
+		expect(denied.status).toBe(401);
+		const response = await deviceFetch("v1/info");
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			host: { hostname: "orangepi" },
+			network: {
+				type: "ethernet",
+				ssid: "",
+				interface: "eth0",
+				connection: "Wired",
+			},
+		});
 	});
 
 	test("returns redacted journal excerpt", async () => {
@@ -249,11 +297,11 @@ describe("gpio-companion-bin", () => {
 		expect(body.source).toBe("device-api");
 	});
 
-	test("returns the baked gpio ai key when signed", async () => {
+	test("returns whether a gpio ai key is set, not the secret", async () => {
 		const response = await deviceFetch("v1/config/ai-key");
 		expect(response.status).toBe(200);
-		const body = (await response.json()) as { gpioAiKey: string };
-		expect(body.gpioAiKey).toBe("ai-key");
+		const body = (await response.json()) as { gpioAiKey: boolean };
+		expect(body.gpioAiKey).toBe(true);
 	});
 
 	test("sets github credentials on the pi api", async () => {

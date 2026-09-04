@@ -143,6 +143,12 @@ export type DeviceStatus = {
 	tunnel?: { configured?: boolean; apiHostname?: string };
 	secrets?: { githubReady?: boolean; gpioAiKey?: boolean };
 	t3?: T3Status;
+	network?: {
+		type?: "ethernet" | "wifi" | "unknown";
+		ssid?: string;
+		interface?: string;
+		connection?: string;
+	} | null;
 };
 
 export type BoardView = {
@@ -386,6 +392,20 @@ export function loadDeviceLogs(token: string, uuid: string) {
 		token,
 		`/api/mobile/logs?uuid=${encodeURIComponent(uuid)}`,
 	);
+}
+
+export function loadDeviceInfo(token: string, uuid: string) {
+	return request<{ info: unknown }>(
+		token,
+		`/api/mobile/info?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function signDeviceInfo(token: string, uuid: string) {
+	return request<Record<string, unknown>>(token, "/api/mobile/info", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
 }
 
 export function startDeviceUpdate(token: string, uuid: string) {

@@ -12,7 +12,7 @@ import {
 	updateDeviceLabelByUuid,
 } from "../../../lib/pairing-store.ts";
 import { requireAdmin, requireIdentity } from "../../../lib/session.ts";
-import { registerDeviceAiKey, unpairDevice } from "../pair.ts";
+import { unpairDevice } from "../pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -119,8 +119,5 @@ export const POST = wrapAction(async function POST(input: {
 		email,
 		login,
 	});
-	if (next.deviceUrl) {
-		await registerDeviceAiKey(ctx.env, next.deviceUrl, toUserId);
-	}
 	return { ok: true as const, device: publicPairing(next) };
 });

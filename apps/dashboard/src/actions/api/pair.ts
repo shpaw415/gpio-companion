@@ -5,7 +5,6 @@ import {
 	tunnelHostnames,
 } from "gpio-companion";
 import { wrapAction } from "../../lib/action.ts";
-import { registerAiKey } from "../../lib/credits.ts";
 import {
 	readDeviceJson,
 	signDeviceEnvelope,
@@ -135,9 +134,6 @@ export async function claimDevice(
 		label: existing?.label ?? "",
 	};
 	await upsertDevice(env.DYNAMIC_PAGE_KV, pairing);
-	if (!needsBle && origin) {
-		await registerDeviceAiKey(env, origin, identity.id);
-	}
 	if (needsBle) {
 		const envelope = await signDeviceEnvelope(
 			env,
@@ -256,18 +252,3 @@ export const DELETE = wrapAction(async function DELETE(uuid: string) {
 	}
 	return unpairDevice(ctx.env, identity.id, uuid);
 });
-
-export async function registerDeviceAiKey(
-	env: PagesEnv,
-	origin: string,
-	userId: string,
-): Promise<void> {
-	try {
-		const payload = await readDeviceJson<{ gpioAiKey?: string }>(
-			await signedDeviceFetch(env, origin, "GET", "/v1/config/ai-key"),
-		);
-		await registerAiKey(env.DYNAMIC_PAGE_KV, userId, payload.gpioAiKey ?? "");
-	} catch {
-		return;
-	}
-}

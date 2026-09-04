@@ -8,7 +8,6 @@ import {
 	type StoredPairing,
 } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
-import { registerDeviceAiKey } from "./pair.ts";
 
 type PagesEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
@@ -34,9 +33,6 @@ export async function listDevicesWithStatus(
 	const paired = await loadDevices(env.DYNAMIC_PAGE_KV, userId);
 	const devices: DeviceStatusItem[] = [];
 	for (const device of paired) {
-		if (device.deviceUrl) {
-			await registerDeviceAiKey(env, device.deviceUrl, userId);
-		}
 		let status: Record<string, unknown> | null = null;
 		if (device.deviceUrl) {
 			try {

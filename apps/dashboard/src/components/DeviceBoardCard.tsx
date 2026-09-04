@@ -3,7 +3,10 @@ import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { formatNetworkLabel, type NetworkStatus } from "gpio-companion";
+import type { ActionResult } from "../lib/action.ts";
 import { deviceDisplayName, type StoredPairing } from "../lib/pairing-store.ts";
+import DeviceCompanionInfo from "./DeviceCompanionInfo.tsx";
 import DeviceLabelField from "./DeviceLabelField.tsx";
 import T3PairingPanel from "./T3PairingPanel.tsx";
 
@@ -19,6 +22,7 @@ export type DeviceStatus = {
 		paired?: boolean;
 		serviceInstalled?: boolean;
 	};
+	network?: NetworkStatus | null;
 };
 
 export type BoardView = {
@@ -35,6 +39,7 @@ export default function DeviceBoardCard({
 	t3AutoStart,
 	selected,
 	onSelect,
+	loadInfo,
 }: {
 	device: StoredPairing;
 	status: DeviceStatus | null;
@@ -44,8 +49,10 @@ export default function DeviceBoardCard({
 	t3AutoStart?: boolean;
 	selected?: boolean;
 	onSelect?: (uuid: string) => void;
+	loadInfo?: (uuid: string) => Promise<ActionResult<{ info: unknown }>>;
 }) {
 	const online = Boolean(status);
+	const networkLabel = formatNetworkLabel(status?.network);
 
 	return (
 		<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
@@ -79,6 +86,9 @@ export default function DeviceBoardCard({
 							label={status?.model || status?.hardware}
 							variant="outlined"
 						/>
+					) : null}
+					{networkLabel ? (
+						<Chip label={networkLabel} variant="outlined" />
 					) : null}
 					{status ? (
 						<>
@@ -119,6 +129,13 @@ export default function DeviceBoardCard({
 					skipFetch={!t3AutoStart}
 					autoStart={t3AutoStart}
 				/>
+				{loadInfo ? (
+					<DeviceCompanionInfo
+						key={device.uuid}
+						uuid={device.uuid}
+						loadInfo={loadInfo}
+					/>
+				) : null}
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{onSelect ? (
 						<Button

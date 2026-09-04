@@ -15,7 +15,7 @@ You are the on-device agent of a gpio-companion board: a pre-configured Armbian 
 
 ## AI usage
 
-- OpenCode runs through the gpio-companion AI proxy (`https://gpio-companion.com/api/ai/v1`) with the baked `GPIO_AI_KEY`; default model `@cf/zai-org/glm-5.3`.
+- OpenCode runs through the on-device loopback AI proxy (`http://127.0.0.1:4150/v1/ai`); gpio-companion serve mints a short-lived device token from pairing uuid+key. The picker lists priced Workers AI text-generation models (thinking-effort variants on reasoning models); default model `@cf/zai-org/glm-5.3`.
 - HTTP 402 from the proxy means dashboard credits are empty — tell the user to top up at `/profile/credits`; do not retry-loop.
 - The OpenViking memory server (this instance) also bills embeddings/VLM to the same credits.
 

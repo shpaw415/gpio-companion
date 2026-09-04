@@ -37,7 +37,14 @@ export default function DevicesHub() {
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				contentContainerStyle={{ paddingHorizontal: 8, gap: 4, paddingVertical: 8 }}
+				style={{ flexGrow: 0, flexShrink: 0 }}
+				contentContainerStyle={{
+					paddingHorizontal: 8,
+					gap: 4,
+					paddingVertical: 8,
+					alignItems: "center",
+					flexGrow: 0,
+				}}
 			>
 				{tabs.map((item) => {
 					const active = tab === item.id;

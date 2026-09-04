@@ -23,7 +23,7 @@ OPENVIKING_PORT="${GPIO_COMPANION_OPENVIKING_PORT:-1933}"
 EMBEDDING_MODEL="${GPIO_COMPANION_OPENVIKING_EMBEDDING_MODEL:-@cf/baai/bge-base-en-v1.5}"
 EMBEDDING_DIMENSION="${GPIO_COMPANION_OPENVIKING_EMBEDDING_DIMENSION:-768}"
 VLM_MODEL="${GPIO_COMPANION_OPENVIKING_VLM_MODEL:-@cf/zai-org/glm-5.3}"
-AI_BASE_URL="${GPIO_COMPANION_AI_URL:-https://gpio-companion.com/api/ai/v1}"
+AI_BASE_URL="$(gpio_ai_loopback_url)"
 
 gpio_user_home() {
 	if [[ "$GPIO_USER" == "root" ]]; then
@@ -59,14 +59,6 @@ if [[ "$available" -lt "$OPENVIKING_MIN_FREE_MB" ]]; then
 	die "not enough free storage: ${available}MB on / (need ${OPENVIKING_MIN_FREE_MB}MB)"
 fi
 
-ai_key=""
-if [[ -f "$CONFIG_DIR/secrets.env" ]]; then
-	ai_key="$(sed -n 's/^GPIO_AI_KEY=//p' "$CONFIG_DIR/secrets.env" | tail -n1)"
-fi
-if [[ -z "$ai_key" ]]; then
-	die "GPIO_AI_KEY missing from $CONFIG_DIR/secrets.env; run first-setup first"
-fi
-
 echo "creating python venv..."
 install -d -m 0755 "$(dirname "$OPENVIKING_VENV")"
 if [[ ! -x "$OPENVIKING_VENV/bin/python3" ]]; then
@@ -84,7 +76,7 @@ OV_CONF="$OV_HOME/ov.conf"
 run_as_gpio_user install -d -m 0700 "$OV_HOME"
 
 echo "writing $OV_CONF..."
-HOME_DIR="$(gpio_user_home)" AI_KEY="$ai_key" AI_BASE_URL="$AI_BASE_URL" \
+HOME_DIR="$(gpio_user_home)" AI_KEY="local" AI_BASE_URL="$AI_BASE_URL" \
 	EMBEDDING_MODEL="$EMBEDDING_MODEL" EMBEDDING_DIMENSION="$EMBEDDING_DIMENSION" \
 	VLM_MODEL="$VLM_MODEL" WORKSPACE="$OV_HOME/data" HOME_DIR="$HOME_DIR" \
 	PORT="$OPENVIKING_PORT" CONF_PATH="$OV_CONF" python3 - <<'PY'

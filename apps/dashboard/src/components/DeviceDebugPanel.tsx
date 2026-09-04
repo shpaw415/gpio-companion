@@ -7,7 +7,11 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	type DebugEvent,
 	debugProbeMessage,
+	filterJournalByAge,
 	formatDiskFree,
+	JOURNAL_WINDOWS,
+	type JournalWindowId,
+	journalWindowMs,
 	type MaintenanceReport,
 	parseDebugEvent,
 } from "gpio-companion";
@@ -45,11 +49,14 @@ export default function DeviceDebugPanel({
 	const [filter, setFilter] = useState<Filter>("all");
 	const [events, setEvents] = useState<DebugEvent[]>([]);
 	const [journal, setJournal] = useState("");
+	const [journalWindow, setJournalWindow] = useState<JournalWindowId>("24h");
 	const [journalBusy, setJournalBusy] = useState(false);
 	const [updateBusy, setUpdateBusy] = useState(false);
 	const [updateNote, setUpdateNote] = useState("");
 	const socketRef = useRef<WebSocket | null>(null);
 	const logRef = useRef<HTMLPreElement | null>(null);
+	const journalRef = useRef<HTMLPreElement | null>(null);
+	const updateLockRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const selected = devices.find((device) => device.uuid === uuid);
 	const maintenance = selected?.maintenance ?? null;
 
@@ -63,8 +70,21 @@ export default function DeviceDebugPanel({
 		return () => {
 			socketRef.current?.close();
 			socketRef.current = null;
+			if (updateLockRef.current) {
+				clearTimeout(updateLockRef.current);
+			}
 		};
 	}, []);
+
+	const journalView = useMemo(() => {
+		if (!journal) {
+			return "";
+		}
+		return (
+			filterJournalByAge(journal, journalWindowMs(journalWindow)) ||
+			`No journal lines in the last ${journalWindow}.`
+		);
+	}, [journal, journalWindow]);
 
 	const visible = useMemo(() => {
 		if (filter === "all") {
@@ -107,8 +127,12 @@ export default function DeviceDebugPanel({
 	}
 
 	async function runUpdate() {
-		if (!uuid) {
+		if (!uuid || updateBusy) {
 			return;
+		}
+		if (updateLockRef.current) {
+			clearTimeout(updateLockRef.current);
+			updateLockRef.current = null;
 		}
 		setUpdateBusy(true);
 		setError("");
@@ -116,9 +140,12 @@ export default function DeviceDebugPanel({
 		try {
 			unwrapAction(await startUpdate(uuid));
 			setUpdateNote("Update started. The board may restart.");
+			updateLockRef.current = setTimeout(() => {
+				setUpdateBusy(false);
+				updateLockRef.current = null;
+			}, 120_000);
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "update failed");
-		} finally {
 			setUpdateBusy(false);
 		}
 	}
@@ -190,6 +217,11 @@ export default function DeviceDebugPanel({
 						disconnect();
 						setJournal("");
 						setUpdateNote("");
+						if (updateLockRef.current) {
+							clearTimeout(updateLockRef.current);
+							updateLockRef.current = null;
+						}
+						setUpdateBusy(false);
 						setUuid(next);
 					}}
 					disabled={connection === "connecting"}
@@ -219,25 +251,44 @@ export default function DeviceDebugPanel({
 						disabled={!uuid || journalBusy}
 						onClick={() => void fetchLogs()}
 					>
-						{journalBusy ? "Loading" : "Load last 24h"}
+						{journalBusy ? "Loading" : "Last 24h"}
 					</Button>
 					<Button
 						variant="outlined"
 						disabled={!uuid || updateBusy}
 						onClick={() => void runUpdate()}
 					>
-						{updateBusy ? "Starting" : "Update companion"}
+						{updateBusy ? "Updating…" : "Update companion"}
 					</Button>
 				</Stack>
 				{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
 				{journal ? (
 					<>
-						<Paper className="p-3" elevation={0} variant="outlined">
-							<pre className="m-0 max-h-80 overflow-auto whitespace-pre-wrap break-all font-mono text-xs">
-								{journal}
+						<Stack direction="row" spacing={1} className="flex-wrap">
+							{JOURNAL_WINDOWS.map((item) => (
+								<Chip
+									key={item.id}
+									label={item.id}
+									color={journalWindow === item.id ? "primary" : "secondary"}
+									variant={journalWindow === item.id ? "filled" : "outlined"}
+									onClick={() => setJournalWindow(item.id)}
+								/>
+							))}
+						</Stack>
+						<Paper
+							className="p-3"
+							elevation={0}
+							variant="outlined"
+							sx={{ maxHeight: 320, overflow: "auto" }}
+						>
+							<pre
+								ref={journalRef}
+								className="m-0 whitespace-pre-wrap break-all font-mono text-xs"
+							>
+								{journalView}
 							</pre>
 						</Paper>
-						<CopyBlock label="Journal excerpt" value={journal} />
+						<CopyBlock label="Journal excerpt" value={journalView} />
 					</>
 				) : null}
 				<Stack direction="row" spacing={1} className="flex-wrap">

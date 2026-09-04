@@ -54,7 +54,7 @@ App: `apps/dashboard`. Wrangler project name: `gpio-companion-dashboard`. Frame 
 
 ### KV
 
-Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` (array) and `pair:<uuid>`. GitHub App installs are `github-app:<userId>`. Legacy PATs may still exist as `github:<userId>`. AI credits are `credits:<userId>` as `{v:2,micros}` (USD microdollars; legacy integer credits migrate at $0.01 each); Pi OpenCode keys hash to `ai:<sha256>`. Enable the `AI` Workers AI binding in wrangler. Set `GPIO_AI_MARKUP` (default `1.25`). GLM-5.3 (`@cf/zai-org/glm-5.3`) requires Workers Paid or AI Gateway prepaid credits.
+Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` (array) and `pair:<uuid>`. GitHub App installs are `github-app:<userId>`. Legacy PATs may still exist as `github:<userId>`. AI credits are `credits:<userId>` as `{v:2,micros}` (USD microdollars; legacy integer credits migrate at $0.01 each). OpenCode on the Pi talks to loopback `/v1/ai`; the companion mints a ~1h device token via `POST /api/ai/credentials` (pairing uuid+key). AI routes bill the live owner of `pair:<uuid>`. Legacy hashed keys `ai:<sha256>` still work until boards update. Enable the `AI` Workers AI binding in wrangler. Set `GPIO_AI_MARKUP` (default `1.25`). GLM-5.3 (`@cf/zai-org/glm-5.3`) requires Workers Paid or AI Gateway prepaid credits.
 
 ### GitHub App (required)
 
@@ -212,7 +212,7 @@ It creates `gpio-<pairing-uuid>`, publishes:
 
 T3 pairing stays on the dashboard: first-setup runs `t3 service install`; after claim the dashboard runs `t3 pair` and shows the pair code/QR and `https://t3-…/pair#token=…`.
 
-first-setup bakes `GPIO_AI_KEY` and the OpenCode provider pointing at `/api/ai/v1` with default model `@cf/zai-org/glm-5.3`. `POST /api/ai/v1/chat/completions` forwards OpenAI `tools`/`tool_calls` and bills Cloudflare list in/out (cached-in when present) × `GPIO_AI_MARKUP`. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub access is the App install on Keys, not a PAT.
+first-setup writes the OpenCode provider to `http://127.0.0.1:4150/v1/ai` (dummy `apiKey: local`). gpio-companion serve proxies that loopback path to `/api/ai/v1` with a short-lived device token minted from pairing uuid+key. Default model `@cf/zai-org/glm-5.3`. The T3 Code / OpenCode picker lists priced Workers AI text-generation models; reasoning models expose thinking-effort variants (`low` / `medium` / `high`). `GET /api/ai/v1/models` returns that same chat catalog. `POST /api/ai/v1/chat/completions` forwards OpenAI `tools`/`tool_calls` and `reasoning_effort`, and bills Cloudflare list in/out (cached-in when present) × `GPIO_AI_MARKUP`. Unpair deletes `pair:<uuid>` so the token stops working. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub access is the App install on Keys, not a PAT.
 
 ## 5. What users need from you
 

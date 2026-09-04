@@ -1,15 +1,6 @@
 import { useState } from "react";
 import { Alert } from "react-native";
-import {
-	adminTransfer,
-	adminUnpair,
-	deviceDisplayName,
-	listAdminDevices,
-	patchAdminLabel,
-	startDeviceUpdate,
-} from "../lib/api.ts";
-import { CACHE_KEYS, useCachedQuery, useUserBoards } from "../lib/api-cache.tsx";
-import { useAuth } from "../lib/auth.tsx";
+import CompanionInfo from "../components/CompanionInfo.tsx";
 import {
 	Body,
 	ErrorText,
@@ -21,6 +12,20 @@ import {
 	TextButton,
 	Title,
 } from "../components/ui.tsx";
+import {
+	adminTransfer,
+	adminUnpair,
+	deviceDisplayName,
+	listAdminDevices,
+	patchAdminLabel,
+	startDeviceUpdate,
+} from "../lib/api.ts";
+import {
+	CACHE_KEYS,
+	useCachedQuery,
+	useUserBoards,
+} from "../lib/api-cache.tsx";
+import { useAuth } from "../lib/auth.tsx";
 
 export default function Admin() {
 	const auth = useAuth();
@@ -51,7 +56,12 @@ export default function Admin() {
 			<Title>Admin</Title>
 			<ErrorText>{error || query.error}</ErrorText>
 			{updateNote ? <Muted>{updateNote}</Muted> : null}
-			<Field label="Filter" value={filter} onChangeText={setFilter} placeholder="Name, uuid, email" />
+			<Field
+				label="Filter"
+				value={filter}
+				onChangeText={setFilter}
+				placeholder="Name, uuid, email"
+			/>
 			{query.loading ? (
 				<>
 					<Skeleton />
@@ -95,10 +105,13 @@ export default function Admin() {
 									void refetchBoards({ force: true }).catch(() => undefined);
 								})
 								.catch((caught) => {
-									setError(caught instanceof Error ? caught.message : "save failed");
+									setError(
+										caught instanceof Error ? caught.message : "save failed",
+									);
 								});
 						}}
 					/>
+					<CompanionInfo key={current.device.uuid} uuid={current.device.uuid} />
 					<TextButton
 						label="Update companion"
 						onPress={() => {
@@ -109,7 +122,9 @@ export default function Admin() {
 									setUpdateNote("Update started. The board may restart.");
 								})
 								.catch((caught) => {
-									setError(caught instanceof Error ? caught.message : "update failed");
+									setError(
+										caught instanceof Error ? caught.message : "update failed",
+									);
 								});
 						}}
 					/>
@@ -129,7 +144,9 @@ export default function Admin() {
 								})
 								.catch((caught) => {
 									setError(
-										caught instanceof Error ? caught.message : "transfer failed",
+										caught instanceof Error
+											? caught.message
+											: "transfer failed",
 									);
 								});
 						}}
@@ -152,11 +169,15 @@ export default function Admin() {
 													),
 												}));
 												setSelected("");
-												void refetchBoards({ force: true }).catch(() => undefined);
+												void refetchBoards({ force: true }).catch(
+													() => undefined,
+												);
 											})
 											.catch((caught) => {
 												setError(
-													caught instanceof Error ? caught.message : "unpair failed",
+													caught instanceof Error
+														? caught.message
+														: "unpair failed",
 												);
 											});
 									},

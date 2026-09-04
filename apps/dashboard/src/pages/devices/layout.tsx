@@ -52,6 +52,7 @@ export default function DevicesLayout({
 				onChange={(_event, next) => navigate(String(next))}
 				variant="scrollable"
 				aria-label="Devices sections"
+				sx={{ flex: "0 0 auto", height: "auto", flexShrink: 0 }}
 			>
 				{tabs.map((tab) => (
 					<Tab key={tab.href} value={tab.href} label={tab.label} />

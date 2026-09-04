@@ -12,7 +12,7 @@ Bluetooth name: **gpio-companion**.
 
 1. Pair the board on `/devices/pair` if you have not already
 2. Open `/devices/wifi`
-3. Select the paired device, then SSID and password
+3. Select the paired device, then a known network or enter SSID and password
 4. **Connect over Bluetooth** and pick `gpio-companion`
 5. Wait until status says connected
 
@@ -23,6 +23,13 @@ Chrome’s chooser uses **this computer’s** Bluetooth (not the Pi’s). Quit `
 ## Native desktop (Windows / Linux / macOS)
 
 The Tauri app in `apps/desktop` signs in with GitHub, then pairs and sends WiFi over native Bluetooth (not Web Bluetooth).
+
+On **WiFi**, pick a **Saved network** to auto-fill SSID and password:
+
+- **Desktop:** this computer’s saved WiFi profiles (password when the OS allows) plus networks you already sent from the app. The network you are on is marked *(this computer)*.
+- **Mobile:** networks you already sent from this app (iOS/Android cannot read OS WiFi passwords).
+
+If the network is not listed, choose **Enter manually** and type SSID and password. Fields stay editable after a fill. Successful sends are remembered on this device only (not uploaded). Logout does not clear them.
 
 ```sh
 cd apps/desktop

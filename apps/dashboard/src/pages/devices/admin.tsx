@@ -4,6 +4,7 @@ import {
 	GET as listAdminDevices,
 	PATCH as patchAdminDevice,
 } from "@api/admin/devices";
+import { GET as loadDeviceInfo } from "@api/device/info";
 import { POST as startDeviceUpdate } from "@api/update";
 import { POST as signWifi } from "@api/wifi";
 import Alert from "@shpaw415/mui-lite/Alert";
@@ -21,9 +22,14 @@ import Table, {
 } from "@shpaw415/mui-lite/Table";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { envelopeToPasteText } from "gpio-companion";
+import {
+	envelopeToPasteText,
+	formatNetworkLabel,
+	type NetworkStatus,
+} from "gpio-companion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CopyBlock from "../../components/CopyBlock.tsx";
+import DeviceCompanionInfo from "../../components/DeviceCompanionInfo.tsx";
 import DeviceLabelField from "../../components/DeviceLabelField.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import { TableRowsSkeleton } from "../../components/skeletons.tsx";
@@ -50,6 +56,7 @@ type DeviceStatus = {
 		paired?: boolean;
 		serviceInstalled?: boolean;
 	};
+	network?: NetworkStatus | null;
 };
 
 type BoardView = {
@@ -240,6 +247,14 @@ export default function AdminDevicesPage() {
 																		variant="outlined"
 																	/>
 																) : null}
+																{formatNetworkLabel(board.status.network) ? (
+																	<Chip
+																		label={formatNetworkLabel(
+																			board.status.network,
+																		)}
+																		variant="outlined"
+																	/>
+																) : null}
 																<Chip
 																	label={
 																		board.status.t3?.paired
@@ -322,6 +337,11 @@ export default function AdminDevicesPage() {
 									uuid={current.device.uuid}
 									initialStatus={current.status?.t3}
 									skipFetch
+								/>
+								<DeviceCompanionInfo
+									key={current.device.uuid}
+									uuid={current.device.uuid}
+									loadInfo={loadDeviceInfo}
 								/>
 								<TextField
 									label="SSID"

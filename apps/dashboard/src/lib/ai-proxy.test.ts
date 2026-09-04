@@ -76,4 +76,40 @@ describe("ai proxy", () => {
 				.prompt_tokens,
 		).toBeGreaterThan(0);
 	});
+
+	test("forwards reasoning_effort", () => {
+		expect(
+			buildAiInput(
+				{
+					messages: [{ role: "user", content: "hi" }],
+					reasoning_effort: "high",
+				},
+				false,
+			).reasoning_effort,
+		).toBe("high");
+	});
+
+	test("accepts OpenCode reasoningEffort camelCase", () => {
+		expect(
+			buildAiInput(
+				{
+					messages: [{ role: "user", content: "hi" }],
+					reasoningEffort: "low",
+				},
+				false,
+			).reasoning_effort,
+		).toBe("low");
+	});
+
+	test("drops invalid reasoning effort", () => {
+		expect(
+			buildAiInput(
+				{
+					messages: [{ role: "user", content: "hi" }],
+					reasoning_effort: "nope" as never,
+				},
+				false,
+			).reasoning_effort,
+		).toBeUndefined();
+	});
 });

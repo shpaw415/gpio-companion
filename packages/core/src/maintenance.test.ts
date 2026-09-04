@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	capLogText,
+	filterJournalByAge,
 	formatDiskFree,
+	journalWindowMs,
 	parseDiskStats,
+	parseJournalTimestamp,
 	parseMaintenanceReport,
 	redactLogText,
 } from "./maintenance.ts";
@@ -54,6 +57,29 @@ describe("maintenance helpers", () => {
 	test("formats disk free", () => {
 		expect(formatDiskFree({ totalMb: 1000, availMb: 250 })).toBe(
 			"250 MB free (25%)",
+		);
+	});
+
+	test("parses journalctl short-iso timestamps", () => {
+		expect(
+			parseJournalTimestamp("2026-09-04T12:00:00+0000 host gpio[1]: ok"),
+		).toBe(Date.parse("2026-09-04T12:00:00+00:00"));
+		expect(parseJournalTimestamp("not a log line")).toBeNull();
+	});
+
+	test("filters journal lines by age window", () => {
+		const now = Date.parse("2026-09-04T12:00:00+00:00");
+		const text = [
+			"2026-09-04T01:00:00+0000 host gpio[1]: old",
+			"  continuation of old",
+			"2026-09-04T11:50:00+0000 host gpio[1]: recent",
+			"  continuation of recent",
+		].join("\n");
+		expect(filterJournalByAge(text, journalWindowMs("1h"), now)).toBe(
+			"2026-09-04T11:50:00+0000 host gpio[1]: recent\n  continuation of recent",
+		);
+		expect(filterJournalByAge(text, journalWindowMs("24h"), now)).toContain(
+			"old",
 		);
 	});
 });

@@ -16,6 +16,41 @@ export type ModelRate = {
 	cachedInput?: number;
 };
 
+export type ReasoningEffort = "low" | "medium" | "high";
+
+export const REASONING_EFFORTS: readonly ReasoningEffort[] = [
+	"low",
+	"medium",
+	"high",
+];
+
+export type OpencodeProviderModel = {
+	name: string;
+	tool_call: boolean;
+	reasoning?: boolean;
+	variants?: Record<string, { reasoningEffort: ReasoningEffort }>;
+};
+
+export const WORKERS_AI_LLM_REASONING = new Set<string>([
+	"@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+	"@cf/deepseek-ai/deepseek-v4-flash-0731",
+	"@cf/deepseek-ai/deepseek-v4-pro-0813",
+	"@cf/google/gemma-4-26b-a4b-it",
+	"@cf/zai-org/glm-4.7-flash",
+	"@cf/zai-org/glm-5.2",
+	"@cf/zai-org/glm-5.3",
+	"@cf/zai-org/glm-5.3-flash",
+	"@cf/openai/gpt-oss-120b",
+	"@cf/openai/gpt-oss-20b",
+	"@cf/moonshotai/kimi-k2.5",
+	"@cf/moonshotai/kimi-k2.6",
+	"@cf/moonshotai/kimi-k2.7-code",
+	"@cf/nvidia/nemotron-3-120b-a12b",
+	"@cf/qwen/qwen3-30b-a3b-fp8",
+	"@cf/qwen/qwen3.8-27b",
+	"@cf/qwen/qwq-32b",
+]);
+
 function usdPerM(usd: number): number {
 	return Math.round(usd * USD_MICROS);
 }
@@ -163,6 +198,65 @@ export const WORKERS_AI_LLM_RATES: Record<string, ModelRate> = {
 
 export function modelRate(model: string): ModelRate | null {
 	return WORKERS_AI_LLM_RATES[model.trim()] ?? null;
+}
+
+export function llmModelDisplayName(id: string): string {
+	const slug = id.trim().split("/").pop() ?? id.trim();
+	return slug
+		.split("-")
+		.map((part) => {
+			if (/^(glm|gpt|oss)$/i.test(part)) {
+				return part.toUpperCase();
+			}
+			if (/^\d/.test(part)) {
+				return part.toUpperCase();
+			}
+			return part.charAt(0).toUpperCase() + part.slice(1);
+		})
+		.join("-");
+}
+
+export function llmModelReasoning(model: string): boolean {
+	return WORKERS_AI_LLM_REASONING.has(model.trim());
+}
+
+export function opencodeProviderModels(): Record<
+	string,
+	OpencodeProviderModel
+> {
+	const models: Record<string, OpencodeProviderModel> = {};
+	for (const id of Object.keys(WORKERS_AI_LLM_RATES)) {
+		const entry: OpencodeProviderModel = {
+			name: llmModelDisplayName(id),
+			tool_call: true,
+		};
+		if (llmModelReasoning(id)) {
+			entry.reasoning = true;
+			entry.variants = {
+				low: { reasoningEffort: "low" },
+				medium: { reasoningEffort: "medium" },
+				high: { reasoningEffort: "high" },
+			};
+		}
+		models[id] = entry;
+	}
+	return models;
+}
+
+export type OpenAiModelListItem = {
+	id: string;
+	object: "model";
+	created: number;
+	owned_by: string;
+};
+
+export function openaiChatModelList(): OpenAiModelListItem[] {
+	return Object.keys(WORKERS_AI_LLM_RATES).map((id) => ({
+		id,
+		object: "model",
+		created: 0,
+		owned_by: "workers-ai",
+	}));
 }
 
 export const DEFAULT_EMBEDDING_MODEL = "@cf/baai/bge-base-en-v1.5";

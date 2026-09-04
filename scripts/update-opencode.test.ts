@@ -2,6 +2,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+	DEFAULT_AI_MODEL,
+	opencodeProviderModels,
+} from "../packages/core/src/ai-pricing.ts";
 
 const libSh = join(import.meta.dir, "lib.sh");
 const dirs: string[] = [];
@@ -75,5 +79,57 @@ update_opencode
 		);
 		expect(result.exit).toBe(1);
 		expect(result.stderr).toContain("opencode not found");
+	});
+});
+
+describe("write_opencode_ai_provider", () => {
+	test("writes priced LLMs and thinking-effort variants", async () => {
+		const dir = await tempDir();
+		const home = join(dir, "opencode");
+		const result = await bash(
+			`
+source "${libSh}"
+GPIO_USER=root
+GPIO_COMPANION_T3_SKIP_RESTART=1
+write_opencode_ai_provider "test-key"
+`,
+			{
+				GPIO_COMPANION_OPENCODE_HOME: home,
+				GPIO_COMPANION_T3_SKIP_RESTART: "1",
+			},
+		);
+		expect(result.exit).toBe(0);
+		const config = JSON.parse(
+			await Bun.file(join(home, "opencode.json")).text(),
+		) as {
+			model: string;
+			provider: {
+				"gpio-companion": {
+					options: { baseURL: string; apiKey: string };
+					models: Record<
+						string,
+						{
+							name: string;
+							variants?: Record<string, { reasoningEffort: string }>;
+						}
+					>;
+				};
+			};
+		};
+		const provider = config.provider["gpio-companion"];
+		expect(provider.options.baseURL).toBe("http://127.0.0.1:4150/v1/ai");
+		expect(provider.options.apiKey).toBe("local");
+		const models = provider.models;
+		expect(Object.keys(models).sort()).toEqual(
+			Object.keys(opencodeProviderModels()).sort(),
+		);
+		expect(config.model).toBe(`gpio-companion/${DEFAULT_AI_MODEL}`);
+		expect(models[DEFAULT_AI_MODEL]?.name).toBe("GLM-5.3");
+		expect(models[DEFAULT_AI_MODEL]?.variants).toEqual({
+			low: { reasoningEffort: "low" },
+			medium: { reasoningEffort: "medium" },
+			high: { reasoningEffort: "high" },
+		});
+		expect(models["@cf/meta/llama-3.2-1b-instruct"]?.variants).toBeUndefined();
 	});
 });

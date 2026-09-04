@@ -1,4 +1,5 @@
 import { GET as getDevice } from "@api/device";
+import { GET as loadDeviceInfo } from "@api/device/info";
 import { GET as getPairing } from "@api/pair";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
@@ -105,6 +106,7 @@ export default function DevicesPage() {
 					status={board.status}
 					selected={board.device.uuid === selectedUuid}
 					onSelect={selectBoard}
+					loadInfo={loadDeviceInfo}
 					onLabelSaved={(label) => {
 						setBoards((current) =>
 							current.map((item) =>

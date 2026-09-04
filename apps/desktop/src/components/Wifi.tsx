@@ -8,14 +8,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	bleScan,
 	bleWifi,
+	type KnownNetwork,
+	knownNetworkLabel,
 	type NearbyBoard,
 	nearbyBoardLabel,
 	onBleStatus,
+	wifiKnownNetworks,
+	wifiNetworkPsk,
+	wifiRememberNetwork,
 } from "../api";
 import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import DebugLog from "./DebugLog";
 import { SelectSkeleton } from "./skeletons";
+
+const MANUAL = "manual";
+
+function networkValue(ssid: string) {
+	return `ssid:${ssid}`;
+}
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
 	const {
@@ -27,8 +38,11 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
 	const [uuid, setUuid] = useState("");
 	const [boardId, setBoardId] = useState("auto");
+	const [networks, setNetworks] = useState<KnownNetwork[]>([]);
+	const [networkId, setNetworkId] = useState(MANUAL);
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
 	const [scanning, setScanning] = useState(false);
@@ -54,6 +68,38 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		});
 		return () => unlisten?.();
 	}, []);
+
+	const applyNetwork = useCallback(async (network: KnownNetwork) => {
+		setSsid(network.ssid);
+		if (network.psk) {
+			setPsk(network.psk);
+			return;
+		}
+		try {
+			const secret = await wifiNetworkPsk(network.ssid);
+			setPsk(secret);
+		} catch {
+			setPsk("");
+		}
+	}, []);
+
+	const loadNetworks = useCallback(async () => {
+		try {
+			const next = await wifiKnownNetworks();
+			setNetworks(next);
+			const current = next.find((network) => network.current && network.psk);
+			if (current) {
+				setNetworkId(networkValue(current.ssid));
+				await applyNetwork(current);
+			}
+		} catch {
+			setNetworks([]);
+		}
+	}, [applyNetwork]);
+
+	useEffect(() => {
+		void loadNetworks();
+	}, [loadNetworks]);
 
 	const scan = useCallback(async () => {
 		const generation = ++scanRef.current;
@@ -86,6 +132,18 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		void scan();
 	}, [scan]);
 
+	async function pickNetwork(next: string) {
+		setNetworkId(next);
+		if (next === MANUAL) {
+			return;
+		}
+		const ssidValue = next.startsWith("ssid:") ? next.slice(5) : next;
+		const found = networks.find((network) => network.ssid === ssidValue);
+		if (found) {
+			await applyNetwork(found);
+		}
+	}
+
 	async function send() {
 		const trimmedSsid = ssid.trim();
 		if (!trimmedSsid) {
@@ -106,6 +164,14 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				id: boardId === "auto" ? "" : boardId,
 			});
 			setStatus(raw || "sent");
+			try {
+				await wifiRememberNetwork(trimmedSsid, psk);
+				const next = await wifiKnownNetworks();
+				setNetworks(next);
+				setNetworkId(networkValue(trimmedSsid));
+			} catch {
+				// keep local fields; remember is best-effort
+			}
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "wifi failed";
 			console.error("gpio-companion-desktop wifi", message);
@@ -122,7 +188,8 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			</Typography>
 			<Typography color="secondary">
 				Pick the Pi in Nearby Bluetooth device, or leave Auto-detect and hold it
-				close.
+				close. Choose a known network to fill SSID and password, or enter them
+				manually.
 			</Typography>
 			{devicesLoading ? (
 				<SelectSkeleton height={56} width="100%" />
@@ -167,6 +234,25 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 					)),
 				]}
 			</Select>
+			<Select
+				name="network"
+				label="Saved network"
+				value={networkId}
+				onSelect={(next) => void pickNetwork(next)}
+				sx={{ width: "100%" }}
+				disabled={busy}
+			>
+				{[
+					<option key={MANUAL} value={MANUAL}>
+						Enter manually
+					</option>,
+					...networks.map((network) => (
+						<option key={network.ssid} value={networkValue(network.ssid)}>
+							{knownNetworkLabel(network)}
+						</option>
+					)),
+				]}
+			</Select>
 			<TextField
 				label="SSID"
 				value={ssid}
@@ -174,10 +260,16 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			/>
 			<TextField
 				label="Password"
-				type="password"
+				type={showPassword ? "text" : "password"}
 				value={psk}
 				onChange={(event) => setPsk(event.target.value)}
 			/>
+			<Button
+				variant="text"
+				onClick={() => setShowPassword((current) => !current)}
+			>
+				{showPassword ? "Hide password" : "Show password"}
+			</Button>
 			{status ? <Typography>{status}</Typography> : null}
 			{error || devicesError ? (
 				<Alert severity="error">{error || devicesError}</Alert>

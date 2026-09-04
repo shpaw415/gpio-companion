@@ -657,6 +657,10 @@ refresh_device_public_key() {
 }
 
 opencode_home() {
+	if [[ -n "${GPIO_COMPANION_OPENCODE_HOME:-}" ]]; then
+		printf '%s\n' "$GPIO_COMPANION_OPENCODE_HOME"
+		return
+	fi
 	if [[ "$GPIO_USER" == "root" ]]; then
 		echo "/root/.config/opencode"
 	else
@@ -820,16 +824,27 @@ ensure_gpio_ai_key() {
 	printf '%s' "$key"
 }
 
+gpio_ai_loopback_url() {
+	local port="${GPIO_COMPANION_PORT:-4150}"
+	echo "${GPIO_COMPANION_AI_LOOPBACK:-http://127.0.0.1:${port}/v1/ai}"
+}
+
 write_opencode_ai_provider() {
-	local key="$1"
-	local dest base
+	local dest base catalog result
 	dest="$(opencode_home)"
-	base="${GPIO_COMPANION_AI_URL:-https://gpio-companion.com/api/ai/v1}"
+	base="$(gpio_ai_loopback_url)"
 	install -d -m 0755 "$dest"
-	GPIO_AI_KEY="$key" GPIO_AI_URL="$base" GPIO_OPENCODE_JSON="$dest/opencode.json" python3 - <<'PY'
+	command -v bun >/dev/null 2>&1 || die "bun is required to write OpenCode AI models"
+	catalog="$(
+		cd "$REPO_ROOT" && bun -e 'import { DEFAULT_AI_MODEL, opencodeProviderModels } from "./packages/core/src/ai-pricing.ts";
+process.stdout.write(JSON.stringify({ defaultModel: DEFAULT_AI_MODEL, models: opencodeProviderModels() }))'
+	)" || die "failed to load OpenCode AI models"
+	result="$(
+		GPIO_AI_URL="$base" GPIO_OPENCODE_JSON="$dest/opencode.json" GPIO_OPENCODE_CATALOG="$catalog" python3 - <<'PY'
 import json, os
 from pathlib import Path
 path = Path(os.environ["GPIO_OPENCODE_JSON"])
+catalog = json.loads(os.environ["GPIO_OPENCODE_CATALOG"])
 data = {}
 if path.exists():
     try:
@@ -838,7 +853,7 @@ if path.exists():
             data = loaded
     except json.JSONDecodeError:
         data = {}
-provider = data.setdefault("provider", {})
+provider = data.get("provider")
 if not isinstance(provider, dict):
     provider = {}
     data["provider"] = provider
@@ -847,16 +862,75 @@ provider["gpio-companion"] = {
     "name": "gpio-companion",
     "options": {
         "baseURL": os.environ["GPIO_AI_URL"],
-        "apiKey": os.environ["GPIO_AI_KEY"],
+        "apiKey": "local",
     },
-    "models": {
-        "@cf/zai-org/glm-5.3": {"name": "GLM-5.3"},
-    },
+    "models": catalog["models"],
 }
-path.write_text(json.dumps(data, indent="\t") + "\n")
+default_model = f"gpio-companion/{catalog['defaultModel']}"
+if not data.get("model"):
+    data["model"] = default_model
+text = json.dumps(data, indent="\t") + "\n"
+if path.exists() and path.read_text() == text:
+    print("unchanged")
+else:
+    path.write_text(text)
+    print("changed")
 PY
+	)"
 	if [[ "$GPIO_USER" != "root" ]]; then
 		chown -R "$GPIO_USER:$GPIO_USER" "$dest"
+	fi
+	if [[ "$result" == "changed" ]]; then
+		echo "gpio-companion: OpenCode gpio-companion models refreshed"
+		restart_t3_service || true
+	fi
+}
+
+write_openviking_ai_loopback() {
+	local home conf
+	if [[ "$GPIO_USER" == "root" ]]; then
+		home="/root"
+	else
+		home="/home/$GPIO_USER"
+	fi
+	conf="$home/.openviking/ov.conf"
+	[[ -f "$conf" ]] || return 0
+	GPIO_AI_URL="$(gpio_ai_loopback_url)" GPIO_OV_CONF="$conf" python3 - <<'PY'
+import json, os
+from pathlib import Path
+path = Path(os.environ["GPIO_OV_CONF"])
+try:
+	data = json.loads(path.read_text())
+except (json.JSONDecodeError, OSError):
+	raise SystemExit(0)
+if not isinstance(data, dict):
+	raise SystemExit(0)
+base = os.environ["GPIO_AI_URL"]
+changed = False
+for section in ("embedding", "vlm"):
+	block = data.get(section)
+	if not isinstance(block, dict):
+		continue
+	targets = [block]
+	dense = block.get("dense")
+	if isinstance(dense, dict):
+		targets.append(dense)
+	for target in targets:
+		if "api_base" not in target and "api_key" not in target:
+			continue
+		if target.get("api_base") != base or target.get("api_key") != "local":
+			target["api_base"] = base
+			target["api_key"] = "local"
+			changed = True
+if changed:
+	path.write_text(json.dumps(data, indent="\t") + "\n")
+	path.chmod(0o600)
+	print("changed")
+else:
+	print("unchanged")
+PY
+	if [[ "$GPIO_USER" != "root" ]]; then
+		chown "$GPIO_USER:$GPIO_USER" "$conf" 2>/dev/null || true
 	fi
 }
 
