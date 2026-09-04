@@ -9,6 +9,7 @@ import {
 	deviceDisplayName,
 	listDebugBoards,
 	loadDeviceLogs,
+	startDeviceUpdate,
 } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
@@ -31,6 +32,7 @@ export default function Debug() {
 	const [active, setActive] = useState("");
 	const [journal, setJournal] = useState("");
 	const [journalFor, setJournalFor] = useState("");
+	const [updateNote, setUpdateNote] = useState("");
 	const loading = query.loading;
 	const socket = useRef<WebSocket | null>(null);
 
@@ -48,6 +50,17 @@ export default function Debug() {
 			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "logs failed");
+		}
+	}
+
+	async function runUpdate(uuid: string) {
+		setError("");
+		setUpdateNote("");
+		try {
+			await startDeviceUpdate(uuid);
+			setUpdateNote("Update started. The board may restart.");
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "update failed");
 		}
 	}
 
@@ -87,6 +100,7 @@ export default function Debug() {
 			{error || query.error ? (
 				<Alert severity="error">{error || query.error}</Alert>
 			) : null}
+			{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
 			{error || query.error ? <DebugLog error={error || query.error} /> : null}
 			{loading ? <ListSkeleton items={3} /> : null}
 			{loading
@@ -107,6 +121,9 @@ export default function Debug() {
 							</Button>
 							<Button variant="text" onClick={() => void fetchLogs(board.uuid)}>
 								Last 24h
+							</Button>
+							<Button variant="text" onClick={() => void runUpdate(board.uuid)}>
+								Update companion
 							</Button>
 						</Paper>
 					))}

@@ -29,6 +29,7 @@ import {
 } from "./store.ts";
 import { liveT3Controller } from "./t3.ts";
 import { applyCloudflaredReplica } from "./tunnel.ts";
+import { applySystemdUpdate } from "./update.ts";
 import { applyNetworkManagerWifi } from "./wifi.ts";
 
 const command = process.argv[2] ?? "serve";
@@ -100,6 +101,7 @@ const server = startDeviceApi({
 	pairing,
 	applyTunnel: applyCloudflaredReplica(envPath),
 	applyWifi: applyNetworkManagerWifi(),
+	applyUpdate: applySystemdUpdate(),
 	t3,
 	revokeT3: () => t3.revoke(),
 	deviceAuth,

@@ -220,3 +220,10 @@ export function loadDeviceLogs(token: string, uuid: string) {
 		`/api/mobile/logs?uuid=${encodeURIComponent(uuid)}`,
 	);
 }
+
+export function startDeviceUpdate(token: string, uuid: string) {
+	return request<{ started: boolean }>(token, "/api/mobile/update", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
+}

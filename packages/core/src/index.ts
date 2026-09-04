@@ -162,6 +162,7 @@ export {
 	parseDiskStats,
 	parseMaintenanceReport,
 	redactLogText,
+	UPDATE_PATH,
 } from "./maintenance.ts";
 export {
 	emptyPairingState,

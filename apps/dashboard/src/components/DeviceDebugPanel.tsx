@@ -27,6 +27,7 @@ export default function DeviceDebugPanel({
 	devices,
 	signConnect,
 	loadLogs,
+	startUpdate,
 }: {
 	devices: DebugPanelDevice[];
 	signConnect: (uuid: string) => Promise<
@@ -36,6 +37,7 @@ export default function DeviceDebugPanel({
 		}>
 	>;
 	loadLogs: (uuid: string) => Promise<ActionResult<{ text: string }>>;
+	startUpdate: (uuid: string) => Promise<ActionResult<{ started: boolean }>>;
 }) {
 	const [uuid, setUuid] = useState(devices[0]?.uuid ?? "");
 	const [connection, setConnection] = useState<Connection>("idle");
@@ -44,6 +46,8 @@ export default function DeviceDebugPanel({
 	const [events, setEvents] = useState<DebugEvent[]>([]);
 	const [journal, setJournal] = useState("");
 	const [journalBusy, setJournalBusy] = useState(false);
+	const [updateBusy, setUpdateBusy] = useState(false);
+	const [updateNote, setUpdateNote] = useState("");
 	const socketRef = useRef<WebSocket | null>(null);
 	const logRef = useRef<HTMLPreElement | null>(null);
 	const selected = devices.find((device) => device.uuid === uuid);
@@ -99,6 +103,23 @@ export default function DeviceDebugPanel({
 			setError(caught instanceof Error ? caught.message : "logs failed");
 		} finally {
 			setJournalBusy(false);
+		}
+	}
+
+	async function runUpdate() {
+		if (!uuid) {
+			return;
+		}
+		setUpdateBusy(true);
+		setError("");
+		setUpdateNote("");
+		try {
+			unwrapAction(await startUpdate(uuid));
+			setUpdateNote("Update started. The board may restart.");
+		} catch (caught) {
+			setError(caught instanceof Error ? caught.message : "update failed");
+		} finally {
+			setUpdateBusy(false);
 		}
 	}
 
@@ -168,6 +189,7 @@ export default function DeviceDebugPanel({
 					onChange={(next) => {
 						disconnect();
 						setJournal("");
+						setUpdateNote("");
 						setUuid(next);
 					}}
 					disabled={connection === "connecting"}
@@ -199,7 +221,15 @@ export default function DeviceDebugPanel({
 					>
 						{journalBusy ? "Loading" : "Load last 24h"}
 					</Button>
+					<Button
+						variant="outlined"
+						disabled={!uuid || updateBusy}
+						onClick={() => void runUpdate()}
+					>
+						{updateBusy ? "Starting" : "Update companion"}
+					</Button>
 				</Stack>
+				{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
 				{journal ? (
 					<>
 						<Paper className="p-3" elevation={0} variant="outlined">

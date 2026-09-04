@@ -320,6 +320,12 @@ export function loadDeviceLogs(uuid: string) {
 	);
 }
 
+export function startDeviceUpdate(uuid: string) {
+	return apiRequest<{ started: boolean }>("POST", "/api/mobile/update", {
+		uuid,
+	});
+}
+
 export function listAdminDevices() {
 	return apiRequest<{ devices: AdminDeviceItem[] }>(
 		"GET",

@@ -25,6 +25,7 @@ let t3Paired = false;
 let t3Running = false;
 let t3PairingUrl = "";
 const clockSets: number[] = [];
+let updateStarts = 0;
 
 const server = startDeviceApi({
 	port: 0,
@@ -34,6 +35,9 @@ const server = startDeviceApi({
 	pairing: filePairingStore(pairingPath, "pair-uuid", "pair-key"),
 	applyTunnel: async () => {
 		applied += 1;
+	},
+	applyUpdate: async () => {
+		updateStarts += 1;
 	},
 	applyWifi: async (config) => {
 		if (config.ssid === "missing") {
@@ -204,6 +208,15 @@ describe("gpio-companion-bin", () => {
 			text: "token [redacted] failed",
 			sinceHours: 24,
 		});
+	});
+
+	test("starts companion update when signed", async () => {
+		const denied = await deviceFetch("v1/update", { method: "POST" }, false);
+		expect(denied.status).toBe(401);
+		const response = await deviceFetch("v1/update", { method: "POST" });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ started: true });
+		expect(updateStarts).toBe(1);
 	});
 
 	test("quotes tunnel env values", () => {

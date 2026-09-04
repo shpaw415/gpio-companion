@@ -5,8 +5,13 @@ import {
 	listLiveBoards,
 	mergeDebugBoards,
 	putLiveBoard,
+	resolveAccessibleDeviceUrl,
 } from "./debug-live.ts";
-import type { PublicPairing } from "./pairing-store.ts";
+import {
+	type PublicPairing,
+	type StoredPairing,
+	upsertDevice,
+} from "./pairing-store.ts";
 
 function memoryKv() {
 	const data = new Map<string, string>();
@@ -88,5 +93,38 @@ describe("debug live presence", () => {
 		expect((await listLiveBoards(kv, 5)).map((board) => board.uuid)).toEqual([
 			"one",
 		]);
+	});
+
+	test("resolves owner and admin urls, including unpaired live boards", async () => {
+		const kv = memoryKv();
+		const owned: StoredPairing = {
+			userId: "user-1",
+			uuid: "owned",
+			key: "key-owned",
+			deviceUrl: "https://api-owned.gpio-companion.com",
+			login: "ada",
+			email: "ada@gpio-companion.com",
+			claimedAt: "2026-09-04T00:00:00.000Z",
+			label: "bench",
+		};
+		await upsertDevice(kv, owned);
+		await putLiveBoard(kv, { uuid: "fresh" });
+		expect(
+			await resolveAccessibleDeviceUrl(
+				kv,
+				{ id: "user-1", role: "user" },
+				"owned",
+			),
+		).toBe(owned.deviceUrl);
+		await expect(
+			resolveAccessibleDeviceUrl(kv, { id: "user-1", role: "user" }, "fresh"),
+		).rejects.toThrow("device is not paired with this account");
+		expect(
+			await resolveAccessibleDeviceUrl(
+				kv,
+				{ id: "admin-1", role: "admin" },
+				"fresh",
+			),
+		).toBe("https://api-fresh.gpio-companion.com");
 	});
 });

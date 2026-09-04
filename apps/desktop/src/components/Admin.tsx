@@ -11,6 +11,7 @@ import {
 	deviceDisplayName,
 	listAdminDevices,
 	patchAdminLabel,
+	startDeviceUpdate,
 } from "../api";
 import {
 	CACHE_KEYS,
@@ -28,6 +29,7 @@ export default function Admin() {
 	const [selected, setSelected] = useState("");
 	const [label, setLabel] = useState("");
 	const [error, setError] = useState("");
+	const [updateNote, setUpdateNote] = useState("");
 	const loading = query.loading;
 
 	const visible = devices.filter((item) => {
@@ -45,6 +47,7 @@ export default function Admin() {
 			{error || query.error ? (
 				<Alert severity="error">{error || query.error}</Alert>
 			) : null}
+			{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
 			{error || query.error ? <DebugLog error={error || query.error} /> : null}
 			<TextField
 				label="Filter"
@@ -118,6 +121,26 @@ export default function Admin() {
 						</Button>
 					</Stack>
 					<Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+						<Button
+							variant="text"
+							onClick={() => {
+								setError("");
+								setUpdateNote("");
+								void startDeviceUpdate(current.device.uuid)
+									.then(() => {
+										setUpdateNote("Update started. The board may restart.");
+									})
+									.catch((caught) => {
+										setError(
+											caught instanceof Error
+												? caught.message
+												: "update failed",
+										);
+									});
+							}}
+						>
+							Update companion
+						</Button>
 						<Button
 							variant="text"
 							onClick={() => {

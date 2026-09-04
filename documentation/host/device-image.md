@@ -107,5 +107,6 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 - Compares installed `t3` to npm `t3@latest` and runs `npm install -g t3@latest` plus `t3 service install` when behind (or on `--force`); registry miss keeps the current package; re-locks T3 Code to OpenCode-only providers
 - Runs `opencode upgrade` as the GPIO user
 - Force rebuild even when HEAD did not move: `sudo ./scripts/force-update.sh` or `sudo gpio-companion-force-update` (`--force` / `GPIO_COMPANION_UPDATE_FORCE=1`)
+- Dashboard owner or admin can start the same timer job remotely: signed `POST /v1/update` → `systemctl start --no-block gpio-companion-update.service` (HTTP returns immediately; the board may restart)
 
 Public-key rotations are **dashboard-only** (new Pages secret); Pis pick them up on the next updater run without a git commit. Fetch failure keeps the current file.

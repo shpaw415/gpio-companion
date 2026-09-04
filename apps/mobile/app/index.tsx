@@ -16,6 +16,7 @@ import {
 	listDebugBoards,
 	loadDeviceLogs,
 	type MaintenanceReport,
+	startDeviceUpdate,
 	t3Action,
 	unpairDevice,
 } from "../src/lib/api.ts";
@@ -31,6 +32,7 @@ export default function DevicesScreen() {
 	const [refreshing, setRefreshing] = useState(false);
 	const [t3Busy, setT3Busy] = useState("");
 	const [logBusy, setLogBusy] = useState("");
+	const [updateBusy, setUpdateBusy] = useState("");
 	const [maintenance, setMaintenance] = useState<
 		Record<string, MaintenanceReport | null>
 	>({});
@@ -149,6 +151,37 @@ export default function DevicesScreen() {
 						>
 							<Text style={styles.primaryLink}>
 								{logBusy === item.uuid ? "Loading logs…" : "Last 24h logs"}
+							</Text>
+						</Pressable>
+						<Pressable
+							disabled={updateBusy === item.uuid || !auth.token}
+							onPress={() => {
+								if (!auth.token) {
+									return;
+								}
+								setUpdateBusy(item.uuid);
+								void startDeviceUpdate(auth.token, item.uuid)
+									.then(() => {
+										Alert.alert(
+											"Update companion",
+											"Update started. The board may restart.",
+										);
+										setError("");
+									})
+									.catch((caught) => {
+										setError(
+											caught instanceof Error
+												? caught.message
+												: "update failed",
+										);
+									})
+									.finally(() => setUpdateBusy(""));
+							}}
+						>
+							<Text style={styles.primaryLink}>
+								{updateBusy === item.uuid
+									? "Starting update…"
+									: "Update companion"}
 							</Text>
 						</Pressable>
 						<Pressable

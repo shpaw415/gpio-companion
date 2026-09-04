@@ -4,6 +4,7 @@ import {
 	GET as listAdminDevices,
 	PATCH as patchAdminDevice,
 } from "@api/admin/devices";
+import { POST as startDeviceUpdate } from "@api/update";
 import { POST as signWifi } from "@api/wifi";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
@@ -72,6 +73,7 @@ export default function AdminDevicesPage() {
 	const [toUserId, setToUserId] = useState("");
 	const [pasteText, setPasteText] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [updateNote, setUpdateNote] = useState("");
 
 	const applyList = useCallback(
 		(
@@ -147,8 +149,8 @@ export default function AdminDevicesPage() {
 		<Stack spacing={3}>
 			<SectionHeader title="Admin devices">
 				<Typography color="secondary">
-					Debug every account’s Pi without taking ownership (status, T3, WiFi).
-					Unpair, label, and force-transfer change state.
+					Debug every account’s Pi without taking ownership (status, T3, WiFi,
+					companion update). Unpair, label, and force-transfer change state.
 				</Typography>
 			</SectionHeader>
 
@@ -201,6 +203,7 @@ export default function AdminDevicesPage() {
 													onClick={() => {
 														setSelected(board.device.uuid);
 														setPasteText("");
+														setUpdateNote("");
 													}}
 												>
 													<TableCell className="break-all">
@@ -334,6 +337,28 @@ export default function AdminDevicesPage() {
 									onChange={(event) => setPsk(event.target.value)}
 									className="w-full"
 								/>
+								<Button
+									variant="outlined"
+									disabled={busy}
+									onClick={() => {
+										setBusy(true);
+										setUpdateNote("");
+										void run(startDeviceUpdate(current.device.uuid))
+											.then((result) => {
+												if (result?.started) {
+													setUpdateNote(
+														"Update started. The board may restart.",
+													);
+												}
+											})
+											.finally(() => setBusy(false));
+									}}
+								>
+									Update companion
+								</Button>
+								{updateNote ? (
+									<Alert severity="success">{updateNote}</Alert>
+								) : null}
 								<Button
 									variant="contained"
 									disabled={busy || !ssid || !psk}

@@ -5,7 +5,13 @@ import {
 	type MaintenanceReport,
 	parseLivePingUuid,
 } from "gpio-companion";
-import type { PairingKv, PublicPairing } from "./pairing-store.ts";
+import { isAdmin } from "./auth/role.ts";
+import {
+	type DeviceActor,
+	type PairingKv,
+	type PublicPairing,
+	requireAccessibleDevice,
+} from "./pairing-store.ts";
 
 export const LIVE_PREFIX = "live:";
 
@@ -71,6 +77,30 @@ export async function putLiveBoard(
 		expirationTtl: DEBUG_LIVE_TTL_SEC,
 	});
 	return board;
+}
+
+export async function resolveAccessibleDeviceUrl(
+	kv: PairingKv,
+	identity: DeviceActor,
+	uuid: string,
+): Promise<string> {
+	const live = await getLiveBoard(kv, uuid);
+	try {
+		const device = await requireAccessibleDevice(kv, identity, uuid);
+		const deviceUrl = device.deviceUrl || live?.deviceUrl || "";
+		if (!deviceUrl) {
+			throw new Error("device URL is missing");
+		}
+		return deviceUrl;
+	} catch (caught) {
+		if (isAdmin(identity.role) && live) {
+			return live.deviceUrl;
+		}
+		if (isAdmin(identity.role)) {
+			throw new Error("device is not live");
+		}
+		throw caught;
+	}
 }
 
 export async function getLiveBoard(

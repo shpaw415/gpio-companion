@@ -1,6 +1,7 @@
 import { parseLivePingUuid, redactDebugMessage } from "./debug.ts";
 
 export const LOGS_PATH = "/v1/logs";
+export const UPDATE_PATH = "/v1/update";
 export const LOGS_MAX_BYTES = 64 * 1024;
 export const LOGS_MAX_LINES = 200;
 export const LOGS_SINCE_HOURS = 24;

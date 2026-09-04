@@ -23,6 +23,7 @@ import {
 	redactDeviceConfig,
 	redactLogText,
 	secretsStatus,
+	UPDATE_PATH,
 	VERSION,
 	verifyDeviceRequest,
 	WifiConnectError,
@@ -42,6 +43,7 @@ import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { T3Controller } from "./t3.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
+import type { ApplyUpdate } from "./update.ts";
 import type { ApplyWifi } from "./wifi.ts";
 
 export type DeviceAuthConfig = {
@@ -59,6 +61,7 @@ export type ServeOptions = {
 	pairing: PairingStore;
 	applyTunnel: ApplyTunnel;
 	applyWifi?: ApplyWifi;
+	applyUpdate?: ApplyUpdate;
 	revokeT3?: () => Promise<void>;
 	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
@@ -79,6 +82,7 @@ export type ServeOptions = {
 export type DeviceRequestExtras = {
 	readDisk?: () => DiskStats | null;
 	readLogs?: () => Promise<string>;
+	applyUpdate?: ApplyUpdate;
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -93,6 +97,7 @@ export function startDeviceApi(options: ServeOptions) {
 	const extras: DeviceRequestExtras = {
 		readDisk: options.readDisk ?? readDiskStats,
 		readLogs: options.readLogs ?? readJournalLogs,
+		applyUpdate: options.applyUpdate,
 	};
 	return Bun.serve({
 		port,
@@ -420,6 +425,14 @@ export async function handleDeviceRequest(
 			text: capLogText(redactLogText(raw)),
 			sinceHours: LOGS_SINCE_HOURS,
 		});
+	}
+
+	if (method === "POST" && path === UPDATE_PATH) {
+		if (!extras?.applyUpdate) {
+			throw new Error("update is not configured");
+		}
+		await extras.applyUpdate();
+		return json({ started: true });
 	}
 
 	if (method === "GET" && path === "/v1/status") {

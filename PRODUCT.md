@@ -64,7 +64,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Device API `PUT /v1/config/tunnel` writes the cloudflared replica token and hostnames, then enables the replica
 - Device API `POST /v1/t3/pair` and `GET /v1/t3/status` are signed dashboard routes for T3 Code pairing
 - On-device updater `scripts/update-script.sh` pulls the repo, refreshes `opencode/skills` and `opencode/preferences`, fetches the dashboard device public key, upgrades T3 Code when npm `t3@latest` is ahead of the installed package (then `t3 service install` and OpenCode-only T3 providers), runs `opencode upgrade`, and rebuilds/restarts the gpio-companion server when those trees or the registered public key change
-- Updater runs on boot and every 24h (`gpio-companion-update.timer`)
+- Updater runs on boot and every 24h (`gpio-companion-update.timer`); signed dashboard `POST /v1/update` (owner or admin) starts the same oneshot without waiting (`systemctl start --no-block`)
 - Cleanup runs on boot and every hour (`gpio-companion-cleanup.timer`): journals kept 24h, apt/bun/npm/pip caches and old tmp files pruned; Debug tab can load a redacted last-24h excerpt and a disk snapshot
 - OS snapshot ships `scripts/snapshot/gpio-companion-first-boot.sh`: install git, clone this repo, run interactive `scripts/first-setup.sh`
 - First setup collects per-hardware choice and Cloudflare API token + account ID + zone ID, then creates the per-Pi tunnel (API token is not stored) and registers the dashboard Ed25519 public key from `GET /api/device-public-key`

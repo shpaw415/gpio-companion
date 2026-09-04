@@ -1,5 +1,6 @@
 import { GET as listDebugDevices, POST as signDebugConnect } from "@api/debug";
 import { GET as loadDeviceLogs } from "@api/debug/logs";
+import { POST as startDeviceUpdate } from "@api/update";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
@@ -61,8 +62,9 @@ export default function DeviceDebugPage() {
 			<SectionHeader title="Debug">
 				<Typography color="secondary">
 					Live companion API errors over WebSocket, plus disk space and a
-					redacted last-24h journal excerpt. Boards ping when they are up;
-					hourly cleanup keeps logs for a day.
+					redacted last-24h journal excerpt. Owner or admin can start the same
+					updater as the 24h timer. Boards ping when they are up; hourly cleanup
+					keeps logs for a day.
 				</Typography>
 			</SectionHeader>
 
@@ -90,6 +92,7 @@ export default function DeviceDebugPage() {
 					devices={options}
 					signConnect={signDebugConnect}
 					loadLogs={loadDeviceLogs}
+					startUpdate={startDeviceUpdate}
 				/>
 			) : null}
 		</Stack>
