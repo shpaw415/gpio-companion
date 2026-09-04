@@ -121,33 +121,157 @@ async function request<T>(
 	throw new Error(parsed.error);
 }
 
+export type Session = {
+	id: string | null;
+	email: string | null;
+	name: string | null;
+	role?: string | null;
+};
+
+export type Device = {
+	uuid: string;
+	deviceUrl: string;
+	login: string;
+	email?: string;
+	label?: string;
+	userId?: string;
+};
+
+export type DeviceStatus = {
+	hardware?: string;
+	model?: string;
+	tunnel?: { configured?: boolean; apiHostname?: string };
+	secrets?: { githubReady?: boolean; gpioAiKey?: boolean };
+	t3?: T3Status;
+};
+
+export type BoardView = {
+	device: Device;
+	status: DeviceStatus | null;
+};
+
+export type Credits = { micros: number; usd: number };
+
+export type GithubRepo = {
+	full_name: string;
+	name: string;
+	owner: string;
+	html_url: string;
+};
+
+export type GithubContent = {
+	name: string;
+	path: string;
+	type: string;
+	download_url: string | null;
+};
+
+export type ProjectBundle = {
+	owner: string;
+	repo: string;
+	pcb: GithubContent[];
+	breadboard: GithubContent[];
+	technical: GithubContent[];
+	pcbPreviewUrl: string | null;
+	breadboardPreviewUrl: string | null;
+};
+
+export type GithubAppStatus = {
+	connected: boolean;
+	login: string;
+	installUrl: string;
+};
+
+export type PendingRequest = {
+	uuid: string;
+	requesterEmail?: string;
+	login?: string;
+	createdAt?: string;
+};
+
+export type MaintenanceReport = {
+	uuid?: string;
+	at?: number;
+	diskTotalMb?: number;
+	diskAvailMb?: number;
+	reclaimedBytes?: number;
+	actions?: string[];
+};
+
+export type DebugBoard = {
+	uuid: string;
+	deviceUrl?: string;
+	label?: string;
+	email?: string;
+	login?: string;
+	userId?: string;
+	paired?: boolean;
+	live?: boolean;
+	maintenance?: MaintenanceReport | null;
+};
+
+export type DebugConnect = {
+	wsUrl: string;
+	probe: { status: number; error: string; ready: boolean };
+};
+
+export type T3Status = {
+	running?: boolean;
+	pairingUrl?: string;
+	pairingToken?: string;
+	paired?: boolean;
+	serviceInstalled?: boolean;
+};
+
+export type T3Pairing = T3Status;
+
+export type AdminDeviceItem = {
+	device: Device;
+	status: DeviceStatus | null;
+};
+
+export function deviceDisplayName(device: {
+	label?: string;
+	uuid: string;
+	login?: string;
+}) {
+	return device.label?.trim() || device.login || device.uuid;
+}
+
 export function getSession(token: string) {
-	return request<{
-		id: string | null;
-		email: string | null;
-		name: string | null;
-	}>(token, "/api/mobile/session");
+	return request<Session>(token, "/api/mobile/session");
 }
 
 export function listDevices(token: string) {
-	return request<{
-		paired: boolean;
-		devices: Array<{
-			uuid: string;
-			deviceUrl: string;
-			login: string;
-			label?: string;
-		}>;
-	}>(token, "/api/mobile/devices");
+	return request<{ paired: boolean; devices: Device[] }>(
+		token,
+		"/api/mobile/devices",
+	);
+}
+
+export function listDeviceStatus(token: string) {
+	return request<{ paired: boolean; devices: BoardView[] }>(
+		token,
+		"/api/mobile/status",
+	);
+}
+
+export function patchDeviceLabel(token: string, uuid: string, label: string) {
+	return request<{ ok: boolean; device: Device }>(
+		token,
+		"/api/mobile/devices",
+		{
+			method: "PATCH",
+			body: JSON.stringify({ uuid, label }),
+		},
+	);
 }
 
 export function unpairDevice(token: string, uuid: string) {
 	return request(
 		token,
 		`/api/mobile/devices?uuid=${encodeURIComponent(uuid)}`,
-		{
-			method: "DELETE",
-		},
+		{ method: "DELETE" },
 	);
 }
 
@@ -177,41 +301,84 @@ export function signWifi(
 	});
 }
 
-export type T3Pairing = {
-	pairingUrl?: string;
-	pairingToken?: string;
-	paired?: boolean;
-};
-
 export function t3Status(token: string, uuid: string) {
-	return request<T3Pairing>(
+	return request<T3Status>(
 		token,
 		`/api/mobile/t3?uuid=${encodeURIComponent(uuid)}`,
 	);
 }
 
 export function t3Action(token: string, action: "pair", uuid: string) {
-	return request<T3Pairing>(token, "/api/mobile/t3", {
+	return request<T3Status>(token, "/api/mobile/t3", {
 		method: "POST",
 		body: JSON.stringify({ action, uuid }),
 	});
 }
 
-export type MaintenanceReport = {
-	at?: number;
-	diskTotalMb?: number;
-	diskAvailMb?: number;
-	reclaimedBytes?: number;
-	actions?: string[];
-};
+export function startT3Pair(token: string, uuid: string) {
+	return t3Action(token, "pair", uuid);
+}
 
-export type DebugBoard = {
-	uuid: string;
-	maintenance?: MaintenanceReport | null;
-};
+export function getCredits(token: string) {
+	return request<Credits>(token, "/api/mobile/credits");
+}
+
+export function grantCredits(token: string, usd = 1) {
+	return request<Credits>(token, "/api/mobile/credits", {
+		method: "POST",
+		body: JSON.stringify({ usd }),
+	});
+}
+
+export function listProjects(token: string) {
+	return request<{ configured: boolean; repos: GithubRepo[] }>(
+		token,
+		"/api/mobile/projects",
+	);
+}
+
+export function loadProject(token: string, owner: string, repo: string) {
+	return request<ProjectBundle>(token, "/api/mobile/projects", {
+		method: "POST",
+		body: JSON.stringify({ owner, repo }),
+	});
+}
+
+export function getGithubApp(token: string) {
+	return request<GithubAppStatus>(token, "/api/mobile/github-app");
+}
+
+export function listNotifications(token: string) {
+	return request<{ items: PendingRequest[] }>(
+		token,
+		"/api/mobile/notifications",
+	);
+}
+
+export function resolveNotification(
+	token: string,
+	uuid: string,
+	action: "accept" | "reject",
+) {
+	return request<{ ok: boolean; action: string }>(
+		token,
+		"/api/mobile/notifications",
+		{
+			method: "POST",
+			body: JSON.stringify({ uuid, action }),
+		},
+	);
+}
 
 export function listDebugBoards(token: string) {
 	return request<{ devices: DebugBoard[] }>(token, "/api/mobile/debug");
+}
+
+export function connectDebug(token: string, uuid: string) {
+	return request<DebugConnect>(token, "/api/mobile/debug", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
 }
 
 export function loadDeviceLogs(token: string, uuid: string) {
@@ -226,4 +393,41 @@ export function startDeviceUpdate(token: string, uuid: string) {
 		method: "POST",
 		body: JSON.stringify({ uuid }),
 	});
+}
+
+export function listAdminDevices(token: string) {
+	return request<{ devices: AdminDeviceItem[] }>(
+		token,
+		"/api/mobile/admin/devices",
+	);
+}
+
+export function patchAdminLabel(token: string, uuid: string, label: string) {
+	return request<{ ok: boolean; device: Device }>(
+		token,
+		"/api/mobile/admin/devices",
+		{
+			method: "PATCH",
+			body: JSON.stringify({ uuid, label }),
+		},
+	);
+}
+
+export function adminUnpair(token: string, uuid: string) {
+	return request(
+		token,
+		`/api/mobile/admin/devices?uuid=${encodeURIComponent(uuid)}`,
+		{ method: "DELETE" },
+	);
+}
+
+export function adminTransfer(token: string, uuid: string, toUserId?: string) {
+	return request<{ ok: boolean; device: Device }>(
+		token,
+		"/api/mobile/admin/devices",
+		{
+			method: "POST",
+			body: JSON.stringify({ uuid, toUserId }),
+		},
+	);
 }

@@ -1,3 +1,4 @@
+import { PermissionsAndroid, Platform } from "react-native";
 import {
 	BleManager,
 	State,
@@ -11,9 +12,17 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 	encodeFrames,
+	forPicker,
+	looksLikeMac,
 	matchesBoard,
 	type BleInfo,
+	type NearbyRadio,
 } from "./ble-frame.ts";
+import {
+	BLE_PERMISSION_DENIED,
+	androidBlePermissions,
+	mapBleUnauthorized,
+} from "./ble-permissions.ts";
 
 export {
 	BLE_CHUNK_SIZE,
@@ -21,8 +30,9 @@ export {
 	BLE_SERVICE_UUID,
 	encodeFrames,
 	matchesBoard,
+	nearbyBoardLabel,
 } from "./ble-frame.ts";
-export type { BleInfo } from "./ble-frame.ts";
+export type { BleInfo, NearbyRadio } from "./ble-frame.ts";
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const OP_TIMEOUT_MS = 15_000;
@@ -31,6 +41,7 @@ const FRAME_GAP_MS = 20;
 const BLUETOOTH_WAIT_MS = 5_000;
 
 let manager: BleManager | null = null;
+const scannedDevices = new Map<string, Device>();
 
 function getManager(): BleManager {
 	if (!manager) {
@@ -65,16 +76,45 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 	});
 }
 
+async function requestAndroidBlePermissions(): Promise<void> {
+	if (Platform.OS !== "android") {
+		return;
+	}
+	const api =
+		typeof Platform.Version === "number"
+			? Platform.Version
+			: Number.parseInt(String(Platform.Version), 10);
+	const permissions = androidBlePermissions(Number.isFinite(api) ? api : 31);
+	const result = await PermissionsAndroid.requestMultiple(permissions);
+	const denied = permissions.filter(
+		(permission) => result[permission] !== PermissionsAndroid.RESULTS.GRANTED,
+	);
+	if (denied.length > 0) {
+		throw new Error(BLE_PERMISSION_DENIED);
+	}
+}
+
+function bluetoothStateLabel(state: State): string {
+	if (state === State.Unauthorized) {
+		return BLE_PERMISSION_DENIED;
+	}
+	if (state === State.PoweredOff) {
+		return "Bluetooth is off — turn it on and try again";
+	}
+	return `Bluetooth is unavailable (${state}) — try again`;
+}
+
 export async function ensureBluetoothOn(): Promise<void> {
+	await requestAndroidBlePermissions();
 	const ble = getManager();
 	const state = await ble.state();
 	if (state === State.PoweredOn) {
 		return;
 	}
-	const label =
-		state === State.PoweredOff
-			? "Bluetooth is off — turn it on and try again"
-			: `Bluetooth is unavailable (${state}) — try again`;
+	if (state === State.Unauthorized) {
+		throw new Error(BLE_PERMISSION_DENIED);
+	}
+	const label = bluetoothStateLabel(state);
 	await new Promise<void>((resolve, reject) => {
 		const timer = setTimeout(() => {
 			subscription.remove();
@@ -86,13 +126,24 @@ export async function ensureBluetoothOn(): Promise<void> {
 				subscription.remove();
 				resolve();
 			}
+			if (next === State.Unauthorized) {
+				clearTimeout(timer);
+				subscription.remove();
+				reject(new Error(BLE_PERMISSION_DENIED));
+			}
 		}, true);
 	});
 }
 
-export async function scanBoard(timeoutMs = 20_000): Promise<Device> {
+export function scannedDevice(id: string): Device | undefined {
+	return scannedDevices.get(id);
+}
+
+export async function scanNearby(timeoutMs = 20_000): Promise<NearbyRadio[]> {
 	const ble = getManager();
-	return new Promise<Device>((resolve, reject) => {
+	scannedDevices.clear();
+	const radios = new Map<string, NearbyRadio>();
+	return new Promise<NearbyRadio[]>((resolve, reject) => {
 		let settled = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const finish = (settle: () => void) => {
@@ -107,23 +158,42 @@ export async function scanBoard(timeoutMs = 20_000): Promise<Device> {
 			settle();
 		};
 		timer = setTimeout(
-			() => finish(() => reject(new Error("no gpio-companion board found nearby"))),
+			() => finish(() => resolve(forPicker([...radios.values()]))),
 			timeoutMs,
 		);
 		void ble.startDeviceScan(null, { allowDuplicates: true }, (error, device) => {
 			if (error) {
-				finish(() => reject(new Error(error.message)));
+				finish(() => reject(new Error(mapBleUnauthorized(error.message))));
 				return;
 			}
 			if (!device) {
 				return;
 			}
+			scannedDevices.set(device.id, device);
 			const name = device.name ?? device.localName ?? "";
-			if (matchesBoard(name, device.serviceUUIDs ?? [])) {
-				finish(() => resolve(device));
-			}
+			const previous = radios.get(device.id);
+			const matched =
+				matchesBoard(name, device.serviceUUIDs ?? []) || Boolean(previous?.matched);
+			const betterName =
+				name && !looksLikeMac(name) ? name : (previous?.name ?? name);
+			radios.set(device.id, {
+				id: device.id,
+				name: betterName,
+				rssi: device.rssi ?? previous?.rssi ?? null,
+				matched,
+			});
 		});
 	});
+}
+
+export async function scanBoard(timeoutMs = 20_000): Promise<Device> {
+	const nearby = await scanNearby(timeoutMs);
+	const pick = nearby.find((board) => board.matched) ?? nearby[0];
+	const device = pick ? scannedDevices.get(pick.id) : undefined;
+	if (!device) {
+		throw new Error("no gpio-companion board found nearby");
+	}
+	return device;
 }
 
 export type BoardSession = {
@@ -250,7 +320,9 @@ export async function sendEnvelope(
 			BLE_STATUS_UUID,
 			(error, characteristic) => {
 				if (error) {
-					finish(() => reject(new Error(error.message)));
+					finish(() =>
+						reject(new Error(mapBleUnauthorized(error.message))),
+					);
 					return;
 				}
 				if (!characteristic?.value) {

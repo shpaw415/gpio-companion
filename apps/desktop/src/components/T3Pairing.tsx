@@ -3,8 +3,9 @@ import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
-import { openExternal, startT3Pair, type T3Status } from "../api";
+import { openExternal, startT3Pair, type T3Status, t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { openT3Window } from "../lib/t3-window";
 
 function tokenFrom(status?: T3Status): string {
 	const direct = status?.pairingToken?.trim() ?? "";
@@ -83,7 +84,10 @@ export default function T3Pairing({
 					<Button
 						variant="contained"
 						size="small"
-						onClick={() => openT3Pair(uuid, token)}
+						onClick={() => {
+							openT3Pair(uuid, token);
+							void openT3Window(t3IframeSrc(uuid, token));
+						}}
 					>
 						Open in dashboard
 					</Button>

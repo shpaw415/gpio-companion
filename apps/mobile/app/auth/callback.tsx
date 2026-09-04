@@ -1,17 +1,18 @@
 import { useURL } from "expo-linking";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import {
 	firstParam,
 	resolveAuthCallbackUrl,
 } from "../../src/lib/auth-callback.ts";
 import { useAuth } from "../../src/lib/auth.tsx";
+import { useColors } from "../../src/lib/color-mode.tsx";
 import { authRedirectUri } from "../../src/lib/config.ts";
-import { colors } from "../../src/lib/theme.ts";
 
 export default function AuthCallbackScreen() {
 	const auth = useAuth();
+	const colors = useColors();
 	const linkingUrl = useURL();
 	const params = useLocalSearchParams<{
 		code?: string | string[];
@@ -50,29 +51,35 @@ export default function AuthCallbackScreen() {
 
 	if (error) {
 		return (
-			<View style={styles.center}>
-				<Text style={styles.error}>{error}</Text>
-				<Text style={styles.muted}>Close this screen and sign in again.</Text>
+			<View
+				style={{
+					flex: 1,
+					backgroundColor: colors.bg,
+					padding: 24,
+					justifyContent: "center",
+					gap: 12,
+				}}
+			>
+				<Text style={{ color: colors.danger, textAlign: "center" }}>{error}</Text>
+				<Text style={{ color: colors.muted, textAlign: "center" }}>
+					Close this screen and sign in again.
+				</Text>
 			</View>
 		);
 	}
 
 	return (
-		<View style={styles.center}>
+		<View
+			style={{
+				flex: 1,
+				backgroundColor: colors.bg,
+				padding: 24,
+				justifyContent: "center",
+				gap: 12,
+			}}
+		>
 			<ActivityIndicator />
-			<Text style={styles.muted}>Finishing sign-in…</Text>
+			<Text style={{ color: colors.muted, textAlign: "center" }}>Finishing sign-in…</Text>
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	center: {
-		flex: 1,
-		backgroundColor: colors.bg,
-		padding: 24,
-		justifyContent: "center",
-		gap: 12,
-	},
-	muted: { color: colors.muted, textAlign: "center" },
-	error: { color: colors.danger, textAlign: "center" },
-});

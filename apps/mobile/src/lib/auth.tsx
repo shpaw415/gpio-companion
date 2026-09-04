@@ -14,12 +14,13 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { setTokenProvider } from "./api.ts";
+import { getSession, type Session, setTokenProvider } from "./api.ts";
 import { authClientId, authRedirectUri, issuerUrl } from "./config.ts";
 
 type AuthState = {
 	ready: boolean;
 	token: string | null;
+	session: Session | null;
 	error: string | null;
 	login: () => Promise<void>;
 	logout: () => Promise<void>;
@@ -29,6 +30,7 @@ type AuthState = {
 const AuthContext = createContext<AuthState>({
 	ready: false,
 	token: null,
+	session: null,
 	error: null,
 	login: async () => undefined,
 	logout: async () => undefined,
@@ -38,6 +40,7 @@ const AuthContext = createContext<AuthState>({
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [ready, setReady] = useState(false);
 	const [token, setToken] = useState<string | null>(null);
+	const [session, setSession] = useState<Session | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -58,7 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				if (!ok) {
 					return;
 				}
-				// refresh-aware: recovers a stored-but-expired session when possible
 				const next = await getAccessToken();
 				if (next) {
 					setToken(next);
@@ -71,8 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	useEffect(() => {
-		// api.ts calls this when the dashboard rejects a request, so an expired
-		// access token is refreshed (or the session reset) instead of failing forever
 		setTokenProvider(async () => {
 			try {
 				const next = await getAccessToken();
@@ -80,21 +80,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					setToken(next);
 				} else {
 					setToken(null);
+					setSession(null);
 				}
 				return next;
 			} catch {
 				setToken(null);
+				setSession(null);
 				return null;
 			}
 		});
 		return () => setTokenProvider(null);
 	}, []);
 
+	useEffect(() => {
+		if (!token) {
+			setSession(null);
+			return;
+		}
+		void getSession(token)
+			.then(setSession)
+			.catch(() => setSession(null));
+	}, [token]);
+
 	return (
 		<AuthContext.Provider
 			value={{
 				ready,
 				token,
+				session,
 				error,
 				login: async () => {
 					try {
@@ -110,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				logout: async () => {
 					await nativeLogout();
 					setToken(null);
+					setSession(null);
 					setError(null);
 				},
 				completeAuthCallback: async (url: string) => {

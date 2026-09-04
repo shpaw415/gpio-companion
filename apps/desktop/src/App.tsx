@@ -15,7 +15,6 @@ import DevicesHub, { type DeviceTab } from "./components/DevicesHub";
 import Login from "./components/Login";
 import Profile from "./components/Profile";
 import Project from "./components/Project";
-import T3Frame from "./components/T3Frame";
 import { ApiCacheProvider } from "./hooks/useApiCache";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection";
 
@@ -217,7 +216,6 @@ export default function App() {
 							/>
 						)}
 					</Box>
-					{signedIn ? <T3Frame visible={onT3} /> : null}
 				</Box>
 			</ApiCacheProvider>
 		</BoardSelectionProvider>

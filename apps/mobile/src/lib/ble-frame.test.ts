@@ -4,7 +4,9 @@ import {
 	BLE_DEVICE_NAME,
 	BLE_SERVICE_UUID,
 	encodeFrames,
+	forPicker,
 	matchesBoard,
+	nearbyBoardLabel,
 	toBase64,
 } from "./ble-frame.ts";
 
@@ -66,5 +68,69 @@ describe("matchesBoard", () => {
 
 	test("ignores other devices", () => {
 		expect(matchesBoard("Samsung TV", ["0000abcd-0000-0000-0000-000000000000"])).toBe(false);
+	});
+});
+
+describe("nearbyBoardLabel", () => {
+	test("matched named board uses BLE name", () => {
+		expect(
+			nearbyBoardLabel({
+				id: "C5:4E:5C:2B:26:02",
+				name: "gpio-companion",
+				rssi: -40,
+				matched: true,
+			}),
+		).toBe("gpio-companion");
+	});
+
+	test("matched empty name is gpio-companion, not MAC", () => {
+		expect(
+			nearbyBoardLabel({
+				id: "C5:4E:5C:2B:26:02",
+				name: "",
+				rssi: null,
+				matched: true,
+			}),
+		).toBe("gpio-companion");
+	});
+
+	test("unmatched named radio uses BLE name, not MAC", () => {
+		expect(
+			nearbyBoardLabel({
+				id: "AA:AA:AA:AA:AA:AA",
+				name: "orangepi3-lts",
+				rssi: -42,
+				matched: false,
+			}),
+		).toBe("orangepi3-lts (-42 dBm)");
+	});
+
+	test("MAC-as-name is treated as anonymous", () => {
+		expect(
+			nearbyBoardLabel({
+				id: "1E:52:1E:18:26:4B",
+				name: "1E-52-1E-18-26-4B",
+				rssi: -51,
+				matched: false,
+			}),
+		).toBe("Nearby radio (-51 dBm)");
+	});
+});
+
+describe("forPicker", () => {
+	test("prefers live matched boards", () => {
+		const picked = forPicker([
+			{ id: "a", name: "gpio-companion", rssi: -50, matched: true },
+			{ id: "b", name: "TV", rssi: -20, matched: false },
+		]);
+		expect(picked.map((board) => board.id)).toEqual(["a"]);
+	});
+
+	test("falls back to all live radios when nothing matched", () => {
+		const picked = forPicker([
+			{ id: "b", name: "orangepi3-lts", rssi: -42, matched: false },
+			{ id: "c", name: "", rssi: -60, matched: false },
+		]);
+		expect(picked.map((board) => board.id)).toEqual(["b", "c"]);
 	});
 });
