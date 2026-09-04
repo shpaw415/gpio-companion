@@ -1,4 +1,3 @@
-import * as Linking from "expo-linking";
 import {
 	configureAuth,
 	getAccessToken,
@@ -15,7 +14,6 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { Platform } from "react-native";
 import { setTokenProvider } from "./api.ts";
 import { authClientId, authRedirectUri, issuerUrl } from "./config.ts";
 
@@ -25,6 +23,7 @@ type AuthState = {
 	error: string | null;
 	login: () => Promise<void>;
 	logout: () => Promise<void>;
+	completeAuthCallback: (url: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState>({
@@ -33,6 +32,7 @@ const AuthContext = createContext<AuthState>({
 	error: null,
 	login: async () => undefined,
 	logout: async () => undefined,
+	completeAuthCallback: async () => undefined,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -90,26 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return () => setTokenProvider(null);
 	}, []);
 
-	useEffect(() => {
-		if (Platform.OS !== "android") {
-			return;
-		}
-		const sub = Linking.addEventListener("url", (event) => {
-			if (!event.url.startsWith(authRedirectUri)) {
-				return;
-			}
-			void handleAuthCallback(event.url)
-				.then((next) => {
-					setToken(next);
-					setError(null);
-				})
-				.catch((caught) => {
-					setError(caught instanceof Error ? caught.message : "login failed");
-				});
-		});
-		return () => sub.remove();
-	}, []);
-
 	return (
 		<AuthContext.Provider
 			value={{
@@ -130,6 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				logout: async () => {
 					await nativeLogout();
 					setToken(null);
+					setError(null);
+				},
+				completeAuthCallback: async (url: string) => {
+					const next = await handleAuthCallback(url);
+					setToken(next);
 					setError(null);
 				},
 			}}
