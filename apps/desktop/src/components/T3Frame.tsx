@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { t3EmbedUrl } from "../api";
+import { t3AppUrl } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 
 const SLOT_ID = "gpio-t3-frame-slot";
 
 export default function T3Frame({ visible }: { visible: boolean }) {
 	const { uuid } = useBoardSelection();
-	const nextSrc = t3EmbedUrl(uuid);
+	const nextSrc = t3AppUrl(uuid);
 	const [src, setSrc] = useState("");
 	const [rect, setRect] = useState({
 		top: 0,

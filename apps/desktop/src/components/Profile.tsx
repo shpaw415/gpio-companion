@@ -11,6 +11,7 @@ import {
 	type Session,
 } from "../api";
 import DebugLog from "./DebugLog";
+import { LinesSkeleton } from "./skeletons";
 
 export default function Profile({
 	session,
@@ -22,13 +23,15 @@ export default function Profile({
 	const [credits, setCredits] = useState<Credits | null>(null);
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		void getCredits()
 			.then(setCredits)
 			.catch((caught) => {
 				setError(caught instanceof Error ? caught.message : "load failed");
-			});
+			})
+			.finally(() => setLoading(false));
 	}, []);
 
 	return (
@@ -56,11 +59,15 @@ export default function Profile({
 			</Paper>
 			<Paper sx={{ p: 3 }} elevation={1}>
 				<Typography variant="subtitle1">Credits</Typography>
-				<Typography color="secondary">
-					{credits
-						? `$${credits.usd.toFixed(2)} (${credits.micros} µUSD)`
-						: "Loading…"}
-				</Typography>
+				{loading ? (
+					<LinesSkeleton lines={1} />
+				) : (
+					<Typography color="secondary">
+						{credits
+							? `$${credits.usd.toFixed(2)} (${credits.micros} µUSD)`
+							: "No credits yet"}
+					</Typography>
+				)}
 				<Button
 					variant="contained"
 					sx={{ mt: 2 }}

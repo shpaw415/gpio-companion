@@ -15,6 +15,7 @@ import {
 	onBleStatus,
 } from "../api";
 import DebugLog from "./DebugLog";
+import { SelectSkeleton } from "./skeletons";
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [devices, setDevices] = useState<Device[]>([]);
@@ -27,6 +28,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [error, setError] = useState("");
 	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
+	const [devicesLoading, setDevicesLoading] = useState(true);
 	const scanRef = useRef(0);
 
 	useEffect(() => {
@@ -40,7 +42,8 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 					caught instanceof Error ? caught.message : "load failed";
 				console.error("gpio-companion-desktop wifi devices", message);
 				setError(message);
-			});
+			})
+			.finally(() => setDevicesLoading(false));
 		let unlisten: (() => void) | undefined;
 		void onBleStatus(setStatus).then((fn) => {
 			unlisten = fn;
@@ -117,22 +120,26 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				Pick the Pi in Nearby Bluetooth device, or leave Auto-detect
 				and hold it close.
 			</Typography>
-			<Select
-				name="uuid"
-				label="Paired device"
-				value={uuid}
-				onSelect={(next) => setUuid(next)}
-				sx={{ width: "100%" }}
-				disabled={devices.length === 0}
-			>
-				{devices.map((device) => (
-					<option key={device.uuid} value={device.uuid}>
-						{device.label?.trim()
-							? `${device.label.trim()} — ${device.uuid}`
-							: device.uuid}
-					</option>
-				))}
-			</Select>
+			{devicesLoading ? (
+				<SelectSkeleton height={56} width="100%" />
+			) : (
+				<Select
+					name="uuid"
+					label="Paired device"
+					value={uuid}
+					onSelect={(next) => setUuid(next)}
+					sx={{ width: "100%" }}
+					disabled={devices.length === 0}
+				>
+					{devices.map((device) => (
+						<option key={device.uuid} value={device.uuid}>
+							{device.label?.trim()
+								? `${device.label.trim()} — ${device.uuid}`
+								: device.uuid}
+						</option>
+					))}
+				</Select>
+			)}
 			<Select
 				name="board"
 				label="Nearby Bluetooth device"

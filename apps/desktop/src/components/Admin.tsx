@@ -14,6 +14,7 @@ import {
 	patchAdminLabel,
 } from "../api";
 import DebugLog from "./DebugLog";
+import { ListSkeleton } from "./skeletons";
 
 export default function Admin() {
 	const [devices, setDevices] = useState<AdminDeviceItem[]>([]);
@@ -21,13 +22,29 @@ export default function Admin() {
 	const [selected, setSelected] = useState("");
 	const [label, setLabel] = useState("");
 	const [error, setError] = useState("");
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
+		let cancelled = false;
 		void listAdminDevices()
-			.then((result) => setDevices(result.devices))
+			.then((result) => {
+				if (!cancelled) {
+					setDevices(result.devices);
+				}
+			})
 			.catch((caught) => {
-				setError(caught instanceof Error ? caught.message : "load failed");
+				if (!cancelled) {
+					setError(caught instanceof Error ? caught.message : "load failed");
+				}
+			})
+			.finally(() => {
+				if (!cancelled) {
+					setLoading(false);
+				}
 			});
+		return () => {
+			cancelled = true;
+		};
 	}, []);
 
 	const visible = devices.filter((item) => {
@@ -48,7 +65,10 @@ export default function Admin() {
 				value={filter}
 				onChange={(event) => setFilter(event.target.value)}
 			/>
-			{visible.map((item) => (
+			{loading ? <ListSkeleton items={3} /> : null}
+			{loading
+				? null
+				: visible.map((item) => (
 				<Paper
 					key={item.device.uuid}
 					sx={{ p: 2, cursor: "pointer" }}

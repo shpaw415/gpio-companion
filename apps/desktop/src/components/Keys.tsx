@@ -11,11 +11,13 @@ import {
 	openExternal,
 } from "../api";
 import DebugLog from "./DebugLog";
+import { LinesSkeleton } from "./skeletons";
 
 export default function Keys() {
 	const [status, setStatus] = useState<GithubAppStatus | null>(null);
 	const [paired, setPaired] = useState(0);
 	const [error, setError] = useState("");
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -31,6 +33,11 @@ export default function Keys() {
 			.catch((caught) => {
 				if (!cancelled) {
 					setError(caught instanceof Error ? caught.message : "load failed");
+				}
+			})
+			.finally(() => {
+				if (!cancelled) {
+					setLoading(false);
 				}
 			});
 		return () => {
@@ -62,7 +69,8 @@ export default function Keys() {
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{error ? <DebugLog error={error} /> : null}
 			<Paper sx={{ p: 3 }} elevation={1}>
-				{status?.connected ? (
+				{loading ? <LinesSkeleton lines={2} /> : null}
+				{loading ? null : status?.connected ? (
 					<Typography>
 						GitHub App connected as {status.login || "your account"}.
 					</Typography>

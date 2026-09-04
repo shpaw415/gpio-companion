@@ -2,7 +2,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	type BoardView,
 	deviceDisplayName,
@@ -11,25 +11,44 @@ import {
 	t3AppUrl,
 } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { SelectSkeleton } from "./skeletons";
 import { T3_FRAME_SLOT_ID } from "./T3Frame";
 
 export default function T3() {
 	const { uuid, setUuid } = useBoardSelection();
+	const uuidRef = useRef(uuid);
+	uuidRef.current = uuid;
 	const [boards, setBoards] = useState<BoardView[]>([]);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
+		let cancelled = false;
+		setLoading(true);
 		void listDeviceStatus()
 			.then((result) => {
+				if (cancelled) {
+					return;
+				}
 				setBoards(result.devices);
 				if (
 					result.devices.length > 0 &&
-					!result.devices.some((board) => board.device.uuid === uuid)
+					!result.devices.some(
+						(board) => board.device.uuid === uuidRef.current,
+					)
 				) {
 					setUuid(result.devices[0]?.device.uuid ?? "");
 				}
 			})
-			.catch(() => undefined);
-	}, [setUuid, uuid]);
+			.catch(() => undefined)
+			.finally(() => {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [setUuid]);
 
 	return (
 		<Stack
@@ -40,20 +59,24 @@ export default function T3() {
 				<Typography variant="h5" Element="h1" sx={{ flexGrow: 1 }}>
 					T3 Code
 				</Typography>
-				<Select
-					name="board"
-					label="Board"
-					value={uuid}
-					onSelect={setUuid}
-					disabled={boards.length === 0}
-					sx={{ minWidth: 240 }}
-				>
-					{boards.map((board) => (
-						<option key={board.device.uuid} value={board.device.uuid}>
-							{deviceDisplayName(board.device)}
-						</option>
-					))}
-				</Select>
+				{loading ? (
+					<SelectSkeleton />
+				) : (
+					<Select
+						name="board"
+						label="Board"
+						value={uuid}
+						onSelect={setUuid}
+						disabled={boards.length === 0}
+						sx={{ minWidth: 240 }}
+					>
+						{boards.map((board) => (
+							<option key={board.device.uuid} value={board.device.uuid}>
+								{deviceDisplayName(board.device)}
+							</option>
+						))}
+					</Select>
+				)}
 				<Button
 					variant="text"
 					disabled={!uuid}
@@ -62,7 +85,7 @@ export default function T3() {
 					Open in browser
 				</Button>
 			</Stack>
-			{uuid ? (
+			{loading ? null : uuid ? (
 				<div
 					id={T3_FRAME_SLOT_ID}
 					style={{ flex: 1, minHeight: 480, width: "100%" }}

@@ -11,6 +11,7 @@ import {
 	listDebugBoards,
 } from "../api";
 import DebugLog from "./DebugLog";
+import { ListSkeleton } from "./skeletons";
 
 type LogLine = {
 	t?: number;
@@ -26,15 +27,29 @@ export default function Debug() {
 	const [lines, setLines] = useState<LogLine[]>([]);
 	const [error, setError] = useState("");
 	const [active, setActive] = useState("");
+	const [loading, setLoading] = useState(true);
 	const socket = useRef<WebSocket | null>(null);
 
 	useEffect(() => {
+		let cancelled = false;
 		void listDebugBoards()
-			.then((result) => setBoards(result.devices))
+			.then((result) => {
+				if (!cancelled) {
+					setBoards(result.devices);
+				}
+			})
 			.catch((caught) => {
-				setError(caught instanceof Error ? caught.message : "load failed");
+				if (!cancelled) {
+					setError(caught instanceof Error ? caught.message : "load failed");
+				}
+			})
+			.finally(() => {
+				if (!cancelled) {
+					setLoading(false);
+				}
 			});
 		return () => {
+			cancelled = true;
 			socket.current?.close();
 		};
 	}, []);
@@ -74,7 +89,10 @@ export default function Debug() {
 			</Typography>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{error ? <DebugLog error={error} /> : null}
-			{boards.map((board) => (
+			{loading ? <ListSkeleton items={3} /> : null}
+			{loading
+				? null
+				: boards.map((board) => (
 				<Paper key={board.uuid} sx={{ p: 2 }} elevation={1}>
 					<Typography>{deviceDisplayName(board)}</Typography>
 					<Typography color="secondary">

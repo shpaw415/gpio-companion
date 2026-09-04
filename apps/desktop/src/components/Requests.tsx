@@ -10,18 +10,21 @@ import {
 	resolveNotification,
 } from "../api";
 import DebugLog from "./DebugLog";
+import { ListSkeleton } from "./skeletons";
 
 export default function Requests() {
 	const [items, setItems] = useState<PendingRequest[]>([]);
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState("");
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		void listNotifications()
 			.then((result) => setItems(result.items))
 			.catch((caught) => {
 				setError(caught instanceof Error ? caught.message : "load failed");
-			});
+			})
+			.finally(() => setLoading(false));
 	}, []);
 
 	async function act(uuid: string, action: "accept" | "reject") {
@@ -44,7 +47,8 @@ export default function Requests() {
 			</Typography>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{error ? <DebugLog error={error} /> : null}
-			{items.length === 0 ? (
+			{loading ? <ListSkeleton items={2} /> : null}
+			{loading ? null : items.length === 0 ? (
 				<Typography color="secondary">No pending transfer requests.</Typography>
 			) : (
 				items.map((item) => (

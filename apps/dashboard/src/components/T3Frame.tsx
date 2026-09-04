@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { usePathname } from "../hooks/usePathname.tsx";
-import { isT3Path, T3_FRAME_SLOT_ID, t3EmbedUrl } from "../lib/t3-url.ts";
+import { isT3Path, T3_FRAME_SLOT_ID, t3AppUrl } from "../lib/t3-url.ts";
 
 type FrameRect = {
 	top: number;
@@ -14,7 +14,7 @@ export default function T3Frame() {
 	const pathname = usePathname();
 	const { uuid } = useBoardSelection();
 	const visible = isT3Path(pathname);
-	const nextSrc = t3EmbedUrl(uuid);
+	const nextSrc = t3AppUrl(uuid);
 	const [src, setSrc] = useState("");
 	const [rect, setRect] = useState<FrameRect>({
 		top: 0,
