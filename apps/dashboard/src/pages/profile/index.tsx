@@ -11,6 +11,7 @@ import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuth, useAuthSession } from "../../hooks/useAuth.ts";
 import { formatUsd } from "../../lib/credits.ts";
+import { clearOfflineKeys } from "../../lib/offline-keys.ts";
 
 export default function ProfilePage() {
 	const auth = useAuth();
@@ -33,6 +34,7 @@ export default function ProfilePage() {
 	}, [session.data?.id]);
 
 	function signOut() {
+		void clearOfflineKeys();
 		auth?.logout();
 		document.cookie = "access_token=; Max-Age=0; path=/";
 		window.location.assign("/project");

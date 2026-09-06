@@ -10,11 +10,14 @@ import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
+	WIFI_PATH,
 } from "gpio-companion";
 import { type FormEvent, useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
+import { withOfflineSign } from "../lib/offline-ble.ts";
 import type { StoredPairing } from "../lib/pairing-store.ts";
 import {
 	bluetoothSupported,
@@ -42,6 +45,7 @@ export default function WifiBleForm() {
 	const [status, setStatus] = useState<Status>("idle");
 	const [message, setMessage] = useState("");
 	const [pasteText, setPasteText] = useState("");
+	const offline = useOfflineBleKey(uuid);
 
 	useEffect(() => {
 		if (!session.data?.id) {
@@ -89,7 +93,19 @@ export default function WifiBleForm() {
 		if (!supported) {
 			setStatus("sending");
 			try {
-				const envelope = unwrapAction(await signWifi({ uuid, ssid, psk }));
+				const envelope = await withOfflineSign(
+					uuid,
+					async () => unwrapAction(await signWifi({ uuid, ssid, psk })),
+					{
+						method: "PUT",
+						path: WIFI_PATH,
+						body: JSON.stringify({
+							ssid: ssid.trim(),
+							psk,
+							uuid,
+						}),
+					},
+				);
 				const text = envelopeToPasteText(envelope);
 				setPasteText(text);
 				await navigator.clipboard.writeText(text).catch(() => undefined);
@@ -112,12 +128,25 @@ export default function WifiBleForm() {
 				throw new Error("this board is not the selected paired device");
 			}
 			setStatus("sending");
-			const envelope = unwrapAction(
-				await signWifi({
-					uuid,
-					ssid,
-					psk,
-				}),
+			const envelope = await withOfflineSign(
+				uuid,
+				async () =>
+					unwrapAction(
+						await signWifi({
+							uuid,
+							ssid,
+							psk,
+						}),
+					),
+				{
+					method: "PUT",
+					path: WIFI_PATH,
+					body: JSON.stringify({
+						ssid: ssid.trim(),
+						psk,
+						uuid,
+					}),
+				},
 			);
 			const raw = await ble.sendEnvelope(envelope);
 			ble.disconnect();
@@ -190,6 +219,11 @@ export default function WifiBleForm() {
 						onChange={(event) => setPsk(event.target.value)}
 						className="w-full"
 					/>
+					{uuid ? (
+						<Typography variant="body2" color="secondary">
+							{offline.label}
+						</Typography>
+					) : null}
 					<Button type="submit" variant="contained" disabled={!canSubmit}>
 						{status === "connecting"
 							? "Connecting…"

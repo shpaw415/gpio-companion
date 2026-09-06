@@ -6,6 +6,7 @@ export const DEVICE_AUTH_HEADERS = {
 	timestamp: "x-gpio-timestamp",
 	nonce: "x-gpio-nonce",
 	signature: "x-gpio-signature",
+	grant: "x-gpio-grant",
 } as const;
 
 export type DeviceKeyPair = {
@@ -19,6 +20,7 @@ export type DeviceAuthHeaders = {
 	"X-Gpio-Timestamp": string;
 	"X-Gpio-Nonce": string;
 	"X-Gpio-Signature": string;
+	"X-Gpio-Grant"?: string;
 };
 
 export class DeviceAuthError extends Error {
@@ -88,6 +90,7 @@ export async function signDeviceRequest(options: {
 	body?: string;
 	now?: number;
 	nonce?: string;
+	grantHeader?: string;
 }): Promise<DeviceAuthHeaders> {
 	const timestamp = String(options.now ?? Date.now());
 	const nonce = options.nonce ?? randomNonce();
@@ -103,12 +106,16 @@ export async function signDeviceRequest(options: {
 	const signature = new Uint8Array(
 		await crypto.subtle.sign("Ed25519", key, new TextEncoder().encode(payload)),
 	);
-	return {
+	const headers: DeviceAuthHeaders = {
 		"X-Gpio-Key-Id": options.keyId,
 		"X-Gpio-Timestamp": timestamp,
 		"X-Gpio-Nonce": nonce,
 		"X-Gpio-Signature": bytesToBase64(signature),
 	};
+	if (options.grantHeader) {
+		headers["X-Gpio-Grant"] = options.grantHeader;
+	}
+	return headers;
 }
 
 export type DeviceVerifyResult = {

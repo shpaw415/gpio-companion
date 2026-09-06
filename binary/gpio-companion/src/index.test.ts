@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	generateDeviceKeyPair,
+	mintOfflineGrant,
 	signDeviceRequest,
+	signOfflineEnvelope,
 	WifiConnectError,
 } from "gpio-companion";
 import { filePairingStore } from "./pairing.ts";
@@ -713,6 +715,104 @@ describe("untrusted clock nonce replay", () => {
 		expect(response.status).toBe(403);
 		expect(await response.json()).toEqual({
 			error: "expired device signature",
+		});
+	});
+
+	test("accepts an offline grant wifi envelope", async () => {
+		const bundle = await mintOfflineGrant({
+			masterPrivateKeyPem: keys.privateKeyPem,
+			uuid: "pair-uuid",
+			userId: "user-1",
+		});
+		const body = JSON.stringify({
+			ssid: "bench",
+			psk: "secret-pass",
+			uuid: "pair-uuid",
+		});
+		const envelope = await signOfflineEnvelope({
+			bundle,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body,
+		});
+		const response = await fetch(`${server.url}v1/config/wifi`, {
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				...envelope.headers,
+			},
+			body,
+		});
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			ssid: "bench",
+			connected: true,
+		});
+	});
+
+	test("rejects an offline grant for another pairing uuid", async () => {
+		const bundle = await mintOfflineGrant({
+			masterPrivateKeyPem: keys.privateKeyPem,
+			uuid: "other-uuid",
+			userId: "user-1",
+		});
+		const body = JSON.stringify({
+			ssid: "bench",
+			psk: "secret-pass",
+			uuid: "pair-uuid",
+		});
+		const envelope = await signOfflineEnvelope({
+			bundle,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body,
+		});
+		const response = await fetch(`${server.url}v1/config/wifi`, {
+			method: "PUT",
+			headers: {
+				"content-type": "application/json",
+				...envelope.headers,
+			},
+			body,
+		});
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error: "offline grant device mismatch",
+		});
+	});
+
+	test("rejects pairing routes on an offline grant", async () => {
+		const bundle = await mintOfflineGrant({
+			masterPrivateKeyPem: keys.privateKeyPem,
+			uuid: "pair-uuid",
+			userId: "user-1",
+		});
+		const envelope = await signOfflineEnvelope({
+			bundle,
+			method: "GET",
+			path: "/v1/info",
+		});
+		const hijack = await signOfflineEnvelope({
+			bundle,
+			method: "POST",
+			path: "/v1/pairing/unpair",
+			body: JSON.stringify({ uuid: "pair-uuid" }),
+		});
+		const info = await fetch(`${server.url}v1/info`, {
+			headers: { ...envelope.headers },
+		});
+		expect(info.status).toBe(200);
+		const unpair = await fetch(`${server.url}v1/pairing/unpair`, {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				...hijack.headers,
+			},
+			body: hijack.body,
+		});
+		expect(unpair.status).toBe(403);
+		expect(await unpair.json()).toEqual({
+			error: "offline grant scope mismatch",
 		});
 	});
 });

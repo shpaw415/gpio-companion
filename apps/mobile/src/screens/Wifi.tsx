@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { deviceDisplayName, signWifi } from "../lib/api.ts";
+import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
@@ -48,6 +49,7 @@ export default function Wifi() {
 	const [boards, setBoards] = useState<NearbyRadio[]>([]);
 	const [networks, setNetworks] = useState<SavedNetwork[]>([]);
 	const [networkId, setNetworkId] = useState(MANUAL_NETWORK);
+	const offline = useOfflineBleKey(uuid);
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -187,6 +189,7 @@ export default function Wifi() {
 	return (
 		<Screen>
 			<Title>WiFi over Bluetooth</Title>
+			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<Muted>
 				Pick the Pi in Nearby Bluetooth device, then send the network name and password.
 				Choose a saved network to fill both, or enter them manually.

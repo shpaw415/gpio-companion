@@ -122,6 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				},
 				logout: async () => {
 					await nativeLogout();
+					const { clearOfflineKeys } = await import("./offline-keys.ts");
+					await clearOfflineKeys().catch(() => undefined);
 					setToken(null);
 					setSession(null);
 					setError(null);

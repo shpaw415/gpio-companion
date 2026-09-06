@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Text } from "react-native";
 import { loadDeviceInfo, signDeviceInfo } from "../lib/api.ts";
+import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { useAuth } from "../lib/auth.tsx";
 import {
 	createBoardLoss,
@@ -11,7 +12,7 @@ import {
 } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
 import { flattenDeviceInfo } from "../lib/device-info.ts";
-import { ErrorText, TextButton } from "./ui.tsx";
+import { ErrorText, Muted, TextButton } from "./ui.tsx";
 
 function parseInfoPayload(raw: string): unknown {
 	let parsed: unknown;
@@ -37,6 +38,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [info, setInfo] = useState<unknown>(null);
+	const offline = useOfflineBleKey(uuid);
 	const rows = info ? flattenDeviceInfo(info) : [];
 
 	function start(task: () => Promise<unknown>) {
@@ -55,6 +57,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 
 	return (
 		<>
+			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<TextButton
 				label={busy ? "Loading…" : "Load companion info"}
 				disabled={busy || !uuid || !auth.token}

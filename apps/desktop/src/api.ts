@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+	isOfflineSignFallback,
+	type OfflineGrantBundle,
+	shouldMintOfflineKey,
+	signOfflineEnvelope,
+} from "./offline-sign";
 
 export const DASHBOARD_URL = "https://gpio-companion.com";
 
@@ -107,20 +113,125 @@ export function blePair(id: string) {
 	return call<unknown>("ble_pair", { id });
 }
 
+async function loadOfflineKey(uuid: string) {
+	return call<OfflineGrantBundle | null>("offline_keys_get", { uuid });
+}
+
+export async function saveOfflineKey(record: OfflineGrantBundle) {
+	await call<void>("offline_keys_put", { record });
+}
+
+export async function ensureOfflineKey(uuid: string) {
+	const trimmed = uuid.trim();
+	if (!trimmed) {
+		return null;
+	}
+	const existing = await loadOfflineKey(trimmed);
+	if (!shouldMintOfflineKey(existing)) {
+		return existing;
+	}
+	try {
+		const bundle = await apiRequest<OfflineGrantBundle>(
+			"POST",
+			"/api/mobile/offline-key",
+			{ uuid: trimmed },
+		);
+		const record = { ...bundle, uuid: trimmed };
+		await saveOfflineKey(record);
+		return record;
+	} catch {
+		return existing && existing.exp > Date.now() ? existing : null;
+	}
+}
+
+async function bleWriteEnvelope(id: string, uuid: string, envelope: unknown) {
+	return call<string>("ble_write_envelope", { id, uuid, envelope });
+}
+
+function parseBoardJson<T>(raw: string, missing: string): T {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw) as unknown;
+	} catch {
+		throw new Error(missing);
+	}
+	if (
+		parsed &&
+		typeof parsed === "object" &&
+		"error" in parsed &&
+		typeof (parsed as { error?: unknown }).error === "string"
+	) {
+		throw new Error((parsed as { error: string }).error);
+	}
+	return parsed as T;
+}
+
+async function withOfflineBle<T>(
+	uuid: string,
+	id: string,
+	online: () => Promise<T>,
+	local: { method: string; path: string; body?: string },
+	fromRaw?: (raw: string) => T,
+): Promise<T> {
+	try {
+		return await online();
+	} catch (error) {
+		if (!isOfflineSignFallback(error)) {
+			throw error;
+		}
+		const record = await loadOfflineKey(uuid);
+		if (!record || record.exp <= Date.now()) {
+			throw new Error("Go online once to issue a 24h Bluetooth key");
+		}
+		const envelope = await signOfflineEnvelope({
+			bundle: record,
+			method: local.method,
+			path: local.path,
+			body: local.body,
+		});
+		const raw = await bleWriteEnvelope(id, uuid, envelope);
+		if (fromRaw) {
+			return fromRaw(raw);
+		}
+		return raw as T;
+	}
+}
+
 export function bleWifi(input: {
 	uuid: string;
 	ssid: string;
 	psk: string;
 	id: string;
 }) {
-	return call<string>("ble_wifi", input);
+	return withOfflineBle(
+		input.uuid,
+		input.id,
+		() => call<string>("ble_wifi", input),
+		{
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body: JSON.stringify({
+				ssid: input.ssid.trim(),
+				psk: input.psk,
+				uuid: input.uuid,
+			}),
+		},
+	);
 }
 
 export function bleInfo(input: { uuid: string; id?: string }) {
-	return call<unknown>("ble_info", {
-		uuid: input.uuid,
-		id: input.id ?? "",
-	});
+	const id = input.id ?? "";
+	return withOfflineBle(
+		input.uuid,
+		id,
+		() =>
+			call<unknown>("ble_info", {
+				uuid: input.uuid,
+				id,
+			}),
+		{ method: "GET", path: "/v1/info" },
+		(raw) => parseBoardJson(raw, "board did not return companion info"),
+	);
 }
 
 export function bleGpio(input: {
@@ -130,13 +241,32 @@ export function bleGpio(input: {
 	dir?: string;
 	value?: number;
 }) {
-	return call<GpioSnapshot>("ble_gpio", {
-		uuid: input.uuid,
-		id: input.id ?? "",
-		physical: input.physical ?? null,
-		dir: input.dir ?? "",
-		value: input.value ?? null,
-	});
+	const id = input.id ?? "";
+	const put = input.physical !== undefined;
+	return withOfflineBle(
+		input.uuid,
+		id,
+		() =>
+			call<GpioSnapshot>("ble_gpio", {
+				uuid: input.uuid,
+				id,
+				physical: input.physical ?? null,
+				dir: input.dir ?? "",
+				value: input.value ?? null,
+			}),
+		{
+			method: put ? "PUT" : "GET",
+			path: "/v1/gpio",
+			body: put
+				? JSON.stringify({
+						physical: input.physical,
+						dir: input.dir,
+						value: input.value,
+					})
+				: "",
+		},
+		(raw) => parseBoardJson<GpioSnapshot>(raw, "board did not return gpio"),
+	);
 }
 
 export type KnownNetwork = {
@@ -420,14 +550,36 @@ export function bleFlash(input: {
 	port?: string;
 	ports?: boolean;
 }) {
-	return call<unknown>("ble_flash", {
-		uuid: input.uuid,
-		id: input.id ?? "",
-		fqbn: input.fqbn ?? "",
-		dir: input.dir ?? "",
-		port: input.port ?? "",
-		ports: input.ports ?? false,
-	});
+	const id = input.id ?? "";
+	const flash = Boolean(input.fqbn);
+	const ports = Boolean(input.ports);
+	const put: { fqbn?: string; dir?: string; port?: string } = {};
+	if (flash) {
+		put.fqbn = input.fqbn;
+		put.dir = input.dir;
+		if (input.port) {
+			put.port = input.port;
+		}
+	}
+	return withOfflineBle(
+		input.uuid,
+		id,
+		() =>
+			call<unknown>("ble_flash", {
+				uuid: input.uuid,
+				id,
+				fqbn: input.fqbn ?? "",
+				dir: input.dir ?? "",
+				port: input.port ?? "",
+				ports: input.ports ?? false,
+			}),
+		{
+			method: flash ? "POST" : "GET",
+			path: ports ? "/v1/flash/ports" : "/v1/flash",
+			body: flash ? JSON.stringify(put) : "",
+		},
+		(raw) => parseBoardJson(raw, "board did not return flash"),
+	);
 }
 
 export function loadDeviceLogs(uuid: string) {

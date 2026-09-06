@@ -4,12 +4,14 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { bleInfo, loadDeviceInfo } from "../api";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 import { flattenDeviceInfo } from "../device-info";
 
 export default function CompanionInfo({ uuid }: { uuid: string }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [info, setInfo] = useState<unknown>(null);
+	const offline = useOfflineBleKey(uuid);
 	const rows = info ? flattenDeviceInfo(info) : [];
 
 	function start(task: () => Promise<unknown>) {
@@ -28,6 +30,11 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
 					variant="outlined"

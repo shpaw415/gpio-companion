@@ -11,9 +11,11 @@ import { useAuth } from "../lib/auth.tsx";
 import {
 	createBoardLoss,
 	openBoardSession,
+	readInfo,
 	scanBoard,
 	sendEnvelope,
 } from "../lib/ble.ts";
+import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
 
 export default function FlashPanel({ uuid }: { uuid: string }) {
@@ -25,6 +27,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [fqbn, setFqbn] = useState("arduino:avr:uno");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
+	const offline = useOfflineBleKey(uuid);
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -39,6 +42,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	return (
 		<View style={{ gap: 8, marginTop: 8 }}>
 			<Body>Arduino flash</Body>
+			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<TextButton
 				label={busy ? "Loading…" : "Load ports"}
 				disabled={busy || !uuid || !token}
@@ -101,15 +105,18 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 							sign: true,
 						});
 						const loss = createBoardLoss();
-						const board = await scanBoard(loss);
-						const session = await openBoardSession(board, loss);
+						const board = await scanBoard();
+						const session = await openBoardSession(board, (why) =>
+							loss.lose(why),
+						);
 						try {
-							if (session.info.uuid && session.info.uuid !== uuid) {
+							const bleInfo = await readInfo(session.device);
+							if (bleInfo.uuid && bleInfo.uuid !== uuid) {
 								throw new Error("this board is not the selected paired device");
 							}
 							await sendEnvelope(session.device, envelope, loss);
 						} finally {
-							session.disconnect();
+							await session.close();
 						}
 					});
 				}}

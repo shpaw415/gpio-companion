@@ -11,6 +11,7 @@ import {
 	loadFlashPorts,
 	startFlash,
 } from "../api";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
 export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [busy, setBusy] = useState(false);
@@ -19,6 +20,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [fqbn, setFqbn] = useState("arduino:avr:uno");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
+	const offline = useOfflineBleKey(uuid);
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -33,6 +35,11 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
 			<Typography variant="subtitle2">Arduino flash</Typography>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			<Button
 				variant="outlined"
 				size="small"

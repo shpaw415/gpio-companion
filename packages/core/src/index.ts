@@ -230,6 +230,28 @@ export {
 	UPDATE_PATH,
 } from "./maintenance.ts";
 export {
+	canonicalOfflineGrant,
+	envelopeGrant,
+	grantHeaderValue,
+	isOfflineGrantScope,
+	mintOfflineGrant,
+	OFFLINE_GRANT_REFRESH_MS,
+	OFFLINE_GRANT_SCOPE,
+	OFFLINE_GRANT_TTL_MS,
+	OFFLINE_GRANT_VERSION,
+	type OfflineGrant,
+	type OfflineGrantBundle,
+	type OfflineGrantScope,
+	offlineGrantNeedsRefresh,
+	offlineScopeKey,
+	parseOfflineEnvelope,
+	parseOfflineGrant,
+	signOfflineEnvelope,
+	verifyOfflineEnvelope,
+	verifyOfflineGrant,
+	WIFI_PATH,
+} from "./offline-grant.ts";
+export {
 	emptyPairingState,
 	loginFromEmail,
 	type PairingClaim,

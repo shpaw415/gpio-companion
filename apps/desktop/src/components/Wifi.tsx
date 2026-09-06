@@ -19,6 +19,7 @@ import {
 } from "../api";
 import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 import DebugLog from "./DebugLog";
 import { SelectSkeleton } from "./skeletons";
 
@@ -38,6 +39,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
 	const [uuid, setUuid] = useState("");
 	const [boardId, setBoardId] = useState("auto");
+	const offline = useOfflineBleKey(uuid);
 	const [networks, setNetworks] = useState<KnownNetwork[]>([]);
 	const [networkId, setNetworkId] = useState(MANUAL);
 	const [ssid, setSsid] = useState("");
@@ -191,6 +193,11 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				close. Choose a known network to fill SSID and password, or enter them
 				manually.
 			</Typography>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			{devicesLoading ? (
 				<SelectSkeleton height={56} width="100%" />
 			) : (

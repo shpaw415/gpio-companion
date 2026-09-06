@@ -8,9 +8,12 @@ import {
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
 	flattenDeviceInfo,
+	INFO_PATH,
 } from "gpio-companion";
 import { useState } from "react";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
+import { withOfflineSign } from "../lib/offline-ble.ts";
 import {
 	bluetoothChooserCancelled,
 	bluetoothSupported,
@@ -48,6 +51,7 @@ export default function DeviceCompanionInfo({
 	const [info, setInfo] = useState<unknown>(null);
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
+	const offline = useOfflineBleKey(uuid);
 	const rows = info ? flattenDeviceInfo(info) : [];
 
 	function start(task: () => Promise<void>) {
@@ -67,6 +71,11 @@ export default function DeviceCompanionInfo({
 
 	return (
 		<Stack spacing={1}>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			<Stack direction="row" spacing={1} className="flex-wrap">
 				<Button
 					type="button"
@@ -88,7 +97,11 @@ export default function DeviceCompanionInfo({
 					disabled={busy || !uuid}
 					onClick={() => {
 						start(async () => {
-							const envelope = unwrapAction(await signDeviceInfo(uuid));
+							const envelope = await withOfflineSign(
+								uuid,
+								async () => unwrapAction(await signDeviceInfo(uuid)),
+								{ method: "GET", path: INFO_PATH },
+							);
 							if (!supported) {
 								const text = envelopeToPasteText(envelope);
 								setPasteText(text);

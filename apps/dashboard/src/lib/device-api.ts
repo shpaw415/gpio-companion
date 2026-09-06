@@ -2,6 +2,8 @@ import {
 	createSignedEnvelope,
 	DEFAULT_DEVICE_KEY_ID,
 	type DeviceAuthHeaders,
+	mintOfflineGrant,
+	type OfflineGrantBundle,
 	type SignedDeviceEnvelope,
 	signDeviceRequest,
 } from "gpio-companion";
@@ -10,6 +12,22 @@ export type DeviceSigningEnv = {
 	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
 	GPIO_COMPANION_DEVICE_KEY_ID?: string;
 };
+
+export async function mintDeviceOfflineGrant(
+	env: DeviceSigningEnv,
+	uuid: string,
+	userId: string,
+): Promise<OfflineGrantBundle> {
+	const privateKeyPem = env.GPIO_COMPANION_DEVICE_PRIVATE_KEY ?? "";
+	if (!privateKeyPem.trim()) {
+		throw new Error("GPIO_COMPANION_DEVICE_PRIVATE_KEY is not set");
+	}
+	return mintOfflineGrant({
+		masterPrivateKeyPem: privateKeyPem,
+		uuid,
+		userId,
+	});
+}
 
 export async function signDeviceEnvelope(
 	env: DeviceSigningEnv,

@@ -10,11 +10,13 @@ import {
 	loadGpio,
 	putGpio,
 } from "../api";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
 export default function GpioPanel({ uuid }: { uuid: string }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
+	const offline = useOfflineBleKey(uuid);
 	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
 
 	function start(task: () => Promise<GpioSnapshot>) {
@@ -31,6 +33,11 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
 			<Typography variant="subtitle2">GPIO</Typography>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
 					variant="outlined"

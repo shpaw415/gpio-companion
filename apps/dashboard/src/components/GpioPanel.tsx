@@ -8,11 +8,14 @@ import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
+	GPIO_PATH,
 	type GpioPinState,
 	type GpioSnapshot,
 } from "gpio-companion";
 import { useCallback, useEffect, useState } from "react";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
+import { withOfflineSign } from "../lib/offline-ble.ts";
 import {
 	bluetoothChooserCancelled,
 	bluetoothSupported,
@@ -34,6 +37,7 @@ export default function GpioPanel({
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
+	const offline = useOfflineBleKey(uuid);
 
 	const applySnapshot = useCallback(
 		(next: GpioSnapshot | null) => {
@@ -88,6 +92,11 @@ export default function GpioPanel({
 	return (
 		<Stack spacing={1}>
 			<Typography variant="subtitle1">GPIO</Typography>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			<Stack direction="row" spacing={1} className="flex-wrap">
 				<Button
 					type="button"
@@ -112,7 +121,11 @@ export default function GpioPanel({
 							applySnapshot(
 								await runGpioEnvelope(
 									uuid,
-									unwrapAction(await signGpio({ uuid })),
+									await withOfflineSign(
+										uuid,
+										async () => unwrapAction(await signGpio({ uuid })),
+										{ method: "GET", path: GPIO_PATH },
+									),
 									supported,
 									(text) => setPasteText(text),
 								),

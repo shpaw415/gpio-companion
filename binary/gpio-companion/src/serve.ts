@@ -12,6 +12,7 @@ import {
 	FlashError,
 	GPIO_PATH,
 	GpioError,
+	grantHeaderValue,
 	hasDeviceSignature,
 	INFO_PATH,
 	isFlashPath,
@@ -36,6 +37,7 @@ import {
 	UPDATE_PATH,
 	VERSION,
 	verifyDeviceRequest,
+	verifyOfflineEnvelope,
 	WifiConnectError,
 } from "gpio-companion";
 import { type FetchLike, proxyAiRequest } from "./ai-credentials.ts";
@@ -322,22 +324,41 @@ export async function handleDeviceRequest(
 	}
 
 	const trusted = clock ? await clock.trusted() : true;
-	const verified = await verifyDeviceRequest({
-		publicKeyPem: deviceAuth.publicKeyPem,
-		keyId: deviceAuth.keyId,
-		method,
-		path,
-		body: bodyText,
-		headers: request.headers,
-		enforceSkew: trusted,
-	});
-	if (nonces) {
-		nonces.consume(verified.nonce);
-	}
-	if (clock) {
-		await clock.sync(verified.issued, verified.clockBehind);
-	} else if (verified.clockBehind) {
-		throw new DeviceAuthError("expired device signature", 403);
+	const grantRaw = grantHeaderValue(request.headers);
+	let verified: { issued: number; nonce: string; clockBehind: boolean };
+	if (grantRaw) {
+		const pairing = await pairingStore.read();
+		const offline = await verifyOfflineEnvelope({
+			masterPublicKeyPem: deviceAuth.publicKeyPem,
+			uuid: pairing.uuid,
+			method,
+			path,
+			body: bodyText,
+			headers: request.headers,
+			enforceExpiry: trusted,
+		});
+		verified = offline.verified;
+		if (nonces) {
+			nonces.consume(verified.nonce);
+		}
+	} else {
+		verified = await verifyDeviceRequest({
+			publicKeyPem: deviceAuth.publicKeyPem,
+			keyId: deviceAuth.keyId,
+			method,
+			path,
+			body: bodyText,
+			headers: request.headers,
+			enforceSkew: trusted,
+		});
+		if (nonces) {
+			nonces.consume(verified.nonce);
+		}
+		if (clock) {
+			await clock.sync(verified.issued, verified.clockBehind);
+		} else if (verified.clockBehind) {
+			throw new DeviceAuthError("expired device signature", 403);
+		}
 	}
 
 	if (method === "GET" && path === "/v1/pairing") {

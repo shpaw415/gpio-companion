@@ -1,4 +1,13 @@
 import { dashboardUrl } from "./config.ts";
+import {
+	isOfflineSignFallback,
+	liveOfflineKey,
+	loadOfflineKey,
+	saveOfflineKey,
+	shouldMintOfflineKey,
+	signWithStoredKey,
+	type StoredOfflineKey,
+} from "./offline-keys.ts";
 
 export type ActionResult<T> =
 	| { ok: true; data: T }
@@ -297,14 +306,76 @@ export function claimDevice(
 	});
 }
 
+async function signOnlineOrOffline(
+	token: string,
+	path: string,
+	body: unknown,
+	local: { uuid: string; method: string; path: string; body?: string },
+) {
+	try {
+		return await request<Record<string, unknown>>(token, path, {
+			method: "POST",
+			body: JSON.stringify(body),
+		});
+	} catch (error) {
+		if (!isOfflineSignFallback(error)) {
+			throw error;
+		}
+		return signWithStoredKey(
+			local.uuid,
+			local.method,
+			local.path,
+			local.body ?? "",
+		);
+	}
+}
+
+export function mintOfflineKey(token: string, uuid: string) {
+	return request<Omit<StoredOfflineKey, "uuid">>(token, "/api/mobile/offline-key", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
+}
+
+export async function ensureOfflineKey(token: string, uuid: string) {
+	const trimmed = uuid.trim();
+	if (!trimmed) {
+		return null;
+	}
+	const existing = await loadOfflineKey(trimmed);
+	if (!shouldMintOfflineKey(existing)) {
+		return existing;
+	}
+	try {
+		const bundle = await mintOfflineKey(token, trimmed);
+		const record: StoredOfflineKey = { uuid: trimmed, ...bundle };
+		await saveOfflineKey(record);
+		return record;
+	} catch {
+		return liveOfflineKey(existing);
+	}
+}
+
 export function signWifi(
 	token: string,
 	input: { uuid: string; ssid: string; psk: string },
 ) {
-	return request<Record<string, unknown>>(token, "/api/mobile/wifi", {
-		method: "POST",
-		body: JSON.stringify(input),
-	});
+	const ssid = input.ssid.trim();
+	return signOnlineOrOffline(
+		token,
+		"/api/mobile/wifi",
+		input,
+		{
+			uuid: input.uuid,
+			method: "PUT",
+			path: "/v1/config/wifi",
+			body: JSON.stringify({
+				ssid,
+				psk: input.psk,
+				uuid: input.uuid,
+			}),
+		},
+	);
 }
 
 export function t3Status(token: string, uuid: string) {
@@ -430,9 +501,18 @@ export function signGpio(
 	token: string,
 	input: { uuid: string; physical?: number; dir?: string; value?: number },
 ) {
-	return request<Record<string, unknown>>(token, "/api/mobile/gpio", {
-		method: "POST",
-		body: JSON.stringify(input),
+	const put = input.physical !== undefined;
+	return signOnlineOrOffline(token, "/api/mobile/gpio", input, {
+		uuid: input.uuid,
+		method: put ? "PUT" : "GET",
+		path: "/v1/gpio",
+		body: put
+			? JSON.stringify({
+					physical: input.physical,
+					dir: input.dir,
+					value: input.value,
+				})
+			: "",
 	});
 }
 
@@ -489,9 +569,21 @@ export function signFlash(
 		sign?: boolean;
 	},
 ) {
-	return request<Record<string, unknown>>(token, "/api/mobile/flash", {
-		method: "POST",
-		body: JSON.stringify(input),
+	const flash = Boolean(input.fqbn);
+	const ports = Boolean(input.ports);
+	const put: { fqbn?: string; dir?: string; port?: string } = {};
+	if (flash) {
+		put.fqbn = input.fqbn;
+		put.dir = input.dir;
+		if (input.port) {
+			put.port = input.port;
+		}
+	}
+	return signOnlineOrOffline(token, "/api/mobile/flash", input, {
+		uuid: input.uuid,
+		method: flash ? "POST" : "GET",
+		path: ports ? "/v1/flash/ports" : "/v1/flash",
+		body: flash ? JSON.stringify(put) : "",
 	});
 }
 
@@ -503,10 +595,12 @@ export function loadDeviceInfo(token: string, uuid: string) {
 }
 
 export function signDeviceInfo(token: string, uuid: string) {
-	return request<Record<string, unknown>>(token, "/api/mobile/info", {
-		method: "POST",
-		body: JSON.stringify({ uuid }),
-	});
+	return signOnlineOrOffline(
+		token,
+		"/api/mobile/info",
+		{ uuid },
+		{ uuid, method: "GET", path: "/v1/info" },
+	);
 }
 
 export function startDeviceUpdate(token: string, uuid: string) {

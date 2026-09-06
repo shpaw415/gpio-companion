@@ -16,6 +16,7 @@ export type SignedDeviceEnvelope = {
 	path: string;
 	body: string;
 	headers: DeviceAuthHeaders;
+	grant?: unknown;
 };
 
 export type BleInfo = {
@@ -31,6 +32,10 @@ export async function createSignedEnvelope(options: {
 	method: string;
 	path: string;
 	body?: string;
+	now?: number;
+	nonce?: string;
+	grantHeader?: string;
+	grant?: unknown;
 }): Promise<SignedDeviceEnvelope> {
 	const body = options.body ?? "";
 	const method = options.method.toUpperCase();
@@ -41,8 +46,11 @@ export async function createSignedEnvelope(options: {
 		method,
 		path,
 		body,
+		now: options.now,
+		nonce: options.nonce,
+		grantHeader: options.grantHeader,
 	});
-	return { method, path, body, headers };
+	return { method, path, body, headers, grant: options.grant };
 }
 
 export function parseSignedEnvelope(input: unknown): SignedDeviceEnvelope {
@@ -74,16 +82,26 @@ export function parseSignedEnvelope(input: unknown): SignedDeviceEnvelope {
 		headerRecord["X-Gpio-Signature"] ?? headerRecord["x-gpio-signature"],
 		"X-Gpio-Signature",
 	);
+	const grantHeader = optionalString(
+		headerRecord["X-Gpio-Grant"] ?? headerRecord["x-gpio-grant"],
+	);
+	const authHeaders: DeviceAuthHeaders = {
+		"X-Gpio-Key-Id": keyId,
+		"X-Gpio-Timestamp": timestamp,
+		"X-Gpio-Nonce": nonce,
+		"X-Gpio-Signature": signature,
+	};
+	if (grantHeader) {
+		authHeaders["X-Gpio-Grant"] = grantHeader;
+	}
+	const grant =
+		record.grant ?? (grantHeader ? tryParseJson(grantHeader) : undefined);
 	return {
 		method,
 		path,
 		body,
-		headers: {
-			"X-Gpio-Key-Id": keyId,
-			"X-Gpio-Timestamp": timestamp,
-			"X-Gpio-Nonce": nonce,
-			"X-Gpio-Signature": signature,
-		},
+		headers: authHeaders,
+		grant,
 	};
 }
 
@@ -170,4 +188,16 @@ function requiredString(value: unknown, field: string): string {
 		throw new Error(`${field} is required`);
 	}
 	return value.trim();
+}
+
+function optionalString(value: unknown): string {
+	return typeof value === "string" ? value.trim() : "";
+}
+
+function tryParseJson(value: string): unknown {
+	try {
+		return JSON.parse(value) as unknown;
+	} catch {
+		return value;
+	}
 }

@@ -6,6 +6,7 @@ mod bluez;
 mod config;
 mod frames;
 mod log;
+mod offline_keys;
 mod tokens;
 mod wifi;
 
@@ -113,6 +114,7 @@ async fn auth_login(app: AppHandle, flow: State<'_, AuthFlow>) -> Result<(), Str
 #[tauri::command]
 fn auth_logout() {
 	tokens::clear();
+	offline_keys::clear();
 }
 
 #[tauri::command]
@@ -226,6 +228,36 @@ async fn ble_pair(app: AppHandle, id: String) -> Result<Value, String> {
 	.await?;
 	emit_status(&app, "Paired");
 	Ok(claimed)
+}
+
+#[tauri::command]
+fn offline_keys_get(uuid: String) -> Option<Value> {
+	offline_keys::get(&uuid)
+}
+
+#[tauri::command]
+fn offline_keys_put(record: Value) -> Result<(), String> {
+	offline_keys::put(record)
+}
+
+#[tauri::command]
+async fn ble_write_envelope(
+	app: AppHandle,
+	id: String,
+	uuid: String,
+	envelope: Value,
+) -> Result<String, String> {
+	let _ble = ble::acquire().await;
+	emit_status(&app, "Connecting…");
+	let (peripheral, info) = ble::connected_board_info(&id).await?;
+	if !uuid.is_empty() && !info.uuid.is_empty() && info.uuid != uuid {
+		ble::disconnect(&peripheral).await;
+		return Err("this board is not the selected paired device".to_string());
+	}
+	emit_status(&app, "Writing…");
+	let raw = ble::send_envelope(&peripheral, &envelope).await;
+	ble::disconnect(&peripheral).await;
+	raw
 }
 
 #[tauri::command]
@@ -465,7 +497,10 @@ pub fn run() {
 			ble_flash,
 			wifi_known_networks,
 			wifi_network_psk,
-			wifi_remember_network
+			wifi_remember_network,
+			offline_keys_get,
+			offline_keys_put,
+			ble_write_envelope
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running gpio-companion desktop");

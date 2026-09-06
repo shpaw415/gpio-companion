@@ -10,11 +10,16 @@ import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
 	envelopeToPasteText,
+	FLASH_PATH,
+	FLASH_PORTS_PATH,
 	type FlashPort,
 	type FlashStatus,
+	parseFlashPut,
 } from "gpio-companion";
 import { useEffect, useState } from "react";
+import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
+import { withOfflineSign } from "../lib/offline-ble.ts";
 import {
 	bluetoothChooserCancelled,
 	bluetoothSupported,
@@ -32,6 +37,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [port, setPort] = useState("");
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
+	const offline = useOfflineBleKey(uuid);
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -66,6 +72,11 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	return (
 		<Stack spacing={1}>
 			<Typography variant="subtitle1">Arduino flash</Typography>
+			{uuid ? (
+				<Typography variant="body2" color="secondary">
+					{offline.label}
+				</Typography>
+			) : null}
 			<Stack direction="row" spacing={1} className="flex-wrap">
 				<Button
 					type="button"
@@ -98,14 +109,24 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 						start(async () => {
 							const raw = await runFlashEnvelope(
 								uuid,
-								unwrapAction(await signFlash({ uuid, ports: true })),
+								await withOfflineSign(
+									uuid,
+									async () =>
+										unwrapAction(await signFlash({ uuid, ports: true })),
+									{ method: "GET", path: FLASH_PORTS_PATH },
+								),
 								supported,
 								(text) => setPasteText(text),
 							);
-							if (!raw || !("ports" in raw) || !Array.isArray(raw.ports)) {
+							if (
+								!raw ||
+								typeof raw !== "object" ||
+								!("ports" in raw) ||
+								!Array.isArray((raw as { ports: unknown }).ports)
+							) {
 								return;
 							}
-							setPorts(raw.ports as FlashPort[]);
+							setPorts((raw as { ports: FlashPort[] }).ports);
 						});
 					}}
 				>
@@ -160,13 +181,28 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 						start(async () => {
 							await runFlashEnvelope(
 								uuid,
-								unwrapAction(
-									await signFlash({
-										uuid,
-										fqbn: fqbn.trim(),
-										dir: dir.trim(),
-										port: port.trim() || undefined,
-									}),
+								await withOfflineSign(
+									uuid,
+									async () =>
+										unwrapAction(
+											await signFlash({
+												uuid,
+												fqbn: fqbn.trim(),
+												dir: dir.trim(),
+												port: port.trim() || undefined,
+											}),
+										),
+									{
+										method: "POST",
+										path: FLASH_PATH,
+										body: JSON.stringify(
+											parseFlashPut({
+												fqbn: fqbn.trim(),
+												dir: dir.trim(),
+												port: port.trim() || undefined,
+											}),
+										),
+									},
 								),
 								supported,
 								(text) => setPasteText(text),

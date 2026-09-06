@@ -11,10 +11,12 @@ import { useAuth } from "../lib/auth.tsx";
 import {
 	createBoardLoss,
 	openBoardSession,
+	readInfo,
 	scanBoard,
 	sendEnvelope,
 } from "../lib/ble.ts";
-import { Body, ErrorText, TextButton } from "./ui.tsx";
+import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
+import { Body, ErrorText, Muted, TextButton } from "./ui.tsx";
 
 function parseGpioPayload(raw: string): GpioSnapshot {
 	let parsed: unknown;
@@ -44,6 +46,7 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const token = auth.token;
+	const offline = useOfflineBleKey(uuid);
 	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
 
 	function start(task: () => Promise<GpioSnapshot>) {
@@ -60,6 +63,7 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 	return (
 		<View style={{ gap: 8, marginTop: 8 }}>
 			<Body>GPIO</Body>
+			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 				<TextButton
 					label={busy ? "Loading…" : "Load GPIO"}
@@ -81,10 +85,13 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 						start(async () => {
 							const envelope = await signGpio(token, { uuid });
 							const loss = createBoardLoss();
-							const board = await scanBoard(loss);
-							const session = await openBoardSession(board, loss);
+							const board = await scanBoard();
+							const session = await openBoardSession(board, (why) =>
+								loss.lose(why),
+							);
 							try {
-								if (session.info.uuid && session.info.uuid !== uuid) {
+								const bleInfo = await readInfo(session.device);
+								if (bleInfo.uuid && bleInfo.uuid !== uuid) {
 									throw new Error(
 										"this board is not the selected paired device",
 									);
@@ -93,7 +100,7 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 									await sendEnvelope(session.device, envelope, loss),
 								);
 							} finally {
-								session.disconnect();
+								await session.close();
 							}
 						});
 					}}
