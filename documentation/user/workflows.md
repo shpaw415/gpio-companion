@@ -13,7 +13,7 @@ On Orange Pi, power/GND seats match the 40-pin Pi layout; **SoC GPIO numbers are
 
 Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home. Open that folder for projects on the stick; see [storage.md](./storage.md).
 
-Arduino firmware is **C**, flashed over USB. No other MCU language unless the product locks one.
+Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Devices Debug can start the same job over the web API or Bluetooth.
 
 ## Projects live in GitHub
 
@@ -44,6 +44,8 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 ## GPIO
 
 The on-device agent drives pins through `http://127.0.0.1:4150/v1/gpio` (physical 1–40, digital only). The dashboard Project page and Devices cards can load the same map over the web API or Bluetooth. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi SoC lines must resolve live.
+
+Flash Arduino with `POST /v1/flash` then poll `GET /v1/flash`. A second job while one is running returns 409.
 
 ## Safety
 

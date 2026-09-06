@@ -168,6 +168,20 @@ export {
 } from "./device-info.ts";
 export { DEFAULT_DEVICE_KEY_ID } from "./device-public-key.ts";
 export {
+	capFlashLog,
+	FLASH_LOG_MAX,
+	FLASH_PATH,
+	FLASH_PORTS_PATH,
+	FlashError,
+	type FlashPort,
+	type FlashPut,
+	type FlashResult,
+	type FlashStatus,
+	isFlashPath,
+	parseArduinoBoardList,
+	parseFlashPut,
+} from "./flash.ts";
+export {
 	createGithubAppJwt,
 	GITHUB_API,
 	GITHUB_APP_TOKEN_PREFIX,

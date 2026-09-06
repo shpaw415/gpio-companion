@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
+import FlashPanel from "./FlashPanel.tsx";
 
 type Filter = "all" | "error" | "warning";
 type Connection = "idle" | "connecting" | "live" | "error";
@@ -262,6 +263,7 @@ export default function DeviceDebugPanel({
 					</Button>
 				</Stack>
 				{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
+				{uuid ? <FlashPanel uuid={uuid} /> : null}
 				{journal ? (
 					<>
 						<Stack direction="row" spacing={1} className="flex-wrap">

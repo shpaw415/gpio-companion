@@ -1,0 +1,180 @@
+import { readdirSync, statSync } from "node:fs";
+import {
+	capFlashLog,
+	FlashError,
+	type FlashPort,
+	type FlashPut,
+	type FlashResult,
+	type FlashStatus,
+	parseArduinoBoardList,
+	parseFlashPut,
+} from "gpio-companion";
+
+export type FlashBackend = {
+	listPorts(): Promise<string>;
+	compileAndUpload(job: FlashPut): Promise<{ ok: boolean; log: string }>;
+	hasSketch?: (dir: string) => boolean;
+};
+
+export type FlashController = {
+	status(): FlashStatus;
+	ports(): Promise<{ ports: FlashPort[] }>;
+	start(input: unknown): { started: true };
+};
+
+const SKETCH_EXT = [".c", ".ino"];
+
+export function createFlashController(backend: FlashBackend): FlashController {
+	let running = false;
+	let last: FlashResult | null = null;
+	return {
+		status() {
+			return { running, last };
+		},
+		async ports() {
+			return { ports: parseArduinoBoardList(await backend.listPorts()) };
+		},
+		start(input) {
+			const put = parseFlashPut(input);
+			assertSketchDir(put.dir, backend.hasSketch);
+			if (running) {
+				throw new FlashError("flash already running", 409);
+			}
+			running = true;
+			const startedAt = Date.now();
+			void backend
+				.compileAndUpload(put)
+				.then((result) => {
+					last = {
+						ok: result.ok,
+						fqbn: put.fqbn,
+						dir: put.dir,
+						port: put.port,
+						log: capFlashLog(result.log),
+						startedAt,
+						finishedAt: Date.now(),
+					};
+				})
+				.catch((caught) => {
+					last = {
+						ok: false,
+						fqbn: put.fqbn,
+						dir: put.dir,
+						port: put.port,
+						log: capFlashLog(
+							caught instanceof Error ? caught.message : "flash failed",
+						),
+						startedAt,
+						finishedAt: Date.now(),
+					};
+				})
+				.finally(() => {
+					running = false;
+				});
+			return { started: true };
+		},
+	};
+}
+
+export function createArduinoFlash(): FlashController {
+	return createFlashController({
+		listPorts: () =>
+			spawnText(["arduino-cli", "board", "list", "--format", "json"]),
+		async compileAndUpload(job) {
+			const compile = await spawnResult([
+				"arduino-cli",
+				"compile",
+				"--fqbn",
+				job.fqbn,
+				job.dir,
+			]);
+			if (compile.code !== 0) {
+				return { ok: false, log: compile.log };
+			}
+			const uploadCmd = ["arduino-cli", "upload", "--fqbn", job.fqbn];
+			if (job.port) {
+				uploadCmd.push("--port", job.port);
+			}
+			uploadCmd.push(job.dir);
+			const upload = await spawnResult(uploadCmd);
+			return {
+				ok: upload.code === 0,
+				log: `${compile.log}\n${upload.log}`.trim(),
+			};
+		},
+	});
+}
+
+export function memoryFlash(
+	portsJson = '{"detected_ports":[]}',
+	upload: (
+		job: FlashPut,
+	) => Promise<{ ok: boolean; log: string }> = async () => ({
+		ok: true,
+		log: "ok",
+	}),
+	hasSketch = true,
+): FlashController {
+	return createFlashController({
+		async listPorts() {
+			return portsJson;
+		},
+		compileAndUpload: upload,
+		hasSketch: () => hasSketch,
+	});
+}
+
+function assertSketchDir(
+	dir: string,
+	hasSketch?: (dir: string) => boolean,
+): void {
+	if (hasSketch) {
+		if (!hasSketch(dir)) {
+			throw new FlashError("dir needs a .c or .ino sketch");
+		}
+		return;
+	}
+	try {
+		if (!statSync(dir).isDirectory()) {
+			throw new FlashError("dir is not a directory");
+		}
+	} catch (caught) {
+		if (caught instanceof FlashError) {
+			throw caught;
+		}
+		throw new FlashError("dir was not found");
+	}
+	const names = readdirSync(dir);
+	if (!names.some((name) => SKETCH_EXT.some((ext) => name.endsWith(ext)))) {
+		throw new FlashError("dir needs a .c or .ino sketch");
+	}
+}
+
+async function spawnText(cmd: string[]): Promise<string> {
+	const result = await spawnResult(cmd);
+	if (result.code !== 0) {
+		throw new FlashError(result.log || `${cmd[0]} failed`);
+	}
+	return result.log;
+}
+
+async function spawnResult(
+	cmd: string[],
+): Promise<{ code: number; log: string }> {
+	const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+	const [stdout, stderr, code] = await Promise.all([
+		readPipe(proc.stdout),
+		readPipe(proc.stderr),
+		proc.exited,
+	]);
+	return { code, log: `${stdout}\n${stderr}`.trim() };
+}
+
+async function readPipe(
+	stream: ReadableStream<Uint8Array> | number | undefined,
+): Promise<string> {
+	if (!stream || typeof stream === "number") {
+		return "";
+	}
+	return new Response(stream).text();
+}

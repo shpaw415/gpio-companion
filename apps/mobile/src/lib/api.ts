@@ -436,6 +436,65 @@ export function signGpio(
 	});
 }
 
+export type FlashPort = {
+	address: string;
+	protocol?: string;
+	fqbn?: string;
+	name?: string;
+};
+
+export type FlashStatus = {
+	running: boolean;
+	last: {
+		ok: boolean;
+		fqbn: string;
+		dir: string;
+		port?: string;
+		log: string;
+	} | null;
+};
+
+export function loadFlash(token: string, uuid: string) {
+	return request<FlashStatus>(
+		token,
+		`/api/mobile/flash?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function loadFlashPorts(token: string, uuid: string) {
+	return request<{ ports: FlashPort[] }>(
+		token,
+		`/api/mobile/flash?uuid=${encodeURIComponent(uuid)}&ports=1`,
+	);
+}
+
+export function startFlash(
+	token: string,
+	input: { uuid: string; fqbn: string; dir: string; port?: string },
+) {
+	return request<{ started: boolean }>(token, "/api/mobile/flash", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
+export function signFlash(
+	token: string,
+	input: {
+		uuid: string;
+		fqbn?: string;
+		dir?: string;
+		port?: string;
+		ports?: boolean;
+		sign?: boolean;
+	},
+) {
+	return request<Record<string, unknown>>(token, "/api/mobile/flash", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
 export function loadDeviceInfo(token: string, uuid: string) {
 	return request<{ info: unknown }>(
 		token,

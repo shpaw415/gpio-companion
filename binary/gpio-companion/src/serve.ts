@@ -7,10 +7,14 @@ import {
 	type DeviceConfig,
 	type DiskStats,
 	debugAuthHeadersFromRequest,
+	FLASH_PATH,
+	FLASH_PORTS_PATH,
+	FlashError,
 	GPIO_PATH,
 	GpioError,
 	hasDeviceSignature,
 	INFO_PATH,
+	isFlashPath,
 	LOGS_PATH,
 	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
@@ -38,6 +42,7 @@ import { type FetchLike, proxyAiRequest } from "./ai-credentials.ts";
 import { readBoardModel } from "./board-model.ts";
 import { createDebugHub } from "./debug.ts";
 import { readDiskStats } from "./disk.ts";
+import { createArduinoFlash, type FlashController } from "./flash.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
 import { createLibgpiodGpio, type GpioController } from "./gpio.ts";
 import { readDeviceInfoJson } from "./info.ts";
@@ -91,6 +96,7 @@ export type ServeOptions = {
 	readNetwork?: () => NetworkStatus | null;
 	readInfo?: () => Promise<Record<string, unknown>>;
 	gpio?: GpioController;
+	flash?: FlashController;
 };
 
 export type DeviceRequestExtras = {
@@ -99,6 +105,7 @@ export type DeviceRequestExtras = {
 	readNetwork?: () => NetworkStatus | null;
 	readInfo?: () => Promise<Record<string, unknown>>;
 	gpio?: GpioController;
+	flash?: FlashController;
 	applyUpdate?: ApplyUpdate;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
@@ -119,6 +126,7 @@ export function startDeviceApi(options: ServeOptions) {
 		readNetwork: options.readNetwork ?? readNetworkStatus,
 		readInfo: options.readInfo ?? (async () => readDeviceInfoJson()),
 		gpio: options.gpio ?? createLibgpiodGpio(),
+		flash: options.flash ?? createArduinoFlash(),
 		applyUpdate: options.applyUpdate,
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
@@ -215,6 +223,11 @@ export function startDeviceApi(options: ServeOptions) {
 						{ error: error.message },
 						{ status: error.status },
 					);
+				} else if (error instanceof FlashError) {
+					response = Response.json(
+						{ error: error.message },
+						{ status: error.status },
+					);
 				} else {
 					const message =
 						error instanceof Error ? error.message : "request failed";
@@ -294,11 +307,14 @@ export async function handleDeviceRequest(
 	}
 
 	if (
-		path === GPIO_PATH &&
+		(path === GPIO_PATH || isFlashPath(path)) &&
 		isLoopback(url) &&
 		!hasDeviceSignature(request.headers)
 	) {
-		return handleGpio(method, bodyText, store, extras?.gpio);
+		if (path === GPIO_PATH) {
+			return handleGpio(method, bodyText, store, extras?.gpio);
+		}
+		return handleFlash(method, path, bodyText, extras?.flash);
 	}
 
 	if (!deviceAuth.publicKeyPem.trim()) {
@@ -502,6 +518,10 @@ export async function handleDeviceRequest(
 
 	if (path === GPIO_PATH) {
 		return handleGpio(method, bodyText, store, extras?.gpio);
+	}
+
+	if (isFlashPath(path)) {
+		return handleFlash(method, path, bodyText, extras?.flash);
 	}
 
 	if (method === "GET" && path === "/v1/status") {
@@ -735,6 +755,27 @@ async function handleGpio(
 	}
 	if (method === "PUT") {
 		return json(await gpio.apply(hardware, parseGpioPut(parseJson(bodyText))));
+	}
+	return json({ error: "method not allowed" }, 405);
+}
+
+async function handleFlash(
+	method: string,
+	path: string,
+	bodyText: string,
+	flash: FlashController | undefined,
+): Promise<Response> {
+	if (!flash) {
+		return json({ error: "flash is unavailable" }, 503);
+	}
+	if (method === "GET" && path === FLASH_PORTS_PATH) {
+		return json(await flash.ports());
+	}
+	if (method === "GET" && path === FLASH_PATH) {
+		return json(flash.status());
+	}
+	if (method === "POST" && path === FLASH_PATH) {
+		return json(flash.start(parseJson(bodyText)));
 	}
 	return json({ error: "method not allowed" }, 405);
 }

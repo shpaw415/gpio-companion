@@ -371,6 +371,65 @@ export function connectDebug(uuid: string) {
 	return apiRequest<DebugConnect>("POST", "/api/mobile/debug", { uuid });
 }
 
+export type FlashPort = {
+	address: string;
+	protocol?: string;
+	fqbn?: string;
+	name?: string;
+};
+
+export type FlashStatus = {
+	running: boolean;
+	last: {
+		ok: boolean;
+		fqbn: string;
+		dir: string;
+		port?: string;
+		log: string;
+	} | null;
+};
+
+export function loadFlash(uuid: string) {
+	return apiRequest<FlashStatus>(
+		"GET",
+		`/api/mobile/flash?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function loadFlashPorts(uuid: string) {
+	return apiRequest<{ ports: FlashPort[] }>(
+		"GET",
+		`/api/mobile/flash?uuid=${encodeURIComponent(uuid)}&ports=1`,
+	);
+}
+
+export function startFlash(input: {
+	uuid: string;
+	fqbn: string;
+	dir: string;
+	port?: string;
+}) {
+	return apiRequest<{ started: boolean }>("POST", "/api/mobile/flash", input);
+}
+
+export function bleFlash(input: {
+	uuid: string;
+	id?: string;
+	fqbn?: string;
+	dir?: string;
+	port?: string;
+	ports?: boolean;
+}) {
+	return call<unknown>("ble_flash", {
+		uuid: input.uuid,
+		id: input.id ?? "",
+		fqbn: input.fqbn ?? "",
+		dir: input.dir ?? "",
+		port: input.port ?? "",
+		ports: input.ports ?? false,
+	});
+}
+
 export function loadDeviceLogs(uuid: string) {
 	return apiRequest<{ text: string }>(
 		"GET",

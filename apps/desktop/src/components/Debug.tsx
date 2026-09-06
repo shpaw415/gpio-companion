@@ -20,6 +20,7 @@ import {
 } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
+import FlashPanel from "./FlashPanel";
 import { ListSkeleton } from "./skeletons";
 
 type LogLine = {
@@ -173,6 +174,7 @@ export default function Debug() {
 							>
 								{updateBusy === board.uuid ? "Updating…" : "Update companion"}
 							</Button>
+							<FlashPanel uuid={board.uuid} />
 						</Paper>
 					))}
 			{journal ? (

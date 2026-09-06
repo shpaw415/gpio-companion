@@ -30,7 +30,7 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
   Then `git add`, commit, `git push` on the project remote (`https://github.com/<user>/<project>.git`). The dashboard viewer reads those paths.
 - Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
 - Use Bun for HTTP, dashboards, and automation scripts
-- Generate Arduino firmware in C and send it over USB
+- Generate Arduino firmware in C and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). Sketch dir must be absolute and contain `.c` or `.ino`.
 - Load the pinout skill for the current hardware before wiring GPIO
 - Drive GPIO through `http://127.0.0.1:4150/v1/gpio` (unsigned loopback). `GET` snapshots physical pins 1–40; `PUT` `{ "physical": 11, "dir": "out", "value": 1 }` is digital only. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Orange Pi lines must resolve live (`gpioinfo` / WiringOP) or the API refuses.
 - Confirm Orange Pi SoC lines with `gpioinfo` (never assume Pi BCM numbers)

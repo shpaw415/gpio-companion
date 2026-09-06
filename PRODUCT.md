@@ -84,13 +84,13 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Per-hardware GPIO pinout skills: `opencode/skills/gpio-pinout-raspberrypi`, `opencode/skills/gpio-pinout-orangepi`
 - Breadboard agent skill: `opencode/skills/gpio-breadboard`
 - GPIO (locked 2026-09-06): digital `GET`/`PUT` `/v1/gpio` using physical pins 1–40. On-device agent may call unsigned on loopback when Ed25519 headers are absent. Dashboard web API and BLE use signed envelopes (`X-Gpio-Signature` required on GATT forward). Refuse power/GND, Raspberry Pi physical 27–28, and unresolved Orange Pi SoC lines. Dashboard GET is owner or admin; PUT is owner-only. `/project` polls live pin state onto the breadboard header.
+- Arduino flash (locked 2026-09-06): async `POST /v1/flash` `{ fqbn, dir, port? }` → `{ started: true }`; `GET /v1/flash` status; `GET /v1/flash/ports`. C `.c`/`.ino` in an absolute Pi directory. Same auth as GPIO (unsigned loopback without headers; signed web + BLE). Dashboard GET owner or admin; POST owner-only. UI on Devices Debug. Skill `gpio-arduino`.
 
 **Open / not locked**
 
 - Exact image build and Orange Pi board SKUs (SoC GPIO lines resolved live; 40-pin power/GND map is in `opencode/skills/gpio-pinout-orangepi`)
 - How skills/preferences are versioned beyond git pull of this repo
-- Dashboard UX beyond hardware, keys, projects/PCB/breadboard viewers, billing, pairing UI details, GPIO overlay, and gpio-companion.com stack
-- Arduino USB flash product API
+- Dashboard UX beyond hardware, keys, projects/PCB/breadboard viewers, billing, pairing UI details, GPIO overlay, Arduino flash on Debug, and gpio-companion.com stack
 
 ## Product Principles
 
