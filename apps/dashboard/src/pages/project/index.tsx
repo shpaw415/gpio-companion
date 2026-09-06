@@ -1,4 +1,6 @@
 import { GET as getPairing } from "@api/pair";
+import DeviceSelect from "@components/DeviceSelect";
+import GpioPanel from "@components/GpioPanel";
 import ProjectBrowser from "@components/ProjectBrowser";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
@@ -6,12 +8,15 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Stepper, { Step, StepLabel } from "@shpaw415/mui-lite/Stepper";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import type { GpioSnapshot } from "gpio-companion";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SectionHeader } from "../../components/Section.tsx";
 import { LinesSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import useMobile from "../../hooks/useMobile.ts";
+import type { StoredPairing } from "../../lib/pairing-store.ts";
 
 const STEPS = ["Sign in", "Pair Pi", "GitHub", "Ready"] as const;
 
@@ -41,15 +46,30 @@ export default function ProjectPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const mobile = useMobile();
+	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [paired, setPaired] = useState(false);
+	const [devices, setDevices] = useState<StoredPairing[]>([]);
 	const [githubReady, setGithubReady] = useState(false);
 	const [pairingLoading, setPairingLoading] = useState(true);
+	const [gpioSnapshot, setGpioSnapshot] = useState<GpioSnapshot | null>(null);
+	const selectedUuidRef = useRef(selectedUuid);
+	selectedUuidRef.current = selectedUuid;
+	const livePins = useMemo(() => {
+		const pins: Record<number, 0 | 1> = {};
+		for (const pin of gpioSnapshot?.pins ?? []) {
+			if (pin.type === "gpio" && (pin.value === 0 || pin.value === 1)) {
+				pins[pin.physical] = pin.value;
+			}
+		}
+		return pins;
+	}, [gpioSnapshot]);
 
 	useEffect(() => {
 		const userId = session.data?.id;
 		if (!userId) {
 			setPaired(false);
+			setDevices([]);
 			setGithubReady(false);
 			setPairingLoading(false);
 			return;
@@ -57,12 +77,17 @@ export default function ProjectPage() {
 		setPairingLoading(true);
 		void run(getPairing())
 			.then((result) => {
-				setPaired((result?.devices ?? []).length > 0);
+				const next = result?.devices ?? [];
+				setDevices(next);
+				setPaired(next.length > 0);
+				if (!selectedUuidRef.current && next[0]) {
+					selectBoard(next[0].uuid);
+				}
 			})
 			.finally(() => {
 				setPairingLoading(false);
 			});
-	}, [session.data?.id, run]);
+	}, [session.data?.id, run, selectBoard]);
 
 	const step = !loggedIn ? 0 : !paired ? 1 : !githubReady ? 2 : 3;
 	const next = NEXT[step] ?? undefined;
@@ -109,11 +134,28 @@ export default function ProjectPage() {
 				</Paper>
 			) : null}
 
+			{paired ? (
+				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
+					<Stack spacing={2}>
+						<DeviceSelect
+							devices={devices}
+							value={selectedUuid || devices[0]?.uuid || ""}
+							onChange={selectBoard}
+						/>
+						<GpioPanel
+							uuid={selectedUuid || devices[0]?.uuid || ""}
+							poll
+							onSnapshot={setGpioSnapshot}
+						/>
+					</Stack>
+				</Paper>
+			) : null}
+
 			<div>
 				<Typography variant="h5" className="mb-3">
 					Your projects
 				</Typography>
-				<ProjectBrowser onConfigured={setGithubReady} />
+				<ProjectBrowser onConfigured={setGithubReady} livePins={livePins} />
 			</div>
 		</Stack>
 	);

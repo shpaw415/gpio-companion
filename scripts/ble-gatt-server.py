@@ -321,6 +321,9 @@ def forward_envelope(payload, status_char):
 		envelope = json.loads(payload)
 		body = envelope.get("body") or ""
 		headers = envelope.get("headers") or {}
+		if not any(str(key).lower() == "x-gpio-signature" for key in headers):
+			status_char.set_value(b'{"error":"missing device signature"}')
+			return False
 		path = envelope.get("path") or "/v1/config/wifi"
 		method = envelope.get("method") or "PUT"
 		req = urllib.request.Request(

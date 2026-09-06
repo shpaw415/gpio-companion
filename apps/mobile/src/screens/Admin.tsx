@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert } from "react-native";
 import CompanionInfo from "../components/CompanionInfo.tsx";
+import GpioPanel from "../components/GpioPanel.tsx";
 import {
 	Body,
 	ErrorText,
@@ -112,6 +113,10 @@ export default function Admin() {
 						}}
 					/>
 					<CompanionInfo key={current.device.uuid} uuid={current.device.uuid} />
+					<GpioPanel
+						key={`${current.device.uuid}-gpio`}
+						uuid={current.device.uuid}
+					/>
 					<TextButton
 						label="Update companion"
 						onPress={() => {

@@ -30,11 +30,16 @@ import {
 type Props = {
 	diagramText?: string | null;
 	previewUrl?: string | null;
+	livePins?: Record<number, 0 | 1>;
 };
 
 type PinInfo = { name: string; x: number; y: number };
 
-export default function BreadboardViewer({ diagramText, previewUrl }: Props) {
+export default function BreadboardViewer({
+	diagramText,
+	previewUrl,
+	livePins,
+}: Props) {
 	const parsed = useMemo(() => parseDiagram(diagramText), [diagramText]);
 	const [activeStep, setActiveStep] = useState(0);
 	const [elementsReady, setElementsReady] = useState(0);
@@ -67,13 +72,18 @@ export default function BreadboardViewer({ diagramText, previewUrl }: Props) {
 						{diagram.parts.map((part) =>
 							part.hide
 								? null
-								: renderPart(part, highlight.includes(part.id), (el) => {
-										if (el) {
-											partRefs.current.set(part.id, el);
-										} else {
-											partRefs.current.delete(part.id);
-										}
-									}),
+								: renderPart(
+										part,
+										highlight.includes(part.id),
+										livePins,
+										(el) => {
+											if (el) {
+												partRefs.current.set(part.id, el);
+											} else {
+												partRefs.current.delete(part.id);
+											}
+										},
+									),
 						)}
 						<svg
 							aria-label="Breadboard wiring"
@@ -196,6 +206,7 @@ function parseDiagram(text?: string | null): {
 function renderPart(
 	part: WokwiPart,
 	hot: boolean,
+	livePins: Record<number, 0 | 1> | undefined,
 	ref: (el: HTMLElement | null) => void,
 ) {
 	const origin = partOrigin(part);
@@ -217,7 +228,10 @@ function renderPart(
 	if (part.type === GPIO_COMPANION_HEADER_TYPE) {
 		return (
 			<div key={part.id} style={style}>
-				<HeaderSvg hardware={part.attrs?.hardware ?? "raspberrypi"} />
+				<HeaderSvg
+					hardware={part.attrs?.hardware ?? "raspberrypi"}
+					livePins={livePins}
+				/>
 			</div>
 		);
 	}
@@ -273,7 +287,23 @@ function BreadboardSvg({ type }: { type: string }) {
 	);
 }
 
-function HeaderSvg({ hardware }: { hardware: string }) {
+function headerFill(pin: number, livePins?: Record<number, 0 | 1>): string {
+	if (livePins?.[pin] === 1) {
+		return "#22c55e";
+	}
+	if (livePins?.[pin] === 0) {
+		return "#475569";
+	}
+	return pin === 1 ? "#fbbf24" : "#e2e8f0";
+}
+
+function HeaderSvg({
+	hardware,
+	livePins,
+}: {
+	hardware: string;
+	livePins?: Record<number, 0 | 1>;
+}) {
 	const { width, height } = headerSize();
 	const pins = Array.from({ length: 40 }, (_, index) => index + 1);
 	return (
@@ -300,7 +330,7 @@ function HeaderSvg({ hardware }: { hardware: string }) {
 						cx={point.x}
 						cy={point.y}
 						r={2.2}
-						fill={pin === 1 ? "#fbbf24" : "#e2e8f0"}
+						fill={headerFill(pin, livePins)}
 					/>
 				);
 			})}

@@ -10,7 +10,7 @@ description: >-
 
 Load this skill when `/etc/gpio-companion/config.json` has `"hardware": "raspberrypi"`, or `/proc/device-tree/model` contains Raspberry Pi.
 
-Machine-readable map: `pinout.json` next to this file.
+Machine-readable map: `pinout.json` next to this file. Drive pins via `http://127.0.0.1:4150/v1/gpio` (physical 1–40). Pins 27–28 are reserved.
 
 Logic is **3.3V**. Do not feed 5V into a GPIO. Do not short 3V3 to 5V.
 

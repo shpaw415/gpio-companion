@@ -8,6 +8,7 @@ import { useState } from "react";
 import { type BoardView, deviceDisplayName, patchDeviceLabel } from "../api";
 import { formatNetworkLabel } from "../device-info";
 import CompanionInfo from "./CompanionInfo";
+import GpioPanel from "./GpioPanel";
 import T3Pairing from "./T3Pairing";
 
 export default function BoardCard({
@@ -124,6 +125,7 @@ export default function BoardCard({
 				</Stack>
 				<T3Pairing uuid={device.uuid} initial={status?.t3} />
 				<CompanionInfo key={device.uuid} uuid={device.uuid} />
+				<GpioPanel key={`${device.uuid}-gpio`} uuid={device.uuid} />
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 					{onSelect ? (
 						<Button

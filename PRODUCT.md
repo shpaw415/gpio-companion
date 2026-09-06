@@ -83,13 +83,14 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Breadboard plug maps are Wokwi `diagram.json` (`breadboard/diagram.json`) with a `gpio-companion-header` (physical pins 1–40); the dashboard renders the board, header, `@wokwi/elements` parts, and jumper wires
 - Per-hardware GPIO pinout skills: `opencode/skills/gpio-pinout-raspberrypi`, `opencode/skills/gpio-pinout-orangepi`
 - Breadboard agent skill: `opencode/skills/gpio-breadboard`
+- GPIO (locked 2026-09-06): digital `GET`/`PUT` `/v1/gpio` using physical pins 1–40. On-device agent may call unsigned on loopback when Ed25519 headers are absent. Dashboard web API and BLE use signed envelopes (`X-Gpio-Signature` required on GATT forward). Refuse power/GND, Raspberry Pi physical 27–28, and unresolved Orange Pi SoC lines. Dashboard GET is owner or admin; PUT is owner-only. `/project` polls live pin state onto the breadboard header.
 
 **Open / not locked**
 
 - Exact image build and Orange Pi board SKUs (SoC GPIO lines resolved live; 40-pin power/GND map is in `opencode/skills/gpio-pinout-orangepi`)
 - How skills/preferences are versioned beyond git pull of this repo
-- Dashboard UX beyond hardware, keys, projects/PCB/breadboard viewers, billing, pairing UI details, and gpio-companion.com stack
-- How far the agent may go unattended on GPIO/USB
+- Dashboard UX beyond hardware, keys, projects/PCB/breadboard viewers, billing, pairing UI details, GPIO overlay, and gpio-companion.com stack
+- Arduino USB flash product API
 
 ## Product Principles
 

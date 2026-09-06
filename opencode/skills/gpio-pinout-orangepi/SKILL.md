@@ -22,7 +22,7 @@ command -v gpio && gpio readall
 
 `gpioinfo` (libgpiod) is the source of truth for linux line names (`gpiochipN` + line). WiringOP `gpio readall` maps physical header pins when installed.
 
-Machine-readable power/GND skeleton: `pinout.json` next to this file. Every `"resolve": "live"` pin must be filled from `gpioinfo` / `gpio readall` for the model you are on.
+Machine-readable power/GND skeleton: `pinout.json` next to this file. Every `"resolve": "live"` pin must be filled from `gpioinfo` / `gpio readall` for the model you are on. Drive pins via `http://127.0.0.1:4150/v1/gpio`; unresolved lines are refused.
 
 Logic is **3.3V**. Do not feed 5V into a GPIO. Do not short 3V3 to 5V.
 

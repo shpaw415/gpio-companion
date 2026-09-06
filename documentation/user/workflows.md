@@ -41,6 +41,10 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 
 `gpio-companion-cleanup.timer` runs on boot and every hour. Journals stay for 24 hours then vacuum; leftover apt/tmp/cache files are pruned so 8GB eMMC boards do not fill up. Devices → Debug shows disk free and can load a redacted last-24h journal excerpt (not a full log dump).
 
+## GPIO
+
+The on-device agent drives pins through `http://127.0.0.1:4150/v1/gpio` (physical 1–40, digital only). The dashboard Project page and Devices cards can load the same map over the web API or Bluetooth. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi SoC lines must resolve live.
+
 ## Safety
 
 - Do not put 5V into GPIO

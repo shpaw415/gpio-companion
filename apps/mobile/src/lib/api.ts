@@ -394,6 +394,48 @@ export function loadDeviceLogs(token: string, uuid: string) {
 	);
 }
 
+export type GpioPinState = {
+	physical: number;
+	name: string;
+	type: string;
+	dir?: "in" | "out";
+	value?: 0 | 1;
+	reserved?: boolean;
+	unresolved?: boolean;
+};
+
+export type GpioSnapshot = {
+	hardware: string;
+	pins: GpioPinState[];
+};
+
+export function loadGpio(token: string, uuid: string) {
+	return request<GpioSnapshot>(
+		token,
+		`/api/mobile/gpio?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function putGpio(
+	token: string,
+	input: { uuid: string; physical: number; dir?: string; value?: number },
+) {
+	return request<GpioSnapshot>(token, "/api/mobile/gpio", {
+		method: "PUT",
+		body: JSON.stringify(input),
+	});
+}
+
+export function signGpio(
+	token: string,
+	input: { uuid: string; physical?: number; dir?: string; value?: number },
+) {
+	return request<Record<string, unknown>>(token, "/api/mobile/gpio", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
 export function loadDeviceInfo(token: string, uuid: string) {
 	return request<{ info: unknown }>(
 		token,

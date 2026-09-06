@@ -9,6 +9,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
 import { formatNetworkLabel } from "../lib/device-info.ts";
 import CompanionInfo from "./CompanionInfo.tsx";
+import GpioPanel from "./GpioPanel.tsx";
 import T3Pairing from "./T3Pairing.tsx";
 import { Chip, Field, Paper, Row, TextButton } from "./ui.tsx";
 
@@ -111,6 +112,7 @@ export default function BoardCard({
 			</Row>
 			<T3Pairing uuid={device.uuid} initial={status?.t3} />
 			<CompanionInfo key={device.uuid} uuid={device.uuid} />
+			<GpioPanel key={`${device.uuid}-gpio`} uuid={device.uuid} />
 			<Row>
 				{onSelect ? (
 					<TextButton

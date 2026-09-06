@@ -24,5 +24,6 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - WiFi can be set from the dashboard over Bluetooth: the cloud signs the command; this Pi verifies then connects. Do not accept unsigned BLE WiFi writes. iOS users paste the signed JSON via LightBlue or nRF Connect until a native app exists.
 - Extra SD cards and USB sticks are auto-mounted and linked at `~/storage/<label>` for this user (T3 home). Use that path for projects on removable media. Do not mount or symlink the boot/root disk.
 - Before driving GPIO, load `opencode/skills/gpio-pinout-<hardware>/` (`raspberrypi` or `orangepi`)
+- Drive pins through `http://127.0.0.1:4150/v1/gpio` (unsigned loopback). Digital only. Do not drive power/GND or Raspberry Pi physical 27–28. Unresolved Orange Pi lines are refused. Dashboard/BLE GPIO is signed; do not send unsigned BLE GPIO writes.
 - When a PCB, breadboard, or technical-sheet task is done, push the files to that project's GitHub repo before you stop: `pcb/` (`circuit.json` and `preview.svg` when possible), `breadboard/diagram.json` (Wokwi plug map; skill `gpio-breadboard`), `technical/` (sheets). `git add`, commit, and `git push` to the project remote. The dashboard reads these paths.
 - This product brief is still raw beyond these locks

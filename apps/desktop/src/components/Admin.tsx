@@ -19,6 +19,7 @@ import {
 	useUserBoards,
 } from "../hooks/useApiCache";
 import CompanionInfo from "./CompanionInfo";
+import GpioPanel from "./GpioPanel";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
@@ -144,6 +145,10 @@ export default function Admin() {
 						</Button>
 					</Stack>
 					<CompanionInfo key={current.device.uuid} uuid={current.device.uuid} />
+					<GpioPanel
+						key={`${current.device.uuid}-gpio`}
+						uuid={current.device.uuid}
+					/>
 					<Stack direction="row" spacing={1} sx={{ mt: 2 }}>
 						<Button
 							variant="text"

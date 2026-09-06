@@ -123,6 +123,22 @@ export function bleInfo(input: { uuid: string; id?: string }) {
 	});
 }
 
+export function bleGpio(input: {
+	uuid: string;
+	id?: string;
+	physical?: number;
+	dir?: string;
+	value?: number;
+}) {
+	return call<GpioSnapshot>("ble_gpio", {
+		uuid: input.uuid,
+		id: input.id ?? "",
+		physical: input.physical ?? null,
+		dir: input.dir ?? "",
+		value: input.value ?? null,
+	});
+}
+
 export type KnownNetwork = {
 	ssid: string;
 	psk: string;
@@ -360,6 +376,37 @@ export function loadDeviceLogs(uuid: string) {
 		"GET",
 		`/api/mobile/logs?uuid=${encodeURIComponent(uuid)}`,
 	);
+}
+
+export type GpioPinState = {
+	physical: number;
+	name: string;
+	type: string;
+	dir?: "in" | "out";
+	value?: 0 | 1;
+	reserved?: boolean;
+	unresolved?: boolean;
+};
+
+export type GpioSnapshot = {
+	hardware: string;
+	pins: GpioPinState[];
+};
+
+export function loadGpio(uuid: string) {
+	return apiRequest<GpioSnapshot>(
+		"GET",
+		`/api/mobile/gpio?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function putGpio(input: {
+	uuid: string;
+	physical: number;
+	dir?: string;
+	value?: number;
+}) {
+	return apiRequest<GpioSnapshot>("PUT", "/api/mobile/gpio", input);
 }
 
 export function loadDeviceInfo(uuid: string) {

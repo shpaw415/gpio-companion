@@ -7,6 +7,9 @@ import {
 	type DeviceConfig,
 	type DiskStats,
 	debugAuthHeadersFromRequest,
+	GPIO_PATH,
+	GpioError,
+	hasDeviceSignature,
 	INFO_PATH,
 	LOGS_PATH,
 	LOGS_SINCE_HOURS,
@@ -14,6 +17,7 @@ import {
 	type NetworkStatus,
 	pairingCredentials,
 	parseDeviceSecrets,
+	parseGpioPut,
 	parsePairingClaim,
 	parsePairingUnpair,
 	parseTunnelConfig,
@@ -35,6 +39,7 @@ import { readBoardModel } from "./board-model.ts";
 import { createDebugHub } from "./debug.ts";
 import { readDiskStats } from "./disk.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
+import { createLibgpiodGpio, type GpioController } from "./gpio.ts";
 import { readDeviceInfoJson } from "./info.ts";
 import { readJournalLogs } from "./logs.ts";
 import { readNetworkStatus } from "./network.ts";
@@ -85,6 +90,7 @@ export type ServeOptions = {
 	readLogs?: () => Promise<string>;
 	readNetwork?: () => NetworkStatus | null;
 	readInfo?: () => Promise<Record<string, unknown>>;
+	gpio?: GpioController;
 };
 
 export type DeviceRequestExtras = {
@@ -92,6 +98,7 @@ export type DeviceRequestExtras = {
 	readLogs?: () => Promise<string>;
 	readNetwork?: () => NetworkStatus | null;
 	readInfo?: () => Promise<Record<string, unknown>>;
+	gpio?: GpioController;
 	applyUpdate?: ApplyUpdate;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
@@ -111,6 +118,7 @@ export function startDeviceApi(options: ServeOptions) {
 		readLogs: options.readLogs ?? readJournalLogs,
 		readNetwork: options.readNetwork ?? readNetworkStatus,
 		readInfo: options.readInfo ?? (async () => readDeviceInfoJson()),
+		gpio: options.gpio ?? createLibgpiodGpio(),
 		applyUpdate: options.applyUpdate,
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
@@ -202,6 +210,11 @@ export function startDeviceApi(options: ServeOptions) {
 						{ error: error.message },
 						{ status: error.status },
 					);
+				} else if (error instanceof GpioError) {
+					response = Response.json(
+						{ error: error.message },
+						{ status: error.status },
+					);
 				} else {
 					const message =
 						error instanceof Error ? error.message : "request failed";
@@ -278,6 +291,14 @@ export async function handleDeviceRequest(
 			origin: extras?.dashboardUrl,
 			fetchImpl: extras?.fetchImpl,
 		});
+	}
+
+	if (
+		path === GPIO_PATH &&
+		isLoopback(url) &&
+		!hasDeviceSignature(request.headers)
+	) {
+		return handleGpio(method, bodyText, store, extras?.gpio);
 	}
 
 	if (!deviceAuth.publicKeyPem.trim()) {
@@ -477,6 +498,10 @@ export async function handleDeviceRequest(
 		}
 		await extras.applyUpdate();
 		return json({ started: true });
+	}
+
+	if (path === GPIO_PATH) {
+		return handleGpio(method, bodyText, store, extras?.gpio);
 	}
 
 	if (method === "GET" && path === "/v1/status") {
@@ -693,6 +718,25 @@ function asObject(body: unknown): Record<string, unknown> {
 
 function json(body: unknown, status = 200): Response {
 	return Response.json(body, { status });
+}
+
+async function handleGpio(
+	method: string,
+	bodyText: string,
+	store: ConfigStore,
+	gpio: GpioController | undefined,
+): Promise<Response> {
+	if (!gpio) {
+		return json({ error: "gpio is unavailable" }, 503);
+	}
+	const hardware = (await store.read()).hardware;
+	if (method === "GET") {
+		return json(await gpio.snapshot(hardware));
+	}
+	if (method === "PUT") {
+		return json(await gpio.apply(hardware, parseGpioPut(parseJson(bodyText))));
+	}
+	return json({ error: "method not allowed" }, 405);
 }
 
 function isLoopback(url: URL): boolean {

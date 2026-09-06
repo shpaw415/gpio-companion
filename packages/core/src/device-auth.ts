@@ -132,6 +132,9 @@ export async function verifyDeviceRequest(options: {
 	const timestamp = headerValue(options.headers, DEVICE_AUTH_HEADERS.timestamp);
 	const nonce = headerValue(options.headers, DEVICE_AUTH_HEADERS.nonce);
 	const signature = headerValue(options.headers, DEVICE_AUTH_HEADERS.signature);
+	if (!hasDeviceSignature(options.headers)) {
+		throw new DeviceAuthError("missing device signature", 401);
+	}
 	if (!keyId || !timestamp || !nonce || !signature) {
 		throw new DeviceAuthError("missing device signature", 401);
 	}
@@ -194,6 +197,12 @@ export async function canonicalDevicePayload(input: {
 		input.nonce,
 		hash,
 	].join("\n");
+}
+
+export function hasDeviceSignature(
+	headers: Headers | Record<string, string | null | undefined>,
+): boolean {
+	return headerValue(headers, DEVICE_AUTH_HEADERS.signature).length > 0;
 }
 
 export function normalizeDevicePath(path: string): string {

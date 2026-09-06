@@ -28,8 +28,10 @@ import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
 
 export default function ProjectBrowser({
 	onConfigured,
+	livePins,
 }: {
 	onConfigured?: (ready: boolean) => void;
+	livePins?: Record<number, 0 | 1>;
 }) {
 	const [configured, setConfigured] = useState(true);
 	const [repos, setRepos] = useState<GithubRepo[]>([]);
@@ -238,6 +240,7 @@ export default function ProjectBrowser({
 						<BreadboardViewer
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
+							livePins={livePins}
 						/>
 						<FileGroup title="PCB" files={bundle.pcb} />
 						<FileGroup title="Breadboard" files={bundle.breadboard} />

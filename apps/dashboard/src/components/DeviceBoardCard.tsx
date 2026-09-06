@@ -8,6 +8,7 @@ import type { ActionResult } from "../lib/action.ts";
 import { deviceDisplayName, type StoredPairing } from "../lib/pairing-store.ts";
 import DeviceCompanionInfo from "./DeviceCompanionInfo.tsx";
 import DeviceLabelField from "./DeviceLabelField.tsx";
+import GpioPanel from "./GpioPanel.tsx";
 import T3PairingPanel from "./T3PairingPanel.tsx";
 
 export type DeviceStatus = {
@@ -136,6 +137,7 @@ export default function DeviceBoardCard({
 						loadInfo={loadInfo}
 					/>
 				) : null}
+				<GpioPanel uuid={device.uuid} />
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{onSelect ? (
 						<Button

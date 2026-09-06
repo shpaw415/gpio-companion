@@ -149,6 +149,7 @@ export {
 	type DeviceKeyPair,
 	type DeviceVerifyResult,
 	generateDeviceKeyPair,
+	hasDeviceSignature,
 	normalizeDevicePath,
 	publicKeyPemFromPrivateKey,
 	signDeviceRequest,
@@ -175,6 +176,23 @@ export {
 	isGithubAppToken,
 	timingSafeEqualString,
 } from "./github-app.ts";
+export {
+	assertGpioDrive,
+	GPIO_PATH,
+	GPIO_RESERVED_PHYSICAL,
+	type GpioDir,
+	GpioError,
+	type GpioPinState,
+	type GpioPut,
+	type GpioSnapshot,
+	gpioNamedLine,
+	type HeaderPinDef,
+	type HeaderPinType,
+	headerPin,
+	headerPins,
+	parseGpioPut,
+	parsePhysicalPin,
+} from "./gpio.ts";
 export {
 	capLogText,
 	DEBUG_MAINTENANCE_PATH,
