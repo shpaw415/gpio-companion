@@ -2,12 +2,12 @@ import type { ReactNode } from "react";
 import {
 	ActivityIndicator,
 	Pressable,
-	ScrollView,
 	Text,
 	TextInput,
 	View,
 	type ViewStyle,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useColors } from "../lib/color-mode.tsx";
 
 export function Screen({
@@ -20,19 +20,32 @@ export function Screen({
 	const colors = useColors();
 	if (!scroll) {
 		return (
-			<View style={{ flex: 1, backgroundColor: colors.bg, paddingHorizontal: 12, paddingTop: 16 }}>
+			<View
+				style={{
+					flex: 1,
+					backgroundColor: colors.bg,
+					paddingHorizontal: 12,
+					paddingTop: 16,
+				}}
+			>
 				{children}
 			</View>
 		);
 	}
 	return (
-		<ScrollView
+		<KeyboardAwareScrollView
 			style={{ flex: 1, backgroundColor: colors.bg }}
-			contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 16, paddingBottom: 40, gap: 12 }}
+			contentContainerStyle={{
+				paddingHorizontal: 12,
+				paddingTop: 16,
+				paddingBottom: 40,
+				gap: 12,
+			}}
+			bottomOffset={16}
 			keyboardShouldPersistTaps="handled"
 		>
 			{children}
-		</ScrollView>
+		</KeyboardAwareScrollView>
 	);
 }
 
@@ -113,7 +126,9 @@ export function PrimaryButton({
 				opacity: disabled ? 0.6 : 1,
 			}}
 		>
-			<Text style={{ color: colors.primaryText, fontWeight: "600" }}>{label}</Text>
+			<Text style={{ color: colors.primaryText, fontWeight: "600" }}>
+				{label}
+			</Text>
 		</Pressable>
 	);
 }
@@ -131,8 +146,17 @@ export function TextButton({
 }) {
 	const colors = useColors();
 	return (
-		<Pressable onPress={onPress} disabled={disabled} style={{ opacity: disabled ? 0.6 : 1, paddingVertical: 8 }}>
-			<Text style={{ color: danger ? colors.danger : colors.primary, fontWeight: "600" }}>
+		<Pressable
+			onPress={onPress}
+			disabled={disabled}
+			style={{ opacity: disabled ? 0.6 : 1, paddingVertical: 8 }}
+		>
+			<Text
+				style={{
+					color: danger ? colors.danger : colors.primary,
+					fontWeight: "600",
+				}}
+			>
 				{label}
 			</Text>
 		</Pressable>
@@ -242,7 +266,14 @@ export function Busy({ show }: { show: boolean }) {
 
 export function Row({ children }: { children: ReactNode }) {
 	return (
-		<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+		<View
+			style={{
+				flexDirection: "row",
+				flexWrap: "wrap",
+				gap: 8,
+				alignItems: "center",
+			}}
+		>
 			{children}
 		</View>
 	);

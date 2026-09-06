@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import type { ReactNode } from "react";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ApiCacheProvider } from "../src/lib/api-cache.tsx";
 import { AuthProvider } from "../src/lib/auth.tsx";
 import { BoardSelectionProvider } from "../src/lib/board-selection.tsx";
@@ -34,14 +35,16 @@ function RootStack() {
 
 export default function Layout() {
 	return (
-		<ColorModeProvider>
-			<AuthProvider>
-				<DeviceHubProvider>
-					<SignedInTree>
-						<RootStack />
-					</SignedInTree>
-				</DeviceHubProvider>
-			</AuthProvider>
-		</ColorModeProvider>
+		<KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+			<ColorModeProvider>
+				<AuthProvider>
+					<DeviceHubProvider>
+						<SignedInTree>
+							<RootStack />
+						</SignedInTree>
+					</DeviceHubProvider>
+				</AuthProvider>
+			</ColorModeProvider>
+		</KeyboardProvider>
 	);
 }
