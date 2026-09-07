@@ -52,3 +52,4 @@ optimized
 # Finder (MacOS) folder config
 .DS_Store
 *.code-workspace
+dev

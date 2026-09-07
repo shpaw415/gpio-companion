@@ -149,7 +149,7 @@ export default function DeviceBoardCard({
 						loadInfo={loadInfo}
 					/>
 				) : null}
-				{isEasy ? null : <GpioPanel uuid={device.uuid} />}
+				{isEasy ? null : <GpioPanel uuid={device.uuid} connected={online} />}
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{isEasy ? (
 						<Button href="/devices/t3" variant="contained" size="small">

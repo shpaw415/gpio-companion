@@ -2,7 +2,15 @@ import { POST as signGpio } from "@api/device/gpio";
 import { GET as loadGpio, PUT as putGpio } from "@api/gpio";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
+import Chip from "@shpaw415/mui-lite/Chip";
 import Stack from "@shpaw415/mui-lite/Stack";
+import Table, {
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+} from "@shpaw415/mui-lite/Table";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	BLE_CMD_UUID,
@@ -14,6 +22,7 @@ import {
 } from "gpio-companion";
 import { useCallback, useState } from "react";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
+import useMobile from "../hooks/useMobile.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -27,18 +36,22 @@ import CopyBlock from "./CopyBlock.tsx";
 export default function GpioPanel({
 	uuid,
 	poll = false,
+	connected,
 	onSnapshot,
 }: {
 	uuid: string;
 	poll?: boolean;
+	connected?: boolean;
 	onSnapshot?: (snapshot: GpioSnapshot | null) => void;
 }) {
+	const mobile = useMobile();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
 	const offline = useOfflineBleKey(uuid);
+	const available = Boolean(uuid) && connected !== false;
 
 	const applySnapshot = useCallback(
 		(next: GpioSnapshot | null) => {
@@ -62,11 +75,20 @@ export default function GpioPanel({
 			.finally(() => setBusy(false));
 	}
 
-	useDeviceHub(poll ? uuid : "", {
+	useDeviceHub(poll && available ? uuid : "", {
 		onGpio: applySnapshot,
 	});
 
 	const gpioPins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
+
+	if (!available) {
+		return (
+			<Stack spacing={1}>
+				<Typography variant="subtitle1">GPIO</Typography>
+				<Alert severity="info">Board not connected</Alert>
+			</Stack>
+		);
+	}
 
 	return (
 		<Stack spacing={1}>
@@ -124,51 +146,90 @@ export default function GpioPanel({
 				</>
 			) : null}
 			{snapshot ? (
-				<Typography color="secondary" variant="body2">
-					{snapshot.hardware} · click a pin to toggle output
-				</Typography>
-			) : null}
-			<Stack direction="row" spacing={1} className="flex-wrap">
-				{gpioPins.map((pin) => (
-					<Button
-						key={pin.physical}
-						type="button"
-						size="small"
-						variant={pin.value === 1 ? "contained" : "outlined"}
-						disabled={busy || !uuid || pin.reserved || pin.unresolved}
-						onClick={() => {
-							start(async () => {
-								const nextValue = pin.value === 1 ? 0 : 1;
-								applySnapshot(
-									unwrapAction(
-										await putGpio({
-											uuid,
-											physical: pin.physical,
-											dir: "out",
-											value: nextValue,
-										}),
-									),
+				<TableContainer>
+					<Table size="small">
+						<TableHead>
+							<TableRow>
+								<TableCell>Pin</TableCell>
+								<TableCell>Name</TableCell>
+								{mobile ? null : <TableCell>Direction</TableCell>}
+								<TableCell>Status</TableCell>
+								<TableCell>Action</TableCell>
+							</TableRow>
+						</TableHead>
+						<TableBody>
+							{gpioPins.map((pin) => {
+								const locked = Boolean(pin.reserved || pin.unresolved);
+								return (
+									<TableRow key={pin.physical}>
+										<TableCell>{pin.physical}</TableCell>
+										<TableCell>{pin.name}</TableCell>
+										{mobile ? null : (
+											<TableCell>
+												{pin.dir === "in" || pin.dir === "out" ? pin.dir : "—"}
+											</TableCell>
+										)}
+										<TableCell>
+											<PinStatusChip pin={pin} />
+										</TableCell>
+										<TableCell>
+											<Button
+												type="button"
+												size="small"
+												variant="outlined"
+												disabled={busy || !uuid || locked}
+												onClick={() => {
+													start(async () => {
+														const nextValue = pin.value === 1 ? 0 : 1;
+														applySnapshot(
+															unwrapAction(
+																await putGpio({
+																	uuid,
+																	physical: pin.physical,
+																	dir: "out",
+																	value: nextValue,
+																}),
+															),
+														);
+													});
+												}}
+											>
+												Toggle
+											</Button>
+										</TableCell>
+									</TableRow>
 								);
-							});
-						}}
-					>
-						{pinLabel(pin)}
-					</Button>
-				))}
-			</Stack>
+							})}
+						</TableBody>
+					</Table>
+				</TableContainer>
+			) : (
+				<Typography color="secondary" variant="body2">
+					Load GPIO to see live pin status.
+				</Typography>
+			)}
 		</Stack>
 	);
 }
 
-function pinLabel(pin: GpioPinState): string {
+function PinStatusChip({ pin }: { pin: GpioPinState }) {
 	if (pin.reserved) {
-		return `${pin.physical} reserved`;
+		return <Chip label="Reserved" size="small" variant="outlined" />;
 	}
 	if (pin.unresolved) {
-		return `${pin.physical} ?`;
+		return <Chip label="Unresolved" size="small" variant="outlined" />;
 	}
-	const value = pin.value === undefined ? "-" : String(pin.value);
-	return `${pin.physical} ${value}`;
+	if (pin.value === 1) {
+		return (
+			<Chip label="High" size="small" color="success" variant="outlined" />
+		);
+	}
+	if (pin.value === 0) {
+		return (
+			<Chip label="Low" size="small" color="secondary" variant="outlined" />
+		);
+	}
+	return <Chip label="—" size="small" variant="outlined" />;
 }
 
 async function runGpioEnvelope(

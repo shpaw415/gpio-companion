@@ -5,7 +5,8 @@
 	"main": "expo-router/entry",
 	"scripts": {
 		"start": "expo start",
-		"android": "expo run:android",
+		"android": "REACT_NATIVE_PACKAGER_HOSTNAME=\"100.96.0.3\" expo run:android --port 1111",
+		"android:push": "bun scripts/android-dev-push.ts",
 		"ios": "expo run:ios",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",

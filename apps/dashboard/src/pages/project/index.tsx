@@ -203,7 +203,16 @@ export default function ProjectPage() {
 							value={activeUuid}
 							onChange={selectBoard}
 						/>
-						<GpioPanel uuid={activeUuid} poll onSnapshot={setGpioSnapshot} />
+						{pairingLoading ? (
+							<LinesSkeleton lines={3} />
+						) : (
+							<GpioPanel
+								uuid={activeUuid}
+								poll
+								connected={Boolean(statuses[activeUuid])}
+								onSnapshot={setGpioSnapshot}
+							/>
+						)}
 					</Stack>
 				</Paper>
 			) : null}
