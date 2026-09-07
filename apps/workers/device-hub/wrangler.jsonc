@@ -20,7 +20,9 @@
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_sqlite_classes": ["DeviceHub"]
+			"new_sqlite_classes": [
+				"DeviceHub"
+			]
 		}
 	],
 	"kv_namespaces": [
