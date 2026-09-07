@@ -66,6 +66,8 @@ Connect the existing `gpio-companion-hub` Worker to this GitHub repo (not GitHub
 | Build command | `bun run ci:install` |
 | Deploy command | `npx wrangler deploy` |
 
+Workers Builds auto-runs `bun install --frozen-lockfile` with the Bun it detects **before** the build command. Default image Bun is 1.2.15, which cannot read this repo’s `bun.lock` (`lockfileVersion` 2 from Bun 1.4.0). Pin via `.bun-version` / `packageManager` `bun@1.4.0` (repo root and `apps/workers/device-hub`). Wrangler `vars.BUN_VERSION` does **not** change Workers Builds Bun (Pages uses dashboard `BUN_VERSION` + `SKIP_DEPENDENCY_INSTALL`).
+
 The Worker name in the dashboard must stay `gpio-companion-hub` (same as `wrangler.jsonc` `name`). First-time local upload: `bun run deploy:hub`. After Git is connected, every push to `main` deploys the hub.
 
 The dashboard `wrangler.jsonc` binds that Worker with `script_name: "gpio-companion-hub"`. Pis mint a short-lived ticket via `POST /api/hub` `{uuid,key}` then connect `wss://gpio-companion.com/api/hub`. Dashboard browsers upgrade the same path with the session cookie. Writes stay signed HTTP/BLE.
@@ -76,7 +78,7 @@ App: `apps/dashboard`. Wrangler project name: `gpio-companion-dashboard`. Frame 
 
 ### KV
 
-Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` (array) and `pair:<uuid>`. GitHub App installs are `github-app:<userId>`. Legacy PATs may still exist as `github:<userId>`. AI credits are `credits:<userId>` as `{v:2,micros}` (USD microdollars; legacy integer credits migrate at $0.01 each). OpenCode on the Pi talks to loopback `/v1/ai`; the companion mints a ~1h device token via `POST /api/ai/credentials` (pairing uuid+key). AI routes bill the live owner of `pair:<uuid>`. Legacy hashed keys `ai:<sha256>` still work until boards update. Enable the `AI` Workers AI binding in wrangler. Set `GPIO_AI_MARKUP` (default `1.25`). GLM-5.3 (`@cf/zai-org/glm-5.3`) requires Workers Paid or AI Gateway prepaid credits.
+Create a KV namespace and replace `<kv-binding-id>` in `apps/dashboard/wrangler.jsonc` (`DYNAMIC_PAGE_KV`). Pairing records are stored as `device:<userId>` (array) and `pair:<uuid>`. GitHub App installs are `github-app:<userId>`. Legacy PATs may still exist as `github:<userId>`. AI credits are `credits:<userId>` as `{v:2,micros}` (USD microdollars; legacy integer credits migrate at $0.01 each). PayPal pack orders are `paypal-order:<orderId>` so capture is granted once. OpenCode on the Pi talks to loopback `/v1/ai`; the companion mints a ~1h device token via `POST /api/ai/credentials` (pairing uuid+key). AI routes bill the live owner of `pair:<uuid>`. Legacy hashed keys `ai:<sha256>` still work until boards update. Enable the `AI` Workers AI binding in wrangler. Set `GPIO_AI_MARKUP` (default `1.25`). GLM-5.3 (`@cf/zai-org/glm-5.3`) requires Workers Paid or AI Gateway prepaid credits.
 
 ### GitHub App (required)
 
@@ -181,8 +183,11 @@ Committed `vars` override dashboard-only values if they are empty strings. Set r
 | `GITHUB_APP_ID` | GitHub App id (secret/var) |
 | `GITHUB_APP_PRIVATE_KEY` | GitHub App private PEM (secret) |
 | `GITHUB_APP_SLUG` | GitHub App slug for `/apps/{slug}/installations/new` |
+| `PUBLIC_PAYPAL_CLIENT_ID` | PayPal REST app client id (wrangler var; do not bake empty) |
+| `PAYPAL_CLIENT_SECRET` | PayPal REST app secret (Pages secret) |
+| `PAYPAL_ENV` | `sandbox` or `live` (wrangler var; start sandbox) |
 
-`PUBLIC_*` is injected into the browser. Never put `GPIO_COMPANION_DEVICE_PRIVATE_KEY`, `AUTH_SECRET`, or `GITHUB_APP_PRIVATE_KEY` under a `PUBLIC_` name.
+`PUBLIC_*` is injected into the browser. Never put `GPIO_COMPANION_DEVICE_PRIVATE_KEY`, `AUTH_SECRET`, `GITHUB_APP_PRIVATE_KEY`, or `PAYPAL_CLIENT_SECRET` under a `PUBLIC_` name.
 
 ### Local
 

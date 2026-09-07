@@ -70,10 +70,12 @@ Do not paste pairing keys into tickets. If the key is lost, regenerate `pairing.
 | GitHub App ID / slug | Pages secret/var `GITHUB_APP_ID`, `GITHUB_APP_SLUG` | Host |
 | GitHub installation | KV `github-app:<userId>` | User via Keys **Connect GitHub** |
 | GitHub installation token (`ghs_`) | minted on demand, ~1h | Pi `git-credential` / `GET /v1/github-token` → `POST /api/github-credentials` |
+| PayPal REST secret | Pages secret `PAYPAL_CLIENT_SECRET` | Host |
+| PayPal client id / env | wrangler vars `PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_ENV` | Host |
 | Tunnel replica token | `cloudflared.env` | First-setup Cloudflare API (token itself is not stored) |
 | Cloudflare API token | console only | First-setup; never written to disk |
 
-Never put Cloudflare or GitHub user tokens in the image. AI credits live in dashboard KV (`credits:<userId>` as USD microdollars, billed at Workers AI list in/out × `GPIO_AI_MARKUP`).
+Never put Cloudflare or GitHub user tokens in the image. AI credits live in dashboard KV (`credits:<userId>` as USD microdollars, billed at Workers AI list in/out × `GPIO_AI_MARKUP`). Users buy $5 / $10 / $25 / $50 USD packs with PayPal on `/profile/credits`; grants are face value. `$1` stub is admin-only.
 
 ## Break-glass on a bricked network
 
@@ -81,4 +83,4 @@ Physical console (HDMI/serial): first-setup TTY, Ethernet, or `nmcli` as root. B
 
 ## What not to invent
 
-Billing, gpio-companion.com subscription, and Orange Pi SKU matrix are not locked. Host docs stop at the services and image paths above.
+gpio-companion.com subscription SKUs beyond PayPal credit packs, and Orange Pi SKU matrix, are not locked. Host docs stop at the services and image paths above.

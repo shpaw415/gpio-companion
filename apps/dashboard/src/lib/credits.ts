@@ -81,6 +81,93 @@ export async function grantUsd(
 	return putCredits(kv, userId, next);
 }
 
+type PaypalOrderRecord = {
+	v: 1;
+	userId: string;
+	usd: number;
+	status: "created" | "captured";
+	captureId?: string;
+};
+
+export function paypalOrderKey(orderId: string): string {
+	return `paypal-order:${orderId.trim()}`;
+}
+
+function parsePaypalOrderRecord(raw: string | null): PaypalOrderRecord | null {
+	if (!raw) {
+		return null;
+	}
+	try {
+		const parsed = JSON.parse(raw) as PaypalOrderRecord;
+		if (
+			parsed &&
+			parsed.v === 1 &&
+			typeof parsed.userId === "string" &&
+			parsed.userId &&
+			Number.isFinite(parsed.usd) &&
+			(parsed.status === "created" || parsed.status === "captured")
+		) {
+			return parsed;
+		}
+	} catch {
+		return null;
+	}
+	return null;
+}
+
+export async function savePaypalOrderCreated(
+	kv: KVNamespace,
+	orderId: string,
+	userId: string,
+	usd: number,
+): Promise<void> {
+	const existing = parsePaypalOrderRecord(
+		await kv.get(paypalOrderKey(orderId)),
+	);
+	if (existing?.status === "captured") {
+		return;
+	}
+	const record: PaypalOrderRecord = {
+		v: 1,
+		userId,
+		usd,
+		status: "created",
+	};
+	await kv.put(paypalOrderKey(orderId), JSON.stringify(record));
+}
+
+export async function applyPaypalCapture(
+	kv: KVNamespace,
+	input: {
+		orderId: string;
+		userId: string;
+		usd: number;
+		captureId?: string;
+	},
+): Promise<{ micros: number; alreadyGranted: boolean }> {
+	const key = paypalOrderKey(input.orderId);
+	const existing = parsePaypalOrderRecord(await kv.get(key));
+	if (existing && existing.userId !== input.userId) {
+		throw new Error("PayPal order does not belong to this account.");
+	}
+	if (existing?.status === "captured") {
+		return {
+			micros: await creditsBalance(kv, input.userId),
+			alreadyGranted: true,
+		};
+	}
+	const micros = await grantUsd(kv, input.userId, input.usd);
+	const record: PaypalOrderRecord = {
+		v: 1,
+		userId: input.userId,
+		usd: input.usd,
+		status: "captured",
+		captureId: input.captureId,
+	};
+	await kv.put(key, JSON.stringify(record));
+	return { micros, alreadyGranted: false };
+}
+
 export async function grantCredits(
 	kv: KVNamespace,
 	userId: string,

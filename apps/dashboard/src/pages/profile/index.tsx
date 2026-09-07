@@ -104,7 +104,7 @@ export default function ProfilePage() {
 							<Typography color="secondary">
 								OpenCode on your boards spends gpio-companion balance (Workers
 								AI list price × markup). Empty balance returns 402 from the AI
-								proxy.
+								proxy. Buy USD packs with PayPal on Credits.
 							</Typography>
 							{creditsLoading ? (
 								<Skeleton variant="rounded" height={30} width={130} />

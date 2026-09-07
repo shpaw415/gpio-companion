@@ -4,7 +4,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
-import { getCredits, grantCredits, type Session } from "../api";
+import { DASHBOARD_URL, getCredits, openExternal, type Session } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
 import { LinesSkeleton } from "./skeletons";
@@ -19,7 +19,6 @@ export default function Profile({
 	const creditsQuery = useCachedQuery(CACHE_KEYS.credits, getCredits);
 	const credits = creditsQuery.data ?? null;
 	const [error, setError] = useState("");
-	const [busy, setBusy] = useState(false);
 	const loading = creditsQuery.loading;
 
 	return (
@@ -63,20 +62,20 @@ export default function Profile({
 				<Button
 					variant="contained"
 					sx={{ mt: 2 }}
-					disabled={busy}
 					onClick={() => {
-						setBusy(true);
-						void grantCredits(1)
-							.then((next) => creditsQuery.setData(next))
-							.catch((caught) => {
+						setError("");
+						void openExternal(`${DASHBOARD_URL}/profile/credits`).catch(
+							(caught) => {
 								setError(
-									caught instanceof Error ? caught.message : "grant failed",
+									caught instanceof Error
+										? caught.message
+										: "could not open credits",
 								);
-							})
-							.finally(() => setBusy(false));
+							},
+						);
 					}}
 				>
-					Add $1.00 (stub)
+					Add credits
 				</Button>
 			</Paper>
 		</Stack>

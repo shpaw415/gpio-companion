@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { getCredits, grantCredits } from "../lib/api.ts";
-import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
-import { useAuth } from "../lib/auth.tsx";
+import { Linking } from "react-native";
 import {
 	Body,
 	ErrorText,
@@ -13,6 +11,10 @@ import {
 	TextButton,
 	Title,
 } from "../components/ui.tsx";
+import { getCredits } from "../lib/api.ts";
+import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
+import { useAuth } from "../lib/auth.tsx";
+import { dashboardUrl } from "../lib/config.ts";
 
 export default function Profile() {
 	const auth = useAuth();
@@ -25,7 +27,6 @@ export default function Profile() {
 	});
 	const credits = creditsQuery.data ?? null;
 	const [error, setError] = useState("");
-	const [busy, setBusy] = useState(false);
 
 	return (
 		<Screen>
@@ -50,19 +51,18 @@ export default function Profile() {
 					</Muted>
 				)}
 				<PrimaryButton
-					label={busy ? "Adding…" : "Add $1.00 (stub)"}
-					disabled={busy || !token}
+					label="Add credits"
 					onPress={() => {
-						if (!token) {
-							return;
-						}
-						setBusy(true);
-						void grantCredits(token, 1)
-							.then((next) => creditsQuery.setData(next))
-							.catch((caught) => {
-								setError(caught instanceof Error ? caught.message : "grant failed");
-							})
-							.finally(() => setBusy(false));
+						setError("");
+						void Linking.openURL(`${dashboardUrl}/profile/credits`).catch(
+							(caught) => {
+								setError(
+									caught instanceof Error
+										? caught.message
+										: "could not open credits",
+								);
+							},
+						);
 					}}
 				/>
 			</Paper>

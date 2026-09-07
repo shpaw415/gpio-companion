@@ -442,10 +442,6 @@ export function getCredits() {
 	return apiRequest<Credits>("GET", "/api/mobile/credits");
 }
 
-export function grantCredits(usd = 1) {
-	return apiRequest<Credits>("POST", "/api/mobile/credits", { usd });
-}
-
 export function listProjects() {
 	return apiRequest<{ configured: boolean; repos: GithubRepo[] }>(
 		"GET",

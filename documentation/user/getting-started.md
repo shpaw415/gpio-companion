@@ -44,7 +44,7 @@ The dashboard **signs** the claim, then **Pair T3** (also on Devices overview fo
 2. Dashboard **Profile → GitHub**: **Connect GitHub** and install the gpio-companion GitHub App on your account (all or selected repos)
 3. Paired boards mint a fresh token at `git push`. You do not paste a PAT. If the board was offline for more than an hour, just push again once it has internet — do not reopen GitHub.
 
-OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), not a GitHub token. `gpio-companion github-token` prints a live token for API calls.
+OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), not a GitHub token. Buy $5 / $10 / $25 / $50 packs with PayPal on that page (desktop/mobile open the same dashboard URL). `gpio-companion github-token` prints a live token for API calls.
 
 ## 6. Overview
 

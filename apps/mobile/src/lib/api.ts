@@ -400,13 +400,6 @@ export function getCredits(token: string) {
 	return request<Credits>(token, "/api/mobile/credits");
 }
 
-export function grantCredits(token: string, usd = 1) {
-	return request<Credits>(token, "/api/mobile/credits", {
-		method: "POST",
-		body: JSON.stringify({ usd }),
-	});
-}
-
 export function listProjects(token: string) {
 	return request<{ configured: boolean; repos: GithubRepo[] }>(
 		token,

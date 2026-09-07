@@ -15,6 +15,7 @@
 		"GITHUB_APP_ID": "4778170",
 		"GITHUB_APP_SLUG": "gpio-companion",
 		"GPIO_AI_MARKUP": "1.25",
+		"PAYPAL_ENV": "sandbox",
 	},
 	"kv_namespaces": [
 		{
@@ -27,6 +28,8 @@
 		"remote": true
 	},
 	// GPIO_COMPANION_DEVICE_PRIVATE_KEY Pages secret (Ed25519 PEM)
+	// PAYPAL_CLIENT_SECRET Pages secret
+	// PUBLIC_PAYPAL_CLIENT_ID wrangler var (do not bake empty)
 	"durable_objects": {
 		"bindings": [
 			{
