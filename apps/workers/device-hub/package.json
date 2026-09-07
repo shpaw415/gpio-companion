@@ -1,0 +1,21 @@
+{
+	"name": "gpio-companion-hub",
+	"private": true,
+	"type": "module",
+	"version": "0.0.0",
+	"description": "gpio-companion per-device Durable Object hub",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"gpio-companion": "workspace:*"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260702.1",
+		"@types/bun": "catalog:",
+		"typescript": "catalog:",
+		"wrangler": "^4.127.1"
+	}
+}

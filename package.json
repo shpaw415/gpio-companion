@@ -35,6 +35,7 @@
 		"dev:dashboard": "bun run --filter gpio-companion-dashboard dev",
 		"build:dashboard": "bun run --filter gpio-companion-dashboard build",
 		"deploy:dashboard": "bun run --filter gpio-companion-dashboard deploy",
+		"deploy:hub": "bun run --filter gpio-companion-hub deploy",
 		"compile": "bun run --filter gpio-companion-bin compile",
 		"install:raspberrypi": "./scripts/install-raspberrypi.sh",
 		"install:orangepi": "./scripts/install-orangepi.sh",

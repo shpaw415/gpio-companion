@@ -62,21 +62,43 @@ export function parseLiveBoard(raw: string | null): LiveBoard | null {
 	}
 }
 
+export async function markDeviceLive(
+	kv: PairingKv,
+	uuid: string,
+	now = Date.now(),
+): Promise<LiveBoard> {
+	const trimmed = uuid.trim();
+	if (!trimmed) {
+		throw new Error("uuid is required");
+	}
+	const board: LiveBoard = {
+		uuid: trimmed,
+		deviceUrl: liveDeviceUrl(trimmed),
+		seenAt: now,
+	};
+	await kv.put(liveKey(trimmed), JSON.stringify(board), {
+		expirationTtl: DEBUG_LIVE_TTL_SEC,
+	});
+	return board;
+}
+
+export async function clearDeviceLive(
+	kv: PairingKv,
+	uuid: string,
+): Promise<void> {
+	const trimmed = uuid.trim();
+	if (!trimmed) {
+		return;
+	}
+	await kv.delete(liveKey(trimmed));
+}
+
 export async function putLiveBoard(
 	kv: PairingKv,
 	input: unknown,
 	now = Date.now(),
 ): Promise<LiveBoard> {
-	const uuid = parseLivePingUuid(input);
-	const board: LiveBoard = {
-		uuid,
-		deviceUrl: liveDeviceUrl(uuid),
-		seenAt: now,
-	};
-	await kv.put(liveKey(uuid), JSON.stringify(board), {
-		expirationTtl: DEBUG_LIVE_TTL_SEC,
-	});
-	return board;
+	return markDeviceLive(kv, parseLivePingUuid(input), now);
 }
 
 export async function resolveAccessibleDeviceUrl(

@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { DEBUG_LIVE_TTL_SEC } from "gpio-companion";
 import {
+	clearDeviceLive,
 	getLiveBoard,
 	listLiveBoards,
+	markDeviceLive,
 	mergeDebugBoards,
 	putLiveBoard,
 	resolveAccessibleDeviceUrl,
@@ -46,7 +48,7 @@ function pairing(uuid: string): PublicPairing {
 }
 
 describe("debug live presence", () => {
-	test("stores a live ping derived from the pairing uuid", async () => {
+	test("stores live presence derived from the pairing uuid", async () => {
 		const kv = memoryKv();
 		const board = await putLiveBoard(kv, { uuid: "abc-def" }, 1_000);
 		expect(board.deviceUrl).toBe("https://api-abcdef.gpio-companion.com");
@@ -58,6 +60,9 @@ describe("debug live presence", () => {
 				1_000 + (DEBUG_LIVE_TTL_SEC + 1) * 1000,
 			),
 		).toBeNull();
+		await markDeviceLive(kv, "abc-def", 1_000);
+		await clearDeviceLive(kv, "abc-def");
+		expect(await getLiveBoard(kv, "abc-def", 1_000)).toBeNull();
 	});
 
 	test("merges unpaired live boards only for admin", async () => {

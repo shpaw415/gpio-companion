@@ -1,6 +1,6 @@
 # Deploy (host)
 
-Deploy order: **device keys → dashboard (auth + KV + secret) → tell users the URLs**. Boards can boot before a user connects the GitHub App; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
+Deploy order: **device keys → hub Worker → dashboard (auth + KV + secret + DEVICE_HUB bind) → tell users the URLs**. Boards can boot before a user connects the GitHub App; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
 
 ## Prerequisites
 
@@ -48,7 +48,19 @@ Optional secret / var: `GPIO_COMPANION_DEVICE_KEY_ID` (default `gpio-companion-v
 
 Local dashboard: put the PEM in `apps/dashboard/.dev.vars` or `.env` as `GPIO_COMPANION_DEVICE_PRIVATE_KEY` (see `apps/dashboard/.env.exemple`).
 
-## 2. Dashboard (Cloudflare Pages)
+## 2. Device hub Worker (Durable Objects)
+
+Live GPIO, flash, T3 status, and board presence go through a per-device Durable Object WebSocket. Cloudflare Pages cannot define Durable Object classes, so deploy this Worker **before** the dashboard.
+
+App: `apps/workers/device-hub`. Wrangler name: `gpio-companion-hub`. Binding: `DEVICE_HUB` / class `DeviceHub`. Same KV namespace as the dashboard (`DYNAMIC_PAGE_KV`).
+
+```sh
+bun run deploy:hub
+```
+
+The dashboard `wrangler.jsonc` binds that Worker with `script_name: "gpio-companion-hub"`. Pis mint a short-lived ticket via `POST /api/hub` `{uuid,key}` then connect `wss://gpio-companion.com/api/hub`. Dashboard browsers upgrade the same path with the session cookie. Writes stay signed HTTP/BLE.
+
+## 3. Dashboard (Cloudflare Pages)
 
 App: `apps/dashboard`. Wrangler project name: `gpio-companion-dashboard`. Frame Master template `cloudflare-nextjs`.
 
@@ -187,13 +199,13 @@ Confirm:
 - `/pair`, `/wifi`, `/keys`, `/projects` load while authenticated
 - A signed `PUT /v1/config/wifi` or pairing claim against a lab Pi succeeds (401/403 from the Pi means key mismatch or unsigned call)
 
-## 3. GitHub (user accounts)
+## 4. GitHub (user accounts)
 
 The host does **not** run Gitea. Each dashboard user uses **their GitHub account** by installing **your** GitHub App (section 2). You do not collect PATs.
 
 If an old `gitea-container` Worker is still deployed, delete it (`wrangler delete gitea-container`).
 
-## 4. Cloudflare tunnel (T3 Code)
+## 5. Cloudflare tunnel (T3 Code)
 
 Each board gets its **own remotely-managed Cloudflare Tunnel** at first-setup (not a shared replica). Zone: `gpio-companion.com`.
 
@@ -214,7 +226,7 @@ T3 pairing stays on the dashboard: first-setup runs `t3 service install`; after 
 
 first-setup writes the OpenCode provider to `http://127.0.0.1:4150/v1/ai` (dummy `apiKey: local`). gpio-companion serve proxies that loopback path to `/api/ai/v1` with a short-lived device token minted from pairing uuid+key. Default model `@cf/zai-org/glm-5.3`. The T3 Code / OpenCode picker lists priced Workers AI text-generation models; reasoning models expose thinking-effort variants (`low` / `medium` / `high`). `GET /api/ai/v1/models` returns that same chat catalog. `POST /api/ai/v1/chat/completions` forwards OpenAI `tools`/`tool_calls` and `reasoning_effort`, and bills Cloudflare list in/out (cached-in when present) × `GPIO_AI_MARKUP`. Unpair deletes `pair:<uuid>` so the token stops working. Do not paste OpenCode or Cloudflare tokens on Keys. GitHub access is the App install on Keys, not a PAT.
 
-## 5. What users need from you
+## 6. What users need from you
 
 Give every desk user:
 

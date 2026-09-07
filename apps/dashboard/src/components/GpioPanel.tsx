@@ -12,7 +12,8 @@ import {
 	type GpioPinState,
 	type GpioSnapshot,
 } from "gpio-companion";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -61,31 +62,9 @@ export default function GpioPanel({
 			.finally(() => setBusy(false));
 	}
 
-	useEffect(() => {
-		if (!poll || !uuid) {
-			return;
-		}
-		let cancelled = false;
-		async function tick() {
-			try {
-				const next = unwrapAction(await loadGpio(uuid));
-				if (!cancelled) {
-					applySnapshot(next);
-					setError("");
-				}
-			} catch (caught) {
-				if (!cancelled) {
-					setError(caught instanceof Error ? caught.message : "request failed");
-				}
-			}
-		}
-		void tick();
-		const timer = setInterval(() => void tick(), 1000);
-		return () => {
-			cancelled = true;
-			clearInterval(timer);
-		};
-	}, [poll, uuid, applySnapshot]);
+	useDeviceHub(poll ? uuid : "", {
+		onGpio: applySnapshot,
+	});
 
 	const gpioPins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
 

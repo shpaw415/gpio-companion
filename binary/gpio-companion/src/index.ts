@@ -8,13 +8,15 @@ import {
 	VERSION,
 } from "gpio-companion";
 import { startBleBridge } from "./ble.ts";
+import { createArduinoFlash } from "./flash.ts";
 import {
 	fetchGithubCredentials,
 	loadGithubCreds,
 	persistGithubLogin,
 	runGitCredentialHelper,
 } from "./github-credentials.ts";
-import { startLivePing } from "./live-ping.ts";
+import { createLibgpiodGpio } from "./gpio.ts";
+import { startHubClient } from "./hub-client.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -85,6 +87,8 @@ const pairing = filePairingStore(pairingPath, pairingUuid, pairingKey);
 const deviceAuth = loadDeviceAuth();
 
 const t3 = liveT3Controller();
+const gpio = createLibgpiodGpio();
+const flash = createArduinoFlash();
 const githubCredentials = async () => {
 	const state = await pairing.read();
 	const creds = await fetchGithubCredentials({
@@ -103,6 +107,8 @@ const server = startDeviceApi({
 	applyWifi: applyNetworkManagerWifi(),
 	applyUpdate: applySystemdUpdate(),
 	t3,
+	gpio,
+	flash,
 	revokeT3: () => t3.revoke(),
 	deviceAuth,
 	githubCredentials,
@@ -123,7 +129,14 @@ startBleBridge({
 	port: server.port ?? 4150,
 	deviceUrl: readDeviceUrl(configPath),
 });
-startLivePing({ uuid: pairingUuid });
+startHubClient({
+	uuid: pairingUuid,
+	key: pairingKey,
+	hardware,
+	gpio,
+	flash,
+	t3,
+});
 
 console.log(
 	`gpio-companion device API on http://${server.hostname}:${server.port}`,

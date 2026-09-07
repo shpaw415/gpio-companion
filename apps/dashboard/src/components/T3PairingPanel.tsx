@@ -4,9 +4,14 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { dashboardT3PairPath, extractT3PairingToken } from "gpio-companion";
+import {
+	dashboardT3PairPath,
+	extractT3PairingToken,
+	type HubT3Status,
+} from "gpio-companion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
+import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { unwrapAction } from "../lib/action.ts";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
@@ -124,23 +129,17 @@ export default function T3PairingPanel({
 		void startPairing(selected);
 	}, [autoStart, selected, startPairing]);
 
-	useEffect(() => {
-		if (!pairingUrl || t3Ready || !selected) {
-			return;
+	const onT3 = useCallback((result: HubT3Status) => {
+		if (result.pairingUrl) {
+			setPairingUrl(result.pairingUrl);
+			setPairingToken(tokenFrom(result.pairingUrl, result.pairingToken));
 		}
-		const timer = window.setInterval(() => {
-			void run(getT3(selected)).then((result) => {
-				if (!result) {
-					return;
-				}
-				if (result.paired) {
-					setT3Ready(true);
-					setStatus("T3 Code is paired");
-				}
-			});
-		}, 3000);
-		return () => window.clearInterval(timer);
-	}, [pairingUrl, t3Ready, selected, run]);
+		if (result.paired) {
+			setT3Ready(true);
+			setStatus("T3 Code is paired");
+		}
+	}, []);
+	useDeviceHub(selected, { onT3 });
 
 	if (devices.length === 0) {
 		return null;

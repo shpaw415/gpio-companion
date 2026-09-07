@@ -25,5 +25,15 @@
 	"ai": {
 		"binding": "AI",
 		"remote": true
+	},
+	// GPIO_COMPANION_DEVICE_PRIVATE_KEY Pages secret (Ed25519 PEM)
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "DEVICE_HUB",
+				"class_name": "DeviceHub",
+				"script_name": "gpio-companion-hub"
+			}
+		]
 	}
 }

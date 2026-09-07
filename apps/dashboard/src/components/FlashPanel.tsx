@@ -16,7 +16,8 @@ import {
 	type FlashStatus,
 	parseFlashPut,
 } from "gpio-companion";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -53,19 +54,10 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 			.finally(() => setBusy(false));
 	}
 
-	useEffect(() => {
-		if (!uuid || !status?.running) {
-			return;
-		}
-		const timer = setInterval(() => {
-			void loadFlash(uuid)
-				.then((result) => {
-					setStatus(unwrapAction(result));
-				})
-				.catch(() => undefined);
-		}, 1500);
-		return () => clearInterval(timer);
-	}, [uuid, status?.running]);
+	const onFlash = useCallback((next: FlashStatus) => {
+		setStatus(next);
+	}, []);
+	useDeviceHub(uuid, { onFlash });
 
 	const last = status?.last;
 

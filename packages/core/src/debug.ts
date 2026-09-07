@@ -14,9 +14,7 @@ export type DebugEvent = {
 
 export const DEBUG_PATH = "/v1/debug";
 export const DEBUG_UPGRADE_FAILED = "upgrade failed";
-export const DEBUG_LIVE_PATH = "/api/debug/live";
 export const DEBUG_LIVE_TTL_SEC = 120;
-export const DEBUG_LIVE_PING_MS = 30_000;
 export const DEBUG_MAX_SOCKETS = 8;
 export const DEBUG_RING_SIZE = 100;
 export const DEFAULT_DASHBOARD_ORIGIN = "https://gpio-companion.com";
