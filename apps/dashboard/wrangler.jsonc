@@ -15,7 +15,8 @@
 		"GITHUB_APP_ID": "4778170",
 		"GITHUB_APP_SLUG": "gpio-companion",
 		"GPIO_AI_MARKUP": "1.25",
-		"PAYPAL_ENV": "sandbox",
+		"PAYPAL_ENV": "live",
+		"PUBLIC_PAYPAL_CLIENT_ID": "BAABxmBqK6EERDGyRgTKlhLfu_RX3xOfuSJJj1i4QcrdUgfe4MR_LgAVC59uVJonileGPQJk0RLwkoGPbc",
 	},
 	"kv_namespaces": [
 		{
