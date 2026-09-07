@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { generateDeviceKeyPair } from "gpio-companion";
-import type { StoredPairing } from "../../../lib/pairing-store.ts";
-import { onRequestPost } from "./credentials.ts";
+import { onRequestPost } from "../../actions/api/ai/credentials.ts";
+import type { StoredPairing } from "../../lib/pairing-store.ts";
 
 class MemoryKv {
 	store = new Map<string, string>();
