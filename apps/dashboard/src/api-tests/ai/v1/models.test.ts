@@ -5,10 +5,10 @@ import {
 	generateDeviceKeyPair,
 	openaiChatModelList,
 } from "gpio-companion";
-import { issueAiCredentials } from "../../../../lib/ai-credentials.ts";
-import { registerAiKey } from "../../../../lib/credits.ts";
-import type { StoredPairing } from "../../../../lib/pairing-store.ts";
-import { onRequestGet } from "./models.ts";
+import { onRequestGet } from "../../../actions/api/ai/v1/models.ts";
+import { issueAiCredentials } from "../../../lib/ai-credentials.ts";
+import { registerAiKey } from "../../../lib/credits.ts";
+import type { StoredPairing } from "../../../lib/pairing-store.ts";
 
 class MemoryKv {
 	store = new Map<string, string>();

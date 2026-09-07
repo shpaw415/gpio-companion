@@ -1,5 +1,5 @@
-import nacl from "tweetnacl";
 import { sha256 } from "js-sha256";
+import nacl from "tweetnacl";
 
 const DEVICE_AUTH_VERSION = "gpio-companion-device-v1";
 
@@ -81,7 +81,10 @@ export async function signOfflineEnvelope(options: {
 	].join("\n");
 	const seed = seedFromPkcs8(options.privateKeyPem);
 	const pair = nacl.sign.keyPair.fromSeed(seed);
-	const signature = nacl.sign.detached(new TextEncoder().encode(payload), pair.secretKey);
+	const signature = nacl.sign.detached(
+		new TextEncoder().encode(payload),
+		pair.secretKey,
+	);
 	const grantHeader = JSON.stringify(options.grant);
 	const grant = options.grant as { keyId?: string };
 	return {
