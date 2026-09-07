@@ -101,7 +101,7 @@ export default function PairPage() {
 					overview), start T3 Code to get a pair code, QR, and board pairing
 					URL. Then set WiFi from{" "}
 					<a href="/devices/wifi">WiFi over Bluetooth</a> or Ethernet/TTY, and
-					connect GitHub on Keys.
+					connect GitHub in Profile.
 				</Typography>
 			) : null}
 			{showForm ? (

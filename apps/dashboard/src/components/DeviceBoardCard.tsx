@@ -4,6 +4,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { formatNetworkLabel, type NetworkStatus } from "gpio-companion";
+import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
 import type { ActionResult } from "../lib/action.ts";
 import { deviceDisplayName, type StoredPairing } from "../lib/pairing-store.ts";
 import DeviceCompanionInfo from "./DeviceCompanionInfo.tsx";
@@ -52,21 +53,28 @@ export default function DeviceBoardCard({
 	onSelect?: (uuid: string) => void;
 	loadInfo?: (uuid: string) => Promise<ActionResult<{ info: unknown }>>;
 }) {
+	const { isEasy } = useDashboardMode();
 	const online = Boolean(status);
 	const networkLabel = formatNetworkLabel(status?.network);
+	const codeReady = Boolean(status?.t3?.paired);
+	const showCodePair = !isEasy || t3AutoStart || !codeReady;
 
 	return (
 		<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
 				<Typography variant="h6">{deviceDisplayName(device)}</Typography>
-				<Typography color="secondary" className="break-all">
-					{device.uuid}
-				</Typography>
-				{device.deviceUrl ? (
-					<Typography color="secondary" className="break-all">
-						{device.deviceUrl}
-					</Typography>
-				) : null}
+				{isEasy ? null : (
+					<>
+						<Typography color="secondary" className="break-all">
+							{device.uuid}
+						</Typography>
+						{device.deviceUrl ? (
+							<Typography color="secondary" className="break-all">
+								{device.deviceUrl}
+							</Typography>
+						) : null}
+					</>
+				)}
 				<DeviceLabelField
 					key={device.uuid}
 					uuid={device.uuid}
@@ -91,54 +99,63 @@ export default function DeviceBoardCard({
 					{networkLabel ? (
 						<Chip label={networkLabel} variant="outlined" />
 					) : null}
+					{status && !isEasy ? (
+						<Chip
+							label={
+								status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
+							}
+							color={status.tunnel?.configured ? "success" : "secondary"}
+							variant="outlined"
+						/>
+					) : null}
 					{status ? (
 						<>
 							<Chip
 								label={
-									status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
-								}
-								color={status.tunnel?.configured ? "success" : "secondary"}
-								variant="outlined"
-							/>
-							<Chip
-								label={
 									status.secrets?.githubReady
-										? "GitHub ready"
-										: "GitHub keys pending"
+										? "Projects connected"
+										: "Connect GitHub"
 								}
 								color={status.secrets?.githubReady ? "success" : "warning"}
 								variant="outlined"
 							/>
 							<Chip
 								label={
-									status.t3?.paired
-										? "T3 Code paired"
+									codeReady
+										? "Code ready"
 										: status.t3?.running
-											? "T3 Code running"
-											: "T3 Code idle"
+											? "Code running"
+											: "Code idle"
 								}
-								color={status.t3?.paired ? "success" : "secondary"}
+								color={codeReady ? "success" : "secondary"}
 								variant="outlined"
 							/>
 						</>
 					) : null}
 				</Stack>
-				<T3PairingPanel
-					devices={[device]}
-					uuid={device.uuid}
-					initialStatus={status?.t3}
-					skipFetch={!t3AutoStart}
-					autoStart={t3AutoStart}
-				/>
-				{loadInfo ? (
+				{showCodePair ? (
+					<T3PairingPanel
+						devices={[device]}
+						uuid={device.uuid}
+						initialStatus={status?.t3}
+						skipFetch={!t3AutoStart}
+						autoStart={t3AutoStart}
+					/>
+				) : null}
+				{!isEasy && loadInfo ? (
 					<DeviceCompanionInfo
 						key={device.uuid}
 						uuid={device.uuid}
 						loadInfo={loadInfo}
 					/>
 				) : null}
-				<GpioPanel uuid={device.uuid} />
+				{isEasy ? null : <GpioPanel uuid={device.uuid} />}
 				<Stack direction="row" spacing={1} className="flex-wrap">
+					{isEasy ? (
+						<Button href="/devices/t3" variant="contained" size="small">
+							Open Code
+						</Button>
+					) : null}
 					{onSelect ? (
 						<Button
 							type="button"
@@ -150,7 +167,7 @@ export default function DeviceBoardCard({
 							{selected ? "Selected board" : "Select board"}
 						</Button>
 					) : null}
-					{onUnpair ? (
+					{!isEasy && onUnpair ? (
 						<Button
 							type="button"
 							variant="outlined"

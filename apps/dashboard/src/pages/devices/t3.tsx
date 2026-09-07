@@ -60,11 +60,10 @@ export default function T3Page() {
 			spacing={1}
 			sx={{ flex: 1, minHeight: 0, height: "100%", display: "flex" }}
 		>
-			<SectionHeader title="T3 Code">
+			<SectionHeader title="Code">
 				{mobile ? null : (
 					<Typography color="secondary">
-						Open the T3 Code session on a paired Pi. Leaving this tab keeps the
-						page you were on.
+						Talk to the agent on your board. Leaving this tab keeps your place.
 					</Typography>
 				)}
 			</SectionHeader>
@@ -74,7 +73,7 @@ export default function T3Page() {
 					<Button href="/login" variant="text">
 						Sign in
 					</Button>{" "}
-					to open T3 Code on a paired board.
+					to open Code on a paired board.
 				</Alert>
 			) : null}
 
@@ -82,10 +81,10 @@ export default function T3Page() {
 
 			{loggedIn && !loading && devices.length === 0 ? (
 				<Alert severity="info">
-					<Button href="/devices/pair" variant="text">
+					<Button href="/devices" variant="text">
 						Pair a board
 					</Button>{" "}
-					to load T3 Code here.
+					to load Code here.
 				</Alert>
 			) : null}
 
@@ -101,7 +100,7 @@ export default function T3Page() {
 								devices={devices}
 								value={uuid}
 								onChange={setUuid}
-								label="Companion"
+								label="Board"
 							/>
 						</Box>
 						{src ? (

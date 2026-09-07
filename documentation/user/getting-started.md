@@ -1,6 +1,6 @@
 # Getting started (user)
 
-Do this in order. GitHub token is **not** typed on the Pi; it comes from dashboard Keys after pair. OpenCode uses dashboard credits through a local gpio-companion proxy (no AI key to paste).
+Do this in order. GitHub token is **not** typed on the Pi; it comes from dashboard Profile → GitHub after pair. OpenCode uses dashboard credits through a local gpio-companion proxy (no AI key to paste).
 
 ## 1. Power the board
 
@@ -20,13 +20,13 @@ Ethernet and the Pi TTY (`nmcli`) always work.
 
 ## 3. Sign in
 
-Dashboard `/` stepper: **Sign in → Pair Pi → GitHub → Overview**.
+Dashboard `/` stepper: **Sign in → Pair board → GitHub → Ready**.
 
 Use `/login`. Continue with GitHub; you land on `/callback` then home.
 
 ## 4. Pair the board
 
-Page `/devices/pair` (or stepper step 2). You can pair more than one board.
+Page `/devices` (or stepper step 2). You can pair more than one board.
 
 | Field | Where it comes from |
 | --- | --- |
@@ -41,8 +41,8 @@ The dashboard **signs** the claim, then **Pair T3** (also on Devices overview fo
 ## 5. GitHub
 
 1. Use **your** GitHub account (create one if needed)
-2. Dashboard **Keys**: **Connect GitHub** and install the gpio-companion GitHub App on your account (all or selected repos)
-3. Paired Pis mint a fresh token at `git push`. You do not paste a PAT. If the board was offline for more than an hour, just push again once it has internet — do not reopen Keys.
+2. Dashboard **Profile → GitHub**: **Connect GitHub** and install the gpio-companion GitHub App on your account (all or selected repos)
+3. Paired boards mint a fresh token at `git push`. You do not paste a PAT. If the board was offline for more than an hour, just push again once it has internet — do not reopen GitHub.
 
 OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), not a GitHub token. `gpio-companion github-token` prints a live token for API calls.
 
@@ -55,5 +55,5 @@ When GitHub is marked ready on the device, `/` shows the overview and `/projects
 - `device 401` / missing signature: host signing secret not set, or you are on an old image
 - `pairing uuid mismatch` / `pairing key mismatch`: wrong printout or wrong board
 - `already paired`: another dashboard user claimed this UUID
-- `pair a device first` on Keys: finish `/pair` before Keys
+- `pair a device first` on GitHub: finish pairing on `/devices` first
 - Health check only: `http://<pi>:4150/health` is public; everything else is signed

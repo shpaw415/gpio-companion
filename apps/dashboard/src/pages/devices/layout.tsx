@@ -2,22 +2,11 @@ import { navigate } from "@next/client";
 import Box from "@shpaw415/mui-lite/Box";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { usePathname } from "../../hooks/usePathname.tsx";
 import { isAdmin } from "../../lib/auth/role.ts";
+import { deviceTabs } from "../../lib/dashboard-mode.ts";
 import { isT3Path } from "../../lib/t3-url.ts";
-
-const baseTabs = [
-	{ href: "/devices", label: "Overview" },
-	{ href: "/devices/docs", label: "Docs" },
-	{ href: "/devices/t3", label: "T3" },
-	{ href: "/devices/pair", label: "Pair" },
-	{ href: "/devices/wifi", label: "WiFi" },
-	{ href: "/devices/keys", label: "Keys" },
-	{ href: "/devices/notifications", label: "Requests" },
-	{ href: "/devices/debug", label: "Debug" },
-];
-
-const adminTab = { href: "/devices/admin", label: "Admin" };
 
 function active(pathname: string, tabs: Array<{ href: string }>) {
 	const match = [...tabs]
@@ -33,8 +22,9 @@ export default function DevicesLayout({
 }) {
 	const session = useAuthSession();
 	const pathname = usePathname();
+	const { mode } = useDashboardMode();
 	const onT3 = isT3Path(pathname);
-	const tabs = isAdmin(session.data?.role) ? [...baseTabs, adminTab] : baseTabs;
+	const tabs = deviceTabs(mode, isAdmin(session.data?.role));
 	const value = active(pathname, tabs);
 
 	return (

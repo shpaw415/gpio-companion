@@ -57,7 +57,7 @@ export default function KeysForm() {
 					setLogin(saved.login);
 					setInstallUrl("");
 					setStatus(`connected as @${saved.login}`);
-					window.history.replaceState({}, "", "/devices/keys");
+					window.history.replaceState({}, "", "/profile/github");
 					return;
 				}
 				const current = unwrapAction(await getGithubApp());
@@ -88,9 +88,8 @@ export default function KeysForm() {
 		<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
 				<Typography variant="body2" color="secondary">
-					Install the gpio-companion GitHub App. Paired Pis mint a fresh token
-					at git push — nothing to paste, and being offline for more than an
-					hour does not require you to reopen this page.
+					Install the gpio-companion GitHub App once. Boards mint a fresh token
+					at git push — nothing to paste.
 				</Typography>
 				{checking ? (
 					<Skeleton variant="rounded" height={40} width="60%" />
@@ -107,7 +106,7 @@ export default function KeysForm() {
 					<Skeleton variant="rounded" height={24} width="75%" />
 				) : devices.length === 0 ? (
 					<Alert severity="info">
-						<Button href="/devices/pair" variant="text">
+						<Button href="/devices" variant="text">
 							Pair a board
 						</Button>{" "}
 						so the agent can push with this GitHub App.

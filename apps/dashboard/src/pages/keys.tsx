@@ -1,5 +1,5 @@
 import Redirect from "@components/Redirect";
 
 export default function KeysRedirect() {
-	return <Redirect to="/devices/keys" />;
+	return <Redirect to="/profile/github" preserveSearch />;
 }

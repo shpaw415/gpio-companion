@@ -17,6 +17,7 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { type ReactNode } from "react";
 import { ActionErrorProvider } from "../hooks/useActionError.tsx";
 import { useColorMode } from "../hooks/useColorMode.tsx";
+import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import { isT3Path } from "../lib/t3-url.ts";
@@ -39,6 +40,7 @@ function currentSection(pathname: string) {
 
 export default function Layout({ children }: { children: React.JSX.Element }) {
 	const { isDark, toggleMode } = useColorMode();
+	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
 	const pathname = usePathname();
 	const onT3 = isT3Path(pathname);
 	const mobile = useMobile();
@@ -82,6 +84,16 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 										{item.label}
 									</Button>
 								))}
+						<Button
+							variant="text"
+							size="small"
+							aria-label={
+								isEasy ? "Switch to Expert mode" : "Switch to Easy mode"
+							}
+							onClick={toggleDashboardMode}
+						>
+							{isEasy ? "Easy" : "Expert"}
+						</Button>
 						<IconButton
 							aria-label={
 								isDark ? "Switch to light mode" : "Switch to dark mode"

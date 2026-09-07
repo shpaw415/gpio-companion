@@ -31,9 +31,9 @@ Dashboard `/projects` reads those paths (PCB viewer for `pcb/circuit.json` / `pc
 
 Still signed-in `/devices/wifi`, anytime — pick the paired device from the dropdown, then the same Chrome Bluetooth or iOS paste flow. The dashboard will not sign a UUID that is not paired to your account.
 
-## Change keys later
+## Change GitHub later
 
-`/devices/keys` → Connect GitHub (install the gpio-companion GitHub App). Paired boards mint a token at git push; you do not paste a PAT. If a board was offline for more than an hour, push again after it has internet.
+Profile → GitHub (`/profile/github`) → Connect GitHub (install the gpio-companion GitHub App). Paired boards mint a token at git push; you do not paste a PAT. If a board was offline for more than an hour, push again after it has internet. `/devices/keys` still redirects there.
 
 ## Board updates
 

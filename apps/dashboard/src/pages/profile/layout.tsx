@@ -2,14 +2,10 @@ import { navigate } from "@next/client";
 import Box from "@shpaw415/mui-lite/Box";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { usePathname } from "../../hooks/usePathname.tsx";
-
-const tabs = [
-	{ href: "/profile", label: "Account" },
-	{ href: "/profile/credits", label: "Credits" },
-];
+import { PROFILE_TABS } from "../../lib/dashboard-mode.ts";
 
 function active(pathname: string) {
-	const match = [...tabs]
+	const match = [...PROFILE_TABS]
 		.sort((a, b) => b.href.length - a.href.length)
 		.find((tab) => pathname.startsWith(tab.href));
 	return match?.href ?? "/profile";
@@ -31,7 +27,7 @@ export default function ProfileLayout({
 				variant="scrollable"
 				aria-label="Profile sections"
 			>
-				{tabs.map((tab) => (
+				{PROFILE_TABS.map((tab) => (
 					<Tab key={tab.href} value={tab.href} label={tab.label} />
 				))}
 			</Tabs>

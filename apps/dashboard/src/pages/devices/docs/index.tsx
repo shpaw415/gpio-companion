@@ -195,11 +195,10 @@ export default function DocsPage() {
 
 	return (
 		<Stack spacing={3}>
-			<SectionHeader title="Documentation">
+			<SectionHeader title="Learn">
 				{mobile ? null : (
 					<Typography color="secondary">
-						Official gpio-companion guides and board-specific hardware docs,
-						scoped to the board selected on Devices overview.
+						Guides, wiring, and pinouts for the selected board.
 					</Typography>
 				)}
 			</SectionHeader>

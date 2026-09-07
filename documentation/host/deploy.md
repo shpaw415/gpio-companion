@@ -50,13 +50,23 @@ Local dashboard: put the PEM in `apps/dashboard/.dev.vars` or `.env` as `GPIO_CO
 
 ## 2. Device hub Worker (Durable Objects)
 
-Live GPIO, flash, T3 status, and board presence go through a per-device Durable Object WebSocket. Cloudflare Pages cannot define Durable Object classes, so deploy this Worker **before** the dashboard.
+Live GPIO, flash, T3 status, and board presence go through a per-device Durable Object WebSocket. Cloudflare Pages cannot define Durable Object classes, so this Worker must exist **before** a dashboard deploy that binds it.
 
-App: `apps/workers/device-hub`. Wrangler name: `gpio-companion-hub`. Binding: `DEVICE_HUB` / class `DeviceHub`. Same KV namespace as the dashboard (`DYNAMIC_PAGE_KV`).
+App: `apps/workers/device-hub`. Wrangler name: `gpio-companion-hub` (must match the dashboard Worker). Binding: `DEVICE_HUB` / class `DeviceHub`. Same KV namespace as the dashboard (`DYNAMIC_PAGE_KV`).
 
-```sh
-bun run deploy:hub
-```
+### Git (Workers Builds)
+
+Connect the existing `gpio-companion-hub` Worker to this GitHub repo (not GitHub Actions). Dashboard: **Workers & Pages** → **gpio-companion-hub** → **Settings** → **Builds** → **Connect**.
+
+| Setting | Value |
+| --- | --- |
+| Git repository | `shpaw415/gpio-companion` |
+| Production branch | `main` |
+| Root directory | `apps/workers/device-hub` |
+| Build command | `bun run ci:install` |
+| Deploy command | `npx wrangler deploy` |
+
+The Worker name in the dashboard must stay `gpio-companion-hub` (same as `wrangler.jsonc` `name`). First-time local upload: `bun run deploy:hub`. After Git is connected, every push to `main` deploys the hub.
 
 The dashboard `wrangler.jsonc` binds that Worker with `script_name: "gpio-companion-hub"`. Pis mint a short-lived ticket via `POST /api/hub` `{uuid,key}` then connect `wss://gpio-companion.com/api/hub`. Dashboard browsers upgrade the same path with the session cookie. Writes stay signed HTTP/BLE.
 

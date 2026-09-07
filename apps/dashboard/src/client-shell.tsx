@@ -17,6 +17,7 @@ import T3Frame from "./components/T3Frame.tsx";
 import { AuthCtx, AuthSessionCtx } from "./hooks/useAuth.ts";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection.tsx";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
+import { DashboardModeProvider } from "./hooks/useDashboardMode.tsx";
 import { PathnameProvider } from "./hooks/usePathname.tsx";
 import {
 	identityToPublicSession,
@@ -62,23 +63,25 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 			>
 				<PathnameProvider pathname={pathname}>
 					<ColorModeProvider>
-						<AuthProvider>
-							<BoardSelectionProvider>
-								<RouterHost
-									onRouteChange={async (match) => {
-										matched.current = match;
-										setPathname(match.pathname);
-										if (process.env.NODE_ENV === "development") {
-											setDevKey((prev) => prev + 1);
-										}
-										await routeChangePromiseRef.current.promise;
-									}}
-								>
-									{children}
-								</RouterHost>
-								<T3Frame />
-							</BoardSelectionProvider>
-						</AuthProvider>
+						<DashboardModeProvider>
+							<AuthProvider>
+								<BoardSelectionProvider>
+									<RouterHost
+										onRouteChange={async (match) => {
+											matched.current = match;
+											setPathname(match.pathname);
+											if (process.env.NODE_ENV === "development") {
+												setDevKey((prev) => prev + 1);
+											}
+											await routeChangePromiseRef.current.promise;
+										}}
+									>
+										{children}
+									</RouterHost>
+									<T3Frame />
+								</BoardSelectionProvider>
+							</AuthProvider>
+						</DashboardModeProvider>
 					</ColorModeProvider>
 				</PathnameProvider>
 			</SSRPropsProvider>

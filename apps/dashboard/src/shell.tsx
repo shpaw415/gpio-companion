@@ -1,6 +1,7 @@
 import CssBaseline from "@shpaw415/mui-lite/CssBaseline";
 import { APP_DATA } from "./common.ts";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
+import { DashboardModeProvider } from "./hooks/useDashboardMode.tsx";
 
 export default function RenderShell({
 	children,
@@ -36,8 +37,10 @@ export default function RenderShell({
 			</head>
 			<body id="root">
 				<ColorModeProvider>
-					<CssBaseline />
-					{children}
+					<DashboardModeProvider>
+						<CssBaseline />
+						{children}
+					</DashboardModeProvider>
 				</ColorModeProvider>
 			</body>
 		</html>

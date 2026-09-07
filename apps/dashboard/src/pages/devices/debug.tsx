@@ -7,6 +7,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import DeviceDebugPanel from "../../components/DeviceDebugPanel.tsx";
+import ExpertGate from "../../components/ExpertGate.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
@@ -58,43 +59,45 @@ export default function DeviceDebugPage() {
 	);
 
 	return (
-		<Stack spacing={3}>
-			<SectionHeader title="Debug">
-				<Typography color="secondary">
-					Live companion API errors over WebSocket, plus disk space and a
-					redacted last-24h journal excerpt. Owner or admin can start the same
-					updater as the 24h timer. Boards ping when they are up; hourly cleanup
-					keeps logs for a day.
-				</Typography>
-			</SectionHeader>
+		<ExpertGate>
+			<Stack spacing={3}>
+				<SectionHeader title="Debug">
+					<Typography color="secondary">
+						Live companion API errors over WebSocket, plus disk space and a
+						redacted last-24h journal excerpt. Owner or admin can start the same
+						updater as the 24h timer. Boards ping when they are up; hourly
+						cleanup keeps logs for a day.
+					</Typography>
+				</SectionHeader>
 
-			{!loggedIn ? (
-				<Alert severity="info">
-					<Button href="/login" variant="text">
-						Sign in
-					</Button>{" "}
-					to stream companion request logs.
-				</Alert>
-			) : null}
+				{!loggedIn ? (
+					<Alert severity="info">
+						<Button href="/login" variant="text">
+							Sign in
+						</Button>{" "}
+						to stream companion request logs.
+					</Alert>
+				) : null}
 
-			{loggedIn && loading ? <SelectSkeleton /> : null}
+				{loggedIn && loading ? <SelectSkeleton /> : null}
 
-			{loggedIn && !loading && devices.length === 0 ? (
-				<Alert severity="info">
-					{admin
-						? "No live companions. A board appears here when gpio-companion serve pings the dashboard."
-						: "Pair a board, or wait until your companion is live."}
-				</Alert>
-			) : null}
+				{loggedIn && !loading && devices.length === 0 ? (
+					<Alert severity="info">
+						{admin
+							? "No live companions. A board appears here when gpio-companion serve pings the dashboard."
+							: "Pair a board, or wait until your companion is live."}
+					</Alert>
+				) : null}
 
-			{loggedIn && devices.length > 0 ? (
-				<DeviceDebugPanel
-					devices={options}
-					signConnect={signDebugConnect}
-					loadLogs={loadDeviceLogs}
-					startUpdate={startDeviceUpdate}
-				/>
-			) : null}
-		</Stack>
+				{loggedIn && devices.length > 0 ? (
+					<DeviceDebugPanel
+						devices={options}
+						signConnect={signDebugConnect}
+						loadLogs={loadDeviceLogs}
+						startUpdate={startDeviceUpdate}
+					/>
+				) : null}
+			</Stack>
+		</ExpertGate>
 	);
 }

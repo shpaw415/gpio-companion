@@ -125,8 +125,11 @@ export default function ProjectBrowser({
 	if (!configured) {
 		return (
 			<Alert severity="info">
-				Install the GitHub App on Keys so this dashboard can list your repos.
-				Agent-pushed files live in pcb/, breadboard/, and technical/.
+				<Button href="/profile/github" variant="text">
+					Connect GitHub
+				</Button>{" "}
+				so this dashboard can list your repos. Agent-pushed files live in pcb/,
+				breadboard/, and technical/.
 			</Alert>
 		);
 	}
