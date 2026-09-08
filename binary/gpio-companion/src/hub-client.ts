@@ -93,6 +93,8 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 	let lastGpio = "";
 	let lastFlash = "";
 	let lastT3 = "";
+	let gpioBusy = false;
+	let t3Busy = false;
 	const Socket = options.webSocket ?? WebSocket;
 
 	function send(
@@ -110,6 +112,10 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 	}
 
 	async function publishGpio() {
+		if (gpioBusy) {
+			return;
+		}
+		gpioBusy = true;
 		try {
 			const gpio = JSON.stringify(
 				await options.gpio.snapshot(options.hardware),
@@ -120,6 +126,8 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 			}
 		} catch {
 			undefined;
+		} finally {
+			gpioBusy = false;
 		}
 	}
 
@@ -136,9 +144,10 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 	}
 
 	async function publishT3() {
-		if (!options.t3) {
+		if (!options.t3 || t3Busy) {
 			return;
 		}
+		t3Busy = true;
 		try {
 			const t3 = JSON.stringify(await options.t3.status());
 			if (t3 !== lastT3) {
@@ -147,6 +156,8 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 			}
 		} catch {
 			undefined;
+		} finally {
+			t3Busy = false;
 		}
 	}
 

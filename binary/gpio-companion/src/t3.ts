@@ -24,10 +24,16 @@ export type T3Controller = {
 };
 
 const PAIR_WAIT_MS = 20_000;
+const STATUS_SPAWN_MS = 2_000;
+const STATUS_CACHE_MS = 10_000;
+const SERVICE_CACHE_MS = 5 * 60_000;
 
 let lastPairingUrl = "";
 let lastPairingToken = "";
 let markedPaired = false;
+let statusInFlight: Promise<T3Status> | null = null;
+let cachedStatus: { at: number; value: T3Status } | null = null;
+let cachedService: { at: number; value: boolean } | null = null;
 
 export function liveT3Controller(): T3Controller {
 	return {
@@ -39,6 +45,7 @@ export function liveT3Controller(): T3Controller {
 
 export async function pairT3(t3Hostname: string): Promise<T3Pairing> {
 	clearPairing();
+	invalidateT3Status();
 	const user = gpioUser();
 	const raw = await spawnT3(user, ["pair"]).catch(() => "");
 	const fromPair = pairingFromOutput(raw, t3Hostname);
@@ -49,27 +56,81 @@ export async function pairT3(t3Hostname: string): Promise<T3Pairing> {
 }
 
 export async function t3Status(): Promise<T3Status> {
+	const now = Date.now();
+	if (cachedStatus && now - cachedStatus.at < STATUS_CACHE_MS) {
+		return withPairing(cachedStatus.value);
+	}
+	if (statusInFlight) {
+		return statusInFlight.then(withPairing);
+	}
+	statusInFlight = loadT3Status().finally(() => {
+		statusInFlight = null;
+	});
+	return statusInFlight;
+}
+
+export async function revokeT3Authorization(): Promise<void> {
+	clearPairing();
+	markedPaired = false;
+	invalidateT3Status();
+	const user = gpioUser();
+	await spawnT3(user, ["logout"]).catch(() => undefined);
+}
+
+export function resetT3Runtime(): void {
+	clearPairing();
+	markedPaired = false;
+	invalidateT3Status();
+}
+
+async function loadT3Status(): Promise<T3Status> {
 	const user = gpioUser();
 	const running = await portOpen(3773);
-	const serviceInstalled = await t3ServiceInstalled(user);
+	const serviceInstalled = await cachedServiceInstalled(user, running);
 	const paired = markedPaired || (await t3HasSession(user));
 	if (paired) {
 		markedPaired = true;
 	}
-	return {
+	const value: T3Status = {
 		running,
 		pairingUrl: lastPairingUrl,
 		pairingToken: lastPairingToken,
 		paired,
 		serviceInstalled,
 	};
+	cachedStatus = { at: Date.now(), value };
+	return value;
 }
 
-export async function revokeT3Authorization(): Promise<void> {
-	clearPairing();
-	markedPaired = false;
-	const user = gpioUser();
-	await spawnT3(user, ["logout"]).catch(() => undefined);
+function withPairing(status: T3Status): T3Status {
+	return {
+		...status,
+		pairingUrl: lastPairingUrl,
+		pairingToken: lastPairingToken,
+		paired: markedPaired || status.paired,
+	};
+}
+
+function invalidateT3Status(): void {
+	cachedStatus = null;
+	statusInFlight = null;
+}
+
+async function cachedServiceInstalled(
+	user: string,
+	running: boolean,
+): Promise<boolean> {
+	if (running) {
+		cachedService = { at: Date.now(), value: true };
+		return true;
+	}
+	const now = Date.now();
+	if (cachedService && now - cachedService.at < SERVICE_CACHE_MS) {
+		return cachedService.value;
+	}
+	const value = await t3ServiceInstalled(user);
+	cachedService = { at: now, value };
+	return value;
 }
 
 function gpioUser(): string {
@@ -161,7 +222,7 @@ async function spawnT3(
 
 async function t3ServiceInstalled(user: string): Promise<boolean> {
 	try {
-		const output = await spawnT3(user, ["service", "status"]);
+		const output = await spawnT3(user, ["service", "status"], STATUS_SPAWN_MS);
 		return /active|installed|running/i.test(output);
 	} catch {
 		return false;
@@ -170,7 +231,7 @@ async function t3ServiceInstalled(user: string): Promise<boolean> {
 
 async function t3HasSession(user: string): Promise<boolean> {
 	try {
-		const output = await spawnT3(user, ["auth"]);
+		const output = await spawnT3(user, ["auth"], STATUS_SPAWN_MS);
 		if (/no sessions?/i.test(output)) {
 			return false;
 		}
