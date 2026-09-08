@@ -331,6 +331,7 @@ export default function Project() {
 						<GpioPanel
 							uuid={activeUuid}
 							connected={Boolean(activeBoard?.status)}
+							poll
 						/>
 						<Typography variant="subtitle1">Flash Arduino</Typography>
 						<FlashPanel uuid={activeUuid} />

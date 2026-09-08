@@ -3,7 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
 	bleFlash,
 	type FlashStatus,
@@ -11,6 +11,7 @@ import {
 	loadFlashPorts,
 	startFlash,
 } from "../api";
+import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
 export default function FlashPanel({ uuid }: { uuid: string }) {
@@ -21,6 +22,10 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const offline = useOfflineBleKey(uuid);
+	const onFlash = useCallback((next: FlashStatus) => {
+		setStatus(next);
+	}, []);
+	useDeviceHub(uuid, { onFlash });
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);

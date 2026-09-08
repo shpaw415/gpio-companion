@@ -1,0 +1,254 @@
+import type { FlashStatus, GpioSnapshot, T3Status } from "./api.ts";
+
+const START_MS = 500;
+const MAX_MS = 10_000;
+
+export type HubHandlers = {
+	onGpio?: (snapshot: GpioSnapshot) => void;
+	onFlash?: (status: FlashStatus) => void;
+	onT3?: (status: T3Status) => void;
+};
+
+type HubMessage = {
+	v: 1;
+	type: string;
+	payload?: unknown;
+};
+
+export function parseHubMessage(input: unknown): HubMessage | null {
+	let value = input;
+	if (typeof input === "string") {
+		try {
+			value = JSON.parse(input) as unknown;
+		} catch {
+			return null;
+		}
+	}
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+	const record = value as { v?: unknown; type?: unknown; payload?: unknown };
+	if (record.v !== 1 || typeof record.type !== "string") {
+		return null;
+	}
+	if (
+		record.type !== "gpio" &&
+		record.type !== "flash" &&
+		record.type !== "t3" &&
+		record.type !== "hello" &&
+		record.type !== "ping"
+	) {
+		return null;
+	}
+	const message: HubMessage = { v: 1, type: record.type };
+	if (record.payload !== undefined) {
+		message.payload = record.payload;
+	}
+	return message;
+}
+
+export function asGpioSnapshot(payload: unknown): GpioSnapshot | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as GpioSnapshot;
+	if (record.hardware !== "raspberrypi" && record.hardware !== "orangepi") {
+		return null;
+	}
+	if (!Array.isArray(record.pins)) {
+		return null;
+	}
+	return record;
+}
+
+export function asFlashStatus(payload: unknown): FlashStatus | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as FlashStatus;
+	if (typeof record.running !== "boolean") {
+		return null;
+	}
+	return record;
+}
+
+export function asHubT3Status(payload: unknown): T3Status | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as T3Status;
+	if (typeof record.paired !== "boolean") {
+		return null;
+	}
+	return {
+		running: Boolean(record.running),
+		pairingUrl: typeof record.pairingUrl === "string" ? record.pairingUrl : "",
+		pairingToken:
+			typeof record.pairingToken === "string" ? record.pairingToken : "",
+		paired: record.paired,
+		serviceInstalled: Boolean(record.serviceInstalled),
+	};
+}
+
+export type ReconnectSocket = {
+	stop(): void;
+	pause(): void;
+	resume(): void;
+};
+
+export function startReconnectSocket(options: {
+	open: () => Promise<string>;
+	onMessage?: (data: string) => void;
+	onError?: () => void;
+	onOpen?: () => void;
+	webSocket?: typeof WebSocket;
+	delayMs?: number;
+	maxDelayMs?: number;
+	setTimeoutFn?: typeof setTimeout;
+	clearTimeoutFn?: typeof clearTimeout;
+}): ReconnectSocket {
+	let stopped = false;
+	let paused = false;
+	let socket: WebSocket | null = null;
+	let timer: ReturnType<typeof setTimeout> | null = null;
+	let delay = options.delayMs ?? START_MS;
+	const maxDelay = options.maxDelayMs ?? MAX_MS;
+	const Socket = options.webSocket ?? WebSocket;
+	const schedule = options.setTimeoutFn ?? setTimeout;
+	const unschedule = options.clearTimeoutFn ?? clearTimeout;
+
+	function clearTimer() {
+		if (timer) {
+			unschedule(timer);
+			timer = null;
+		}
+	}
+
+	function scheduleReconnect() {
+		if (stopped || paused) {
+			return;
+		}
+		clearTimer();
+		timer = schedule(() => {
+			delay = Math.min(delay * 2, maxDelay);
+			void connect();
+		}, delay);
+	}
+
+	async function connect() {
+		if (stopped || paused) {
+			return;
+		}
+		clearTimer();
+		try {
+			const wsUrl = (await options.open()).trim();
+			if (stopped || paused) {
+				return;
+			}
+			if (!wsUrl) {
+				throw new Error("missing websocket url");
+			}
+			socket?.close();
+			const next = new Socket(wsUrl);
+			socket = next;
+			next.addEventListener("open", () => {
+				delay = options.delayMs ?? START_MS;
+				options.onOpen?.();
+			});
+			next.addEventListener("message", (event) => {
+				options.onMessage?.(String((event as MessageEvent).data ?? ""));
+			});
+			next.addEventListener("error", () => {
+				options.onError?.();
+				next.close();
+			});
+			next.addEventListener("close", () => {
+				if (socket === next) {
+					socket = null;
+				}
+				scheduleReconnect();
+			});
+		} catch {
+			options.onError?.();
+			scheduleReconnect();
+		}
+	}
+
+	void connect();
+	return {
+		stop() {
+			stopped = true;
+			clearTimer();
+			socket?.close();
+			socket = null;
+		},
+		pause() {
+			if (stopped || paused) {
+				return;
+			}
+			paused = true;
+			clearTimer();
+			socket?.close();
+			socket = null;
+		},
+		resume() {
+			if (stopped || !paused) {
+				return;
+			}
+			paused = false;
+			delay = options.delayMs ?? START_MS;
+			void connect();
+		},
+	};
+}
+
+export function startHubClient(options: {
+	uuid: string;
+	mintTicket: () => Promise<{ wsUrl: string }>;
+	handlers: HubHandlers;
+	webSocket?: typeof WebSocket;
+	delayMs?: number;
+	setTimeoutFn?: typeof setTimeout;
+	clearTimeoutFn?: typeof clearTimeout;
+}): ReconnectSocket {
+	return startReconnectSocket({
+		webSocket: options.webSocket,
+		delayMs: options.delayMs,
+		setTimeoutFn: options.setTimeoutFn,
+		clearTimeoutFn: options.clearTimeoutFn,
+		open: async () => {
+			const ticket = await options.mintTicket();
+			const wsUrl = ticket.wsUrl?.trim() ?? "";
+			if (!wsUrl) {
+				throw new Error("hub ticket missing wsUrl");
+			}
+			return wsUrl;
+		},
+		onMessage(data) {
+			const message = parseHubMessage(data);
+			if (!message) {
+				return;
+			}
+			if (message.type === "gpio") {
+				const snapshot = asGpioSnapshot(message.payload);
+				if (snapshot) {
+					options.handlers.onGpio?.(snapshot);
+				}
+				return;
+			}
+			if (message.type === "flash") {
+				const status = asFlashStatus(message.payload);
+				if (status) {
+					options.handlers.onFlash?.(status);
+				}
+				return;
+			}
+			if (message.type === "t3") {
+				const status = asHubT3Status(message.payload);
+				if (status) {
+					options.handlers.onT3?.(status);
+				}
+			}
+		},
+	});
+}

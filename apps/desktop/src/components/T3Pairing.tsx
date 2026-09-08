@@ -2,9 +2,10 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { openExternal, startT3Pair, type T3Status, t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useDeviceHub } from "../hooks/useDeviceHub";
 import { openT3Window } from "../lib/t3-window";
 
 function tokenFrom(status?: T3Status): string {
@@ -36,6 +37,10 @@ export default function T3Pairing({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const token = tokenFrom(status);
+	const onT3 = useCallback((next: T3Status) => {
+		setStatus(next);
+	}, []);
+	useDeviceHub(uuid, { onT3 });
 
 	async function pair() {
 		setBusy(true);

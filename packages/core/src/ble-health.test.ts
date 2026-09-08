@@ -1,0 +1,71 @@
+import { describe, expect, test } from "bun:test";
+import { evaluateBleHealthCheck, parseBleHealthBody } from "./ble-health.ts";
+
+describe("ble-health", () => {
+	test("parses JSON status payloads", () => {
+		expect(parseBleHealthBody('{"running":false}')).toEqual({ running: false });
+		expect(parseBleHealthBody("not-json")).toEqual({
+			error: "non-JSON status payload: not-json",
+		});
+	});
+
+	test("passes GATT info when UUID matches", () => {
+		const result = evaluateBleHealthCheck("gatt-info", {
+			selectedUuid: "pair-uuid",
+			body: { uuid: "pair-uuid", hardware: "orangepi", name: "gpio-companion" },
+		});
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails GATT info on the wrong board", () => {
+		const result = evaluateBleHealthCheck("gatt-info", {
+			selectedUuid: "board-a",
+			body: { uuid: "board-b" },
+		});
+		expect(result.pass).toBe(false);
+		expect(result.detail).toContain("does not match");
+	});
+
+	test("treats power-pin refusal as a passing gpio write probe", () => {
+		const result = evaluateBleHealthCheck("put-gpio-power", {
+			error: "pin 1 is power, not gpio",
+		});
+		expect(result.pass).toBe(true);
+		expect(result.detail).toContain("refused pin 1");
+	});
+
+	test("fails gpio write probe when the pin is accepted", () => {
+		const result = evaluateBleHealthCheck("put-gpio-power", {
+			body: { hardware: "orangepi", pins: [] },
+		});
+		expect(result.pass).toBe(false);
+		expect(result.detail).toContain("should refuse");
+	});
+
+	test("passes wifi probe on ssid-not-found", () => {
+		const result = evaluateBleHealthCheck("put-wifi", {
+			body: {
+				error: "wifi network not found",
+				reason: "ssid-not-found",
+				connected: false,
+			},
+		});
+		expect(result.pass).toBe(true);
+	});
+
+	test("fails wifi probe if it connects", () => {
+		const result = evaluateBleHealthCheck("put-wifi", {
+			body: { ssid: "gpio-companion-ble-health-probe", connected: true },
+		});
+		expect(result.pass).toBe(false);
+		expect(result.detail).toContain("unexpectedly connected");
+	});
+
+	test("explains a bluetooth timeout", () => {
+		const result = evaluateBleHealthCheck("get-info", {
+			error: "bluetooth timed out",
+		});
+		expect(result.pass).toBe(false);
+		expect(result.detail).toContain("GATT status characteristic");
+	});
+});

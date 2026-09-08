@@ -66,6 +66,17 @@ export {
 	splitBleFrames,
 } from "./ble.ts";
 export {
+	BLE_HEALTH_CHECKS,
+	BLE_HEALTH_WIFI_PSK,
+	BLE_HEALTH_WIFI_SSID,
+	type BleHealthCheck,
+	type BleHealthCheckId,
+	type BleHealthVerdict,
+	bleHealthErrorMessage,
+	evaluateBleHealthCheck,
+	parseBleHealthBody,
+} from "./ble-health.ts";
+export {
 	type BoardSeedEntry,
 	type BoardSeedManifest,
 	familyFallbackSeed,

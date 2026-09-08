@@ -4,7 +4,7 @@ import { HUB_PATH } from "gpio-companion";
 import {
 	assertHubDashboardAccess,
 	issueHubCredentials,
-	verifyPiHubTicket,
+	verifyHubAccessTicket,
 } from "../../lib/hub-credentials.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
@@ -63,8 +63,8 @@ async function upgradeHub(ctx: HubContext) {
 	}
 	try {
 		if (ticket) {
-			await verifyPiHubTicket(ctx.env, ticket, uuid);
-			return forwardHub(ctx, uuid, "pi");
+			const claims = await verifyHubAccessTicket(ctx.env, ticket, uuid);
+			return forwardHub(ctx, uuid, claims.role);
 		}
 		const identity = await requireIdentity(ctx);
 		await assertHubDashboardAccess(ctx.env, identity, uuid);

@@ -10,7 +10,7 @@ import Table, {
 	TableRow,
 } from "@shpaw415/mui-lite/Table";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
 	bleGpio,
 	type GpioPinState,
@@ -18,14 +18,17 @@ import {
 	loadGpio,
 	putGpio,
 } from "../api";
+import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
 export default function GpioPanel({
 	uuid,
 	connected,
+	poll = false,
 }: {
 	uuid: string;
 	connected?: boolean;
+	poll?: boolean;
 }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -33,6 +36,10 @@ export default function GpioPanel({
 	const offline = useOfflineBleKey(uuid);
 	const available = Boolean(uuid) && connected !== false;
 	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
+	const onGpio = useCallback((next: GpioSnapshot) => {
+		setSnapshot(next);
+	}, []);
+	useDeviceHub(poll && available ? uuid : "", { onGpio });
 
 	function start(task: () => Promise<GpioSnapshot>) {
 		setBusy(true);

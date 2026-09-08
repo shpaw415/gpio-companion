@@ -17,6 +17,7 @@ import {
 } from "gpio-companion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
+import BleHealthRunner from "./BleHealthRunner.tsx";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
 
@@ -352,6 +353,7 @@ export default function DeviceDebugPanel({
 					Live errors and warnings from companion API requests. Secrets are not
 					included.
 				</Typography>
+				<BleHealthRunner uuid={uuid} />
 			</Stack>
 		</Paper>
 	);

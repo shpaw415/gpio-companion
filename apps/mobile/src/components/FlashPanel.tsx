@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { View } from "react-native";
 import {
 	type FlashStatus,
@@ -15,6 +15,7 @@ import {
 	scanBoard,
 	sendEnvelope,
 } from "../lib/ble.ts";
+import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
 
@@ -28,6 +29,10 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const offline = useOfflineBleKey(uuid);
+	const onFlash = useCallback((next: FlashStatus) => {
+		setStatus(next);
+	}, []);
+	useDeviceHub(uuid, token, { onFlash });
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);

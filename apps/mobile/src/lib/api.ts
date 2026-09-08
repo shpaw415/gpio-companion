@@ -230,6 +230,13 @@ export type DebugConnect = {
 	probe: { status: number; error: string; ready: boolean };
 };
 
+export type HubTicket = {
+	token: string;
+	expiresAt: string;
+	exp: number;
+	wsUrl: string;
+};
+
 export type T3Status = {
 	running?: boolean;
 	pairingUrl?: string;
@@ -502,6 +509,13 @@ export function listDebugBoards(token: string) {
 
 export function connectDebug(token: string, uuid: string) {
 	return request<DebugConnect>(token, "/api/mobile/debug", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
+}
+
+export function mintHubTicket(token: string, uuid: string) {
+	return request<HubTicket>(token, "/api/mobile/hub", {
 		method: "POST",
 		body: JSON.stringify({ uuid }),
 	});

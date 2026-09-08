@@ -6,12 +6,6 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-	filterJournalByAge,
-	JOURNAL_WINDOWS,
-	type JournalWindowId,
-	journalWindowMs,
-} from "../lib/journal";
-import {
 	connectDebug,
 	deviceDisplayName,
 	listDebugBoards,
@@ -19,6 +13,14 @@ import {
 	startDeviceUpdate,
 } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
+import { startReconnectSocket, type ReconnectSocket } from "../hub";
+import {
+	filterJournalByAge,
+	JOURNAL_WINDOWS,
+	type JournalWindowId,
+	journalWindowMs,
+} from "../lib/journal";
+import BleHealthRunner from "./BleHealthRunner";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
@@ -44,12 +46,12 @@ export default function Debug() {
 	const [updateBusy, setUpdateBusy] = useState("");
 	const [updateNote, setUpdateNote] = useState("");
 	const loading = query.loading;
-	const socket = useRef<WebSocket | null>(null);
+	const client = useRef<ReconnectSocket | null>(null);
 	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		return () => {
-			socket.current?.close();
+			client.current?.stop();
 			if (updateLock.current) {
 				clearTimeout(updateLock.current);
 			}
@@ -104,32 +106,38 @@ export default function Debug() {
 		}
 	}
 
-	async function connect(uuid: string) {
+	function connect(uuid: string) {
 		setError("");
-		socket.current?.close();
-		try {
-			const next = await connectDebug(uuid);
-			const ws = new WebSocket(next.wsUrl);
-			socket.current = ws;
-			setActive(uuid);
-			setLines([]);
-			ws.onmessage = (event) => {
+		client.current?.stop();
+		setActive(uuid);
+		setLines([]);
+		client.current = startReconnectSocket({
+			open: async () => {
+				const next = await connectDebug(uuid);
+				const wsUrl = next.wsUrl?.trim() ?? "";
+				if (!wsUrl) {
+					throw new Error("missing websocket url");
+				}
+				return wsUrl;
+			},
+			onMessage(data) {
 				try {
-					const parsed = JSON.parse(String(event.data)) as LogLine;
+					const parsed = JSON.parse(data) as LogLine;
 					setLines((current) => [...current.slice(-199), parsed]);
 				} catch {
 					setLines((current) => [
 						...current.slice(-199),
-						{ message: String(event.data) },
+						{ message: data },
 					]);
 				}
-			};
-			ws.onerror = () => {
+			},
+			onError() {
 				setError("debug websocket failed");
-			};
-		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "connect failed");
-		}
+			},
+			onOpen() {
+				setError("");
+			},
+		});
 	}
 
 	return (
@@ -173,6 +181,7 @@ export default function Debug() {
 							>
 								{updateBusy === board.uuid ? "Updating…" : "Update companion"}
 							</Button>
+							<BleHealthRunner uuid={board.uuid} />
 						</Paper>
 					))}
 			{journal ? (

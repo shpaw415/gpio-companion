@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Linking } from "react-native";
 import { startT3Pair, type T3Status } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { tokenFromPairing } from "../lib/t3.ts";
+import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { ErrorText, Muted, Row, TextButton } from "./ui.tsx";
 
 export default function T3Pairing({
@@ -19,6 +20,10 @@ export default function T3Pairing({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const token = tokenFromPairing(status);
+	const onT3 = useCallback((next: T3Status) => {
+		setStatus(next);
+	}, []);
+	useDeviceHub(uuid, auth.token, { onT3 });
 
 	async function pair() {
 		if (!auth.token) {

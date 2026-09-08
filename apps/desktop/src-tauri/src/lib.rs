@@ -261,6 +261,19 @@ async fn ble_write_envelope(
 }
 
 #[tauri::command]
+async fn ble_gatt_info(app: AppHandle, id: String) -> Result<Value, String> {
+	let _ble = ble::acquire().await;
+	emit_status(&app, "Connecting…");
+	let (peripheral, info) = ble::connected_board_info(&id).await?;
+	ble::disconnect(&peripheral).await;
+	Ok(json!({
+		"uuid": info.uuid,
+		"hardware": info.hardware,
+		"name": info.name,
+	}))
+}
+
+#[tauri::command]
 async fn ble_wifi(
 	app: AppHandle,
 	uuid: String,
@@ -491,6 +504,7 @@ pub fn run() {
 			api_request,
 			ble_scan,
 			ble_pair,
+			ble_gatt_info,
 			ble_wifi,
 			ble_info,
 			ble_gpio,

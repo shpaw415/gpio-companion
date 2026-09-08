@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { View } from "react-native";
 import {
 	type GpioPinState,
@@ -15,6 +15,7 @@ import {
 	scanBoard,
 	sendEnvelope,
 } from "../lib/ble.ts";
+import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Muted, TextButton } from "./ui.tsx";
 
@@ -43,9 +44,11 @@ function parseGpioPayload(raw: string): GpioSnapshot {
 export default function GpioPanel({
 	uuid,
 	connected,
+	poll = false,
 }: {
 	uuid: string;
 	connected?: boolean;
+	poll?: boolean;
 }) {
 	const auth = useAuth();
 	const [busy, setBusy] = useState(false);
@@ -55,6 +58,10 @@ export default function GpioPanel({
 	const offline = useOfflineBleKey(uuid);
 	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
 	const available = Boolean(uuid) && connected !== false;
+	const onGpio = useCallback((next: GpioSnapshot) => {
+		setSnapshot(next);
+	}, []);
+	useDeviceHub(poll && available ? uuid : "", token, { onGpio });
 
 	function start(task: () => Promise<GpioSnapshot>) {
 		setBusy(true);

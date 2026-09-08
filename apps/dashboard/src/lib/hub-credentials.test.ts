@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { generateDeviceKeyPair, verifyHubTicket } from "gpio-companion";
-import { issueHubCredentials, verifyPiHubTicket } from "./hub-credentials.ts";
+import {
+	issueDashboardHubTicket,
+	issueHubCredentials,
+	verifyHubAccessTicket,
+	verifyPiHubTicket,
+} from "./hub-credentials.ts";
 import type { StoredPairing } from "./pairing-store.ts";
 
 class MemoryKv {
@@ -74,5 +79,37 @@ describe("hub credentials", () => {
 		};
 		const creds = await issueHubCredentials(env, "fresh-uuid", "fresh-key");
 		expect(creds.token.startsWith("gpiohub.v1.")).toBe(true);
+	});
+
+	test("mints a dashboard ticket for the owner", async () => {
+		const { env } = await seeded();
+		const creds = await issueDashboardHubTicket(
+			env,
+			{ id: "user-1", role: "user" },
+			"pair-uuid",
+		);
+		expect(creds.token.startsWith("gpiohub.v1.")).toBe(true);
+		expect(creds.wsUrl).toContain("uuid=pair-uuid");
+		expect(creds.wsUrl).toContain("ticket=");
+		const claims = await verifyHubAccessTicket(env, creds.token, "pair-uuid");
+		expect(claims.role).toBe("dashboard");
+		await expect(
+			verifyPiHubTicket(env, creds.token, "pair-uuid"),
+		).rejects.toThrow("invalid hub token");
+	});
+
+	test("rejects a dashboard ticket for another account", async () => {
+		const { env, kv } = await seeded();
+		await kv.put(
+			"device:user-2",
+			JSON.stringify([{ ...pairing, userId: "user-2", uuid: "other-uuid" }]),
+		);
+		await expect(
+			issueDashboardHubTicket(
+				env,
+				{ id: "user-2", role: "user" },
+				"pair-uuid",
+			),
+		).rejects.toThrow("device is not paired with this account");
 	});
 });

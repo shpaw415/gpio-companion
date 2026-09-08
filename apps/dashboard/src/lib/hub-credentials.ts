@@ -1,5 +1,6 @@
 import {
 	type HubTicket,
+	type HubTicketClaims,
 	signHubTicket,
 	timingSafeEqualString,
 	verifyHubTicket,
@@ -48,17 +49,52 @@ export async function issueHubCredentials(
 	});
 }
 
-export async function verifyPiHubTicket(
+export async function issueDashboardHubTicket(
+	env: HubCredentialsEnv,
+	identity: DeviceActor,
+	uuid: string,
+	origin?: string,
+): Promise<HubTicket> {
+	const trimmed = uuid.trim();
+	if (!trimmed) {
+		throw new Error("uuid is required");
+	}
+	await assertHubDashboardAccess(env, identity, trimmed);
+	const privateKeyPem = env.GPIO_COMPANION_DEVICE_PRIVATE_KEY ?? "";
+	if (!privateKeyPem.trim()) {
+		throw new Error("GPIO_COMPANION_DEVICE_PRIVATE_KEY is not set");
+	}
+	return signHubTicket({
+		privateKeyPem,
+		uuid: trimmed,
+		role: "dashboard",
+		origin,
+	});
+}
+
+export async function verifyHubAccessTicket(
 	env: HubCredentialsEnv,
 	token: string,
 	uuid: string,
-): Promise<void> {
+): Promise<HubTicketClaims> {
 	const privateKeyPem = env.GPIO_COMPANION_DEVICE_PRIVATE_KEY ?? "";
 	if (!privateKeyPem.trim()) {
 		throw new Error("GPIO_COMPANION_DEVICE_PRIVATE_KEY is not set");
 	}
 	const claims = await verifyHubTicket({ token, privateKeyPem });
-	if (claims.role !== "pi" || claims.uuid !== uuid.trim()) {
+	if (claims.uuid !== uuid.trim()) {
+		throw new Error("invalid hub token");
+	}
+	return claims;
+}
+
+export async function verifyPiHubTicket(
+	env: HubCredentialsEnv,
+	token: string,
+	uuid: string,
+): Promise<void> {
+	const claims = await verifyHubAccessTicket(env, token, uuid);
+	if (claims.role !== "pi") {
 		throw new Error("invalid hub token");
 	}
 }

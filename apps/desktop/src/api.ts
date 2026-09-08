@@ -109,6 +109,13 @@ export function bleScan() {
 	return call<NearbyBoard[]>("ble_scan");
 }
 
+export function bleGattInfo(id = "") {
+	return call<{ uuid?: string; hardware?: string; name?: string }>(
+		"ble_gatt_info",
+		{ id },
+	);
+}
+
 export function blePair(id: string) {
 	return call<unknown>("ble_pair", { id });
 }
@@ -394,6 +401,13 @@ export type DebugConnect = {
 	probe: { status: number; error: string; ready: boolean };
 };
 
+export type HubTicket = {
+	token: string;
+	expiresAt: string;
+	exp: number;
+	wsUrl: string;
+};
+
 export type T3Status = {
 	running?: boolean;
 	pairingUrl?: string;
@@ -520,6 +534,10 @@ export function listDebugBoards() {
 
 export function connectDebug(uuid: string) {
 	return apiRequest<DebugConnect>("POST", "/api/mobile/debug", { uuid });
+}
+
+export function mintHubTicket(uuid: string) {
+	return apiRequest<HubTicket>("POST", "/api/mobile/hub", { uuid });
 }
 
 export type FlashPort = {

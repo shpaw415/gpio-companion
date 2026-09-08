@@ -1,12 +1,6 @@
-import {
-	filterJournalByAge,
-	JOURNAL_WINDOWS,
-	type JournalWindowId,
-	journalWindowMs,
-} from "../lib/journal.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, Text } from "react-native";
-
+import { AppState, type AppStateStatus, ScrollView, Text } from "react-native";
+import BleHealthRunner from "../components/BleHealthRunner.tsx";
 import {
 	Chip,
 	ErrorText,
@@ -27,6 +21,13 @@ import {
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import { startReconnectSocket, type ReconnectSocket } from "../lib/hub.ts";
+import {
+	filterJournalByAge,
+	JOURNAL_WINDOWS,
+	type JournalWindowId,
+	journalWindowMs,
+} from "../lib/journal.ts";
 
 type LogLine = {
 	t?: number;
@@ -57,12 +58,21 @@ export default function Debug() {
 	const [journalBusy, setJournalBusy] = useState("");
 	const [updateBusy, setUpdateBusy] = useState("");
 	const [updateNote, setUpdateNote] = useState("");
-	const socket = useRef<WebSocket | null>(null);
+	const client = useRef<ReconnectSocket | null>(null);
 	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
+		function onAppState(state: AppStateStatus) {
+			if (state === "active") {
+				client.current?.resume();
+				return;
+			}
+			client.current?.pause();
+		}
+		const sub = AppState.addEventListener("change", onAppState);
 		return () => {
-			socket.current?.close();
+			sub.remove();
+			client.current?.stop();
 			if (updateLock.current) {
 				clearTimeout(updateLock.current);
 			}
@@ -120,35 +130,41 @@ export default function Debug() {
 		}
 	}
 
-	async function connect(uuid: string) {
+	function connect(uuid: string) {
 		if (!token) {
 			return;
 		}
 		setError("");
-		socket.current?.close();
-		try {
-			const next = await connectDebug(token, uuid);
-			const ws = new WebSocket(next.wsUrl);
-			socket.current = ws;
-			setActive(uuid);
-			setLines([]);
-			ws.onmessage = (event) => {
+		client.current?.stop();
+		setActive(uuid);
+		setLines([]);
+		client.current = startReconnectSocket({
+			open: async () => {
+				const next = await connectDebug(token, uuid);
+				const wsUrl = next.wsUrl?.trim() ?? "";
+				if (!wsUrl) {
+					throw new Error("missing websocket url");
+				}
+				return wsUrl;
+			},
+			onMessage(data) {
 				try {
-					const parsed = JSON.parse(String(event.data)) as LogLine;
+					const parsed = JSON.parse(data) as LogLine;
 					setLines((current) => [...current.slice(-199), parsed]);
 				} catch {
 					setLines((current) => [
 						...current.slice(-199),
-						{ message: String(event.data) },
+						{ message: data },
 					]);
 				}
-			};
-			ws.onerror = () => {
+			},
+			onError() {
 				setError("debug websocket failed");
-			};
-		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "connect failed");
-		}
+			},
+			onOpen() {
+				setError("");
+			},
+		});
 	}
 
 	return (
@@ -189,6 +205,7 @@ export default function Debug() {
 							disabled={Boolean(updateBusy)}
 							onPress={() => void runUpdate(board.uuid)}
 						/>
+						<BleHealthRunner uuid={board.uuid} />
 					</Paper>
 				))
 			)}
