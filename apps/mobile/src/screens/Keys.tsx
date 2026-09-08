@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from "react";
-import { Linking } from "react-native";
+import { Linking, View } from "react-native";
 import { getGithubApp } from "../lib/api.ts";
 import { CACHE_KEYS, useCachedQuery, useUserBoards } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
-import { Body, ErrorText, Muted, Paper, PrimaryButton, Screen, Skeleton, Title } from "../components/ui.tsx";
+import { Body, ErrorText, Muted, Paper, PrimaryButton, Skeleton, Title } from "../components/ui.tsx";
 
 export default function Keys() {
 	const auth = useAuth();
@@ -36,8 +36,8 @@ export default function Keys() {
 	}, [status?.connected, github.loading, fetcher, github.setData]);
 
 	return (
-		<Screen>
-			<Title>Keys</Title>
+		<View style={{ gap: 12 }}>
+			<Title>GitHub</Title>
 			<Muted>
 				Connect the gpio-companion GitHub App so the Pi can push project files.
 				{devices.length ? ` ${devices.length} paired board(s).` : ""}
@@ -60,6 +60,6 @@ export default function Keys() {
 					</>
 				)}
 			</Paper>
-		</Screen>
+		</View>
 	);
 }

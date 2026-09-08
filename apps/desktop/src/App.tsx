@@ -17,6 +17,7 @@ import Profile from "./components/Profile";
 import Project from "./components/Project";
 import { ApiCacheProvider } from "./hooks/useApiCache";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection";
+import { useDashboardMode } from "./hooks/useDashboardMode";
 
 type Section = "project" | "devices" | "profile";
 
@@ -48,6 +49,7 @@ function MoonIcon() {
 
 export default function App() {
 	const { isDark, toggleMode } = useColorMode();
+	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
 	const [ready, setReady] = useState(false);
 	const [signedIn, setSignedIn] = useState(false);
 	const [session, setSession] = useState<Session | null>(null);
@@ -153,6 +155,16 @@ export default function App() {
 										</Button>
 									))
 								: null}
+							<Button
+								variant="text"
+								size="small"
+								aria-label={
+									isEasy ? "Switch to Expert mode" : "Switch to Easy mode"
+								}
+								onClick={toggleDashboardMode}
+							>
+								{isEasy ? "Easy" : "Expert"}
+							</Button>
 							<IconButton
 								aria-label={
 									isDark ? "Switch to light mode" : "Switch to dark mode"

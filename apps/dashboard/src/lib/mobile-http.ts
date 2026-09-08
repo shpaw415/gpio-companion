@@ -12,8 +12,12 @@ export type MobileContext = {
 	env: MobileEnv;
 };
 
-export function jsonOk(data: unknown, status = 200): Response {
-	return Response.json({ ok: true, data }, { status });
+export function jsonOk(
+	data: unknown,
+	status = 200,
+	headers?: HeadersInit,
+): Response {
+	return Response.json({ ok: true, data }, { status, headers });
 }
 
 export function jsonFail(error: string, status = 400): Response {

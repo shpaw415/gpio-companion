@@ -112,7 +112,11 @@ export default function BoardCard({
 			</Row>
 			<T3Pairing uuid={device.uuid} initial={status?.t3} />
 			<CompanionInfo key={device.uuid} uuid={device.uuid} />
-			<GpioPanel key={`${device.uuid}-gpio`} uuid={device.uuid} />
+			<GpioPanel
+				key={`${device.uuid}-gpio`}
+				uuid={device.uuid}
+				connected={Boolean(status)}
+			/>
 			<Row>
 				{onSelect ? (
 					<TextButton

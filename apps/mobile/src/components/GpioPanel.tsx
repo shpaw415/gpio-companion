@@ -40,7 +40,13 @@ function parseGpioPayload(raw: string): GpioSnapshot {
 	return snap;
 }
 
-export default function GpioPanel({ uuid }: { uuid: string }) {
+export default function GpioPanel({
+	uuid,
+	connected,
+}: {
+	uuid: string;
+	connected?: boolean;
+}) {
 	const auth = useAuth();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -48,6 +54,7 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 	const token = auth.token;
 	const offline = useOfflineBleKey(uuid);
 	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
+	const available = Boolean(uuid) && connected !== false;
 
 	function start(task: () => Promise<GpioSnapshot>) {
 		setBusy(true);
@@ -58,6 +65,15 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 				setError(caught instanceof Error ? caught.message : "request failed");
 			})
 			.finally(() => setBusy(false));
+	}
+
+	if (!available) {
+		return (
+			<View style={{ gap: 8, marginTop: 8 }}>
+				<Body>GPIO</Body>
+				<Muted>Board not connected</Muted>
+			</View>
+		);
 	}
 
 	return (
@@ -107,38 +123,63 @@ export default function GpioPanel({ uuid }: { uuid: string }) {
 				/>
 			</View>
 			{error ? <ErrorText>{error}</ErrorText> : null}
-			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-				{pins.map((pin) => (
-					<TextButton
-						key={pin.physical}
-						label={pinLabel(pin)}
-						disabled={busy || pin.reserved || pin.unresolved || !token}
-						onPress={() => {
-							if (!token) {
-								return;
-							}
-							start(() =>
-								putGpio(token, {
-									uuid,
-									physical: pin.physical,
-									dir: "out",
-									value: pin.value === 1 ? 0 : 1,
-								}),
-							);
-						}}
-					/>
-				))}
-			</View>
+			{snapshot ? (
+				<View style={{ gap: 8 }}>
+					{pins.map((pin) => (
+						<View
+							key={pin.physical}
+							style={{
+								flexDirection: "row",
+								alignItems: "center",
+								justifyContent: "space-between",
+								gap: 8,
+							}}
+						>
+							<View style={{ flex: 1 }}>
+								<Body>
+									{pin.physical} {pin.name}
+								</Body>
+								<Muted>{pinStatus(pin)}</Muted>
+							</View>
+							<TextButton
+								label="Toggle"
+								disabled={busy || pin.reserved || pin.unresolved || !token}
+								onPress={() => {
+									if (!token) {
+										return;
+									}
+									start(() =>
+										putGpio(token, {
+											uuid,
+											physical: pin.physical,
+											dir: "out",
+											value: pin.value === 1 ? 0 : 1,
+										}),
+									);
+								}}
+							/>
+						</View>
+					))}
+				</View>
+			) : (
+				<Muted>Load GPIO to see live pin status.</Muted>
+			)}
 		</View>
 	);
 }
 
-function pinLabel(pin: GpioPinState): string {
+function pinStatus(pin: GpioPinState): string {
 	if (pin.reserved) {
-		return `${pin.physical} reserved`;
+		return "Reserved";
 	}
 	if (pin.unresolved) {
-		return `${pin.physical} ?`;
+		return "Unresolved";
 	}
-	return `${pin.physical} ${pin.value ?? "-"}`;
+	if (pin.value === 1) {
+		return "High";
+	}
+	if (pin.value === 0) {
+		return "Low";
+	}
+	return "—";
 }

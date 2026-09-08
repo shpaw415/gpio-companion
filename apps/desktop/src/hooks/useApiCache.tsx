@@ -14,7 +14,7 @@ import { QueryCache } from "../lib/query-cache";
 export const CACHE_KEYS = {
 	userBoards: "user-boards",
 	githubApp: "github-app",
-	projects: "projects",
+	projects: "projects-gpio",
 	credits: "credits",
 	notifications: "notifications",
 	debugBoards: "debug-boards",

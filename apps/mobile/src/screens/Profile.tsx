@@ -15,6 +15,8 @@ import { getCredits } from "../lib/api.ts";
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { dashboardUrl } from "../lib/config.ts";
+import { useDashboardMode } from "../lib/dashboard-mode.tsx";
+import Keys from "./Keys.tsx";
 
 export default function Profile() {
 	const auth = useAuth();
@@ -26,6 +28,7 @@ export default function Profile() {
 		return getCredits(token);
 	});
 	const credits = creditsQuery.data ?? null;
+	const { isEasy, toggleMode } = useDashboardMode();
 	const [error, setError] = useState("");
 
 	return (
@@ -39,6 +42,22 @@ export default function Profile() {
 				<Muted>Role: {auth.session?.role || "user"}</Muted>
 				<TextButton label="Sign out" onPress={() => void auth.logout()} />
 			</Paper>
+			<Paper>
+				<Body>Dashboard mode</Body>
+				<Muted>
+					Easy hides Linux tools. Expert shows pairing requests, debug, and
+					admin.
+				</Muted>
+				<TextButton
+					label={
+						isEasy
+							? "Using Easy — switch to Expert"
+							: "Using Expert — switch to Easy"
+					}
+					onPress={toggleMode}
+				/>
+			</Paper>
+			<Keys />
 			<Paper>
 				<Body>Credits</Body>
 				{creditsQuery.loading ? (

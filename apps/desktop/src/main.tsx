@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ColorModeProvider } from "./color-mode";
+import { DashboardModeProvider } from "./hooks/useDashboardMode";
 import "./index.css";
 
 const root = document.getElementById("root");
@@ -11,7 +12,9 @@ if (!root) {
 createRoot(root).render(
 	<StrictMode>
 		<ColorModeProvider>
-			<App />
+			<DashboardModeProvider>
+				<App />
+			</DashboardModeProvider>
 		</ColorModeProvider>
 	</StrictMode>,
 );

@@ -6,7 +6,7 @@ import {
 } from "../lib/journal.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text } from "react-native";
-import FlashPanel from "../components/FlashPanel.tsx";
+
 import {
 	Chip,
 	ErrorText,
@@ -189,7 +189,6 @@ export default function Debug() {
 							disabled={Boolean(updateBusy)}
 							onPress={() => void runUpdate(board.uuid)}
 						/>
-						<FlashPanel uuid={board.uuid} />
 					</Paper>
 				))
 			)}

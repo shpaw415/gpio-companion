@@ -6,7 +6,9 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { DASHBOARD_URL, getCredits, openExternal, type Session } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
+import { useDashboardMode } from "../hooks/useDashboardMode";
 import DebugLog from "./DebugLog";
+import Keys from "./Keys";
 import { LinesSkeleton } from "./skeletons";
 
 export default function Profile({
@@ -18,6 +20,7 @@ export default function Profile({
 }) {
 	const creditsQuery = useCachedQuery(CACHE_KEYS.credits, getCredits);
 	const credits = creditsQuery.data ?? null;
+	const { isEasy, toggleMode } = useDashboardMode();
 	const [error, setError] = useState("");
 	const loading = creditsQuery.loading;
 
@@ -48,6 +51,19 @@ export default function Profile({
 					Sign out
 				</Button>
 			</Paper>
+			<Paper sx={{ p: 3 }} elevation={1}>
+				<Typography variant="subtitle1">Dashboard mode</Typography>
+				<Typography color="secondary">
+					Easy hides Linux tools. Expert shows pairing requests, debug, and
+					admin.
+				</Typography>
+				<Button variant="outlined" sx={{ mt: 2 }} onClick={toggleMode}>
+					{isEasy
+						? "Using Easy — switch to Expert"
+						: "Using Expert — switch to Easy"}
+				</Button>
+			</Paper>
+			<Keys />
 			<Paper sx={{ p: 3 }} elevation={1}>
 				<Typography variant="subtitle1">Credits</Typography>
 				{loading ? (

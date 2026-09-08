@@ -17,7 +17,9 @@ Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/fl
 
 ## Projects live in GitHub
 
-One git repo per electronics project. When a PCB, breadboard, or technical-sheet task is done, the agent must **push**:
+One git repo per electronics project. The dashboard only lists repos with a `.gpio-companion` file at the repo root. Create a project from the dashboard, or ask Code on the board — new repos must include that watermark.
+
+When a PCB, breadboard, or technical-sheet task is done, the agent must **push**:
 
 | Directory | Expected files |
 | --- | --- |

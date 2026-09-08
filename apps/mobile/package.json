@@ -6,6 +6,7 @@
 	"scripts": {
 		"start": "expo start",
 		"android": "REACT_NATIVE_PACKAGER_HOSTNAME=\"100.96.0.3\" expo run:android --port 1111",
+		"android:connect": "adb connect",
 		"android:push": "bun scripts/android-dev-push.ts",
 		"ios": "expo run:ios",
 		"test": "bun test",

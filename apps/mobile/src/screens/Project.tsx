@@ -1,6 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { Image, Linking, Pressable, Text, View } from "react-native";
+import FlashPanel from "../components/FlashPanel.tsx";
+import GpioPanel from "../components/GpioPanel.tsx";
 import {
+	Body,
+	Chip,
+	ErrorText,
+	Field,
+	Muted,
+	Paper,
+	PrimaryButton,
+	Screen,
+	Skeleton,
+	TextButton,
+	Title,
+} from "../components/ui.tsx";
+import {
+	createProject,
 	type GithubContent,
 	type GithubRepo,
 	getGithubApp,
@@ -15,21 +31,10 @@ import {
 	useUserBoards,
 } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
+import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import { useDeviceHub } from "../lib/device-hub.tsx";
 import { storageGet, storageSet } from "../lib/storage.ts";
-import {
-	Body,
-	Chip,
-	ErrorText,
-	Field,
-	Muted,
-	Paper,
-	PrimaryButton,
-	Screen,
-	Skeleton,
-	TextButton,
-	Title,
-} from "../components/ui.tsx";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
 
@@ -52,7 +57,12 @@ function PreviewCard({
 			{url ? (
 				<Image
 					source={{ uri: url }}
-					style={{ width: "100%", height: 180, backgroundColor: "#fff", borderRadius: 8 }}
+					style={{
+						width: "100%",
+						height: 180,
+						backgroundColor: "#fff",
+						borderRadius: 8,
+					}}
 					resizeMode="contain"
 				/>
 			) : (
@@ -63,7 +73,13 @@ function PreviewCard({
 	);
 }
 
-function FileGroup({ title, files }: { title: string; files: GithubContent[] }) {
+function FileGroup({
+	title,
+	files,
+}: {
+	title: string;
+	files: GithubContent[];
+}) {
 	return (
 		<Paper>
 			<View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -71,7 +87,9 @@ function FileGroup({ title, files }: { title: string; files: GithubContent[] }) 
 				<Chip label={`${files.length}`} />
 			</View>
 			{files.length === 0 ? (
-				<Muted>Nothing in this folder yet. The agent will push files here.</Muted>
+				<Muted>
+					Nothing in this folder yet. The agent will push files here.
+				</Muted>
 			) : (
 				files.map((file) =>
 					file.download_url ? (
@@ -106,7 +124,9 @@ export default function Project() {
 		}
 		return listProjects(token);
 	});
-	const { paired } = useUserBoards();
+	const { boards, paired } = useUserBoards();
+	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
+	const { setTab } = useDeviceHub();
 	const app = githubQuery.data ?? null;
 	const repos = projectsQuery.data?.repos ?? [];
 	const configured = projectsQuery.data?.configured ?? false;
@@ -116,6 +136,11 @@ export default function Project() {
 	const [opening, setOpening] = useState(false);
 	const [query, setQuery] = useState("");
 	const [owner, setOwner] = useState("all");
+	const [createName, setCreateName] = useState("");
+	const [creating, setCreating] = useState(false);
+	const activeBoard =
+		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
+	const activeUuid = activeBoard?.device.uuid ?? "";
 
 	useEffect(() => {
 		if (app?.connected || loading) {
@@ -133,7 +158,13 @@ export default function Project() {
 				.catch(() => undefined);
 		}, 2500);
 		return () => clearInterval(timer);
-	}, [app?.connected, loading, token, githubQuery.setData, projectsQuery.setData]);
+	}, [
+		app?.connected,
+		loading,
+		token,
+		githubQuery.setData,
+		projectsQuery.setData,
+	]);
 
 	const owners = useMemo(
 		() => [...new Set(repos.map((repo) => repo.owner))].sort(),
@@ -156,6 +187,30 @@ export default function Project() {
 		});
 	}, [repos, owner, query]);
 
+	async function makeProject() {
+		const name = createName.trim();
+		if (!name || creating || !token) {
+			return;
+		}
+		setError("");
+		setCreating(true);
+		try {
+			const repo = await createProject(token, name);
+			projectsQuery.setData((current) => ({
+				configured: true,
+				repos: [repo, ...(current?.repos ?? [])],
+			}));
+			setCreateName("");
+			await openRepo(repo);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to create project",
+			);
+		} finally {
+			setCreating(false);
+		}
+	}
+
 	async function openRepo(repo: GithubRepo) {
 		if (!token) {
 			return;
@@ -170,11 +225,15 @@ export default function Project() {
 		}
 		setOpening(true);
 		try {
-			const next = await cache.get(key, () => loadProject(token, repo.owner, repo.name));
+			const next = await cache.get(key, () =>
+				loadProject(token, repo.owner, repo.name),
+			);
 			setBundle(next);
 			void storageSet(LAST_REPO_KEY, lastRepoKey(repo));
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "failed to load project");
+			setError(
+				caught instanceof Error ? caught.message : "failed to load project",
+			);
 		} finally {
 			setOpening(false);
 		}
@@ -185,7 +244,8 @@ export default function Project() {
 			return;
 		}
 		void storageGet(LAST_REPO_KEY).then((stored) => {
-			const match = repos.find((repo) => lastRepoKey(repo) === stored) ?? repos[0];
+			const match =
+				repos.find((repo) => lastRepoKey(repo) === stored) ?? repos[0];
 			if (match) {
 				void openRepo(match);
 			}
@@ -198,8 +258,52 @@ export default function Project() {
 		<Screen>
 			<Title>Project</Title>
 			<Muted>
-				PCB, breadboard, and technical files the on-device agent pushed to GitHub. Pick a repo to see the board.
+				Arduino studio: circuits, live pins, and flash. Only repos with a
+				.gpio-companion file are listed.
 			</Muted>
+			{paired && activeUuid ? (
+				<PrimaryButton label="Open Code" onPress={() => setTab("t3")} />
+			) : null}
+			{paired && activeUuid ? (
+				<Paper>
+					<Body>Board</Body>
+					<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+						{boards.map((board) => (
+							<Pressable
+								key={board.device.uuid}
+								onPress={() => selectBoard(board.device.uuid)}
+								style={{
+									borderWidth: 1,
+									borderColor:
+										activeUuid === board.device.uuid
+											? colors.primary
+											: colors.border,
+									borderRadius: 999,
+									paddingHorizontal: 10,
+									paddingVertical: 6,
+								}}
+							>
+								<Text
+									style={{
+										color:
+											activeUuid === board.device.uuid
+												? colors.primary
+												: colors.text,
+									}}
+								>
+									{board.device.label || board.device.uuid.slice(0, 8)}
+								</Text>
+							</Pressable>
+						))}
+					</View>
+					<GpioPanel
+						uuid={activeUuid}
+						connected={Boolean(activeBoard?.status)}
+					/>
+					<Body>Flash Arduino</Body>
+					<FlashPanel uuid={activeUuid} />
+				</Paper>
+			) : null}
 			<ErrorText>{error || githubQuery.error || projectsQuery.error}</ErrorText>
 			{loading ? (
 				<>
@@ -211,18 +315,33 @@ export default function Project() {
 				<Paper>
 					<Body>Connect GitHub to see your bench</Body>
 					<Muted>
-						Install the gpio-companion GitHub App. The Pi pushes pcb/, breadboard/, and technical/ here. This page updates when the install finishes.
+						Install the gpio-companion GitHub App. The Pi pushes pcb/,
+						breadboard/, and technical/ here. This page updates when the install
+						finishes.
 					</Muted>
 					<PrimaryButton
 						label="Connect GitHub App"
 						disabled={!app?.installUrl}
 						onPress={() => void Linking.openURL(app?.installUrl ?? "")}
 					/>
-					{paired ? null : <Muted>Pair a board in Devices when you are ready.</Muted>}
+					{paired ? null : (
+						<Muted>Pair a board in Devices when you are ready.</Muted>
+					)}
 				</Paper>
 			)}
 			{loading || !configured ? null : (
 				<Paper>
+					<Field
+						label="New project"
+						value={createName}
+						onChangeText={setCreateName}
+						placeholder="blink-led"
+					/>
+					<PrimaryButton
+						label={creating ? "Creating…" : "Create"}
+						disabled={creating || !createName.trim()}
+						onPress={() => void makeProject()}
+					/>
 					<Field
 						label="Filter"
 						value={query}
@@ -240,7 +359,11 @@ export default function Project() {
 								paddingVertical: 6,
 							}}
 						>
-							<Text style={{ color: owner === "all" ? colors.primary : colors.text }}>
+							<Text
+								style={{
+									color: owner === "all" ? colors.primary : colors.text,
+								}}
+							>
 								All owners
 							</Text>
 						</Pressable>
@@ -256,7 +379,11 @@ export default function Project() {
 									paddingVertical: 6,
 								}}
 							>
-								<Text style={{ color: owner === login ? colors.primary : colors.text }}>
+								<Text
+									style={{
+										color: owner === login ? colors.primary : colors.text,
+									}}
+								>
 									{login}
 								</Text>
 							</Pressable>
@@ -292,7 +419,10 @@ export default function Project() {
 						);
 					})}
 					{filtered.length === 0 ? (
-						<Muted>No matching repos. The agent creates them when it pushes.</Muted>
+						<Muted>
+							No gpio-companion projects yet. Create one here, or ask Code on
+							the board — it writes a .gpio-companion file at the repo root.
+						</Muted>
 					) : null}
 				</Paper>
 			)}
@@ -309,7 +439,9 @@ export default function Project() {
 					<TextButton
 						label="Open on GitHub"
 						onPress={() =>
-							void Linking.openURL(`https://github.com/${bundle.owner}/${bundle.repo}`)
+							void Linking.openURL(
+								`https://github.com/${bundle.owner}/${bundle.repo}`,
+							)
 						}
 					/>
 					<PreviewCard

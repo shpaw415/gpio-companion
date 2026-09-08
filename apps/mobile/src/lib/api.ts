@@ -3,10 +3,10 @@ import {
 	isOfflineSignFallback,
 	liveOfflineKey,
 	loadOfflineKey,
+	type StoredOfflineKey,
 	saveOfflineKey,
 	shouldMintOfflineKey,
 	signWithStoredKey,
-	type StoredOfflineKey,
 } from "./offline-keys.ts";
 
 export type ActionResult<T> =
@@ -331,10 +331,14 @@ async function signOnlineOrOffline(
 }
 
 export function mintOfflineKey(token: string, uuid: string) {
-	return request<Omit<StoredOfflineKey, "uuid">>(token, "/api/mobile/offline-key", {
-		method: "POST",
-		body: JSON.stringify({ uuid }),
-	});
+	return request<Omit<StoredOfflineKey, "uuid">>(
+		token,
+		"/api/mobile/offline-key",
+		{
+			method: "POST",
+			body: JSON.stringify({ uuid }),
+		},
+	);
 }
 
 export async function ensureOfflineKey(token: string, uuid: string) {
@@ -361,21 +365,16 @@ export function signWifi(
 	input: { uuid: string; ssid: string; psk: string },
 ) {
 	const ssid = input.ssid.trim();
-	return signOnlineOrOffline(
-		token,
-		"/api/mobile/wifi",
-		input,
-		{
+	return signOnlineOrOffline(token, "/api/mobile/wifi", input, {
+		uuid: input.uuid,
+		method: "PUT",
+		path: "/v1/config/wifi",
+		body: JSON.stringify({
+			ssid,
+			psk: input.psk,
 			uuid: input.uuid,
-			method: "PUT",
-			path: "/v1/config/wifi",
-			body: JSON.stringify({
-				ssid,
-				psk: input.psk,
-				uuid: input.uuid,
-			}),
-		},
-	);
+		}),
+	});
 }
 
 export function t3Status(token: string, uuid: string) {
@@ -400,17 +399,74 @@ export function getCredits(token: string) {
 	return request<Credits>(token, "/api/mobile/credits");
 }
 
-export function listProjects(token: string) {
-	return request<{ configured: boolean; repos: GithubRepo[] }>(
+async function mapPool<T, R>(
+	items: T[],
+	limit: number,
+	fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+	const out: R[] = new Array(items.length);
+	let next = 0;
+	async function worker() {
+		while (next < items.length) {
+			const index = next;
+			next += 1;
+			out[index] = await fn(items[index] as T);
+		}
+	}
+	const workers = Math.min(Math.max(limit, 1), items.length || 1);
+	await Promise.all(Array.from({ length: workers }, () => worker()));
+	return out;
+}
+
+async function filterWatermarkedRepos(
+	token: string,
+	repos: GithubRepo[],
+): Promise<GithubRepo[]> {
+	const marked = await mapPool(repos, 6, async (repo) => {
+		try {
+			await request<{ text: string }>(token, "/api/mobile/projects", {
+				method: "PUT",
+				body: JSON.stringify({
+					owner: repo.owner,
+					repo: repo.name,
+					path: ".gpio-companion",
+				}),
+				cache: "no-store",
+			});
+			return repo;
+		} catch {
+			return null;
+		}
+	});
+	return marked.filter((repo): repo is GithubRepo => repo !== null);
+}
+
+export async function listProjects(token: string) {
+	const data = await request<{ configured: boolean; repos: GithubRepo[] }>(
 		token,
-		"/api/mobile/projects",
+		"/api/mobile/projects?v=gpio",
+		{ cache: "no-store" },
 	);
+	if (!data.configured || data.repos.length === 0) {
+		return data;
+	}
+	return {
+		...data,
+		repos: await filterWatermarkedRepos(token, data.repos),
+	};
 }
 
 export function loadProject(token: string, owner: string, repo: string) {
 	return request<ProjectBundle>(token, "/api/mobile/projects", {
 		method: "POST",
 		body: JSON.stringify({ owner, repo }),
+	});
+}
+
+export function createProject(token: string, name: string) {
+	return request<GithubRepo>(token, "/api/mobile/projects", {
+		method: "PATCH",
+		body: JSON.stringify({ name }),
 	});
 }
 

@@ -7,16 +7,9 @@ import {
 	useState,
 } from "react";
 
-export type DeviceTab =
-	| "overview"
-	| "docs"
-	| "t3"
-	| "pair"
-	| "wifi"
-	| "keys"
-	| "requests"
-	| "debug"
-	| "admin";
+import type { DeviceTabId } from "./dashboard-mode.ts";
+
+export type DeviceTab = DeviceTabId;
 
 type DeviceHubValue = {
 	tab: DeviceTab;

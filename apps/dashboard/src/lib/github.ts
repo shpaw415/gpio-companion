@@ -6,6 +6,8 @@ import {
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
 	PROJECT_FILE_DIRS,
+	PROJECT_WATERMARK_BODY,
+	PROJECT_WATERMARK_PATH,
 } from "gpio-companion";
 import {
 	type GithubAppEnv,
@@ -100,6 +102,33 @@ export async function saveGithubAccount(
 }
 
 export async function listRepos(account: GithubAccount): Promise<GithubRepo[]> {
+	const repos = await listAllRepos(account);
+	const marked = await mapPool(repos, 8, async (repo) =>
+		(await repoHasWatermark(account, repo.owner, repo.name)) ? repo : null,
+	);
+	return marked.filter((repo): repo is GithubRepo => repo !== null);
+}
+
+async function mapPool<T, R>(
+	items: T[],
+	limit: number,
+	fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+	const out: R[] = new Array(items.length);
+	let next = 0;
+	async function worker() {
+		while (next < items.length) {
+			const index = next;
+			next += 1;
+			out[index] = await fn(items[index] as T);
+		}
+	}
+	const workers = Math.min(Math.max(limit, 1), items.length || 1);
+	await Promise.all(Array.from({ length: workers }, () => worker()));
+	return out;
+}
+
+async function listAllRepos(account: GithubAccount): Promise<GithubRepo[]> {
 	if (isGithubAppToken(account.token)) {
 		const data = await githubJson<{
 			repositories?: Array<{
@@ -130,6 +159,82 @@ export async function listRepos(account: GithubAccount): Promise<GithubRepo[]> {
 		owner: item.owner.login,
 		html_url: item.html_url,
 	}));
+}
+
+export function parseRepoName(value: string): string {
+	const name = value.trim().replace(/\.git$/i, "");
+	if (!/^[A-Za-z0-9._-]+$/.test(name) || name === "." || name === "..") {
+		throw new Error("use a GitHub repo name like blink-led");
+	}
+	return name;
+}
+
+export async function repoHasWatermark(
+	account: GithubAccount,
+	owner: string,
+	repo: string,
+): Promise<boolean> {
+	const response = await githubFetch(
+		account,
+		`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${PROJECT_WATERMARK_PATH}`,
+	);
+	return response.ok;
+}
+
+export async function createGpioCompanionRepo(
+	account: GithubAccount,
+	name: string,
+): Promise<GithubRepo> {
+	const repoName = parseRepoName(name);
+	const created = await githubJson<{
+		full_name: string;
+		name: string;
+		owner: { login: string };
+		html_url: string;
+	}>(account, "/user/repos", {
+		method: "POST",
+		body: JSON.stringify({
+			name: repoName,
+			auto_init: true,
+			private: true,
+			description: "gpio-companion project",
+		}),
+	});
+	await putRepoFile(
+		account,
+		created.owner.login,
+		created.name,
+		PROJECT_WATERMARK_PATH,
+		PROJECT_WATERMARK_BODY,
+		"Add gpio-companion project watermark",
+	);
+	return {
+		full_name: created.full_name,
+		name: created.name,
+		owner: created.owner.login,
+		html_url: created.html_url,
+	};
+}
+
+export async function putRepoFile(
+	account: GithubAccount,
+	owner: string,
+	repo: string,
+	path: string,
+	content: string,
+	message: string,
+): Promise<void> {
+	await githubJson(
+		account,
+		`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}`,
+		{
+			method: "PUT",
+			body: JSON.stringify({
+				message,
+				content: btoa(content),
+			}),
+		},
+	);
 }
 
 export async function loadProjectBundle(
@@ -215,17 +320,44 @@ function githubHeaders(account: GithubAccount): HeadersInit {
 	return {
 		authorization: `Bearer ${account.token}`,
 		accept: "application/vnd.github+json",
+		"content-type": "application/json",
 		"user-agent": "gpio-companion",
 		"x-github-api-version": "2022-11-28",
 	};
 }
 
-async function githubJson<T>(account: GithubAccount, path: string): Promise<T> {
-	const response = await fetch(`${GITHUB_API}${path}`, {
-		headers: githubHeaders(account),
+async function githubFetch(
+	account: GithubAccount,
+	path: string,
+	init?: RequestInit,
+): Promise<Response> {
+	return fetch(`${GITHUB_API}${path}`, {
+		...init,
+		headers: {
+			...githubHeaders(account),
+			...(init?.headers ?? {}),
+		},
 	});
+}
+
+async function githubJson<T>(
+	account: GithubAccount,
+	path: string,
+	init?: RequestInit,
+): Promise<T> {
+	const response = await githubFetch(account, path, init);
 	if (!response.ok) {
-		throw new Error(`github ${response.status}`);
+		let detail = "";
+		try {
+			const body = (await response.json()) as { message?: string };
+			detail = body.message ? `: ${body.message}` : "";
+		} catch {
+			detail = "";
+		}
+		throw new Error(`github ${response.status}${detail}`);
+	}
+	if (response.status === 204) {
+		return undefined as T;
 	}
 	return (await response.json()) as T;
 }

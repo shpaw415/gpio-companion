@@ -125,7 +125,11 @@ export default function BoardCard({
 				</Stack>
 				<T3Pairing uuid={device.uuid} initial={status?.t3} />
 				<CompanionInfo key={device.uuid} uuid={device.uuid} />
-				<GpioPanel key={`${device.uuid}-gpio`} uuid={device.uuid} />
+				<GpioPanel
+					key={`${device.uuid}-gpio`}
+					uuid={device.uuid}
+					connected={Boolean(status)}
+				/>
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 					{onSelect ? (
 						<Button

@@ -6,12 +6,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Login from "../../src/components/Login.tsx";
 import { useAuth } from "../../src/lib/auth.tsx";
 import { useColorMode } from "../../src/lib/color-mode.tsx";
+import { useDashboardMode } from "../../src/lib/dashboard-mode.tsx";
 
 const logo = require("../../assets/logo.png");
 
 export default function TabsLayout() {
 	const auth = useAuth();
 	const { colors, isDark, toggleMode } = useColorMode();
+	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
 	const insets = useSafeAreaInsets();
 
 	if (!auth.ready || !auth.token) {
@@ -49,6 +51,17 @@ export default function TabsLayout() {
 					>
 						gpio-companion
 					</Text>
+					<Pressable
+						onPress={toggleDashboardMode}
+						accessibilityLabel={
+							isEasy ? "Switch to Expert mode" : "Switch to Easy mode"
+						}
+						style={{ padding: 8 }}
+					>
+						<Text style={{ color: colors.primary, fontWeight: "600" }}>
+							{isEasy ? "Easy" : "Expert"}
+						</Text>
+					</Pressable>
 					<Pressable
 						onPress={toggleMode}
 						accessibilityLabel={

@@ -1,4 +1,5 @@
 import {
+	PATCH as createProject,
 	GET as listProjects,
 	POST as loadProject,
 	PUT as readFile,
@@ -45,6 +46,8 @@ export default function ProjectBrowser({
 	const [owner, setOwner] = useState("all");
 	const [page, setPage] = useState(0);
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
+	const [createName, setCreateName] = useState("");
+	const [creating, setCreating] = useState(false);
 	const mobile = useMobile();
 
 	useEffect(() => {
@@ -89,6 +92,29 @@ export default function ProjectBrowser({
 		page * rowsPerPage,
 		page * rowsPerPage + rowsPerPage,
 	);
+
+	async function makeProject() {
+		const name = createName.trim();
+		if (!name || creating) {
+			return;
+		}
+		setError("");
+		setCreating(true);
+		try {
+			const repo = unwrapAction(await createProject(name));
+			setRepos((current) =>
+				current.some((item) => item.full_name === repo.full_name)
+					? current
+					: [repo, ...current],
+			);
+			setCreateName("");
+			await openRepo(repo);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "failed to create project");
+		} finally {
+			setCreating(false);
+		}
+	}
 
 	async function openRepo(repo: GithubRepo) {
 		setError("");
@@ -138,6 +164,29 @@ export default function ProjectBrowser({
 		<Stack spacing={3}>
 			<Paper className="p-3 min-[900px]:p-4" elevation={1}>
 				<Stack spacing={2}>
+					<Stack
+						direction={mobile ? "column" : "row"}
+						spacing={2}
+						sx={{
+							flexWrap: "wrap",
+							alignItems: mobile ? "stretch" : "flex-end",
+						}}
+					>
+						<TextField
+							label="New project"
+							placeholder="blink-led"
+							value={createName}
+							onChange={(event) => setCreateName(event.target.value)}
+							className="min-w-0 w-full flex-1"
+						/>
+						<Button
+							variant="contained"
+							disabled={creating || !createName.trim()}
+							onClick={() => void makeProject()}
+						>
+							{creating ? "Creating…" : "Create"}
+						</Button>
+					</Stack>
 					<Stack
 						direction={mobile ? "column" : "row"}
 						spacing={2}
@@ -211,7 +260,10 @@ export default function ProjectBrowser({
 						</Table>
 					</TableContainer>
 					{loading ? null : filtered.length === 0 ? (
-						<Typography color="secondary">No matching repos.</Typography>
+						<Typography color="secondary">
+							No gpio-companion projects yet. Create one here, or ask Code on
+							the board — it writes a .gpio-companion file at the repo root.
+						</Typography>
 					) : (
 						<TablePagination
 							count={filtered.length}

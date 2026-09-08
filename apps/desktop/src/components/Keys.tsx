@@ -36,10 +36,10 @@ export default function Keys() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Keys
+				GitHub
 			</Typography>
 			<Typography color="secondary">
-				Connect the gpio-companion GitHub App so the Pi can push project files.
+				Connect the gpio-companion GitHub App so boards can push project files.
 				{paired ? ` ${paired} paired board(s).` : ""}
 			</Typography>
 			{error ? <Alert severity="error">{error}</Alert> : null}

@@ -22,7 +22,8 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 
 - Vibe-code breadboards and PCBs with tscircuit
 - Show the user visual technical sheets and helpers
-- Keep each electronics project on GitHub. The user connects the gpio-companion GitHub App on dashboard Keys. `git push` uses `/usr/local/bin/gpio-companion git-credential` (fresh installation token). For API calls run `gpio-companion github-token`. `GITHUB_USERNAME` in `/etc/gpio-companion/secrets.env` is the account login.
+- Keep each electronics project on GitHub. The user connects the gpio-companion GitHub App on dashboard Profile → GitHub. `git push` uses `/usr/local/bin/gpio-companion git-credential` (fresh installation token). For API calls run `gpio-companion github-token`. `GITHUB_USERNAME` in `/etc/gpio-companion/secrets.env` is the account login.
+- Every project repo MUST have a `.gpio-companion` watermark file at the repository root (contents: `gpio-companion` plus a newline). The dashboard only lists repos with that file. When you create a new project: create the GitHub repo, write `.gpio-companion` at root, commit, and `git push`. If an existing electronics repo is missing it, add the file, commit, and push.
 - When a PCB, breadboard, or technical-sheet task is finished, push to GitHub immediately:
   - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
   - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`

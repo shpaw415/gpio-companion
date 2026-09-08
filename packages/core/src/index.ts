@@ -297,6 +297,8 @@ export {
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
 	PROJECT_FILE_DIRS,
+	PROJECT_WATERMARK_BODY,
+	PROJECT_WATERMARK_PATH,
 	type ProjectFileDir,
 } from "./project-files.ts";
 export {

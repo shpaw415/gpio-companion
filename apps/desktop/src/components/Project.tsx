@@ -16,6 +16,7 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import {
+	createProject,
 	type GithubContent,
 	type GithubRepo,
 	getGithubApp,
@@ -30,7 +31,10 @@ import {
 	useCachedQuery,
 	useUserBoards,
 } from "../hooks/useApiCache";
+import { useBoardSelection } from "../hooks/useBoardSelection";
 import DebugLog from "./DebugLog";
+import FlashPanel from "./FlashPanel";
+import GpioPanel from "./GpioPanel";
 import { ListSkeleton, PreviewSkeleton } from "./skeletons";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
@@ -129,7 +133,12 @@ export default function Project() {
 	const { cache } = useApiCache();
 	const githubQuery = useCachedQuery(CACHE_KEYS.githubApp, getGithubApp);
 	const projectsQuery = useCachedQuery(CACHE_KEYS.projects, listProjects);
-	const { paired } = useUserBoards();
+	const { boards, paired } = useUserBoards();
+	const {
+		uuid: selectedUuid,
+		setUuid: selectBoard,
+		openT3Pair,
+	} = useBoardSelection();
 	const app = githubQuery.data ?? null;
 	const repos = projectsQuery.data?.repos ?? [];
 	const configured = projectsQuery.data?.configured ?? false;
@@ -159,6 +168,11 @@ export default function Project() {
 	const [opening, setOpening] = useState(false);
 	const [query, setQuery] = useState("");
 	const [owner, setOwner] = useState("all");
+	const [createName, setCreateName] = useState("");
+	const [creating, setCreating] = useState(false);
+	const activeBoard =
+		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
+	const activeUuid = activeBoard?.device.uuid ?? "";
 
 	useEffect(() => {
 		if (app?.connected || loading) {
@@ -195,6 +209,30 @@ export default function Project() {
 			);
 		});
 	}, [repos, owner, query]);
+
+	async function makeProject() {
+		const name = createName.trim();
+		if (!name || creating) {
+			return;
+		}
+		setError("");
+		setCreating(true);
+		try {
+			const repo = await createProject(name);
+			projectsQuery.setData((current) => ({
+				configured: true,
+				repos: [repo, ...(current?.repos ?? [])],
+			}));
+			setCreateName("");
+			await openRepo(repo);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to create project",
+			);
+		} finally {
+			setCreating(false);
+		}
+	}
 
 	async function openRepo(repo: GithubRepo) {
 		setError("");
@@ -252,15 +290,53 @@ export default function Project() {
 
 	return (
 		<Stack spacing={3}>
-			<Stack spacing={0.5}>
-				<Typography variant="h5" Element="h1">
-					Project
-				</Typography>
-				<Typography color="secondary">
-					PCB, breadboard, and technical files the on-device agent pushed to
-					GitHub. Pick a repo to see the board.
-				</Typography>
+			<Stack
+				direction="row"
+				spacing={2}
+				sx={{ alignItems: "flex-start", justifyContent: "space-between" }}
+			>
+				<Stack spacing={0.5}>
+					<Typography variant="h5" Element="h1">
+						Project
+					</Typography>
+					<Typography color="secondary">
+						Arduino studio: circuits, live pins, and flash. Only repos with a
+						.gpio-companion file are listed.
+					</Typography>
+				</Stack>
+				{paired && activeUuid ? (
+					<Button
+						variant="contained"
+						onClick={() => openT3Pair(activeUuid, "")}
+					>
+						Open Code
+					</Button>
+				) : null}
 			</Stack>
+			{paired && activeUuid ? (
+				<Paper sx={{ p: 2 }} elevation={1}>
+					<Stack spacing={2}>
+						<Select
+							name="board"
+							label="Board"
+							value={activeUuid}
+							onSelect={selectBoard}
+						>
+							{boards.map((board) => (
+								<option key={board.device.uuid} value={board.device.uuid}>
+									{board.device.label || board.device.uuid}
+								</option>
+							))}
+						</Select>
+						<GpioPanel
+							uuid={activeUuid}
+							connected={Boolean(activeBoard?.status)}
+						/>
+						<Typography variant="subtitle1">Flash Arduino</Typography>
+						<FlashPanel uuid={activeUuid} />
+					</Stack>
+				</Paper>
+			) : null}
 			{error || githubQuery.error || projectsQuery.error ? (
 				<Alert severity="error">
 					{error || githubQuery.error || projectsQuery.error}
@@ -304,6 +380,26 @@ export default function Project() {
 			{loading || !configured ? null : (
 				<Paper sx={{ p: 2 }} elevation={1}>
 					<Stack spacing={2}>
+						<Stack
+							direction="row"
+							spacing={2}
+							sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
+						>
+							<TextField
+								label="New project"
+								placeholder="blink-led"
+								value={createName}
+								onChange={(event) => setCreateName(event.target.value)}
+								sx={{ flex: 1, minWidth: 180 }}
+							/>
+							<Button
+								variant="contained"
+								disabled={creating || !createName.trim()}
+								onClick={() => void makeProject()}
+							>
+								{creating ? "Creating…" : "Create"}
+							</Button>
+						</Stack>
 						<Stack
 							direction="row"
 							spacing={2}
@@ -377,7 +473,8 @@ export default function Project() {
 						</TableContainer>
 						{filtered.length === 0 ? (
 							<Typography color="secondary">
-								No matching repos. The agent creates them when it pushes.
+								No gpio-companion projects yet. Create one here, or ask Code on
+								the board — it writes a .gpio-companion file at the repo root.
 							</Typography>
 						) : null}
 					</Stack>

@@ -6,6 +6,7 @@ import { ApiCacheProvider } from "../src/lib/api-cache.tsx";
 import { AuthProvider } from "../src/lib/auth.tsx";
 import { BoardSelectionProvider } from "../src/lib/board-selection.tsx";
 import { ColorModeProvider, useColorMode } from "../src/lib/color-mode.tsx";
+import { DashboardModeProvider } from "../src/lib/dashboard-mode.tsx";
 import { DeviceHubProvider, useDeviceHub } from "../src/lib/device-hub.tsx";
 
 function SignedInTree({ children }: { children: ReactNode }) {
@@ -37,13 +38,15 @@ export default function Layout() {
 	return (
 		<KeyboardProvider statusBarTranslucent navigationBarTranslucent>
 			<ColorModeProvider>
-				<AuthProvider>
-					<DeviceHubProvider>
-						<SignedInTree>
-							<RootStack />
-						</SignedInTree>
-					</DeviceHubProvider>
-				</AuthProvider>
+				<DashboardModeProvider>
+					<AuthProvider>
+						<DeviceHubProvider>
+							<SignedInTree>
+								<RootStack />
+							</SignedInTree>
+						</DeviceHubProvider>
+					</AuthProvider>
+				</DashboardModeProvider>
 			</ColorModeProvider>
 		</KeyboardProvider>
 	);

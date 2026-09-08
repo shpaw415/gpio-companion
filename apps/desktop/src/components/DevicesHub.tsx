@@ -1,36 +1,20 @@
+import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
+import Button from "@shpaw415/mui-lite/Button";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
+import { useEffect } from "react";
+import { useDashboardMode } from "../hooks/useDashboardMode";
+import { type DeviceTabId, deviceTabs } from "../lib/dashboard-mode";
 import Admin from "./Admin";
 import Debug from "./Debug";
 import Docs from "./Docs";
-import Keys from "./Keys";
 import Overview from "./Overview";
 import Pair from "./Pair";
 import Requests from "./Requests";
 import T3 from "./T3";
 import Wifi from "./Wifi";
 
-export type DeviceTab =
-	| "overview"
-	| "docs"
-	| "t3"
-	| "pair"
-	| "wifi"
-	| "keys"
-	| "requests"
-	| "debug"
-	| "admin";
-
-const baseTabs: Array<{ id: DeviceTab; label: string }> = [
-	{ id: "overview", label: "Overview" },
-	{ id: "docs", label: "Docs" },
-	{ id: "t3", label: "T3" },
-	{ id: "pair", label: "Pair" },
-	{ id: "wifi", label: "WiFi" },
-	{ id: "keys", label: "Keys" },
-	{ id: "requests", label: "Requests" },
-	{ id: "debug", label: "Debug" },
-];
+export type DeviceTab = DeviceTabId;
 
 export default function DevicesHub({
 	tab,
@@ -41,10 +25,18 @@ export default function DevicesHub({
 	onTab: (tab: DeviceTab) => void;
 	admin: boolean;
 }) {
-	const tabs = admin
-		? [...baseTabs, { id: "admin" as const, label: "Admin" }]
-		: baseTabs;
+	const { mode, isEasy, setMode } = useDashboardMode();
+	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
+	const allowed = tabs.some((item) => item.id === tab);
+
+	useEffect(() => {
+		if (!allowed) {
+			onTab("overview");
+		}
+	}, [allowed, onTab]);
+
+	const expertOnly = tab === "debug" || tab === "admin";
 
 	return (
 		<Box
@@ -64,7 +56,7 @@ export default function DevicesHub({
 			}}
 		>
 			<Tabs
-				value={tab}
+				value={allowed ? tab : "overview"}
 				onChange={(_event, next) => onTab(String(next) as DeviceTab)}
 				variant="scrollable"
 				aria-label="Devices sections"
@@ -88,15 +80,29 @@ export default function DevicesHub({
 						: { mt: 3 }
 				}
 			>
-				{tab === "overview" ? <Overview /> : null}
-				{tab === "docs" ? <Docs /> : null}
-				{tab === "t3" ? <T3 /> : null}
-				{tab === "pair" ? <Pair onBack={() => onTab("overview")} /> : null}
-				{tab === "wifi" ? <Wifi onBack={() => onTab("overview")} /> : null}
-				{tab === "keys" ? <Keys /> : null}
-				{tab === "requests" ? <Requests /> : null}
-				{tab === "debug" ? <Debug /> : null}
-				{tab === "admin" && admin ? <Admin /> : null}
+				{isEasy && expertOnly ? (
+					<Alert severity="info">
+						This page is Expert mode.{" "}
+						<Button
+							type="button"
+							variant="text"
+							onClick={() => setMode("expert")}
+						>
+							Switch to Expert
+						</Button>
+					</Alert>
+				) : (
+					<>
+						{tab === "overview" ? <Overview /> : null}
+						{tab === "docs" ? <Docs /> : null}
+						{tab === "t3" ? <T3 /> : null}
+						{tab === "pair" ? <Pair onBack={() => onTab("overview")} /> : null}
+						{tab === "wifi" ? <Wifi onBack={() => onTab("overview")} /> : null}
+						{tab === "requests" ? <Requests /> : null}
+						{tab === "debug" ? <Debug /> : null}
+						{tab === "admin" && admin ? <Admin /> : null}
+					</>
+				)}
 			</Box>
 		</Box>
 	);
