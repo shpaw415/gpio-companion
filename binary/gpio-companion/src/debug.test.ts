@@ -3,7 +3,9 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	DEBUG_EVENT_PATH,
 	DEBUG_PATH,
+	DEBUG_VIA_HEADER,
 	type DebugEvent,
 	debugAuthQuery,
 	generateDeviceKeyPair,
@@ -13,7 +15,7 @@ import {
 } from "gpio-companion";
 import { filePairingStore } from "./pairing.ts";
 import { fileSecretsStore } from "./secrets.ts";
-import { startDeviceApi } from "./serve.ts";
+import { handleDeviceRequest, startDeviceApi } from "./serve.ts";
 import { fileConfigStore } from "./store.ts";
 
 const dir = await mkdtemp(join(tmpdir(), "gpio-companion-debug-"));
@@ -190,5 +192,85 @@ describe("device debug suite", () => {
 			events.some((event) => event.status === 404 && event.path === "/v1/nope"),
 		);
 		ws.close();
+	});
+
+	test("streams ble request/response including success", async () => {
+		const query = await signedDebugQuery();
+		const events: DebugEvent[] = [];
+		const ws = new WebSocket(
+			`${String(server.url).replace(/^http/, "ws")}v1/debug?${query}`,
+		);
+		ws.addEventListener("message", (event) => {
+			const parsed = parseDebugEvent(JSON.parse(String(event.data)));
+			if (parsed) {
+				events.push(parsed);
+			}
+		});
+		await new Promise<void>((resolve, reject) => {
+			ws.addEventListener("open", () => resolve());
+			ws.addEventListener("error", () => reject(new Error("ws error")));
+		});
+
+		const status = await deviceFetch("v1/status", {
+			headers: { [DEBUG_VIA_HEADER]: "ble" },
+		});
+		expect(status.status).toBe(200);
+		await waitFor(() =>
+			events.some(
+				(event) =>
+					event.via === "ble" &&
+					event.level === "info" &&
+					event.path === "/v1/status" &&
+					event.status === 200,
+			),
+		);
+
+		const ingest = await fetch(`${server.url}v1/debug/event`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				method: "GET",
+				path: "/v1/info",
+				status: 401,
+				message: "missing device signature",
+				via: "ble",
+			}),
+		});
+		expect(ingest.status).toBe(200);
+		await waitFor(() =>
+			events.some(
+				(event) =>
+					event.via === "ble" &&
+					event.status === 401 &&
+					event.path === "/v1/info" &&
+					event.message === "missing device signature",
+			),
+		);
+		ws.close();
+	});
+
+	test("rejects debug event ingest off loopback", async () => {
+		await expect(
+			handleDeviceRequest(
+				new Request(`https://api.example${DEBUG_EVENT_PATH}`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						method: "GET",
+						path: "/v1/info",
+						status: 401,
+						via: "ble",
+					}),
+				}),
+				fileConfigStore(join(dir, "config.json"), "orangepi"),
+				fileSecretsStore(join(dir, "secrets.env")),
+				filePairingStore(join(dir, "pairing.json"), "pair-uuid", "pair-key"),
+				async () => undefined,
+				undefined,
+				undefined,
+				undefined,
+				{ keyId: keys.keyId, publicKeyPem: keys.publicKeyPem },
+			),
+		).rejects.toThrow("debug event is local-only");
 	});
 });

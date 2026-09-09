@@ -3,6 +3,7 @@ import {
 	DEBUG_RING_SIZE,
 	type DebugEvent,
 	debugLevelFromStatus,
+	debugViaFromRequest,
 	isAllowedDebugOrigin,
 	normalizeDebugPath,
 	redactDebugMessage,
@@ -18,6 +19,7 @@ export type DebugHub = {
 	allowOrigin(origin: string): boolean;
 	add(ws: DebugSocket): void;
 	remove(ws: DebugSocket): void;
+	publish(event: DebugEvent): void;
 	publishFromResponse(request: Request, response: Response): Promise<void>;
 };
 
@@ -66,35 +68,46 @@ export function createDebugHub(options?: {
 		remove(ws) {
 			sockets.delete(ws);
 		},
+		publish,
 		async publishFromResponse(request, response) {
 			const url = new URL(request.url);
 			const path = normalizeDebugPath(url.pathname);
 			if (!shouldPublishDebugPath(path)) {
 				return;
 			}
-			const level = debugLevelFromStatus(response.status);
+			const via = debugViaFromRequest(request);
+			const level = debugLevelFromStatus(response.status, { via });
 			if (!level) {
 				return;
 			}
-			let message = response.statusText.trim() || "request failed";
-			try {
-				const body = (await response.clone().json()) as {
-					error?: unknown;
-				};
-				if (typeof body.error === "string" && body.error.trim()) {
-					message = redactDebugMessage(body.error);
+			let message =
+				level === "info"
+					? response.statusText.trim() || "ok"
+					: response.statusText.trim() || "request failed";
+			if (level !== "info") {
+				try {
+					const body = (await response.clone().json()) as {
+						error?: unknown;
+					};
+					if (typeof body.error === "string" && body.error.trim()) {
+						message = redactDebugMessage(body.error);
+					}
+				} catch {
+					// keep status text
 				}
-			} catch {
-				// keep status text
 			}
-			publish({
+			const event: DebugEvent = {
 				t: now(),
 				level,
 				method: request.method.toUpperCase(),
 				path,
 				status: response.status,
 				message,
-			});
+			};
+			if (via) {
+				event.via = via;
+			}
+			publish(event);
 		},
 	};
 }

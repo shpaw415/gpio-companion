@@ -1,7 +1,8 @@
 import { DEVICE_AUTH_HEADERS, type DeviceAuthHeaders } from "./device-auth.ts";
 import { publicDeviceUrl, tunnelHostnames } from "./tunnel-host.ts";
 
-export type DebugLevel = "error" | "warning";
+export type DebugLevel = "error" | "warning" | "info";
+export type DebugVia = "ble";
 
 export type DebugEvent = {
 	t: number;
@@ -10,9 +11,12 @@ export type DebugEvent = {
 	path: string;
 	status: number;
 	message: string;
+	via?: DebugVia;
 };
 
 export const DEBUG_PATH = "/v1/debug";
+export const DEBUG_EVENT_PATH = "/v1/debug/event";
+export const DEBUG_VIA_HEADER = "x-gpio-via";
 export const DEBUG_UPGRADE_FAILED = "upgrade failed";
 export const DEBUG_LIVE_TTL_SEC = 120;
 export const DEBUG_MAX_SOCKETS = 8;
@@ -25,14 +29,31 @@ export function normalizeDebugPath(pathname: string): string {
 	return query === -1 ? path : path.slice(0, query);
 }
 
-export function debugLevelFromStatus(status: number): DebugLevel | null {
+export function debugLevelFromStatus(
+	status: number,
+	options?: { via?: string },
+): DebugLevel | null {
 	if (status >= 500) {
 		return "error";
 	}
 	if (status >= 400) {
 		return "warning";
 	}
+	if (options?.via === "ble" && status >= 200 && status < 400) {
+		return "info";
+	}
 	return null;
+}
+
+export function debugViaFromRequest(request: Request): DebugVia | undefined {
+	return request.headers.get(DEBUG_VIA_HEADER)?.trim().toLowerCase() === "ble"
+		? "ble"
+		: undefined;
+}
+
+export function formatDebugLogLine(event: DebugEvent): string {
+	const via = event.via ? ` ${event.via}` : "";
+	return `${new Date(event.t).toISOString()} ${event.level}${via} ${event.status} ${event.method} ${event.path} ${event.message}`.trimEnd();
 }
 
 export function shouldPublishDebugPath(path: string): boolean {
@@ -175,7 +196,11 @@ export function parseDebugEvent(value: unknown): DebugEvent | null {
 		return null;
 	}
 	const record = value as Record<string, unknown>;
-	if (record.level !== "error" && record.level !== "warning") {
+	if (
+		record.level !== "error" &&
+		record.level !== "warning" &&
+		record.level !== "info"
+	) {
 		return null;
 	}
 	if (typeof record.t !== "number" || !Number.isFinite(record.t)) {
@@ -193,7 +218,7 @@ export function parseDebugEvent(value: unknown): DebugEvent | null {
 	if (typeof record.message !== "string") {
 		return null;
 	}
-	return {
+	const event: DebugEvent = {
 		t: record.t,
 		level: record.level,
 		method: record.method,
@@ -201,6 +226,61 @@ export function parseDebugEvent(value: unknown): DebugEvent | null {
 		status: record.status,
 		message: record.message,
 	};
+	if (record.via === "ble") {
+		event.via = "ble";
+	}
+	return event;
+}
+
+export function parseDebugEventInput(
+	input: unknown,
+	now = Date.now(),
+): DebugEvent {
+	if (!input || typeof input !== "object") {
+		throw new Error("debug event is required");
+	}
+	const record = input as Record<string, unknown>;
+	const method =
+		typeof record.method === "string" ? record.method.trim().toUpperCase() : "";
+	const path =
+		typeof record.path === "string"
+			? normalizeDebugPath(record.path.trim())
+			: "";
+	if (!method) {
+		throw new Error("method is required");
+	}
+	if (!path) {
+		throw new Error("path is required");
+	}
+	if (typeof record.status !== "number" || !Number.isFinite(record.status)) {
+		throw new Error("status is required");
+	}
+	const via = record.via === "ble" ? "ble" : undefined;
+	const level =
+		record.level === "error" ||
+		record.level === "warning" ||
+		record.level === "info"
+			? record.level
+			: debugLevelFromStatus(record.status, { via: via ?? "ble" });
+	if (!level) {
+		throw new Error("level is required");
+	}
+	const message =
+		typeof record.message === "string"
+			? redactDebugMessage(record.message)
+			: "";
+	const event: DebugEvent = {
+		t: now,
+		level,
+		method,
+		path,
+		status: record.status,
+		message,
+	};
+	if (via) {
+		event.via = via;
+	}
+	return event;
 }
 
 export function parseLivePingUuid(input: unknown): string {

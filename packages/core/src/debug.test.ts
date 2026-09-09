@@ -1,20 +1,25 @@
 import { describe, expect, test } from "bun:test";
 import {
+	DEBUG_EVENT_PATH,
 	DEBUG_LIVE_TTL_SEC,
 	DEBUG_PATH,
+	DEBUG_VIA_HEADER,
 	DEFAULT_DASHBOARD_ORIGIN,
 	debugAuthHeadersFromRequest,
 	debugAuthHeadersFromSearch,
 	debugAuthQuery,
 	debugLevelFromStatus,
 	debugProbeMessage,
+	debugViaFromRequest,
 	debugWsConnectUrl,
 	debugWsUrl,
+	formatDebugLogLine,
 	isAllowedDebugOrigin,
 	isLiveSeen,
 	liveDeviceUrl,
 	normalizeDebugPath,
 	parseDebugEvent,
+	parseDebugEventInput,
 	parseDebugProbe,
 	parseLivePingUuid,
 	redactDebugMessage,
@@ -28,12 +33,17 @@ describe("debug helpers", () => {
 		expect(debugLevelFromStatus(401)).toBe("warning");
 		expect(debugLevelFromStatus(404)).toBe("warning");
 		expect(debugLevelFromStatus(500)).toBe("error");
+		expect(debugLevelFromStatus(200, { via: "ble" })).toBe("info");
+		expect(debugLevelFromStatus(204, { via: "ble" })).toBe("info");
+		expect(debugLevelFromStatus(400, { via: "ble" })).toBe("warning");
+		expect(debugLevelFromStatus(504, { via: "ble" })).toBe("error");
 	});
 
 	test("skips health and debug paths", () => {
 		expect(shouldPublishDebugPath("/health")).toBe(false);
 		expect(shouldPublishDebugPath("/v1/debug")).toBe(false);
 		expect(shouldPublishDebugPath("/v1/debug/ticket")).toBe(false);
+		expect(shouldPublishDebugPath(DEBUG_EVENT_PATH)).toBe(false);
 		expect(shouldPublishDebugPath("/v1/status")).toBe(true);
 		expect(shouldPublishDebugPath("/v1/config/wifi")).toBe(true);
 	});
@@ -149,6 +159,85 @@ describe("debug helpers", () => {
 			status: 400,
 			message: "wifi network not found",
 		});
+		expect(
+			parseDebugEvent({
+				t: 2,
+				level: "info",
+				method: "GET",
+				path: "/v1/info",
+				status: 200,
+				message: "ok",
+				via: "ble",
+			}),
+		).toEqual({
+			t: 2,
+			level: "info",
+			method: "GET",
+			path: "/v1/info",
+			status: 200,
+			message: "ok",
+			via: "ble",
+		});
+	});
+
+	test("reads ble via header and formats log lines", () => {
+		expect(
+			debugViaFromRequest(
+				new Request("http://127.0.0.1/v1/info", {
+					headers: { [DEBUG_VIA_HEADER]: "ble" },
+				}),
+			),
+		).toBe("ble");
+		expect(
+			debugViaFromRequest(new Request("http://127.0.0.1/v1/info")),
+		).toBeUndefined();
+		expect(
+			formatDebugLogLine({
+				t: Date.parse("2026-09-09T00:00:00.000Z"),
+				level: "info",
+				method: "GET",
+				path: "/v1/gpio",
+				status: 200,
+				message: "ok",
+				via: "ble",
+			}),
+		).toBe("2026-09-09T00:00:00.000Z info ble 200 GET /v1/gpio ok");
+	});
+
+	test("parses loopback debug event ingest", () => {
+		expect(
+			parseDebugEventInput(
+				{
+					method: "get",
+					path: "/v1/info",
+					status: 401,
+					message: "missing device signature",
+					via: "ble",
+				},
+				1,
+			),
+		).toEqual({
+			t: 1,
+			level: "warning",
+			method: "GET",
+			path: "/v1/info",
+			status: 401,
+			message: "missing device signature",
+			via: "ble",
+		});
+		expect(
+			parseDebugEventInput(
+				{
+					method: "WRITE",
+					path: "/ble/cmd",
+					status: 400,
+					message: "token ghs_abcDEF123",
+					via: "ble",
+				},
+				2,
+			).message,
+		).toBe("token [redacted]");
+		expect(() => parseDebugEventInput(null)).toThrow("debug event is required");
 	});
 
 	test("parses live ping uuid and derives the tunnel URL", () => {

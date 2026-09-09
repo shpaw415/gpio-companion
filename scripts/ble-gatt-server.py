@@ -170,6 +170,7 @@ class CommandCharacteristic(Characteristic):
 		self.buf.extend(bytes(value))
 		if len(self.buf) > 256 * 1024:
 			self.buf = bytearray()
+			report_debug("WRITE", "/ble/cmd", 400, "ble command overflow")
 			return
 		payload = take_command(self.buf)
 		if payload is not None:
@@ -192,6 +193,7 @@ def take_command(buf):
 	length = struct.unpack(">I", buf[:4])[0]
 	if length > 256 * 1024:
 		buf.clear()
+		report_debug("WRITE", "/ble/cmd", 400, "ble command overflow")
 		return None
 	if len(buf) < 4 + length:
 		return None
@@ -341,31 +343,69 @@ def register_gatt(service_manager, ad_manager, app, ad):
 		sys.exit(1)
 
 
+def ble_forward_headers(headers):
+	return {
+		"content-type": "application/json",
+		"X-Gpio-Via": "ble",
+		**{str(k): str(v) for k, v in (headers or {}).items()},
+	}
+
+
+def ble_debug_payload(method, path, status, message):
+	return json.dumps(
+		{
+			"method": method,
+			"path": path,
+			"status": status,
+			"message": message,
+			"via": "ble",
+		}
+	).encode("utf-8")
+
+
+def report_debug(method, path, status, message):
+	try:
+		req = urllib.request.Request(
+			f"{API}/v1/debug/event",
+			data=ble_debug_payload(method, path, status, message),
+			method="POST",
+			headers={"content-type": "application/json"},
+		)
+		urllib.request.urlopen(req, timeout=1).read()
+	except Exception:
+		pass
+
+
 def forward_envelope(payload, status_char):
+	method = "PUT"
+	path = "/v1/config/wifi"
 	try:
 		envelope = json.loads(payload)
 		body = envelope.get("body") or ""
 		headers = envelope.get("headers") or {}
+		path = envelope.get("path") or path
+		method = envelope.get("method") or method
 		if not any(str(key).lower() == "x-gpio-signature" for key in headers):
 			status_char.set_value(b'{"error":"missing device signature"}')
+			report_debug(method, path, 401, "missing device signature")
 			return False
-		path = envelope.get("path") or "/v1/config/wifi"
-		method = envelope.get("method") or "PUT"
 		req = urllib.request.Request(
 			f"{API}{path}",
 			data=body.encode("utf-8") if body else None,
 			method=method,
-			headers={
-				"content-type": "application/json",
-				**{str(k): str(v) for k, v in headers.items()},
-			},
+			headers=ble_forward_headers(headers),
 		)
 		with urllib.request.urlopen(req, timeout=45) as resp:
 			status_char.set_value(resp.read())
+	except json.JSONDecodeError:
+		status_char.set_value(b'{"error":"ble forward failed"}')
+		report_debug(method, path, 400, "invalid envelope")
 	except Exception as error:
 		message = b'{"error":"ble forward failed"}'
 		if isinstance(error, urllib.error.HTTPError):
 			message = error.read() or message
+		else:
+			report_debug(method, path, 504, "ble forward failed")
 		status_char.set_value(message)
 	return False
 

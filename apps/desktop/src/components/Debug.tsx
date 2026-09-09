@@ -31,6 +31,7 @@ type LogLine = {
 	method?: string;
 	path?: string;
 	status?: number;
+	via?: string;
 };
 
 export default function Debug() {
@@ -234,7 +235,7 @@ export default function Debug() {
 					{lines
 						.map(
 							(line) =>
-								`${line.level ?? "log"} ${line.method ?? ""} ${line.path ?? ""} ${line.message ?? ""}`,
+								`${line.level ?? "log"}${line.via ? ` ${line.via}` : ""} ${line.status ?? ""} ${line.method ?? ""} ${line.path ?? ""} ${line.message ?? ""}`,
 						)
 						.join("\n")}
 				</Typography>

@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import {
 	capLogText,
+	DEBUG_EVENT_PATH,
 	DEBUG_PATH,
 	DEFAULT_DEVICE_MAX_SKEW_MS,
+	type DebugEvent,
 	DeviceAuthError,
 	type DeviceConfig,
 	type DiskStats,
@@ -21,6 +23,7 @@ import {
 	mergeDeviceSecrets,
 	type NetworkStatus,
 	pairingCredentials,
+	parseDebugEventInput,
 	parseDeviceSecrets,
 	parseGpioPut,
 	parsePairingClaim,
@@ -111,6 +114,7 @@ export type DeviceRequestExtras = {
 	applyUpdate?: ApplyUpdate;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
+	debug?: { publish(event: DebugEvent): void };
 };
 
 export function startDeviceApi(options: ServeOptions) {
@@ -133,6 +137,7 @@ export function startDeviceApi(options: ServeOptions) {
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
 		fetchImpl: options.fetchImpl,
+		debug,
 	};
 	return Bun.serve({
 		port,
@@ -280,6 +285,26 @@ export async function handleDeviceRequest(
 
 	if (method === "GET" && path === "/health") {
 		return json({ ok: true, version: VERSION });
+	}
+
+	if (method === "POST" && path === DEBUG_EVENT_PATH) {
+		if (!isLoopback(url)) {
+			throw new Error("debug event is local-only");
+		}
+		let body: unknown;
+		try {
+			body = bodyText ? JSON.parse(bodyText) : null;
+		} catch {
+			return json({ error: "invalid json" }, 400);
+		}
+		try {
+			extras?.debug?.publish(parseDebugEventInput(body));
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "invalid debug event";
+			return json({ error: message }, 400);
+		}
+		return json({ ok: true });
 	}
 
 	if (method === "GET" && path === "/v1/github-token") {

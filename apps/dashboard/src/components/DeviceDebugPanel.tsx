@@ -8,6 +8,7 @@ import {
 	type DebugEvent,
 	debugProbeMessage,
 	filterJournalByAge,
+	formatDebugLogLine,
 	formatDiskFree,
 	JOURNAL_WINDOWS,
 	type JournalWindowId,
@@ -21,7 +22,7 @@ import BleHealthRunner from "./BleHealthRunner.tsx";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
 
-type Filter = "all" | "error" | "warning";
+type Filter = "all" | "error" | "warning" | "info";
 type Connection = "idle" | "connecting" | "live" | "error";
 
 export type DebugPanelDevice = DeviceOption & {
@@ -94,12 +95,7 @@ export default function DeviceDebugPanel({
 		return events.filter((event) => event.level === filter);
 	}, [events, filter]);
 
-	const logText = visible
-		.map(
-			(event) =>
-				`${new Date(event.t).toISOString()} ${event.level} ${event.status} ${event.method} ${event.path} ${event.message}`,
-		)
-		.join("\n");
+	const logText = visible.map(formatDebugLogLine).join("\n");
 
 	function scrollLog() {
 		logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -329,7 +325,7 @@ export default function DeviceDebugPanel({
 					</Button>
 				</Stack>
 				<Stack direction="row" spacing={1} className="flex-wrap">
-					{(["all", "error", "warning"] as const).map((item) => (
+					{(["all", "error", "warning", "info"] as const).map((item) => (
 						<Chip
 							key={item}
 							label={item}
@@ -345,13 +341,13 @@ export default function DeviceDebugPanel({
 						ref={logRef}
 						className="m-0 max-h-80 overflow-auto whitespace-pre-wrap break-all font-mono text-xs"
 					>
-						{visible.length === 0 ? "No errors or warnings yet." : logText}
+						{visible.length === 0 ? "No events yet." : logText}
 					</pre>
 				</Paper>
 				{logText ? <CopyBlock label="Debug log" value={logText} /> : null}
 				<Typography color="secondary" variant="body2">
-					Live errors and warnings from companion API requests. Secrets are not
-					included.
+					Live companion API errors, warnings, and Bluetooth request/response.
+					Secrets are not included.
 				</Typography>
 				<BleHealthRunner uuid={uuid} />
 			</Stack>

@@ -6,18 +6,19 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 
-def load_take_command():
+def load_gatt():
 	path = Path(__file__).with_name("ble-gatt-server.py")
 	spec = spec_from_file_location("ble_gatt_server", path)
 	assert spec and spec.loader
 	mod = module_from_spec(spec)
 	spec.loader.exec_module(mod)
-	return mod.take_command
+	return mod
 
 
 class TakeCommandTest(unittest.TestCase):
 	def setUp(self):
-		self.take = load_take_command()
+		self.mod = load_gatt()
+		self.take = self.mod.take_command
 
 	def test_json_object(self):
 		buf = bytearray(b'{"a":1}')
@@ -39,6 +40,26 @@ class TakeCommandTest(unittest.TestCase):
 		buf = bytearray(struct.pack(">I", 9_000_000) + b"xx")
 		self.assertIsNone(self.take(buf))
 		self.assertEqual(buf, bytearray())
+
+	def test_ble_forward_headers_mark_via(self):
+		headers = self.mod.ble_forward_headers({"X-Gpio-Signature": "sig"})
+		self.assertEqual(headers["X-Gpio-Via"], "ble")
+		self.assertEqual(headers["X-Gpio-Signature"], "sig")
+
+	def test_ble_debug_payload(self):
+		payload = json.loads(
+			self.mod.ble_debug_payload("GET", "/v1/info", 401, "missing device signature")
+		)
+		self.assertEqual(
+			payload,
+			{
+				"method": "GET",
+				"path": "/v1/info",
+				"status": 401,
+				"message": "missing device signature",
+				"via": "ble",
+			},
+		)
 
 
 if __name__ == "__main__":
