@@ -14,7 +14,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Arduino firmware must be C, delivered over USB via `POST http://127.0.0.1:4150/v1/flash` `{ fqbn, dir }` (skill `gpio-arduino`). Do not shell avrdude.
 - Install with `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
 - cloudflared replica is the per-Pi T3 Code tunnel created at first-setup; token + hostnames can still be set through the device API
-- T3 Code service is installed at first-setup (`t3 service install`); T3 Code providers are locked to OpenCode only; pairing is dashboard-managed after claim (`t3 pair`, pair code/QR on the board URL)
+- T3 Code service is installed at first-setup (`t3 service install`) in the GPIO user's systemd session (`loginctl enable-linger` + `user@UID`); T3 Code providers are locked to OpenCode only; pairing is dashboard-managed after claim (`t3 pair`, pair code/QR on the board URL)
 - Repo updates run via `scripts/update-script.sh` on boot and every 24h (skills, preferences, device server, T3 Code `t3@latest`, `opencode upgrade`). Owner or admin can also trigger that job from the dashboard (`POST /v1/update`, dashboard-signed)
 - Image first boot: `scripts/snapshot/gpio-companion-first-boot.sh` clones the repo and runs interactive first-setup
 - The user uses their GitHub account. Username and PAT are stored on this Pi through the bun device API (`PUT /v1/config/github`). Use those credentials to manage project repos. Do not invent a GitHub user.

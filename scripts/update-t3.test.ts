@@ -65,11 +65,33 @@ exit 1
 		`#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\\n' "$*" >> "\${GPIO_T3_CMD_LOG:?}"
+if [[ -n "\${GPIO_T3_ENV_LOG:-}" ]]; then
+	printf 'XDG_RUNTIME_DIR=%s\\n' "\${XDG_RUNTIME_DIR:-}" >> "\$GPIO_T3_ENV_LOG"
+	printf 'DBUS_SESSION_BUS_ADDRESS=%s\\n' "\${DBUS_SESSION_BUS_ADDRESS:-}" >> "\$GPIO_T3_ENV_LOG"
+fi
+exit 0
+`,
+	);
+	await writeFile(
+		join(bin, "loginctl"),
+		`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "\${GPIO_T3_LOGINCTL_LOG:?}"
+exit 0
+`,
+	);
+	await writeFile(
+		join(bin, "systemctl"),
+		`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "\${GPIO_T3_SYSTEMCTL_LOG:?}"
 exit 0
 `,
 	);
 	await chmod(npm, 0o755);
 	await chmod(t3, 0o755);
+	await chmod(join(bin, "loginctl"), 0o755);
+	await chmod(join(bin, "systemctl"), 0o755);
 	return { dir, bin };
 }
 
@@ -208,6 +230,66 @@ update_t3code 1
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 1.2.3 -> 1.2.3");
 		expect(await Bun.file(npmLog).text()).toContain("install -g t3@latest");
+	});
+
+	test("does not touch loginctl when restart is skipped", async () => {
+		const { dir, bin } = await stubPath();
+		const loginLog = join(dir, "loginctl.log");
+		const sysLog = join(dir, "systemctl.log");
+		const result = await bash(
+			`
+PATH="${bin}:$PATH"
+source "${libSh}"
+GPIO_USER=root
+install_t3_service
+`,
+			t3Env(dir, {
+				GPIO_T3_NPM_LOG: join(dir, "npm.log"),
+				GPIO_T3_CMD_LOG: join(dir, "t3.log"),
+				GPIO_T3_LOGINCTL_LOG: loginLog,
+				GPIO_T3_SYSTEMCTL_LOG: sysLog,
+			}),
+		);
+		expect(result.exit).toBe(0);
+		expect(await Bun.file(join(dir, "t3.log")).text()).toContain(
+			"service install",
+		);
+		expect(await Bun.file(loginLog).exists()).toBe(false);
+		expect(await Bun.file(sysLog).exists()).toBe(false);
+	});
+
+	test("enables linger and passes the user runtime to t3", async () => {
+		const { dir, bin } = await stubPath();
+		const loginLog = join(dir, "loginctl.log");
+		const sysLog = join(dir, "systemctl.log");
+		const envLog = join(dir, "t3.env");
+		const result = await bash(
+			`
+PATH="${bin}:$PATH"
+source "${libSh}"
+GPIO_USER=root
+unset GPIO_COMPANION_T3_SKIP_RESTART
+install_t3_service
+`,
+			t3Env(dir, {
+				GPIO_T3_NPM_LOG: join(dir, "npm.log"),
+				GPIO_T3_CMD_LOG: join(dir, "t3.log"),
+				GPIO_T3_LOGINCTL_LOG: loginLog,
+				GPIO_T3_SYSTEMCTL_LOG: sysLog,
+				GPIO_T3_ENV_LOG: envLog,
+				GPIO_COMPANION_T3_USER_WAIT_ATTEMPTS: "0",
+			}),
+		);
+		expect(result.exit).toBe(0);
+		expect(await Bun.file(loginLog).text()).toContain("enable-linger root");
+		expect(await Bun.file(sysLog).text()).toContain("start user@0.service");
+		expect(await Bun.file(join(dir, "t3.log")).text()).toContain(
+			"service install",
+		);
+		expect(await Bun.file(envLog).text()).toContain("XDG_RUNTIME_DIR=/run/user/0");
+		expect(await Bun.file(envLog).text()).toContain(
+			"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/0/bus",
+		);
 	});
 
 	test("install_t3code uses t3@latest", async () => {

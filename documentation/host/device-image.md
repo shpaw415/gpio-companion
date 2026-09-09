@@ -104,7 +104,7 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 - Copies `opencode/skills` and `opencode/preferences` into the device OpenCode config
 - Fetches `GET /api/device-public-key` and writes `/etc/gpio-companion/device-auth.json` if it changed
 - Rebuilds/restarts `gpio-companion` if `binary/`, `packages/core/`, the unit file, or lockfile changed, or if the registered public key changed
-- Compares installed `t3` to npm `t3@latest` and runs `npm install -g t3@latest` plus `t3 service install` when behind (or on `--force`); registry miss keeps the current package; re-locks T3 Code to OpenCode-only providers
+- Compares installed `t3` to npm `t3@latest` and runs `npm install -g t3@latest` plus `t3 service install` when behind (or on `--force`); registry miss keeps the current package; re-locks T3 Code to OpenCode-only providers. `t3 service install` runs in the GPIO user's systemd session (`loginctl enable-linger`, `user@UID.service`, `XDG_RUNTIME_DIR`) so the system updater does not hit T3 `user-manager-unavailable`
 - Runs `opencode upgrade` as the GPIO user
 - Force rebuild even when HEAD did not move: `sudo ./scripts/force-update.sh` or `sudo gpio-companion-force-update` (`--force` / `GPIO_COMPANION_UPDATE_FORCE=1`)
 - Dashboard owner or admin can start the same timer job remotely: signed `POST /v1/update` → `systemctl start --no-block gpio-companion-update.service` (HTTP returns immediately; the board may restart)

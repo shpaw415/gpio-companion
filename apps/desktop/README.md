@@ -18,7 +18,7 @@ Linux build deps:
 sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev pkg-config
 ```
 
-Without sudo, unpack GTK/WebKit/DBus `-dev` debs into `~/.local/opt/linux-dev`. `bun run tauri:dev` adds that pkg-config path automatically.
+Without sudo, unpack GTK/WebKit/DBus `-dev` debs into `~/.local/opt/linux-dev`. AppImage also needs GTK/pixbuf **runtime** files there (`libgtk-3-0t64`, `libgtk-3-common`, `libgdk-pixbuf-2.0-0`). `bun run tauri:dev` / `tauri:build` add that pkg-config path automatically.
 
 Add the signed-in user to the `bluetooth` group. Quit `bluetoothctl` while scanning.
 

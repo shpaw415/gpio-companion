@@ -85,7 +85,7 @@ install_apt_base() {
 		python3-gi \
 		network-manager
 	systemctl enable --now NetworkManager.service || true
-	apt_install_optional exfatprogs exfat-fuse ntfs-3g
+	apt_install_optional exfatprogs exfat-fuse ntfs-3g libpam-systemd dbus-user-session
 }
 
 install_node() {
@@ -254,20 +254,77 @@ PY
 	fi
 }
 
-restart_t3_service() {
-	local uid=""
-	if [[ "${GPIO_COMPANION_T3_SKIP_RESTART:-}" == "1" ]]; then
-		return 0
-	fi
-	if [[ "$GPIO_USER" == "root" ]]; then
-		systemctl --user restart t3code.service
-		return
-	fi
-	uid="$(id -u "$GPIO_USER" 2>/dev/null || true)"
+gpio_user_uid() {
+	id -u "$GPIO_USER" 2>/dev/null || true
+}
+
+gpio_user_runtime_dir() {
+	local uid
+	uid="$(gpio_user_uid)"
 	if [[ -z "$uid" ]]; then
 		return 1
 	fi
-	sudo -u "$GPIO_USER" -H XDG_RUNTIME_DIR="/run/user/${uid}" systemctl --user restart t3code.service
+	printf '%s\n' "/run/user/${uid}"
+}
+
+ensure_user_systemd() {
+	local uid runtime attempts n=0
+	if [[ "${GPIO_COMPANION_T3_SKIP_RESTART:-}" == "1" ]]; then
+		return 0
+	fi
+	uid="$(gpio_user_uid)"
+	if [[ -z "$uid" ]]; then
+		echo "gpio-companion: cannot resolve uid for $GPIO_USER" >&2
+		return 1
+	fi
+	runtime="/run/user/${uid}"
+	if command -v loginctl >/dev/null 2>&1; then
+		loginctl enable-linger "$GPIO_USER" || true
+	fi
+	if command -v systemctl >/dev/null 2>&1; then
+		systemctl start "user@${uid}.service" || true
+	fi
+	attempts="${GPIO_COMPANION_T3_USER_WAIT_ATTEMPTS:-20}"
+	if [[ "$attempts" -le 0 ]]; then
+		return 0
+	fi
+	while [[ "$n" -lt "$attempts" ]]; do
+		if [[ -S "${runtime}/bus" || -S "${runtime}/systemd/private" ]]; then
+			return 0
+		fi
+		sleep 0.25
+		n=$((n + 1))
+	done
+	echo "gpio-companion: systemd user manager unavailable for $GPIO_USER (no ${runtime}/bus)" >&2
+	return 1
+}
+
+run_as_gpio_user_session() {
+	local uid runtime
+	uid="$(gpio_user_uid)"
+	if [[ -z "$uid" ]]; then
+		return 1
+	fi
+	runtime="/run/user/${uid}"
+	if [[ "$GPIO_USER" == "root" || "$(id -u)" -eq "$uid" ]]; then
+		XDG_RUNTIME_DIR="$runtime" \
+			DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime}/bus" \
+			"$@"
+		return
+	fi
+	sudo -u "$GPIO_USER" -H env \
+		-u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
+		"XDG_RUNTIME_DIR=${runtime}" \
+		"DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime}/bus" \
+		"$@"
+}
+
+restart_t3_service() {
+	if [[ "${GPIO_COMPANION_T3_SKIP_RESTART:-}" == "1" ]]; then
+		return 0
+	fi
+	ensure_user_systemd || return 1
+	run_as_gpio_user_session systemctl --user restart t3code.service
 }
 
 t3_installed_npm_version() {
@@ -304,11 +361,11 @@ install_t3_service() {
 	if ! command -v t3 >/dev/null 2>&1; then
 		return 1
 	fi
-	if [[ "$GPIO_USER" == "root" ]]; then
-		t3 service install
-		return
+	if ! ensure_user_systemd; then
+		echo "gpio-companion: skipping t3 service install (systemd user manager unreachable)" >&2
+		return 1
 	fi
-	sudo -u "$GPIO_USER" -H t3 service install
+	run_as_gpio_user_session t3 service install
 }
 
 update_t3code() {
