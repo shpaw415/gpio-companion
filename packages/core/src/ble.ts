@@ -123,6 +123,25 @@ export function envelopeToPasteText(envelope: SignedDeviceEnvelope): string {
 	return JSON.stringify(envelope);
 }
 
+export function isBleIdleStatus(raw: string): boolean {
+	const text = raw.trim();
+	if (!text) {
+		return true;
+	}
+	try {
+		const parsed = JSON.parse(text) as { ready?: unknown };
+		return (
+			parsed !== null &&
+			typeof parsed === "object" &&
+			!Array.isArray(parsed) &&
+			parsed.ready === true &&
+			Object.keys(parsed).length === 1
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function splitBleFrames(
 	payload: string,
 	mtu = BLE_CHUNK_SIZE,

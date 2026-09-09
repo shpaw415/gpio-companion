@@ -5,6 +5,19 @@ pub const BLE_STATUS_UUID: &str = "a1c15e00-6f10-4c9a-9c31-47b0c15e0004";
 pub const BLE_DEVICE_NAME: &str = "gpio-companion";
 pub const BLE_CHUNK_SIZE: usize = 160;
 
+pub fn is_ble_idle_status(raw: &str) -> bool {
+	let text = raw.trim();
+	if text.is_empty() {
+		return true;
+	}
+	let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
+		return false;
+	};
+	value.as_object().is_some_and(|object| {
+		object.len() == 1 && object.get("ready") == Some(&serde_json::Value::Bool(true))
+	})
+}
+
 pub fn split_ble_frames(payload: &str, mtu: usize) -> Vec<Vec<u8>> {
 	let mtu = mtu.max(1);
 	let body = payload.as_bytes();
@@ -87,6 +100,14 @@ pub fn is_retryable_connect_error(message: &str) -> bool {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn idle_status_is_ready_true_only() {
+		assert!(is_ble_idle_status(r#"{"ready":true}"#));
+		assert!(is_ble_idle_status(""));
+		assert!(!is_ble_idle_status(r#"{"error":"missing device signature"}"#));
+		assert!(!is_ble_idle_status(r#"{"running":false}"#));
+	}
 
 	#[test]
 	fn splits_length_prefixed_json() {

@@ -103,6 +103,20 @@ function evaluateBody(
 	body: unknown,
 ): BleHealthVerdict {
 	const error = bleHealthErrorMessage(body);
+	if (
+		id !== "gatt-info" &&
+		body &&
+		typeof body === "object" &&
+		!Array.isArray(body) &&
+		(body as { ready?: unknown }).ready === true &&
+		Object.keys(body as object).length === 1
+	) {
+		return {
+			pass: false,
+			detail:
+				'STATUS stayed {"ready":true}. The Pi BLE helper did not apply the CMD write or did not notify/read a result. Update gpio-companion on the board.',
+		};
+	}
 	switch (id) {
 		case "gatt-info": {
 			const uuid =

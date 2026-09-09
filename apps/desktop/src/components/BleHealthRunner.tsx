@@ -3,7 +3,7 @@ import { CircularProgress } from "@shpaw415/mui-lite/Progress";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
-import { bleFlash, bleGattInfo, bleGpio, bleInfo, bleWifi } from "../api";
+import { apiRequest, bleHealthRun } from "../api";
 import {
 	BLE_HEALTH_CHECKS,
 	BLE_HEALTH_WIFI_PSK,
@@ -44,7 +44,11 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	function skipRest(failedId: BleHealthCheckId, reason: string) {
 		setRows((current) =>
 			current.map((row) => {
-				if (row.id === failedId || row.state !== "idle") {
+				if (
+					row.id === failedId ||
+					row.state === "pass" ||
+					row.state === "fail"
+				) {
 					return row;
 				}
 				return { ...row, state: "skipped", log: `Skipped: ${reason}` };
@@ -61,16 +65,50 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 		try {
 			for (const check of BLE_HEALTH_CHECKS) {
 				patch(check.id, { state: "running", log: "" });
-				const verdict = await runCheck(uuid, check.id);
-				patch(check.id, {
+			}
+			const probes = [];
+			for (const check of BLE_HEALTH_CHECKS) {
+				if (check.id === "gatt-info") {
+					probes.push({ id: check.id });
+					continue;
+				}
+				try {
+					probes.push({
+						id: check.id,
+						envelope: await signProbe(uuid, check.id),
+					});
+				} catch (caught) {
+					const verdict = evaluateBleHealthCheck(check.id, {
+						error: caught instanceof Error ? caught.message : "sign failed",
+					});
+					patch(check.id, {
+						state: verdict.pass ? "pass" : "fail",
+						log: verdict.pass ? "" : verdict.detail,
+					});
+				}
+			}
+			const hits = await bleHealthRun({ uuid, probes });
+			for (const hit of hits) {
+				const id = hit.id as BleHealthCheckId;
+				const verdict = evaluateBleHealthCheck(id, {
+					selectedUuid: uuid,
+					error: hit.error,
+					body: hit.body ?? parseBleHealthBody(hit.raw ?? ""),
+				});
+				patch(id, {
 					state: verdict.pass ? "pass" : "fail",
 					log: verdict.pass ? "" : verdict.detail,
 				});
-				if (check.id === "gatt-info" && !verdict.pass) {
-					skipRest(check.id, verdict.detail);
+				if (id === "gatt-info" && !verdict.pass) {
+					skipRest(id, verdict.detail);
 					return;
 				}
 			}
+		} catch (caught) {
+			const detail =
+				caught instanceof Error ? caught.message : "bluetooth test failed";
+			skipRest("gatt-info", detail);
+			patch("gatt-info", { state: "fail", log: detail });
 		} finally {
 			setBusy(false);
 		}
@@ -151,56 +189,30 @@ function StatusMark({ state }: { state: RowState }) {
 	);
 }
 
-async function runCheck(uuid: string, id: BleHealthCheckId) {
-	try {
-		switch (id) {
-			case "gatt-info":
-				return evaluateBleHealthCheck("gatt-info", {
-					selectedUuid: uuid,
-					body: await bleGattInfo(""),
-				});
-			case "get-info":
-				return evaluateBleHealthCheck("get-info", {
-					body: await bleInfo({ uuid }),
-				});
-			case "get-gpio":
-				return evaluateBleHealthCheck("get-gpio", {
-					body: await bleGpio({ uuid }),
-				});
-			case "put-gpio-power":
-				return evaluateBleHealthCheck("put-gpio-power", {
-					body: await bleGpio({
-						uuid,
-						physical: 1,
-						dir: "out",
-						value: 0,
-					}),
-				});
-			case "get-flash":
-				return evaluateBleHealthCheck("get-flash", {
-					body: await bleFlash({ uuid }),
-				});
-			case "get-flash-ports":
-				return evaluateBleHealthCheck("get-flash-ports", {
-					body: await bleFlash({ uuid, ports: true }),
-				});
-			case "put-wifi": {
-				const raw = await bleWifi({
-					uuid,
-					ssid: BLE_HEALTH_WIFI_SSID,
-					psk: BLE_HEALTH_WIFI_PSK,
-					id: "",
-				});
-				return evaluateBleHealthCheck("put-wifi", {
-					body: parseBleHealthBody(raw),
-				});
-			}
-			default:
-				return evaluateBleHealthCheck(id, { error: `no runner for ${id}` });
-		}
-	} catch (caught) {
-		return evaluateBleHealthCheck(id, {
-			error: caught instanceof Error ? caught.message : "bluetooth test failed",
-		});
+async function signProbe(uuid: string, id: BleHealthCheckId) {
+	switch (id) {
+		case "get-info":
+			return apiRequest("POST", "/api/mobile/info", { uuid });
+		case "get-gpio":
+			return apiRequest("POST", "/api/mobile/gpio", { uuid });
+		case "put-gpio-power":
+			return apiRequest("POST", "/api/mobile/gpio", {
+				uuid,
+				physical: 1,
+				dir: "out",
+				value: 0,
+			});
+		case "get-flash":
+			return apiRequest("POST", "/api/mobile/flash", { uuid });
+		case "get-flash-ports":
+			return apiRequest("POST", "/api/mobile/flash", { uuid, ports: true });
+		case "put-wifi":
+			return apiRequest("POST", "/api/mobile/wifi", {
+				uuid,
+				ssid: BLE_HEALTH_WIFI_SSID,
+				psk: BLE_HEALTH_WIFI_PSK,
+			});
+		default:
+			throw new Error(`no signer for ${id}`);
 	}
 }

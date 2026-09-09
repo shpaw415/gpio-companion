@@ -116,6 +116,25 @@ export function bleGattInfo(id = "") {
 	);
 }
 
+export type BleHealthHit = {
+	id: string;
+	body?: unknown;
+	raw?: string;
+	error?: string;
+};
+
+export function bleHealthRun(input: {
+	uuid: string;
+	id?: string;
+	probes: Array<{ id: string; envelope?: unknown }>;
+}) {
+	return call<BleHealthHit[]>("ble_health_run", {
+		uuid: input.uuid,
+		id: input.id ?? "",
+		probes: input.probes,
+	});
+}
+
 export function blePair(id: string) {
 	return call<unknown>("ble_pair", { id });
 }

@@ -5,6 +5,7 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 	type BleInfo,
+	isBleIdleStatus,
 	type SignedDeviceEnvelope,
 	splitBleFrames,
 } from "gpio-companion";
@@ -107,16 +108,39 @@ export async function connectGpioCompanionBle(): Promise<{
 	async function sendEnvelope(envelope: SignedDeviceEnvelope): Promise<string> {
 		const frames = splitBleFrames(JSON.stringify(envelope));
 		return new Promise<string>((resolve, reject) => {
+			let settled = false;
+			let poll: ReturnType<typeof setInterval> | undefined;
+			const finish = (text: string) => {
+				if (settled || isBleIdleStatus(text)) {
+					return;
+				}
+				settled = true;
+				clearTimeout(timer);
+				if (poll) {
+					clearInterval(poll);
+				}
+				resolve(text);
+			};
 			const timer = setTimeout(() => {
-				reject(new Error("bluetooth timed out"));
+				if (settled) {
+					return;
+				}
+				settled = true;
+				if (poll) {
+					clearInterval(poll);
+				}
+				reject(
+					new Error(
+						"bluetooth timed out waiting for the status characteristic. Update the Pi companion BLE helper if this persists.",
+					),
+				);
 			}, 30_000);
 			statusChar.addEventListener("characteristicvaluechanged", (event) => {
 				const target = event.target as { value?: DataView };
 				if (!target.value) {
 					return;
 				}
-				clearTimeout(timer);
-				resolve(decodeView(target.value));
+				finish(decodeView(target.value));
 			});
 			void statusChar.startNotifications().then(async () => {
 				for (const frame of frames) {
@@ -129,6 +153,14 @@ export async function connectGpioCompanionBle(): Promise<{
 						throw new Error("bluetooth write is unavailable");
 					}
 				}
+				poll = setInterval(() => {
+					void statusChar.readValue().then(
+						(view) => {
+							finish(decodeView(view));
+						},
+						() => undefined,
+					);
+				}, 500);
 			}, reject);
 		});
 	}

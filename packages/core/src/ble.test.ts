@@ -3,6 +3,7 @@ import {
 	createBleAssembler,
 	createSignedEnvelope,
 	envelopeToPasteText,
+	isBleIdleStatus,
 	parseSignedEnvelope,
 	splitBleFrames,
 } from "./ble.ts";
@@ -40,6 +41,13 @@ describe("ble", () => {
 		expect(assembler.push(new TextEncoder().encode(payload.slice(20)))).toBe(
 			payload,
 		);
+	});
+
+	test("treats ready true as idle status", () => {
+		expect(isBleIdleStatus('{"ready":true}')).toBe(true);
+		expect(isBleIdleStatus("")).toBe(true);
+		expect(isBleIdleStatus('{"error":"missing device signature"}')).toBe(false);
+		expect(isBleIdleStatus('{"running":false}')).toBe(false);
 	});
 
 	test("signed envelope verifies like an http device request", async () => {

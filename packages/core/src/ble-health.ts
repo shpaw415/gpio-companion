@@ -1,3 +1,5 @@
+import { isBleIdleStatus } from "./ble.ts";
+
 export const BLE_HEALTH_WIFI_SSID = "gpio-companion-ble-health-probe";
 export const BLE_HEALTH_WIFI_PSK = "xxxxxxxx";
 
@@ -103,6 +105,16 @@ function evaluateBody(
 	body: unknown,
 ): BleHealthVerdict {
 	const error = bleHealthErrorMessage(body);
+	if (
+		id !== "gatt-info" &&
+		isBleIdleStatus(typeof body === "string" ? body : JSON.stringify(body ?? ""))
+	) {
+		return {
+			pass: false,
+			detail:
+				"STATUS stayed {\"ready\":true}. The Pi BLE helper did not apply the CMD write or did not notify/read a result. Update gpio-companion on the board.",
+		};
+	}
 	switch (id) {
 		case "gatt-info": {
 			const uuid =

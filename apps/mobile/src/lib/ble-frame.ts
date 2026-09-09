@@ -32,6 +32,25 @@ export function encodeFrames(payload: string): string[] {
 	return frames;
 }
 
+export function isBleIdleStatus(raw: string): boolean {
+	const text = raw.trim();
+	if (!text) {
+		return true;
+	}
+	try {
+		const parsed = JSON.parse(text) as { ready?: unknown };
+		return (
+			parsed !== null &&
+			typeof parsed === "object" &&
+			!Array.isArray(parsed) &&
+			parsed.ready === true &&
+			Object.keys(parsed).length === 1
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function matchesBoard(name: string, serviceUUIDs: string[]): boolean {
 	const lower = name.toLowerCase();
 	if (lower.startsWith(BLE_DEVICE_NAME) || lower === "gpio") {
@@ -82,12 +101,16 @@ export function sortNearby(boards: NearbyRadio[]): NearbyRadio[] {
 		if (leftRssi !== rightRssi) {
 			return rightRssi - leftRssi;
 		}
-		return left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+		return (
+			left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
+		);
 	});
 }
 
 export function forPicker(boards: NearbyRadio[]): NearbyRadio[] {
-	const matchedLive = boards.filter((board) => board.matched && board.rssi != null);
+	const matchedLive = boards.filter(
+		(board) => board.matched && board.rssi != null,
+	);
 	if (matchedLive.length > 0) {
 		return sortNearby(matchedLive);
 	}

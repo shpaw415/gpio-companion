@@ -91,6 +91,10 @@ class Service(dbus.service.Object):
 	def GetAll(self, interface):
 		return self.get_properties()[GATT_SERVICE]
 
+	@dbus.service.method(PROP_IFACE, in_signature="ss", out_signature="v")
+	def Get(self, interface, prop):
+		return self.get_properties()[GATT_SERVICE][prop]
+
 
 class Characteristic(dbus.service.Object):
 	def __init__(self, bus, index, uuid, flags, service):
@@ -99,6 +103,7 @@ class Characteristic(dbus.service.Object):
 		self.service = service
 		self.flags = flags
 		self.value = []
+		self.notifying = False
 		dbus.service.Object.__init__(self, bus, self.path)
 
 	def get_properties(self):
@@ -116,13 +121,18 @@ class Characteristic(dbus.service.Object):
 
 	def set_value(self, data):
 		self.value = list(data)
-		self.PropertiesChanged(
-			GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
-		)
+		if self.notifying:
+			self.PropertiesChanged(
+				GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
+			)
 
 	@dbus.service.method(PROP_IFACE, in_signature="s", out_signature="a{sv}")
 	def GetAll(self, interface):
 		return self.get_properties()[GATT_CHRC]
+
+	@dbus.service.method(PROP_IFACE, in_signature="ss", out_signature="v")
+	def Get(self, interface, prop):
+		return self.get_properties()[GATT_CHRC][prop]
 
 	@dbus.service.method(GATT_CHRC, in_signature="a{sv}", out_signature="ay")
 	def ReadValue(self, options):
@@ -134,11 +144,15 @@ class Characteristic(dbus.service.Object):
 
 	@dbus.service.method(GATT_CHRC)
 	def StartNotify(self):
-		pass
+		self.notifying = True
+		if self.value:
+			self.PropertiesChanged(
+				GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
+			)
 
 	@dbus.service.method(GATT_CHRC)
 	def StopNotify(self):
-		pass
+		self.notifying = False
 
 	@dbus.service.signal(PROP_IFACE, signature="sa{sv}as")
 	def PropertiesChanged(self, interface, changed, invalidated):
@@ -154,25 +168,36 @@ class CommandCharacteristic(Characteristic):
 	@dbus.service.method(GATT_CHRC, in_signature="aya{sv}")
 	def WriteValue(self, value, options):
 		self.buf.extend(bytes(value))
-		if not self.buf:
+		if len(self.buf) > 256 * 1024:
+			self.buf = bytearray()
 			return
-		if self.buf[0] == 0x7B:
-			try:
-				payload = self.buf.decode("utf-8").strip()
-				json.loads(payload)
-				self.buf = bytearray()
-				self.on_payload(payload)
-			except (UnicodeDecodeError, json.JSONDecodeError):
-				return
-			return
-		if len(self.buf) < 4:
-			return
-		length = struct.unpack(">I", self.buf[:4])[0]
-		if len(self.buf) < 4 + length:
-			return
-		payload = bytes(self.buf[4 : 4 + length]).decode("utf-8")
-		self.buf = self.buf[4 + length :]
-		self.on_payload(payload)
+		payload = take_command(self.buf)
+		if payload is not None:
+			self.on_payload(payload)
+
+
+def take_command(buf):
+	if not buf:
+		return None
+	if buf[0] == 0x7B:
+		try:
+			payload = buf.decode("utf-8").strip()
+			json.loads(payload)
+			buf.clear()
+			return payload
+		except (UnicodeDecodeError, json.JSONDecodeError):
+			return None
+	if len(buf) < 4:
+		return None
+	length = struct.unpack(">I", buf[:4])[0]
+	if length > 256 * 1024:
+		buf.clear()
+		return None
+	if len(buf) < 4 + length:
+		return None
+	payload = bytes(buf[4 : 4 + length]).decode("utf-8")
+	del buf[: 4 + length]
+	return payload
 
 
 def advertisement_payloads():

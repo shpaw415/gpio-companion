@@ -591,21 +591,38 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 			.write(&cmd_char, &frame, WriteType::WithoutResponse)
 			.await
 			.map_err(|err| err.to_string())?;
-		// Pace without-response writes: back-to-back frames can overflow the
-		// board's BLE queue (the mobile app paces the same way).
 		sleep(Duration::from_millis(20)).await;
 	}
-	let notified = timeout(Duration::from_secs(30), async {
-		while let Some(notification) = notifications.next().await {
-			if notification.uuid == status_char.uuid {
-				return Some(String::from_utf8_lossy(&notification.value).into_owned());
+	timeout(Duration::from_secs(30), async {
+		loop {
+			tokio::select! {
+				notification = notifications.next() => {
+					let Some(notification) = notification else {
+						continue;
+					};
+					if notification.uuid != status_char.uuid {
+						continue;
+					}
+					let text = String::from_utf8_lossy(&notification.value).into_owned();
+					if !frames::is_ble_idle_status(&text) {
+						return text;
+					}
+				}
+				_ = sleep(Duration::from_millis(500)) => {
+					if let Ok(data) = peripheral.read(&status_char).await {
+						let text = String::from_utf8_lossy(&data).into_owned();
+						if !frames::is_ble_idle_status(&text) {
+							return text;
+						}
+					}
+				}
 			}
 		}
-		None
 	})
 	.await
-	.map_err(|_| "bluetooth timed out".to_string())?;
-	notified.ok_or_else(|| "bluetooth timed out".to_string())
+	.map_err(|_| {
+		"bluetooth timed out waiting for the status characteristic. Update the Pi companion BLE helper if this persists.".to_string()
+	})
 }
 
 pub async fn disconnect(peripheral: &Peripheral) {

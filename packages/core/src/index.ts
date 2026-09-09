@@ -61,6 +61,7 @@ export {
 	createSignedEnvelope,
 	envelopeToPasteText,
 	envelopeToRequest,
+	isBleIdleStatus,
 	parseSignedEnvelope,
 	type SignedDeviceEnvelope,
 	splitBleFrames,

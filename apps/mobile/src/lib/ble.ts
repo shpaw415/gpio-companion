@@ -1,8 +1,8 @@
 import { PermissionsAndroid, Platform } from "react-native";
 import {
 	BleManager,
-	State,
 	type Device,
+	State,
 	type Subscription,
 } from "react-native-ble-plx";
 
@@ -11,19 +11,21 @@ import {
 	BLE_INFO_UUID,
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
+	type BleInfo,
 	encodeFrames,
 	forPicker,
+	isBleIdleStatus,
 	looksLikeMac,
 	matchesBoard,
-	type BleInfo,
 	type NearbyRadio,
 } from "./ble-frame.ts";
 import {
-	BLE_PERMISSION_DENIED,
 	androidBlePermissions,
+	BLE_PERMISSION_DENIED,
 	mapBleUnauthorized,
 } from "./ble-permissions.ts";
 
+export type { BleInfo, NearbyRadio } from "./ble-frame.ts";
 export {
 	BLE_CHUNK_SIZE,
 	BLE_DEVICE_NAME,
@@ -32,7 +34,6 @@ export {
 	matchesBoard,
 	nearbyBoardLabel,
 } from "./ble-frame.ts";
-export type { BleInfo, NearbyRadio } from "./ble-frame.ts";
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const OP_TIMEOUT_MS = 15_000;
@@ -56,9 +57,14 @@ function getManager(): BleManager {
 	return manager;
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+	new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+function withTimeout<T>(
+	promise: Promise<T>,
+	ms: number,
+	message: string,
+): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		const timer = setTimeout(() => {
 			reject(new Error(`${message} (timed out)`));
@@ -161,28 +167,33 @@ export async function scanNearby(timeoutMs = 20_000): Promise<NearbyRadio[]> {
 			() => finish(() => resolve(forPicker([...radios.values()]))),
 			timeoutMs,
 		);
-		void ble.startDeviceScan(null, { allowDuplicates: true }, (error, device) => {
-			if (error) {
-				finish(() => reject(new Error(mapBleUnauthorized(error.message))));
-				return;
-			}
-			if (!device) {
-				return;
-			}
-			scannedDevices.set(device.id, device);
-			const name = device.name ?? device.localName ?? "";
-			const previous = radios.get(device.id);
-			const matched =
-				matchesBoard(name, device.serviceUUIDs ?? []) || Boolean(previous?.matched);
-			const betterName =
-				name && !looksLikeMac(name) ? name : (previous?.name ?? name);
-			radios.set(device.id, {
-				id: device.id,
-				name: betterName,
-				rssi: device.rssi ?? previous?.rssi ?? null,
-				matched,
-			});
-		});
+		void ble.startDeviceScan(
+			null,
+			{ allowDuplicates: true },
+			(error, device) => {
+				if (error) {
+					finish(() => reject(new Error(mapBleUnauthorized(error.message))));
+					return;
+				}
+				if (!device) {
+					return;
+				}
+				scannedDevices.set(device.id, device);
+				const name = device.name ?? device.localName ?? "";
+				const previous = radios.get(device.id);
+				const matched =
+					matchesBoard(name, device.serviceUUIDs ?? []) ||
+					Boolean(previous?.matched);
+				const betterName =
+					name && !looksLikeMac(name) ? name : (previous?.name ?? name);
+				radios.set(device.id, {
+					id: device.id,
+					name: betterName,
+					rssi: device.rssi ?? previous?.rssi ?? null,
+					matched,
+				});
+			},
+		);
 	});
 }
 
@@ -292,6 +303,7 @@ export async function sendEnvelope(
 		let subscription: Subscription | undefined;
 		let settled = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
+		let poll: ReturnType<typeof setInterval> | undefined;
 		const finish = (settle: () => void) => {
 			if (settled) {
 				return;
@@ -300,17 +312,32 @@ export async function sendEnvelope(
 			if (timer) {
 				clearTimeout(timer);
 			}
+			if (poll) {
+				clearInterval(poll);
+			}
 			loss?.signal.removeEventListener("abort", onAbort);
 			subscription?.remove();
 			settle();
 		};
+		const accept = (raw: string) => {
+			if (isBleIdleStatus(raw)) {
+				return;
+			}
+			finish(() => resolve(raw));
+		};
 		const onAbort = () => {
-			finish(() => reject(new Error(loss ? loss.reason() : "board disconnected")));
+			finish(() =>
+				reject(new Error(loss ? loss.reason() : "board disconnected")),
+			);
 		};
 		timer = setTimeout(
 			() =>
 				finish(() =>
-					reject(new Error("board did not respond over bluetooth (timed out)")),
+					reject(
+						new Error(
+							"board did not respond over bluetooth (timed out). Update the Pi companion BLE helper if this persists.",
+						),
+					),
 				),
 			RESPONSE_TIMEOUT_MS,
 		);
@@ -320,16 +347,13 @@ export async function sendEnvelope(
 			BLE_STATUS_UUID,
 			(error, characteristic) => {
 				if (error) {
-					finish(() =>
-						reject(new Error(mapBleUnauthorized(error.message))),
-					);
+					finish(() => reject(new Error(mapBleUnauthorized(error.message))));
 					return;
 				}
 				if (!characteristic?.value) {
 					return;
 				}
-				const value = characteristic.value;
-				finish(() => resolve(atob(value)));
+				accept(atob(characteristic.value));
 			},
 		);
 		void (async () => {
@@ -342,10 +366,24 @@ export async function sendEnvelope(
 					);
 					await sleep(FRAME_GAP_MS);
 				}
+				poll = setInterval(() => {
+					void device
+						.readCharacteristicForService(BLE_SERVICE_UUID, BLE_STATUS_UUID)
+						.then(
+							(characteristic) => {
+								if (characteristic.value) {
+									accept(atob(characteristic.value));
+								}
+							},
+							() => undefined,
+						);
+				}, 500);
 			} catch (caught) {
 				finish(() =>
 					reject(
-						caught instanceof Error ? caught : new Error("bluetooth write failed"),
+						caught instanceof Error
+							? caught
+							: new Error("bluetooth write failed"),
 					),
 				);
 			}

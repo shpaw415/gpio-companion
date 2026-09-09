@@ -260,6 +260,83 @@ async fn ble_write_envelope(
 	raw
 }
 
+#[derive(Debug, Deserialize)]
+struct HealthProbe {
+	id: String,
+	envelope: Option<Value>,
+}
+
+#[derive(Debug, Serialize)]
+struct HealthHit {
+	id: String,
+	body: Option<Value>,
+	raw: Option<String>,
+	error: Option<String>,
+}
+
+#[tauri::command]
+async fn ble_health_run(
+	app: AppHandle,
+	uuid: String,
+	id: String,
+	probes: Vec<HealthProbe>,
+) -> Result<Vec<HealthHit>, String> {
+	let _ble = ble::acquire().await;
+	emit_status(&app, "Connecting…");
+	let (peripheral, info) = ble::connected_board_info(&id).await?;
+	if !uuid.is_empty() && !info.uuid.is_empty() && info.uuid != uuid {
+		ble::disconnect(&peripheral).await;
+		return Err("this board is not the selected paired device".to_string());
+	}
+	let mut hits = Vec::new();
+	for probe in probes {
+		emit_status(&app, &format!("Testing {}…", probe.id));
+		if probe.id == "gatt-info" {
+			hits.push(HealthHit {
+				id: probe.id,
+				body: Some(json!({
+					"uuid": info.uuid,
+					"hardware": info.hardware,
+					"name": info.name,
+				})),
+				raw: None,
+				error: None,
+			});
+			continue;
+		}
+		let Some(envelope) = probe.envelope else {
+			hits.push(HealthHit {
+				id: probe.id,
+				body: None,
+				raw: None,
+				error: Some("missing signed envelope".to_string()),
+			});
+			continue;
+		};
+		match ble::send_envelope(&peripheral, &envelope).await {
+			Ok(raw) => {
+				let body = serde_json::from_str(&raw).ok();
+				hits.push(HealthHit {
+					id: probe.id,
+					body,
+					raw: Some(raw),
+					error: None,
+				});
+			}
+			Err(error) => {
+				hits.push(HealthHit {
+					id: probe.id,
+					body: None,
+					raw: None,
+					error: Some(error),
+				});
+			}
+		}
+	}
+	ble::disconnect(&peripheral).await;
+	Ok(hits)
+}
+
 #[tauri::command]
 async fn ble_gatt_info(app: AppHandle, id: String) -> Result<Value, String> {
 	let _ble = ble::acquire().await;
@@ -505,6 +582,7 @@ pub fn run() {
 			ble_scan,
 			ble_pair,
 			ble_gatt_info,
+			ble_health_run,
 			ble_wifi,
 			ble_info,
 			ble_gpio,
