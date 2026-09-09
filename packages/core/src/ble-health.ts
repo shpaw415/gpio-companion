@@ -49,6 +49,32 @@ export type BleHealthVerdict = {
 	detail: string;
 };
 
+export type BleHealthReportRow = {
+	name: string;
+	state: string;
+	log?: string;
+};
+
+export function formatBleHealthReport(rows: BleHealthReportRow[]): string {
+	return rows
+		.map((row) => {
+			const mark =
+				row.state === "pass"
+					? "PASS"
+					: row.state === "fail"
+						? "FAIL"
+						: row.state === "skipped"
+							? "SKIP"
+							: row.state === "running"
+								? "RUN"
+								: "IDLE";
+			const line = `${mark}  ${row.name}`;
+			const log = row.log?.trim();
+			return log ? `${line}\n  ${log}` : line;
+		})
+		.join("\n");
+}
+
 export function parseBleHealthBody(raw: string): unknown {
 	const text = raw.trim();
 	if (!text) {
@@ -107,12 +133,14 @@ function evaluateBody(
 	const error = bleHealthErrorMessage(body);
 	if (
 		id !== "gatt-info" &&
-		isBleIdleStatus(typeof body === "string" ? body : JSON.stringify(body ?? ""))
+		isBleIdleStatus(
+			typeof body === "string" ? body : JSON.stringify(body ?? ""),
+		)
 	) {
 		return {
 			pass: false,
 			detail:
-				"STATUS stayed {\"ready\":true}. The Pi BLE helper did not apply the CMD write or did not notify/read a result. Update gpio-companion on the board.",
+				'STATUS stayed {"ready":true}. The Pi BLE helper did not apply the CMD write or did not notify/read a result. Update gpio-companion on the board.',
 		};
 	}
 	switch (id) {

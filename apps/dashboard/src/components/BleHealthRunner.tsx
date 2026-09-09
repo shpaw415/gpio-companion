@@ -13,6 +13,7 @@ import {
 	BLE_HEALTH_WIFI_SSID,
 	type BleHealthCheckId,
 	evaluateBleHealthCheck,
+	formatBleHealthReport,
 	parseBleHealthBody,
 	type SignedDeviceEnvelope,
 } from "gpio-companion";
@@ -46,11 +47,23 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	const supported = bluetoothSupported();
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
+	const [copied, setCopied] = useState(false);
+	const hasResults = rows.some((row) => row.state !== "idle");
 
 	function patch(id: BleHealthCheckId, next: Partial<Row>) {
 		setRows((current) =>
 			current.map((row) => (row.id === id ? { ...row, ...next } : row)),
 		);
+	}
+
+	async function copyResults() {
+		const text = formatBleHealthReport(rows);
+		if (!text) {
+			return;
+		}
+		await navigator.clipboard.writeText(text).catch(() => undefined);
+		setCopied(true);
+		window.setTimeout(() => setCopied(false), 1500);
 	}
 
 	async function run() {
@@ -153,13 +166,22 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 					app.
 				</Alert>
 			)}
-			<Button
-				variant="outlined"
-				disabled={!uuid || busy || !supported}
-				onClick={() => void run()}
-			>
-				{busy ? "Testing…" : "Test Bluetooth"}
-			</Button>
+			<Stack direction="row" spacing={1} className="flex-wrap">
+				<Button
+					variant="outlined"
+					disabled={!uuid || busy || !supported}
+					onClick={() => void run()}
+				>
+					{busy ? "Testing…" : "Test Bluetooth"}
+				</Button>
+				<Button
+					variant="outlined"
+					disabled={!hasResults}
+					onClick={() => void copyResults()}
+				>
+					{copied ? "Copied" : "Copy results"}
+				</Button>
+			</Stack>
 			<Stack spacing={1}>
 				{rows.map((row) => (
 					<Stack key={row.id} spacing={0.5}>

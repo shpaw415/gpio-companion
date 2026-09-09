@@ -55,6 +55,7 @@ export default function DeviceDebugPanel({
 	const [journalBusy, setJournalBusy] = useState(false);
 	const [updateBusy, setUpdateBusy] = useState(false);
 	const [updateNote, setUpdateNote] = useState("");
+	const [liveCopied, setLiveCopied] = useState(false);
 	const socketRef = useRef<WebSocket | null>(null);
 	const logRef = useRef<HTMLPreElement | null>(null);
 	const journalRef = useRef<HTMLPreElement | null>(null);
@@ -96,6 +97,15 @@ export default function DeviceDebugPanel({
 	}, [events, filter]);
 
 	const logText = visible.map(formatDebugLogLine).join("\n");
+
+	async function copyLive() {
+		if (!logText) {
+			return;
+		}
+		await navigator.clipboard.writeText(logText).catch(() => undefined);
+		setLiveCopied(true);
+		window.setTimeout(() => setLiveCopied(false), 1500);
+	}
 
 	function scrollLog() {
 		logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -323,6 +333,13 @@ export default function DeviceDebugPanel({
 					>
 						Clear
 					</Button>
+					<Button
+						variant="outlined"
+						disabled={!logText}
+						onClick={() => void copyLive()}
+					>
+						{liveCopied ? "Copied" : "Copy live debug"}
+					</Button>
 				</Stack>
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{(["all", "error", "warning", "info"] as const).map((item) => (
@@ -344,7 +361,6 @@ export default function DeviceDebugPanel({
 						{visible.length === 0 ? "No events yet." : logText}
 					</pre>
 				</Paper>
-				{logText ? <CopyBlock label="Debug log" value={logText} /> : null}
 				<Typography color="secondary" variant="body2">
 					Live companion API errors, warnings, and Bluetooth request/response.
 					Secrets are not included.

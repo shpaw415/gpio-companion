@@ -13,7 +13,7 @@ import {
 	startDeviceUpdate,
 } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
-import { startReconnectSocket, type ReconnectSocket } from "../hub";
+import { type ReconnectSocket, startReconnectSocket } from "../hub";
 import {
 	filterJournalByAge,
 	JOURNAL_WINDOWS,
@@ -46,6 +46,7 @@ export default function Debug() {
 	const [journalBusy, setJournalBusy] = useState("");
 	const [updateBusy, setUpdateBusy] = useState("");
 	const [updateNote, setUpdateNote] = useState("");
+	const [liveCopied, setLiveCopied] = useState(false);
 	const loading = query.loading;
 	const client = useRef<ReconnectSocket | null>(null);
 	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +69,26 @@ export default function Debug() {
 			`No journal lines in the last ${journalWindow}.`
 		);
 	}, [journal, journalWindow]);
+
+	const liveText = useMemo(
+		() =>
+			lines
+				.map(
+					(line) =>
+						`${line.level ?? "log"}${line.via ? ` ${line.via}` : ""} ${line.status ?? ""} ${line.method ?? ""} ${line.path ?? ""} ${line.message ?? ""}`,
+				)
+				.join("\n"),
+		[lines],
+	);
+
+	async function copyLive() {
+		if (!liveText) {
+			return;
+		}
+		await navigator.clipboard.writeText(liveText).catch(() => undefined);
+		setLiveCopied(true);
+		window.setTimeout(() => setLiveCopied(false), 1500);
+	}
 
 	async function fetchLogs(uuid: string) {
 		setError("");
@@ -126,10 +147,7 @@ export default function Debug() {
 					const parsed = JSON.parse(data) as LogLine;
 					setLines((current) => [...current.slice(-199), parsed]);
 				} catch {
-					setLines((current) => [
-						...current.slice(-199),
-						{ message: data },
-					]);
+					setLines((current) => [...current.slice(-199), { message: data }]);
 				}
 			},
 			onError() {
@@ -221,24 +239,24 @@ export default function Debug() {
 				</Paper>
 			) : null}
 			{lines.length > 0 ? (
-				<Typography
-					Element="pre"
-					sx={{
-						m: 0,
-						maxHeight: 360,
-						overflow: "auto",
-						whiteSpace: "pre-wrap",
-						fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-						fontSize: 12,
-					}}
-				>
-					{lines
-						.map(
-							(line) =>
-								`${line.level ?? "log"}${line.via ? ` ${line.via}` : ""} ${line.status ?? ""} ${line.method ?? ""} ${line.path ?? ""} ${line.message ?? ""}`,
-						)
-						.join("\n")}
-				</Typography>
+				<Stack spacing={1}>
+					<Button variant="outlined" onClick={() => void copyLive()}>
+						{liveCopied ? "Copied" : "Copy live debug"}
+					</Button>
+					<Typography
+						Element="pre"
+						sx={{
+							m: 0,
+							maxHeight: 360,
+							overflow: "auto",
+							whiteSpace: "pre-wrap",
+							fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+							fontSize: 12,
+						}}
+					>
+						{liveText}
+					</Typography>
+				</Stack>
 			) : null}
 		</Stack>
 	);

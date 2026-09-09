@@ -47,6 +47,32 @@ export type BleHealthVerdict = {
 	detail: string;
 };
 
+export type BleHealthReportRow = {
+	name: string;
+	state: string;
+	log?: string;
+};
+
+export function formatBleHealthReport(rows: BleHealthReportRow[]): string {
+	return rows
+		.map((row) => {
+			const mark =
+				row.state === "pass"
+					? "PASS"
+					: row.state === "fail"
+						? "FAIL"
+						: row.state === "skipped"
+							? "SKIP"
+							: row.state === "running"
+								? "RUN"
+								: "IDLE";
+			const line = `${mark}  ${row.name}`;
+			const log = row.log?.trim();
+			return log ? `${line}\n  ${log}` : line;
+		})
+		.join("\n");
+}
+
 export function parseBleHealthBody(raw: string): unknown {
 	const text = raw.trim();
 	if (!text) {
@@ -236,7 +262,10 @@ function evaluateBody(
 			};
 		}
 		case "put-wifi": {
-			if (isMissingSsidProbe(error) || isMissingSsidProbe(JSON.stringify(body))) {
+			if (
+				isMissingSsidProbe(error) ||
+				isMissingSsidProbe(JSON.stringify(body))
+			) {
 				return {
 					pass: true,
 					detail: `WiFi handler ran and rejected the probe SSID (${error || "ssid-not-found"}).`,

@@ -4,15 +4,16 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { apiRequest, bleHealthRun } from "../api";
-import { useSavedBleId } from "../hooks/useApiCache";
 import {
 	BLE_HEALTH_CHECKS,
 	BLE_HEALTH_WIFI_PSK,
 	BLE_HEALTH_WIFI_SSID,
 	type BleHealthCheckId,
 	evaluateBleHealthCheck,
+	formatBleHealthReport,
 	parseBleHealthBody,
 } from "../ble-health";
+import { useSavedBleId } from "../hooks/useApiCache";
 
 type RowState = "idle" | "running" | "pass" | "fail" | "skipped";
 
@@ -35,12 +36,24 @@ function emptyRows(): Row[] {
 export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
+	const [copied, setCopied] = useState(false);
 	const bleId = useSavedBleId(uuid);
+	const hasResults = rows.some((row) => row.state !== "idle");
 
 	function patch(id: BleHealthCheckId, next: Partial<Row>) {
 		setRows((current) =>
 			current.map((row) => (row.id === id ? { ...row, ...next } : row)),
 		);
+	}
+
+	async function copyResults() {
+		const text = formatBleHealthReport(rows);
+		if (!text) {
+			return;
+		}
+		await navigator.clipboard.writeText(text).catch(() => undefined);
+		setCopied(true);
+		window.setTimeout(() => setCopied(false), 1500);
 	}
 
 	function skipRest(failedId: BleHealthCheckId, reason: string) {
@@ -124,13 +137,22 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 				accepts over Bluetooth. WiFi uses a probe SSID that should not exist.
 				GPIO write targets physical pin 1 (power) and must be refused.
 			</Typography>
-			<Button
-				variant="outlined"
-				disabled={!uuid || busy}
-				onClick={() => void run()}
-			>
-				{busy ? "Testing…" : "Test Bluetooth"}
-			</Button>
+			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+				<Button
+					variant="outlined"
+					disabled={!uuid || busy}
+					onClick={() => void run()}
+				>
+					{busy ? "Testing…" : "Test Bluetooth"}
+				</Button>
+				<Button
+					variant="outlined"
+					disabled={!hasResults}
+					onClick={() => void copyResults()}
+				>
+					{copied ? "Copied" : "Copy results"}
+				</Button>
+			</Stack>
 			<Stack spacing={1}>
 				{rows.map((row) => (
 					<Stack key={row.id} spacing={0.5}>

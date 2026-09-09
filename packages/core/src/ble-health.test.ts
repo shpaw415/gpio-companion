@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { evaluateBleHealthCheck, parseBleHealthBody } from "./ble-health.ts";
+import {
+	evaluateBleHealthCheck,
+	formatBleHealthReport,
+	parseBleHealthBody,
+} from "./ble-health.ts";
 
 describe("ble-health", () => {
 	test("parses JSON status payloads", () => {
@@ -67,5 +71,20 @@ describe("ble-health", () => {
 		});
 		expect(result.pass).toBe(false);
 		expect(result.detail).toContain("GATT status characteristic");
+	});
+
+	test("formats a report for clipboard", () => {
+		expect(
+			formatBleHealthReport([
+				{ name: "READ GATT info", state: "pass" },
+				{
+					name: "GET /v1/info",
+					state: "fail",
+					log: "Timed out waiting for the GATT status characteristic.",
+				},
+			]),
+		).toBe(
+			"PASS  READ GATT info\nFAIL  GET /v1/info\n  Timed out waiting for the GATT status characteristic.",
+		);
 	});
 });

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppState, type AppStateStatus, ScrollView, Text } from "react-native";
+import {
+	AppState,
+	type AppStateStatus,
+	Clipboard,
+	ScrollView,
+	Text,
+} from "react-native";
 import BleHealthRunner from "../components/BleHealthRunner.tsx";
 import {
 	Chip,
@@ -21,7 +27,7 @@ import {
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
-import { startReconnectSocket, type ReconnectSocket } from "../lib/hub.ts";
+import { type ReconnectSocket, startReconnectSocket } from "../lib/hub.ts";
 import {
 	filterJournalByAge,
 	JOURNAL_WINDOWS,
@@ -59,6 +65,7 @@ export default function Debug() {
 	const [journalBusy, setJournalBusy] = useState("");
 	const [updateBusy, setUpdateBusy] = useState("");
 	const [updateNote, setUpdateNote] = useState("");
+	const [liveCopied, setLiveCopied] = useState(false);
 	const client = useRef<ReconnectSocket | null>(null);
 	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,6 +96,26 @@ export default function Debug() {
 			`No journal lines in the last ${journalWindow}.`
 		);
 	}, [journal, journalWindow]);
+
+	const liveText = useMemo(
+		() =>
+			lines
+				.map(
+					(line) =>
+						`${line.level ?? "log"}${line.via ? ` ${line.via}` : ""} ${line.status ?? ""} ${line.method ?? ""} ${line.path ?? ""} ${line.message ?? ""}`,
+				)
+				.join("\n"),
+		[lines],
+	);
+
+	async function copyLive() {
+		if (!liveText) {
+			return;
+		}
+		Clipboard.setString(liveText);
+		setLiveCopied(true);
+		setTimeout(() => setLiveCopied(false), 1500);
+	}
 
 	async function fetchLogs(uuid: string) {
 		if (!token) {
@@ -153,10 +180,7 @@ export default function Debug() {
 					const parsed = JSON.parse(data) as LogLine;
 					setLines((current) => [...current.slice(-199), parsed]);
 				} catch {
-					setLines((current) => [
-						...current.slice(-199),
-						{ message: data },
-					]);
+					setLines((current) => [...current.slice(-199), { message: data }]);
 				}
 			},
 			onError() {
@@ -249,6 +273,10 @@ export default function Debug() {
 			) : null}
 			{lines.length > 0 ? (
 				<Paper>
+					<TextButton
+						label={liveCopied ? "Copied" : "Copy live debug"}
+						onPress={() => void copyLive()}
+					/>
 					<ScrollView nestedScrollEnabled style={{ maxHeight: 280 }}>
 						<Text
 							selectable
@@ -258,12 +286,7 @@ export default function Debug() {
 								fontSize: 12,
 							}}
 						>
-							{lines
-								.map(
-									(line) =>
-										`${line.level ?? "log"}${line.via ? ` ${line.via}` : ""} ${line.status ?? ""} ${line.method ?? ""} ${line.path ?? ""} ${line.message ?? ""}`,
-								)
-								.join("\n")}
+							{liveText}
 						</Text>
 					</ScrollView>
 				</Paper>

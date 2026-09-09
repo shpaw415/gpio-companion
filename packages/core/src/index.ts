@@ -72,9 +72,11 @@ export {
 	BLE_HEALTH_WIFI_SSID,
 	type BleHealthCheck,
 	type BleHealthCheckId,
+	type BleHealthReportRow,
 	type BleHealthVerdict,
 	bleHealthErrorMessage,
 	evaluateBleHealthCheck,
+	formatBleHealthReport,
 	parseBleHealthBody,
 } from "./ble-health.ts";
 export {

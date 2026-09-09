@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Clipboard, Text, View } from "react-native";
 import { signDeviceInfo, signFlash, signGpio, signWifi } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
-import { openPairedBoard } from "../lib/paired-ble.ts";
 import {
 	BLE_HEALTH_CHECKS,
 	BLE_HEALTH_WIFI_PSK,
 	BLE_HEALTH_WIFI_SSID,
 	type BleHealthCheckId,
 	evaluateBleHealthCheck,
+	formatBleHealthReport,
 	parseBleHealthBody,
 } from "../lib/ble-health.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { openPairedBoard } from "../lib/paired-ble.ts";
 import { Body, Muted, TextButton } from "./ui.tsx";
 
 type RowState = "idle" | "running" | "pass" | "fail" | "skipped";
@@ -38,11 +39,23 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	const colors = useColors();
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
+	const [copied, setCopied] = useState(false);
+	const hasResults = rows.some((row) => row.state !== "idle");
 
 	function patch(id: BleHealthCheckId, next: Partial<Row>) {
 		setRows((current) =>
 			current.map((row) => (row.id === id ? { ...row, ...next } : row)),
 		);
+	}
+
+	async function copyResults() {
+		const text = formatBleHealthReport(rows);
+		if (!text) {
+			return;
+		}
+		Clipboard.setString(text);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
 	}
 
 	function skipRest(failedId: BleHealthCheckId, reason: string) {
@@ -63,11 +76,9 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 		const token = auth.token;
 		setBusy(true);
 		setRows(emptyRows());
-		let session: Awaited<
-			ReturnType<typeof openPairedBoard>
-		>["session"] | null = null;
-		let loss: Awaited<ReturnType<typeof openPairedBoard>>["loss"] | null =
+		let session: Awaited<ReturnType<typeof openPairedBoard>>["session"] | null =
 			null;
+		let loss: Awaited<ReturnType<typeof openPairedBoard>>["loss"] | null = null;
 		try {
 			patch("gatt-info", { state: "running", log: "" });
 			try {
@@ -144,6 +155,11 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 				label={busy ? "Testing…" : "Test Bluetooth"}
 				disabled={!uuid || busy || !auth.token}
 				onPress={() => void run()}
+			/>
+			<TextButton
+				label={copied ? "Copied" : "Copy results"}
+				disabled={!hasResults}
+				onPress={() => void copyResults()}
 			/>
 			{rows.map((row) => (
 				<View key={row.id} style={{ gap: 4 }}>
