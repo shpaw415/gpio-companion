@@ -69,6 +69,9 @@ if [[ -n "\${GPIO_T3_ENV_LOG:-}" ]]; then
 	printf 'XDG_RUNTIME_DIR=%s\\n' "\${XDG_RUNTIME_DIR:-}" >> "\$GPIO_T3_ENV_LOG"
 	printf 'DBUS_SESSION_BUS_ADDRESS=%s\\n' "\${DBUS_SESSION_BUS_ADDRESS:-}" >> "\$GPIO_T3_ENV_LOG"
 fi
+if [[ -n "\${GPIO_T3_CWD_LOG:-}" ]]; then
+	pwd >> "\$GPIO_T3_CWD_LOG"
+fi
 exit 0
 `,
 	);
@@ -159,6 +162,9 @@ update_t3code 0
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 1.2.3 -> 1.4.0");
 		expect(await Bun.file(npmLog).text()).toContain("install -g t3@latest");
+		expect(await Bun.file(npmLog).text()).toContain(
+			"--allow-scripts=msgpackr-extract,node-pty",
+		);
 		expect(await Bun.file(t3Log).text()).toContain("service install");
 	});
 
@@ -310,7 +316,39 @@ install_t3code
 		);
 		expect(result.exit).toBe(0);
 		expect(await Bun.file(npmLog).text()).toContain("install -g t3@latest");
+		expect(await Bun.file(npmLog).text()).toContain(
+			"--allow-scripts=msgpackr-extract,node-pty",
+		);
 		expect(await Bun.file(t3Log).text()).toContain("service install");
+	});
+
+	test("t3 service install cds out of an unwritable cwd", async () => {
+		const { dir, bin } = await stubPath();
+		const locked = join(dir, "locked");
+		const cwdLog = join(dir, "t3.cwd");
+		await mkdir(locked, { recursive: true });
+		await chmod(locked, 0o555);
+		const result = await bash(
+			`
+cd "${locked}"
+PATH="${bin}:$PATH"
+source "${libSh}"
+GPIO_USER=root
+install_t3_service
+`,
+			t3Env(dir, {
+				GPIO_T3_NPM_LOG: join(dir, "npm.log"),
+				GPIO_T3_CMD_LOG: join(dir, "t3.log"),
+				GPIO_T3_CWD_LOG: cwdLog,
+				GPIO_COMPANION_HOME: dir,
+			}),
+		);
+		expect(result.exit).toBe(0);
+		expect(await Bun.file(join(dir, "t3.log")).text()).toContain(
+			"service install",
+		);
+		expect((await Bun.file(cwdLog).text()).trim()).not.toBe(locked);
+		await chmod(locked, 0o755);
 	});
 
 	test("locks T3 Code to OpenCode only", async () => {

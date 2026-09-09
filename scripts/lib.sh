@@ -158,16 +158,24 @@ update_opencode() {
 	sudo -u "$GPIO_USER" bash -lc 'opencode upgrade'
 }
 
+gpio_user_home() {
+	if [[ -n "${GPIO_COMPANION_HOME:-}" ]]; then
+		printf '%s\n' "$GPIO_COMPANION_HOME"
+		return
+	fi
+	if [[ "$GPIO_USER" == "root" ]]; then
+		printf '%s\n' "/root"
+		return
+	fi
+	printf '%s\n' "/home/$GPIO_USER"
+}
+
 t3_home() {
 	if [[ -n "${GPIO_COMPANION_T3_HOME:-}" ]]; then
 		printf '%s\n' "$GPIO_COMPANION_T3_HOME"
 		return
 	fi
-	if [[ "$GPIO_USER" == "root" ]]; then
-		printf '%s\n' "/root/.t3"
-		return
-	fi
-	printf '%s\n' "/home/$GPIO_USER/.t3"
+	printf '%s\n' "$(gpio_user_home)/.t3"
 }
 
 configure_t3_opencode_only() {
@@ -300,23 +308,38 @@ ensure_user_systemd() {
 }
 
 run_as_gpio_user_session() {
-	local uid runtime
+	local uid runtime home workdir
 	uid="$(gpio_user_uid)"
 	if [[ -z "$uid" ]]; then
 		return 1
 	fi
 	runtime="/run/user/${uid}"
+	home="$(gpio_user_home)"
+	if [[ ! -d "$home" ]]; then
+		home="/tmp"
+	fi
 	if [[ "$GPIO_USER" == "root" || "$(id -u)" -eq "$uid" ]]; then
-		XDG_RUNTIME_DIR="$runtime" \
-			DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime}/bus" \
-			"$@"
+		workdir="."
+		if [[ ! -w . ]]; then
+			if [[ -w "$home" ]]; then
+				workdir="$home"
+			else
+				workdir="/tmp"
+			fi
+		fi
+		(
+			cd "$workdir"
+			XDG_RUNTIME_DIR="$runtime" \
+				DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime}/bus" \
+				"$@"
+		)
 		return
 	fi
 	sudo -u "$GPIO_USER" -H env \
 		-u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
 		"XDG_RUNTIME_DIR=${runtime}" \
 		"DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime}/bus" \
-		"$@"
+		bash -c 'cd "$1" && shift && exec "$@"' bash "$home" "$@"
 }
 
 restart_t3_service() {
@@ -351,8 +374,12 @@ t3_latest_npm_version() {
 	printf '%s\n' "$ver"
 }
 
+install_t3_package() {
+	npm install -g t3@latest --allow-scripts=msgpackr-extract,node-pty
+}
+
 install_t3code() {
-	npm install -g t3@latest
+	install_t3_package
 	install_t3_service
 	configure_t3_opencode_only
 }
@@ -389,7 +416,7 @@ update_t3code() {
 		return 0
 	fi
 	echo "gpio-companion update: t3 ${current:-none} -> $latest"
-	npm install -g t3@latest
+	install_t3_package
 	install_t3_service
 	configure_t3_opencode_only || true
 }
