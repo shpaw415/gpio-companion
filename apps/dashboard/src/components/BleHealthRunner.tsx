@@ -64,7 +64,7 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 		try {
 			patch("gatt-info", { state: "running", log: "" });
 			try {
-				session = await connectGpioCompanionBle();
+				session = await connectGpioCompanionBle(uuid);
 				const verdict = evaluateBleHealthCheck("gatt-info", {
 					selectedUuid: uuid,
 					body: session.info,

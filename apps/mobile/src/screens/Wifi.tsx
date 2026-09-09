@@ -5,16 +5,15 @@ import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
+import { loadLocalBleId } from "../lib/ble-ids.ts";
 import {
-	createBoardLoss,
 	ensureBluetoothOn,
-	openBoardSession,
-	readInfo,
 	scanNearby,
-	scannedDevice,
 	sendEnvelope,
 	type NearbyRadio,
 } from "../lib/ble.ts";
+import { looksLikeMac } from "../lib/ble-frame.ts";
+import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
 import {
 	loadSavedNetworks,
@@ -58,6 +57,8 @@ export default function Wifi() {
 	const [busy, setBusy] = useState(false);
 	const [scanning, setScanning] = useState(false);
 	const scanRef = useRef(0);
+	const savedMac = devices.find((board) => board.uuid === uuid)?.bleMac ?? "";
+	const [savedId, setSavedId] = useState("");
 
 	useEffect(() => {
 		setLocalUuid((current) => {
@@ -105,8 +106,25 @@ export default function Wifi() {
 	}, []);
 
 	useEffect(() => {
+		let cancelled = false;
+		void loadLocalBleId(uuid).then((id) => {
+			if (!cancelled) {
+				setSavedId(id || savedMac);
+			}
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid, savedMac]);
+
+	useEffect(() => {
+		if (savedId) {
+			setBoardId(savedId);
+			setStatus("Using saved Bluetooth link");
+			return;
+		}
 		void scan();
-	}, [scan]);
+	}, [scan, savedId]);
 
 	function pickNetwork(next: string) {
 		setNetworkId(next);
@@ -134,15 +152,6 @@ export default function Wifi() {
 			setError("choose a paired board first");
 			return;
 		}
-		if (!boardId) {
-			setError("select a nearby Bluetooth device first");
-			return;
-		}
-		const bleDevice = scannedDevice(boardId);
-		if (!bleDevice) {
-			setError("scan again and pick the board");
-			return;
-		}
 		if (!ssid.trim()) {
 			setError("enter the wifi network name");
 			return;
@@ -154,11 +163,12 @@ export default function Wifi() {
 		setBusy(true);
 		setError("");
 		try {
-			const loss = createBoardLoss();
 			setStatus("Connecting…");
-			const session = await openBoardSession(bleDevice, (why) => loss.lose(why));
+			const paired = await openPairedBoard(uuid, {
+				token: auth.token,
+				bleMac: savedMac || (looksLikeMac(boardId) ? boardId : ""),
+			});
 			try {
-				await readInfo(session.device);
 				setStatus("Signing WiFi…");
 				const envelope = await signWifi(auth.token, {
 					uuid,
@@ -166,7 +176,11 @@ export default function Wifi() {
 					psk,
 				});
 				setStatus("Writing…");
-				const raw = await sendEnvelope(session.device, envelope, loss);
+				const raw = await sendEnvelope(
+					paired.session.device,
+					envelope,
+					paired.loss,
+				);
 				setStatus(raw || "sent");
 				try {
 					const next = await rememberNetwork(ssid.trim(), psk);
@@ -176,7 +190,7 @@ export default function Wifi() {
 					// keep local fields; remember is best-effort
 				}
 			} finally {
-				await session.close();
+				await paired.session.close();
 			}
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "wifi failed");
@@ -230,7 +244,19 @@ export default function Wifi() {
 				</View>
 			)}
 			<NearbyPicker
-				boards={boards}
+				boards={
+					savedId && !boards.some((board) => board.id === savedId)
+						? [
+								{
+									id: savedId,
+									name: "gpio-companion",
+									rssi: null,
+									matched: true,
+								},
+								...boards,
+							]
+						: boards
+				}
 				selectedId={boardId}
 				onSelect={setBoardId}
 				scanning={scanning}

@@ -17,6 +17,7 @@ export type Device = {
 	email?: string;
 	label?: string;
 	userId?: string;
+	bleMac?: string;
 };
 
 export type DeviceList = {
@@ -46,6 +47,63 @@ function looksLikeMac(value: string) {
 		return false;
 	}
 	return [...value].every((ch) => /[0-9a-fA-F:\-_]/.test(ch));
+}
+
+export function normalizeBleMac(value: string) {
+	const trimmed = value.trim();
+	if (!trimmed || !looksLikeMac(trimmed)) {
+		return "";
+	}
+	const hex = trimmed.replace(/[^0-9a-fA-F]/g, "").toUpperCase();
+	return hex.match(/.{2}/g)?.join(":") ?? "";
+}
+
+export function savedBleId(device: { bleMac?: string } | undefined) {
+	return normalizeBleMac(device?.bleMac ?? "");
+}
+
+export async function rememberBleMac(uuid: string, id: string) {
+	const mac = normalizeBleMac(id);
+	if (!uuid.trim() || !mac) {
+		return;
+	}
+	try {
+		await apiRequest<{ ok: boolean; device: Device }>(
+			"PATCH",
+			"/api/mobile/devices",
+			{ uuid, bleMac: mac },
+		);
+	} catch {
+		// best-effort; next connect can scan again
+	}
+}
+
+export async function rememberLastBleMac(uuid: string) {
+	try {
+		await rememberBleMac(uuid, await call<string>("ble_last_id"));
+	} catch {
+		// ignore
+	}
+}
+
+async function withSavedBle<T>(
+	uuid: string,
+	id: string,
+	run: (id: string) => Promise<T>,
+): Promise<T> {
+	const preferred = id.trim();
+	try {
+		const result = await run(preferred);
+		void rememberLastBleMac(uuid);
+		return result;
+	} catch (error) {
+		if (!preferred) {
+			throw error;
+		}
+		const result = await run("");
+		void rememberLastBleMac(uuid);
+		return result;
+	}
 }
 
 function rssiSuffix(rssi: number | null) {
@@ -128,11 +186,13 @@ export function bleHealthRun(input: {
 	id?: string;
 	probes: Array<{ id: string; envelope?: unknown }>;
 }) {
-	return call<BleHealthHit[]>("ble_health_run", {
-		uuid: input.uuid,
-		id: input.id ?? "",
-		probes: input.probes,
-	});
+	return withSavedBle(input.uuid, input.id ?? "", (id) =>
+		call<BleHealthHit[]>("ble_health_run", {
+			uuid: input.uuid,
+			id,
+			probes: input.probes,
+		}),
+	);
 }
 
 export function blePair(id: string) {
@@ -229,34 +289,37 @@ export function bleWifi(input: {
 	psk: string;
 	id: string;
 }) {
-	return withOfflineBle(
-		input.uuid,
-		input.id,
-		() => call<string>("ble_wifi", input),
-		{
-			method: "PUT",
-			path: "/v1/config/wifi",
-			body: JSON.stringify({
-				ssid: input.ssid.trim(),
-				psk: input.psk,
-				uuid: input.uuid,
-			}),
-		},
+	return withSavedBle(input.uuid, input.id, (id) =>
+		withOfflineBle(
+			input.uuid,
+			id,
+			() => call<string>("ble_wifi", { ...input, id }),
+			{
+				method: "PUT",
+				path: "/v1/config/wifi",
+				body: JSON.stringify({
+					ssid: input.ssid.trim(),
+					psk: input.psk,
+					uuid: input.uuid,
+				}),
+			},
+		),
 	);
 }
 
 export function bleInfo(input: { uuid: string; id?: string }) {
-	const id = input.id ?? "";
-	return withOfflineBle(
-		input.uuid,
-		id,
-		() =>
-			call<unknown>("ble_info", {
-				uuid: input.uuid,
-				id,
-			}),
-		{ method: "GET", path: "/v1/info" },
-		(raw) => parseBoardJson(raw, "board did not return companion info"),
+	return withSavedBle(input.uuid, input.id ?? "", (id) =>
+		withOfflineBle(
+			input.uuid,
+			id,
+			() =>
+				call<unknown>("ble_info", {
+					uuid: input.uuid,
+					id,
+				}),
+			{ method: "GET", path: "/v1/info" },
+			(raw) => parseBoardJson(raw, "board did not return companion info"),
+		),
 	);
 }
 
@@ -267,31 +330,32 @@ export function bleGpio(input: {
 	dir?: string;
 	value?: number;
 }) {
-	const id = input.id ?? "";
 	const put = input.physical !== undefined;
-	return withOfflineBle(
-		input.uuid,
-		id,
-		() =>
-			call<GpioSnapshot>("ble_gpio", {
-				uuid: input.uuid,
-				id,
-				physical: input.physical ?? null,
-				dir: input.dir ?? "",
-				value: input.value ?? null,
-			}),
-		{
-			method: put ? "PUT" : "GET",
-			path: "/v1/gpio",
-			body: put
-				? JSON.stringify({
-						physical: input.physical,
-						dir: input.dir,
-						value: input.value,
-					})
-				: "",
-		},
-		(raw) => parseBoardJson<GpioSnapshot>(raw, "board did not return gpio"),
+	return withSavedBle(input.uuid, input.id ?? "", (id) =>
+		withOfflineBle(
+			input.uuid,
+			id,
+			() =>
+				call<GpioSnapshot>("ble_gpio", {
+					uuid: input.uuid,
+					id,
+					physical: input.physical ?? null,
+					dir: input.dir ?? "",
+					value: input.value ?? null,
+				}),
+			{
+				method: put ? "PUT" : "GET",
+				path: "/v1/gpio",
+				body: put
+					? JSON.stringify({
+							physical: input.physical,
+							dir: input.dir,
+							value: input.value,
+						})
+					: "",
+			},
+			(raw) => parseBoardJson<GpioSnapshot>(raw, "board did not return gpio"),
+		),
 	);
 }
 
@@ -608,7 +672,6 @@ export function bleFlash(input: {
 	port?: string;
 	ports?: boolean;
 }) {
-	const id = input.id ?? "";
 	const flash = Boolean(input.fqbn);
 	const ports = Boolean(input.ports);
 	const put: { fqbn?: string; dir?: string; port?: string } = {};
@@ -619,24 +682,26 @@ export function bleFlash(input: {
 			put.port = input.port;
 		}
 	}
-	return withOfflineBle(
-		input.uuid,
-		id,
-		() =>
-			call<unknown>("ble_flash", {
-				uuid: input.uuid,
-				id,
-				fqbn: input.fqbn ?? "",
-				dir: input.dir ?? "",
-				port: input.port ?? "",
-				ports: input.ports ?? false,
-			}),
-		{
-			method: flash ? "POST" : "GET",
-			path: ports ? "/v1/flash/ports" : "/v1/flash",
-			body: flash ? JSON.stringify(put) : "",
-		},
-		(raw) => parseBoardJson(raw, "board did not return flash"),
+	return withSavedBle(input.uuid, input.id ?? "", (id) =>
+		withOfflineBle(
+			input.uuid,
+			id,
+			() =>
+				call<unknown>("ble_flash", {
+					uuid: input.uuid,
+					id,
+					fqbn: input.fqbn ?? "",
+					dir: input.dir ?? "",
+					port: input.port ?? "",
+					ports: input.ports ?? false,
+				}),
+			{
+				method: flash ? "POST" : "GET",
+				path: ports ? "/v1/flash/ports" : "/v1/flash",
+				body: flash ? JSON.stringify(put) : "",
+			},
+			(raw) => parseBoardJson(raw, "board did not return flash"),
+		),
 	);
 }
 

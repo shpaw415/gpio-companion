@@ -12,6 +12,8 @@ import {
 	requireOwnedDevice,
 	type StoredPairing,
 	transferDeviceRecord,
+	normalizeBleMac,
+	updateDeviceFields,
 	updateDeviceLabel,
 	updateDeviceLabelByUuid,
 	upsertDevice,
@@ -52,6 +54,7 @@ function board(
 		email: "ada@gpio-companion.com",
 		claimedAt: "2026-08-31T00:00:00.000Z",
 		label: "",
+		bleMac: "",
 		...extra,
 	};
 }
@@ -75,6 +78,42 @@ describe("parseDeviceList", () => {
 		const raw = board("user-1", "uuid-1");
 		const { label: _label, ...legacy } = raw;
 		expect(parseDeviceList(JSON.stringify(legacy))[0]?.label).toBe("");
+	});
+
+	test("treats a missing bleMac as empty", () => {
+		const raw = board("user-1", "uuid-1");
+		const { bleMac: _bleMac, ...legacy } = raw;
+		expect(parseDeviceList(JSON.stringify(legacy))[0]?.bleMac).toBe("");
+	});
+
+	test("normalizes a stored bluetooth address", () => {
+		const raw = board("user-1", "uuid-1", { bleMac: "aa-bb-cc-dd-ee-ff" });
+		expect(parseDeviceList(JSON.stringify(raw))[0]?.bleMac).toBe(
+			"AA:BB:CC:DD:EE:FF",
+		);
+	});
+
+	test("drops an invalid stored bluetooth address", () => {
+		const raw = board("user-1", "uuid-1", { bleMac: "not-a-mac" });
+		expect(parseDeviceList(JSON.stringify(raw))[0]?.bleMac).toBe("");
+	});
+});
+
+describe("normalizeBleMac", () => {
+	test("normalizes colon, dash, and bare hex", () => {
+		expect(normalizeBleMac("aa:bb:cc:dd:ee:ff")).toBe("AA:BB:CC:DD:EE:FF");
+		expect(normalizeBleMac("AA-BB-CC-DD-EE-FF")).toBe("AA:BB:CC:DD:EE:FF");
+		expect(normalizeBleMac("aabbccddeeff")).toBe("AA:BB:CC:DD:EE:FF");
+		expect(normalizeBleMac("")).toBe("");
+	});
+
+	test("rejects non-mac values", () => {
+		expect(() => normalizeBleMac("not-a-mac")).toThrow(
+			"invalid bluetooth address",
+		);
+		expect(() => normalizeBleMac("a1c15e00-6f10-4c9a-9c31-47b0c15e0001")).toThrow(
+			"invalid bluetooth address",
+		);
 	});
 });
 
@@ -128,6 +167,27 @@ describe("pairing store", () => {
 		).rejects.toThrow("pair a device first");
 	});
 
+	test("updateDeviceFields sets bleMac without clobbering label", async () => {
+		const kv = memoryKv();
+		await upsertDevice(kv, board("user-1", "uuid-1", { label: "bench" }));
+		const linked = await updateDeviceFields(kv, "user-1", "uuid-1", {
+			bleMac: "aa:bb:cc:dd:ee:ff",
+		});
+		expect(linked.label).toBe("bench");
+		expect(linked.bleMac).toBe("AA:BB:CC:DD:EE:FF");
+		const cleared = await updateDeviceFields(kv, "user-1", "uuid-1", {
+			bleMac: "",
+		});
+		expect(cleared.label).toBe("bench");
+		expect(cleared.bleMac).toBe("");
+		await expect(
+			updateDeviceFields(kv, "user-1", "uuid-1", {}),
+		).rejects.toThrow("label or bleMac is required");
+		await expect(
+			updateDeviceFields(kv, "user-1", "uuid-1", { bleMac: "chrome-id" }),
+		).rejects.toThrow("invalid bluetooth address");
+	});
+
 	test("removeDevice drops one board and leaves the rest", async () => {
 		const kv = memoryKv();
 		const first = board("user-1", "uuid-1");
@@ -143,7 +203,10 @@ describe("pairing store", () => {
 	test("transfer moves one uuid without wiping the owner's other boards", async () => {
 		const kv = memoryKv();
 		const keep = board("owner", "keep-uuid");
-		const move = board("owner", "move-uuid", { label: "bench" });
+		const move = board("owner", "move-uuid", {
+			label: "bench",
+			bleMac: "AA:BB:CC:DD:EE:FF",
+		});
 		await upsertDevice(kv, keep);
 		await upsertDevice(kv, move);
 		await kv.put(
@@ -157,6 +220,7 @@ describe("pairing store", () => {
 			login: "req",
 		});
 		expect(transferred.label).toBe("bench");
+		expect(transferred.bleMac).toBe("AA:BB:CC:DD:EE:FF");
 		expect(transferred.userId).toBe("requester");
 		expect(await loadDevices(kv, "owner")).toEqual([keep]);
 		expect(await loadDevices(kv, "requester")).toEqual([transferred]);
@@ -333,5 +397,6 @@ describe("listAllDevices", () => {
 		await upsertDevice(kv, second);
 		expect(await listAllDevices(kv)).toEqual([first, second]);
 		expect(publicPairing(first)).not.toHaveProperty("key");
+		expect(publicPairing(first)).toMatchObject({ bleMac: "" });
 	});
 });

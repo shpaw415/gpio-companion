@@ -12,6 +12,8 @@ import {
 	sendEnvelope,
 	type NearbyRadio,
 } from "../lib/ble.ts";
+import { looksLikeMac } from "../lib/ble-frame.ts";
+import { saveLocalBleId } from "../lib/ble-ids.ts";
 import { NearbyPicker } from "../components/NearbyPicker.tsx";
 import {
 	Busy,
@@ -118,7 +120,9 @@ export default function Pair() {
 					uuid: creds.uuid,
 					key: creds.key,
 					deviceUrl: creds.deviceUrl || info.deviceUrl,
+					bleMac: looksLikeMac(boardId) ? boardId : undefined,
 				});
+				await saveLocalBleId(creds.uuid, boardId).catch(() => undefined);
 				await refetchBoards({ force: true }).catch(() => undefined);
 				setStatus("Paired");
 				setPaired(true);

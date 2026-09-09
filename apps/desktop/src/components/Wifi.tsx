@@ -13,6 +13,8 @@ import {
 	type NearbyBoard,
 	nearbyBoardLabel,
 	onBleStatus,
+	rememberBleMac,
+	savedBleId,
 	wifiKnownNetworks,
 	wifiNetworkPsk,
 	wifiRememberNetwork,
@@ -130,9 +132,16 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		}
 	}, []);
 
+	const savedId = savedBleId(devices.find((device) => device.uuid === uuid));
+
 	useEffect(() => {
+		if (savedId) {
+			setBoardId(savedId);
+			setStatus("Using saved Bluetooth link");
+			return;
+		}
 		void scan();
-	}, [scan]);
+	}, [scan, savedId]);
 
 	async function pickNetwork(next: string) {
 		setNetworkId(next);
@@ -163,8 +172,11 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				uuid,
 				ssid: trimmedSsid,
 				psk,
-				id: boardId === "auto" ? "" : boardId,
+				id: boardId === "auto" ? savedId : boardId,
 			});
+			if (boardId !== "auto") {
+				void rememberBleMac(uuid, boardId);
+			}
 			setStatus(raw || "sent");
 			try {
 				await wifiRememberNetwork(trimmedSsid, psk);
@@ -230,10 +242,17 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 					<option key="auto" value="auto">
 						{scanning
 							? "Scanning…"
-							: boards.length === 0
+							: boards.length === 0 && !savedId
 								? "No nearby devices — scan again"
 								: "Auto-detect gpio-companion"}
 					</option>,
+					...(savedId && !boards.some((board) => board.id === savedId)
+						? [
+								<option key={savedId} value={savedId}>
+									Saved gpio-companion
+								</option>,
+							]
+						: []),
 					...boards.map((board) => (
 						<option key={board.id} value={board.id}>
 							{nearbyBoardLabel(board)}

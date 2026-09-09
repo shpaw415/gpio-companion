@@ -69,6 +69,7 @@ describe("GET /api/ai/v1/models", () => {
 			email: "ada@example.com",
 			claimedAt: "2026-08-31T00:00:00.000Z",
 			label: "",
+			bleMac: "",
 		};
 		await kv.put("pair:pair-uuid", "user-1");
 		await kv.put("device:user-1", JSON.stringify([pairing]));

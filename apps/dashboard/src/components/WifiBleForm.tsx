@@ -122,7 +122,7 @@ export default function WifiBleForm() {
 		}
 		setStatus("connecting");
 		try {
-			const ble = await connectGpioCompanionBle();
+			const ble = await connectGpioCompanionBle(uuid);
 			if (ble.info.uuid && ble.info.uuid !== uuid) {
 				ble.disconnect();
 				throw new Error("this board is not the selected paired device");

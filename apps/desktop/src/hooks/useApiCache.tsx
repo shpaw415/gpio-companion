@@ -8,7 +8,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { type BoardView, listDeviceStatus } from "../api";
+import { type BoardView, listDeviceStatus, savedBleId } from "../api";
 import { QueryCache } from "../lib/query-cache";
 
 export const CACHE_KEYS = {
@@ -181,4 +181,9 @@ export function useUserBoards() {
 		removeBoard,
 		patchLabel,
 	};
+}
+
+export function useSavedBleId(uuid: string) {
+	const { devices } = useUserBoards();
+	return savedBleId(devices.find((device) => device.uuid === uuid));
 }

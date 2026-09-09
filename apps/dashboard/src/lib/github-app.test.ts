@@ -24,6 +24,7 @@ const pairing: StoredPairing = {
 	email: "ada@example.com",
 	claimedAt: "2026-08-31T00:00:00.000Z",
 	label: "",
+	bleMac: "",
 };
 
 describe("github app kv", () => {

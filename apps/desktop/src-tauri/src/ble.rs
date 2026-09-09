@@ -10,12 +10,14 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, timeout};
 use uuid::Uuid;
 
 static BLE: Mutex<()> = Mutex::const_new(());
+static LAST_ID: StdMutex<String> = StdMutex::new(String::new());
 
 pub const SCAN_NEARBY_MS: u64 = 20_000;
 
@@ -24,6 +26,19 @@ pub const SCAN_NEARBY_MS: u64 = 20_000;
 /// interleave BlueZ Start/StopDiscovery with an in-flight GATT connect.
 pub async fn acquire() -> tokio::sync::MutexGuard<'static, ()> {
 	BLE.lock().await
+}
+
+fn remember_connected_id(peripheral: &Peripheral) {
+	if let Ok(mut slot) = LAST_ID.lock() {
+		*slot = peripheral.address().to_string();
+	}
+}
+
+pub fn last_connected_id() -> String {
+	LAST_ID
+		.lock()
+		.map(|slot| slot.clone())
+		.unwrap_or_default()
 }
 
 #[derive(Debug, Deserialize)]
@@ -457,7 +472,10 @@ pub async fn connected_board_info(id: &str) -> Result<(Peripheral, BleInfo), Str
 	if id.trim().is_empty() {
 		let peripheral = scan_board(SCAN_NEARBY_MS).await?;
 		match read_info(&peripheral).await {
-			Ok(info) => return Ok((peripheral, info)),
+			Ok(info) => {
+				remember_connected_id(&peripheral);
+				return Ok((peripheral, info));
+			}
 			Err(err) if frames::is_retryable_connect_error(&err) => {
 				crate::log::line(&format!("bluetooth retry scan after: {err}"));
 			}
@@ -465,13 +483,17 @@ pub async fn connected_board_info(id: &str) -> Result<(Peripheral, BleInfo), Str
 		}
 		let peripheral = scan_board(SCAN_NEARBY_MS).await?;
 		let info = read_info(&peripheral).await?;
+		remember_connected_id(&peripheral);
 		return Ok((peripheral, info));
 	}
 	let mut attempt = 0;
 	loop {
 		let peripheral = find_board(id.trim()).await?;
 		match read_info(&peripheral).await {
-			Ok(info) => return Ok((peripheral, info)),
+			Ok(info) => {
+				remember_connected_id(&peripheral);
+				return Ok((peripheral, info));
+			}
 			Err(err) if attempt == 0 && frames::is_retryable_connect_error(&err) => {
 				crate::log::line(&format!("bluetooth retry connect {id} after: {err}"));
 				attempt += 1;

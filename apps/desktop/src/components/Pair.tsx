@@ -10,6 +10,7 @@ import {
 	type NearbyBoard,
 	nearbyBoardLabel,
 	onBleStatus,
+	rememberBleMac,
 } from "../api";
 import { useUserBoards } from "../hooks/useApiCache";
 import DebugLog from "./DebugLog";
@@ -71,7 +72,17 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 		setBusy(true);
 		setError("");
 		try {
-			await blePair(selected);
+			const claimed = await blePair(selected);
+			const pairedUuid =
+				claimed &&
+				typeof claimed === "object" &&
+				"uuid" in claimed &&
+				typeof claimed.uuid === "string"
+					? claimed.uuid
+					: "";
+			if (pairedUuid) {
+				void rememberBleMac(pairedUuid, selected);
+			}
 			setPaired(true);
 			setStatus("Paired");
 			void refetchBoards({ force: true }).catch(() => undefined);

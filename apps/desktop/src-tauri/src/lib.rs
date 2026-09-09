@@ -158,6 +158,11 @@ async fn api_request(
 }
 
 #[tauri::command]
+fn ble_last_id() -> String {
+	ble::last_connected_id()
+}
+
+#[tauri::command]
 async fn ble_scan(app: AppHandle) -> Result<Vec<ble::NearbyBoard>, String> {
 	let _ble = ble::acquire().await;
 	emit_status(&app, "Scanning…");
@@ -223,6 +228,7 @@ async fn ble_pair(app: AppHandle, id: String) -> Result<Value, String> {
 			"uuid": uuid,
 			"key": key,
 			"deviceUrl": device_url,
+			"bleMac": id,
 		})),
 	)
 	.await?;
@@ -580,6 +586,7 @@ pub fn run() {
 			devices_unpair,
 			api_request,
 			ble_scan,
+			ble_last_id,
 			ble_pair,
 			ble_gatt_info,
 			ble_health_run,

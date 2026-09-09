@@ -4,6 +4,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { bleInfo, loadDeviceInfo } from "../api";
+import { useSavedBleId } from "../hooks/useApiCache";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 import { flattenDeviceInfo } from "../device-info";
 
@@ -12,6 +13,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 	const [error, setError] = useState("");
 	const [info, setInfo] = useState<unknown>(null);
 	const offline = useOfflineBleKey(uuid);
+	const bleId = useSavedBleId(uuid);
 	const rows = info ? flattenDeviceInfo(info) : [];
 
 	function start(task: () => Promise<unknown>) {
@@ -51,7 +53,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 					size="small"
 					disabled={busy || !uuid}
 					onClick={() => {
-						start(() => bleInfo({ uuid }));
+						start(() => bleInfo({ uuid, id: bleId }));
 					}}
 				>
 					Load over Bluetooth

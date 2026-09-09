@@ -44,6 +44,7 @@ function pairing(uuid: string): PublicPairing {
 		email: "ada@gpio-companion.com",
 		claimedAt: "2026-09-02T00:00:00.000Z",
 		label: "bench",
+		bleMac: "",
 	};
 }
 
@@ -111,6 +112,7 @@ describe("debug live presence", () => {
 			email: "ada@gpio-companion.com",
 			claimedAt: "2026-09-04T00:00:00.000Z",
 			label: "bench",
+			bleMac: "",
 		};
 		await upsertDevice(kv, owned);
 		await putLiveBoard(kv, { uuid: "fresh" });

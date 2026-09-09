@@ -17,7 +17,7 @@ import {
 	listAllDevices,
 	publicPairing,
 	transferDeviceRecord,
-	updateDeviceLabelByUuid,
+	updateDeviceFieldsByUuid,
 } from "../../../../lib/pairing-store.ts";
 import { requireAdmin } from "../../../../lib/session.ts";
 import { unpairDevice } from "../../pair.ts";
@@ -54,10 +54,13 @@ export async function onRequestPatch(ctx: MobileContext) {
 	return runMobile(ctx, async (identity) => {
 		requireAdmin(identity);
 		const body = await readJsonBody(ctx.request);
-		const device = await updateDeviceLabelByUuid(
+		const device = await updateDeviceFieldsByUuid(
 			ctx.env.DYNAMIC_PAGE_KV,
 			asString(body.uuid),
-			asString(body.label),
+			{
+				label: "label" in body ? body.label : undefined,
+				bleMac: "bleMac" in body ? body.bleMac : undefined,
+			},
 		);
 		return { ok: true as const, device: publicPairing(device) };
 	});

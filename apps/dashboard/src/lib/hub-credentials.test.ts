@@ -30,6 +30,7 @@ const pairing: StoredPairing = {
 	email: "ada@example.com",
 	claimedAt: "2026-08-31T00:00:00.000Z",
 	label: "",
+	bleMac: "",
 };
 
 async function seeded(owner = "user-1") {

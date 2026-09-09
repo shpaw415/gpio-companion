@@ -12,8 +12,9 @@ import {
 } from "../../lib/device-api.ts";
 import {
 	loadDevices,
+	parseStoredBleMac,
 	removeDevice,
-	updateDeviceLabel,
+	updateDeviceFields,
 	upsertDevice,
 } from "../../lib/pairing-store.ts";
 import { requireIdentity } from "../../lib/session.ts";
@@ -42,6 +43,7 @@ export type ClaimInput = {
 	deviceUrl?: string;
 	uuid: string;
 	key: string;
+	bleMac?: string;
 };
 
 export function parsePendingPairing(raw: string): PendingPairing {
@@ -132,6 +134,7 @@ export async function claimDevice(
 		email: identity.email ?? "",
 		claimedAt: new Date().toISOString(),
 		label: existing?.label ?? "",
+		bleMac: parseStoredBleMac(input.bleMac) || existing?.bleMac || "",
 	};
 	await upsertDevice(env.DYNAMIC_PAGE_KV, pairing);
 	if (needsBle) {
@@ -228,18 +231,22 @@ export const POST = wrapAction(async function POST(input: ClaimInput) {
 
 export const PATCH = wrapAction(async function PATCH(input: {
 	uuid: string;
-	label: string;
+	label?: string;
+	bleMac?: string;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
 	if (!identity.id) {
 		throw new Error("sign in first");
 	}
-	const device = await updateDeviceLabel(
+	const device = await updateDeviceFields(
 		ctx.env.DYNAMIC_PAGE_KV,
 		identity.id,
 		input.uuid,
-		input.label,
+		{
+			label: input.label,
+			bleMac: input.bleMac,
+		},
 	);
 	return { ok: true as const, device };
 });

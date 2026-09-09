@@ -9,7 +9,7 @@ import {
 	type PublicPairing,
 	publicPairing,
 	transferDeviceRecord,
-	updateDeviceLabelByUuid,
+	updateDeviceFieldsByUuid,
 } from "../../../lib/pairing-store.ts";
 import { requireAdmin, requireIdentity } from "../../../lib/session.ts";
 import { unpairDevice } from "../pair.ts";
@@ -54,15 +54,15 @@ export const GET = wrapAction(async function GET() {
 
 export const PATCH = wrapAction(async function PATCH(input: {
 	uuid: string;
-	label: string;
+	label?: string;
+	bleMac?: string;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	requireAdmin(await requireIdentity(ctx));
-	const device = await updateDeviceLabelByUuid(
-		ctx.env.DYNAMIC_PAGE_KV,
-		input.uuid,
-		input.label,
-	);
+	const device = await updateDeviceFieldsByUuid(ctx.env.DYNAMIC_PAGE_KV, input.uuid, {
+		label: input.label,
+		bleMac: input.bleMac,
+	});
 	return { ok: true as const, device: publicPairing(device) };
 });
 

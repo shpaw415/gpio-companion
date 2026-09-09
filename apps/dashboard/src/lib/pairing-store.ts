@@ -11,6 +11,12 @@ export type StoredPairing = {
 	email: string;
 	claimedAt: string;
 	label: string;
+	bleMac: string;
+};
+
+export type DeviceFieldsPatch = {
+	label?: unknown;
+	bleMac?: unknown;
 };
 
 export type PairingKv = {
@@ -61,6 +67,37 @@ export function normalizeDeviceLabel(value: unknown): string {
 	return value.trim().slice(0, DEVICE_LABEL_MAX);
 }
 
+export function looksLikeMac(value: string): boolean {
+	const hex = value.replace(/[^0-9a-fA-F]/g, "");
+	if (hex.length !== 12) {
+		return false;
+	}
+	return [...value].every((ch) => /[0-9a-fA-F:\-_]/.test(ch));
+}
+
+export function normalizeBleMac(value: unknown): string {
+	if (typeof value !== "string") {
+		return "";
+	}
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return "";
+	}
+	if (!looksLikeMac(trimmed)) {
+		throw new Error("invalid bluetooth address");
+	}
+	const hex = trimmed.replace(/[^0-9a-fA-F]/g, "").toUpperCase();
+	return (hex.match(/.{2}/g) ?? []).join(":");
+}
+
+export function parseStoredBleMac(value: unknown): string {
+	try {
+		return normalizeBleMac(value);
+	} catch {
+		return "";
+	}
+}
+
 export function deviceDisplayName(device: {
 	label?: string;
 	uuid: string;
@@ -86,6 +123,7 @@ export function asStoredPairing(value: unknown): StoredPairing {
 		email: String(parsed.email ?? ""),
 		claimedAt: String(parsed.claimedAt ?? ""),
 		label: normalizeDeviceLabel(parsed.label),
+		bleMac: parseStoredBleMac(parsed.bleMac),
 	};
 }
 
@@ -215,16 +253,56 @@ export async function transferDeviceRecord(
 	return next;
 }
 
+function applyDeviceFields(
+	device: StoredPairing,
+	patch: DeviceFieldsPatch,
+): StoredPairing {
+	const next = { ...device };
+	if (patch.label !== undefined) {
+		next.label = normalizeDeviceLabel(patch.label);
+	}
+	if (patch.bleMac !== undefined) {
+		next.bleMac = normalizeBleMac(patch.bleMac);
+	}
+	return next;
+}
+
+export async function updateDeviceFields(
+	kv: PairingKv,
+	userId: string,
+	uuid: string,
+	patch: DeviceFieldsPatch,
+): Promise<StoredPairing> {
+	if (patch.label === undefined && patch.bleMac === undefined) {
+		throw new Error("label or bleMac is required");
+	}
+	const device = await requireOwnedDevice(kv, userId, uuid);
+	const next = applyDeviceFields(device, patch);
+	await upsertDevice(kv, next);
+	return next;
+}
+
+export async function updateDeviceFieldsByUuid(
+	kv: PairingKv,
+	uuid: string,
+	patch: DeviceFieldsPatch,
+): Promise<StoredPairing> {
+	if (patch.label === undefined && patch.bleMac === undefined) {
+		throw new Error("label or bleMac is required");
+	}
+	const device = await findDeviceByUuid(kv, uuid);
+	const next = applyDeviceFields(device, patch);
+	await upsertDevice(kv, next);
+	return next;
+}
+
 export async function updateDeviceLabel(
 	kv: PairingKv,
 	userId: string,
 	uuid: string,
 	label: string,
 ): Promise<StoredPairing> {
-	const device = await requireOwnedDevice(kv, userId, uuid);
-	const next = { ...device, label: normalizeDeviceLabel(label) };
-	await upsertDevice(kv, next);
-	return next;
+	return updateDeviceFields(kv, userId, uuid, { label });
 }
 
 export async function updateDeviceLabelByUuid(
@@ -232,10 +310,7 @@ export async function updateDeviceLabelByUuid(
 	uuid: string,
 	label: string,
 ): Promise<StoredPairing> {
-	const device = await findDeviceByUuid(kv, uuid);
-	const next = { ...device, label: normalizeDeviceLabel(label) };
-	await upsertDevice(kv, next);
-	return next;
+	return updateDeviceFieldsByUuid(kv, uuid, { label });
 }
 
 export async function requireOwnedDevice(

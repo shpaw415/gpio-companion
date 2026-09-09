@@ -11,6 +11,7 @@ import {
 	loadFlashPorts,
 	startFlash,
 } from "../api";
+import { useSavedBleId } from "../hooks/useApiCache";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
@@ -22,6 +23,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const offline = useOfflineBleKey(uuid);
+	const bleId = useSavedBleId(uuid);
 	const onFlash = useCallback((next: FlashStatus) => {
 		setStatus(next);
 	}, []);
@@ -107,6 +109,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 						start(async () => {
 							await bleFlash({
 								uuid,
+								id: bleId,
 								fqbn: fqbn.trim(),
 								dir: dir.trim(),
 								port: port.trim() || undefined,

@@ -4,6 +4,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { apiRequest, bleHealthRun } from "../api";
+import { useSavedBleId } from "../hooks/useApiCache";
 import {
 	BLE_HEALTH_CHECKS,
 	BLE_HEALTH_WIFI_PSK,
@@ -34,6 +35,7 @@ function emptyRows(): Row[] {
 export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
+	const bleId = useSavedBleId(uuid);
 
 	function patch(id: BleHealthCheckId, next: Partial<Row>) {
 		setRows((current) =>
@@ -87,7 +89,7 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 					});
 				}
 			}
-			const hits = await bleHealthRun({ uuid, probes });
+			const hits = await bleHealthRun({ uuid, id: bleId, probes });
 			for (const hit of hits) {
 				const id = hit.id as BleHealthCheckId;
 				const verdict = evaluateBleHealthCheck(id, {

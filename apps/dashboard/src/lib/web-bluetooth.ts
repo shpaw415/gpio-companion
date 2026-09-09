@@ -9,6 +9,8 @@ import {
 	type SignedDeviceEnvelope,
 	splitBleFrames,
 } from "gpio-companion";
+import { loadWebBleId } from "./ble-devices.ts";
+import { rememberPairedBle } from "./ble-link.ts";
 
 type GattCharacteristic = {
 	readValue(): Promise<DataView>;
@@ -21,22 +23,26 @@ type GattCharacteristic = {
 	): void;
 };
 
+type BluetoothDevice = {
+	id: string;
+	gatt?: {
+		connect(): Promise<{
+			getPrimaryService(uuid: string): Promise<{
+				getCharacteristic(uuid: string): Promise<GattCharacteristic>;
+			}>;
+		}>;
+		disconnect(): void;
+	};
+};
+
 type BluetoothNav = Navigator & {
 	bluetooth?: {
 		getAvailability?(): Promise<boolean>;
+		getDevices?(): Promise<BluetoothDevice[]>;
 		requestDevice(options: {
 			filters: Array<{ namePrefix?: string; services?: string[] }>;
 			optionalServices?: string[];
-		}): Promise<{
-			gatt?: {
-				connect(): Promise<{
-					getPrimaryService(uuid: string): Promise<{
-						getCharacteristic(uuid: string): Promise<GattCharacteristic>;
-					}>;
-				}>;
-				disconnect(): void;
-			};
-		}>;
+		}): Promise<BluetoothDevice>;
 	};
 };
 
@@ -73,7 +79,38 @@ function decodeView(view: DataView): string {
 	);
 }
 
-export async function connectGpioCompanionBle(): Promise<{
+async function requestCompanionDevice(
+	bluetooth: NonNullable<BluetoothNav["bluetooth"]>,
+): Promise<BluetoothDevice> {
+	return bluetooth.requestDevice({
+		filters: [
+			{ services: [BLE_SERVICE_UUID] },
+			{ namePrefix: BLE_DEVICE_NAME },
+		],
+		optionalServices: [BLE_SERVICE_UUID],
+	});
+}
+
+async function rememberedCompanionDevice(
+	bluetooth: NonNullable<BluetoothNav["bluetooth"]>,
+	uuid: string,
+): Promise<BluetoothDevice | null> {
+	if (!uuid || typeof bluetooth.getDevices !== "function") {
+		return null;
+	}
+	const remembered = await loadWebBleId(uuid);
+	if (!remembered) {
+		return null;
+	}
+	try {
+		const devices = await bluetooth.getDevices();
+		return devices.find((device) => device.id === remembered) ?? null;
+	} catch {
+		return null;
+	}
+}
+
+export async function connectGpioCompanionBle(uuid = ""): Promise<{
 	info: BleInfo;
 	sendEnvelope: (envelope: SignedDeviceEnvelope) => Promise<string>;
 	disconnect: () => void;
@@ -82,13 +119,31 @@ export async function connectGpioCompanionBle(): Promise<{
 	if (!bluetooth) {
 		throw new Error("Web Bluetooth is not available in this browser");
 	}
-	const device = await bluetooth.requestDevice({
-		filters: [
-			{ services: [BLE_SERVICE_UUID] },
-			{ namePrefix: BLE_DEVICE_NAME },
-		],
-		optionalServices: [BLE_SERVICE_UUID],
-	});
+	const trimmed = uuid.trim();
+	const remembered = await rememberedCompanionDevice(bluetooth, trimmed);
+	let device = remembered;
+	if (!device) {
+		device = await requestCompanionDevice(bluetooth);
+	}
+	try {
+		return await openCompanionSession(device, trimmed);
+	} catch (caught) {
+		if (!remembered) {
+			throw caught;
+		}
+		device = await requestCompanionDevice(bluetooth);
+		return openCompanionSession(device, trimmed);
+	}
+}
+
+async function openCompanionSession(
+	device: BluetoothDevice,
+	uuid: string,
+): Promise<{
+	info: BleInfo;
+	sendEnvelope: (envelope: SignedDeviceEnvelope) => Promise<string>;
+	disconnect: () => void;
+}> {
 	const gatt = device.gatt;
 	if (!gatt) {
 		throw new Error("bluetooth GATT is unavailable");
@@ -103,6 +158,14 @@ export async function connectGpioCompanionBle(): Promise<{
 		info = JSON.parse(decodeView(await infoChar.readValue())) as BleInfo;
 	} catch {
 		throw new Error("invalid bluetooth info");
+	}
+	if (uuid && info.uuid && info.uuid !== uuid) {
+		gatt.disconnect();
+		throw new Error("this board is not the selected paired device");
+	}
+	const linked = uuid || info.uuid?.trim() || "";
+	if (linked && (!info.uuid || info.uuid === linked)) {
+		void rememberPairedBle(linked, device.id);
 	}
 
 	async function sendEnvelope(envelope: SignedDeviceEnvelope): Promise<string> {

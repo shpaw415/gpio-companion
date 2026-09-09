@@ -2,13 +2,8 @@ import { useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { signDeviceInfo, signFlash, signGpio, signWifi } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
-import {
-	createBoardLoss,
-	openBoardSession,
-	readInfo,
-	scanBoard,
-	sendEnvelope,
-} from "../lib/ble.ts";
+import { sendEnvelope } from "../lib/ble.ts";
+import { openPairedBoard } from "../lib/paired-ble.ts";
 import {
 	BLE_HEALTH_CHECKS,
 	BLE_HEALTH_WIFI_PSK,
@@ -68,17 +63,20 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 		const token = auth.token;
 		setBusy(true);
 		setRows(emptyRows());
-		const loss = createBoardLoss();
-		let session: Awaited<ReturnType<typeof openBoardSession>> | null = null;
+		let session: Awaited<
+			ReturnType<typeof openPairedBoard>
+		>["session"] | null = null;
+		let loss: Awaited<ReturnType<typeof openPairedBoard>>["loss"] | null =
+			null;
 		try {
 			patch("gatt-info", { state: "running", log: "" });
 			try {
-				const board = await scanBoard();
-				session = await openBoardSession(board, (why) => loss.lose(why));
-				const info = await readInfo(session.device);
+				const paired = await openPairedBoard(uuid, { token });
+				session = paired.session;
+				loss = paired.loss;
 				const verdict = evaluateBleHealthCheck("gatt-info", {
 					selectedUuid: uuid,
-					body: info,
+					body: paired.info,
 				});
 				patch("gatt-info", {
 					state: verdict.pass ? "pass" : "fail",
@@ -94,6 +92,9 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 				});
 				patch("gatt-info", { state: "fail", log: verdict.detail });
 				skipRest("gatt-info", verdict.detail);
+				return;
+			}
+			if (!session || !loss) {
 				return;
 			}
 			for (const check of BLE_HEALTH_CHECKS) {

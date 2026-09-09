@@ -8,13 +8,8 @@ import {
 	startFlash,
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
-import {
-	createBoardLoss,
-	openBoardSession,
-	readInfo,
-	scanBoard,
-	sendEnvelope,
-} from "../lib/ble.ts";
+import { sendEnvelope } from "../lib/ble.ts";
+import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
@@ -109,19 +104,15 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 							port: port.trim() || undefined,
 							sign: true,
 						});
-						const loss = createBoardLoss();
-						const board = await scanBoard();
-						const session = await openBoardSession(board, (why) =>
-							loss.lose(why),
-						);
+						const paired = await openPairedBoard(uuid, { token });
 						try {
-							const bleInfo = await readInfo(session.device);
-							if (bleInfo.uuid && bleInfo.uuid !== uuid) {
-								throw new Error("this board is not the selected paired device");
-							}
-							await sendEnvelope(session.device, envelope, loss);
+							await sendEnvelope(
+								paired.session.device,
+								envelope,
+								paired.loss,
+							);
 						} finally {
-							await session.close();
+							await paired.session.close();
 						}
 					});
 				}}

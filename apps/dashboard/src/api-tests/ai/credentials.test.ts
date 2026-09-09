@@ -26,6 +26,7 @@ describe("POST /api/ai/credentials", () => {
 			email: "ada@example.com",
 			claimedAt: "2026-08-31T00:00:00.000Z",
 			label: "",
+			bleMac: "",
 		};
 		await kv.put("pair:pair-uuid", "user-1");
 		await kv.put("device:user-1", JSON.stringify([pairing]));
@@ -61,6 +62,7 @@ describe("POST /api/ai/credentials", () => {
 					email: "",
 					claimedAt: "",
 					label: "",
+					bleMac: "",
 				},
 			]),
 		);

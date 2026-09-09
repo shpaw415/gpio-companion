@@ -18,6 +18,7 @@ import {
 	loadGpio,
 	putGpio,
 } from "../api";
+import { useSavedBleId } from "../hooks/useApiCache";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
@@ -34,6 +35,7 @@ export default function GpioPanel({
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const offline = useOfflineBleKey(uuid);
+	const bleId = useSavedBleId(uuid);
 	const available = Boolean(uuid) && connected !== false;
 	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
 	const onGpio = useCallback((next: GpioSnapshot) => {
@@ -85,7 +87,7 @@ export default function GpioPanel({
 					size="small"
 					disabled={busy || !uuid}
 					onClick={() => {
-						start(() => bleGpio({ uuid }));
+						start(() => bleGpio({ uuid, id: bleId }));
 					}}
 				>
 					Load over Bluetooth

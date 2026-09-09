@@ -120,7 +120,7 @@ export default function PairForm({
 			if (canBle) {
 				setStatus("select a gpio-companion device…");
 				try {
-					const ble = await connectGpioCompanionBle();
+					const ble = await connectGpioCompanionBle(uuid);
 					setStatus("reading pairing…");
 					const envelope = unwrapAction(await signCredentials());
 					const raw = await ble.sendEnvelope(envelope);
@@ -168,7 +168,7 @@ export default function PairForm({
 				setBleReady(canBle);
 				if (canBle) {
 					try {
-						const ble = await connectGpioCompanionBle();
+						const ble = await connectGpioCompanionBle(uuid);
 						await ble.sendEnvelope(body.envelope);
 						ble.disconnect();
 					} catch (caught) {

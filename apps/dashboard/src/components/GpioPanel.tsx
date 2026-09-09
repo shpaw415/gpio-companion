@@ -246,7 +246,7 @@ async function runGpioEnvelope(
 		await navigator.clipboard.writeText(text).catch(() => undefined);
 		return null;
 	}
-	const ble = await connectGpioCompanionBle();
+	const ble = await connectGpioCompanionBle(uuid);
 	try {
 		if (ble.info.uuid && ble.info.uuid !== uuid) {
 			throw new Error("this board is not the selected paired device");

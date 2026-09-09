@@ -38,6 +38,7 @@ export async function onRequestPost(ctx: MobileContext) {
 					uuid: asString(body.uuid),
 					key: asString(body.key),
 					deviceUrl: asString(body.deviceUrl) || undefined,
+					bleMac: asString(body.bleMac) || undefined,
 				},
 			),
 		);

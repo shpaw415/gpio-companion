@@ -9,7 +9,7 @@ import {
 	readJsonBody,
 	requireMobileIdentity,
 } from "../../../lib/mobile-http.ts";
-import { updateDeviceLabel } from "../../../lib/pairing-store.ts";
+import { updateDeviceFields } from "../../../lib/pairing-store.ts";
 import { listPairing, unpairDevice } from "../pair.ts";
 
 export async function onRequestGet(ctx: MobileContext) {
@@ -34,11 +34,14 @@ export async function onRequestPatch(ctx: MobileContext) {
 			throw new Error("sign in first");
 		}
 		const body = await readJsonBody(ctx.request);
-		const device = await updateDeviceLabel(
+		const device = await updateDeviceFields(
 			ctx.env.DYNAMIC_PAGE_KV,
 			identity.id,
 			asString(body.uuid),
-			asString(body.label),
+			{
+				label: "label" in body ? body.label : undefined,
+				bleMac: "bleMac" in body ? body.bleMac : undefined,
+			},
 		);
 		return jsonOk({ ok: true as const, device });
 	} catch (caught) {

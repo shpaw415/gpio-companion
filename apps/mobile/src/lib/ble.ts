@@ -212,17 +212,39 @@ export type BoardSession = {
 	close: () => Promise<void>;
 };
 
+export async function connectById(id: string): Promise<Device> {
+	const trimmed = id.trim();
+	if (!trimmed) {
+		throw new Error("bluetooth device not found");
+	}
+	await ensureBluetoothOn();
+	const cached = scannedDevices.get(trimmed);
+	if (cached) {
+		return cached;
+	}
+	const device = await withTimeout(
+		getManager().connectToDevice(trimmed, { autoConnect: false }),
+		CONNECT_TIMEOUT_MS,
+		"board did not accept the bluetooth connection",
+	);
+	scannedDevices.set(device.id, device);
+	return device;
+}
+
 export async function openBoardSession(
 	device: Device,
 	onLost?: (reason: string) => void,
 	timeoutMs = CONNECT_TIMEOUT_MS,
 ): Promise<BoardSession> {
 	try {
-		await withTimeout(
-			device.connect({ autoConnect: false }),
-			timeoutMs,
-			"board did not accept the bluetooth connection",
-		);
+		const connected = await device.isConnected();
+		if (!connected) {
+			await withTimeout(
+				device.connect({ autoConnect: false }),
+				timeoutMs,
+				"board did not accept the bluetooth connection",
+			);
+		}
 	} catch (caught) {
 		void device.cancelConnection().catch(() => undefined);
 		throw caught;

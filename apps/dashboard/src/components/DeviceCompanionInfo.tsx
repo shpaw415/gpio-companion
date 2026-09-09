@@ -110,7 +110,7 @@ export default function DeviceCompanionInfo({
 									.catch(() => undefined);
 								return;
 							}
-							const ble = await connectGpioCompanionBle();
+							const ble = await connectGpioCompanionBle(uuid);
 							try {
 								if (ble.info.uuid && ble.info.uuid !== uuid) {
 									throw new Error(

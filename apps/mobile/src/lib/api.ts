@@ -144,6 +144,7 @@ export type Device = {
 	email?: string;
 	label?: string;
 	userId?: string;
+	bleMac?: string;
 };
 
 export type DeviceStatus = {
@@ -289,6 +290,17 @@ export function patchDeviceLabel(token: string, uuid: string, label: string) {
 	);
 }
 
+export function patchDeviceBleMac(token: string, uuid: string, bleMac: string) {
+	return request<{ ok: boolean; device: Device }>(
+		token,
+		"/api/mobile/devices",
+		{
+			method: "PATCH",
+			body: JSON.stringify({ uuid, bleMac }),
+		},
+	);
+}
+
 export function unpairDevice(token: string, uuid: string) {
 	return request(
 		token,
@@ -305,7 +317,7 @@ export function signCredentials(token: string) {
 
 export function claimDevice(
 	token: string,
-	input: { uuid: string; key: string; deviceUrl?: string },
+	input: { uuid: string; key: string; deviceUrl?: string; bleMac?: string },
 ) {
 	return request(token, "/api/mobile/pair", {
 		method: "POST",
