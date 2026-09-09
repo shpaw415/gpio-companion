@@ -30,12 +30,32 @@ describe("ble-health", () => {
 		expect(result.detail).toContain("does not match");
 	});
 
+	test("passes truncated gpio snapshots over BLE MTU", () => {
+		const result = evaluateBleHealthCheck("get-gpio", {
+			body: parseBleHealthBody(
+				'{"hardware":"orangepi","pins":[{"physical":1,"name":"3V3"',
+			),
+		});
+		expect(result.pass).toBe(true);
+		expect(result.detail).toContain("truncated");
+	});
+
 	test("treats power-pin refusal as a passing gpio write probe", () => {
 		const result = evaluateBleHealthCheck("put-gpio-power", {
 			error: "pin 1 is power, not gpio",
 		});
 		expect(result.pass).toBe(true);
 		expect(result.detail).toContain("refused pin 1");
+	});
+
+	test("still fails gpio get when the leftover payload is companion info", () => {
+		const result = evaluateBleHealthCheck("get-gpio", {
+			body: parseBleHealthBody(
+				'{"ble":{"adapter":"hci0"},"dashboardUrl":"https://gpio-companion.com"',
+			),
+		});
+		expect(result.pass).toBe(false);
+		expect(result.detail).toContain("non-JSON");
 	});
 
 	test("fails gpio write probe when the pin is accepted", () => {

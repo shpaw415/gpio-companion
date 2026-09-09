@@ -170,11 +170,18 @@ async function openCompanionSession(
 
 	async function sendEnvelope(envelope: SignedDeviceEnvelope): Promise<string> {
 		const frames = splitBleFrames(JSON.stringify(envelope));
+		let previous = "";
+		try {
+			previous = decodeView(await statusChar.readValue());
+		} catch {
+			previous = "";
+		}
 		return new Promise<string>((resolve, reject) => {
 			let settled = false;
+			let armed = false;
 			let poll: ReturnType<typeof setInterval> | undefined;
 			const finish = (text: string) => {
-				if (settled || isBleIdleStatus(text)) {
+				if (!armed || settled || isBleIdleStatus(text) || text === previous) {
 					return;
 				}
 				settled = true;
@@ -216,6 +223,7 @@ async function openCompanionSession(
 						throw new Error("bluetooth write is unavailable");
 					}
 				}
+				armed = true;
 				poll = setInterval(() => {
 					void statusChar.readValue().then(
 						(view) => {

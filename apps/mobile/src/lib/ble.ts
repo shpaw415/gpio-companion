@@ -324,6 +324,8 @@ export async function sendEnvelope(
 	return new Promise<string>((resolve, reject) => {
 		let subscription: Subscription | undefined;
 		let settled = false;
+		let armed = false;
+		let previous = "";
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let poll: ReturnType<typeof setInterval> | undefined;
 		const finish = (settle: () => void) => {
@@ -342,7 +344,7 @@ export async function sendEnvelope(
 			settle();
 		};
 		const accept = (raw: string) => {
-			if (isBleIdleStatus(raw)) {
+			if (!armed || isBleIdleStatus(raw) || raw === previous) {
 				return;
 			}
 			finish(() => resolve(raw));
@@ -380,6 +382,17 @@ export async function sendEnvelope(
 		);
 		void (async () => {
 			try {
+				try {
+					const current = await device.readCharacteristicForService(
+						BLE_SERVICE_UUID,
+						BLE_STATUS_UUID,
+					);
+					if (current.value) {
+						previous = atob(current.value);
+					}
+				} catch {
+					previous = "";
+				}
 				for (const frame of frames) {
 					await device.writeCharacteristicWithoutResponseForService(
 						BLE_SERVICE_UUID,
@@ -388,6 +401,7 @@ export async function sendEnvelope(
 					);
 					await sleep(FRAME_GAP_MS);
 				}
+				armed = true;
 				poll = setInterval(() => {
 					void device
 						.readCharacteristicForService(BLE_SERVICE_UUID, BLE_STATUS_UUID)

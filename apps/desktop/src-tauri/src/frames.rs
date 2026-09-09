@@ -14,7 +14,9 @@ pub fn is_ble_idle_status(raw: &str) -> bool {
 		return false;
 	};
 	value.as_object().is_some_and(|object| {
-		object.len() == 1 && object.get("ready") == Some(&serde_json::Value::Bool(true))
+		object.len() == 1
+			&& (object.get("ready") == Some(&serde_json::Value::Bool(true))
+				|| object.get("pending") == Some(&serde_json::Value::Bool(true)))
 	})
 }
 
@@ -104,6 +106,7 @@ mod tests {
 	#[test]
 	fn idle_status_is_ready_true_only() {
 		assert!(is_ble_idle_status(r#"{"ready":true}"#));
+		assert!(is_ble_idle_status(r#"{"pending":true}"#));
 		assert!(is_ble_idle_status(""));
 		assert!(!is_ble_idle_status(r#"{"error":"missing device signature"}"#));
 		assert!(!is_ble_idle_status(r#"{"running":false}"#));

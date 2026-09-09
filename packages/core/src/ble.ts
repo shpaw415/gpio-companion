@@ -129,14 +129,22 @@ export function isBleIdleStatus(raw: string): boolean {
 		return true;
 	}
 	try {
-		const parsed = JSON.parse(text) as { ready?: unknown };
-		return (
-			parsed !== null &&
-			typeof parsed === "object" &&
-			!Array.isArray(parsed) &&
-			parsed.ready === true &&
-			Object.keys(parsed).length === 1
-		);
+		const parsed = JSON.parse(text) as {
+			ready?: unknown;
+			pending?: unknown;
+		};
+		if (
+			parsed === null ||
+			typeof parsed !== "object" ||
+			Array.isArray(parsed)
+		) {
+			return false;
+		}
+		const keys = Object.keys(parsed);
+		if (keys.length === 1 && parsed.ready === true) {
+			return true;
+		}
+		return keys.length === 1 && parsed.pending === true;
 	} catch {
 		return false;
 	}

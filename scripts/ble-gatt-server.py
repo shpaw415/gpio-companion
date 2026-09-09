@@ -379,6 +379,7 @@ def report_debug(method, path, status, message):
 def forward_envelope(payload, status_char):
 	method = "PUT"
 	path = "/v1/config/wifi"
+	status_char.set_value(b'{"pending":true}')
 	try:
 		envelope = json.loads(payload)
 		body = envelope.get("body") or ""
@@ -433,13 +434,17 @@ def main():
 	)
 	status = Characteristic(bus, 2, STATUS_UUID, ["read", "notify"], svc)
 	status.set_value(b'{"ready":true}')
+	def queue_forward(payload):
+		status.set_value(b'{"pending":true}')
+		GLib.idle_add(forward_envelope, payload, status)
+
 	cmd = CommandCharacteristic(
 		bus,
 		1,
 		CMD_UUID,
 		["write", "write-without-response"],
 		svc,
-		lambda payload: GLib.idle_add(forward_envelope, payload, status),
+		queue_forward,
 	)
 	svc.add_characteristic(info)
 	svc.add_characteristic(cmd)

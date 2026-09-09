@@ -45,6 +45,7 @@ describe("ble", () => {
 
 	test("treats ready true as idle status", () => {
 		expect(isBleIdleStatus('{"ready":true}')).toBe(true);
+		expect(isBleIdleStatus('{"pending":true}')).toBe(true);
 		expect(isBleIdleStatus("")).toBe(true);
 		expect(isBleIdleStatus('{"error":"missing device signature"}')).toBe(false);
 		expect(isBleIdleStatus('{"running":false}')).toBe(false);

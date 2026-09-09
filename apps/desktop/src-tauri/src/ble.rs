@@ -607,6 +607,11 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 		.await
 		.map_err(|err| err.to_string())?;
 	let cmd_char = find_char(peripheral, BLE_CMD_UUID)?;
+	let previous = peripheral
+		.read(&status_char)
+		.await
+		.map(|data| String::from_utf8_lossy(&data).into_owned())
+		.unwrap_or_default();
 	let payload = serde_json::to_string(envelope).map_err(|err| err.to_string())?;
 	for frame in frames::split_ble_frames(&payload, BLE_CHUNK_SIZE) {
 		peripheral
@@ -626,14 +631,14 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 						continue;
 					}
 					let text = String::from_utf8_lossy(&notification.value).into_owned();
-					if !frames::is_ble_idle_status(&text) {
+					if !frames::is_ble_idle_status(&text) && text != previous {
 						return text;
 					}
 				}
 				_ = sleep(Duration::from_millis(500)) => {
 					if let Ok(data) = peripheral.read(&status_char).await {
 						let text = String::from_utf8_lossy(&data).into_owned();
-						if !frames::is_ble_idle_status(&text) {
+						if !frames::is_ble_idle_status(&text) && text != previous {
 							return text;
 						}
 					}

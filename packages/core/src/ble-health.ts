@@ -181,6 +181,13 @@ function evaluateBody(
 		}
 		case "get-gpio": {
 			if (error) {
+				if (looksLikeGpioSnapshotText(error)) {
+					return {
+						pass: true,
+						detail:
+							"GPIO snapshot received over GATT (payload truncated to BLE MTU).",
+					};
+				}
 				return {
 					pass: false,
 					detail: `GET /v1/gpio failed after BLE forward: ${error}`,
@@ -296,6 +303,10 @@ function evaluateBody(
 		default:
 			return { pass: false, detail: `Unknown Bluetooth check ${id}` };
 	}
+}
+
+function looksLikeGpioSnapshotText(text: string): boolean {
+	return /"hardware"\s*:/.test(text) && /"pins"\s*:\s*\[/.test(text);
 }
 
 function isPowerPinRefusal(message: string): boolean {
