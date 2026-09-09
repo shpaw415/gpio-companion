@@ -45,3 +45,14 @@ export function deviceTabs(
 	}
 	return tabs;
 }
+
+export function isAllowedDeviceTab(
+	mode: DashboardMode,
+	admin: boolean,
+	tab: DeviceTabId,
+): boolean {
+	if (tab === "pair") {
+		return true;
+	}
+	return deviceTabs(mode, admin).some((item) => item.id === tab);
+}

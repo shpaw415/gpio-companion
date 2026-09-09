@@ -526,6 +526,36 @@ export function connectDebug(token: string, uuid: string) {
 	});
 }
 
+export function debugWsUrlFromConnect(next: DebugConnect): string {
+	if (!next.probe?.ready) {
+		throw new Error(debugProbeMessage(next.probe));
+	}
+	const wsUrl = next.wsUrl?.trim() ?? "";
+	if (!wsUrl) {
+		throw new Error("missing websocket url");
+	}
+	return wsUrl;
+}
+
+function debugProbeMessage(probe?: DebugConnect["probe"]): string {
+	if (!probe) {
+		return "companion unreachable";
+	}
+	if (probe.ready) {
+		return "";
+	}
+	if (probe.status === 404 && probe.error === "not found") {
+		return "Companion firmware is too old for debug. Update companion.";
+	}
+	if (probe.status === 401 && probe.error === "missing device signature") {
+		return "Companion firmware is too old for debug. Update companion.";
+	}
+	if (!probe.status) {
+		return probe.error;
+	}
+	return `${probe.status} ${probe.error}`;
+}
+
 export function mintHubTicket(token: string, uuid: string) {
 	return request<HubTicket>(token, "/api/mobile/hub", {
 		method: "POST",

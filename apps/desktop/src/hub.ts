@@ -99,7 +99,7 @@ export type ReconnectSocket = {
 export function startReconnectSocket(options: {
 	open: () => Promise<string>;
 	onMessage?: (data: string) => void;
-	onError?: () => void;
+	onError?: (message?: string) => void;
 	onOpen?: () => void;
 	webSocket?: typeof WebSocket;
 	delayMs?: number;
@@ -159,7 +159,7 @@ export function startReconnectSocket(options: {
 				options.onMessage?.(String((event as MessageEvent).data ?? ""));
 			});
 			next.addEventListener("error", () => {
-				options.onError?.();
+				options.onError?.("debug websocket failed");
 				next.close();
 			});
 			next.addEventListener("close", () => {
@@ -168,8 +168,10 @@ export function startReconnectSocket(options: {
 				}
 				scheduleReconnect();
 			});
-		} catch {
-			options.onError?.();
+		} catch (caught) {
+			options.onError?.(
+				caught instanceof Error ? caught.message : "debug websocket failed",
+			);
 			scheduleReconnect();
 		}
 	}

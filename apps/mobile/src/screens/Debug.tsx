@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	AppState,
 	type AppStateStatus,
 	Clipboard,
+	Pressable,
 	ScrollView,
 	Text,
+	View,
 } from "react-native";
 import BleHealthRunner from "../components/BleHealthRunner.tsx";
 import {
@@ -19,6 +21,8 @@ import {
 } from "../components/ui.tsx";
 import {
 	connectDebug,
+	type DebugBoard,
+	debugWsUrlFromConnect,
 	deviceDisplayName,
 	listDebugBoards,
 	loadDeviceLogs,
@@ -26,6 +30,7 @@ import {
 } from "../lib/api.ts";
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
+import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
 import { type ReconnectSocket, startReconnectSocket } from "../lib/hub.ts";
 import {
@@ -45,17 +50,50 @@ type LogLine = {
 	via?: string;
 };
 
+function debugBoardOptionLabel(board: DebugBoard): string {
+	const bits = [
+		deviceDisplayName(board),
+		board.live ? "live" : null,
+		board.paired === false ? "unpaired" : null,
+	].filter(Boolean);
+	return bits.join(" · ");
+}
+
+function pickDebugUuid(
+	boards: DebugBoard[],
+	current: string,
+	preferred: string,
+): string {
+	if (boards.some((board) => board.uuid === current)) {
+		return current;
+	}
+	if (boards.some((board) => board.uuid === preferred)) {
+		return preferred;
+	}
+	return boards.find((board) => board.live)?.uuid ?? boards[0]?.uuid ?? "";
+}
+
 export default function Debug() {
 	const auth = useAuth();
 	const colors = useColors();
 	const token = auth.token;
-	const query = useCachedQuery(CACHE_KEYS.debugBoards, () => {
+	const { uuid: preferredUuid } = useBoardSelection();
+	const loadBoards = useCallback(() => {
 		if (!token) {
 			return Promise.reject(new Error("sign in first"));
 		}
 		return listDebugBoards(token);
-	});
-	const boards = query.data?.devices ?? [];
+	}, [token]);
+	const query = useCachedQuery(CACHE_KEYS.debugBoards, loadBoards);
+	const boards = useMemo(() => {
+		const list = query.data?.devices ?? [];
+		return [...list].sort(
+			(left, right) => Number(Boolean(right.live)) - Number(Boolean(left.live)),
+		);
+	}, [query.data?.devices]);
+	const [uuidState, setUuidState] = useState("");
+	const uuid = pickDebugUuid(boards, uuidState, preferredUuid);
+	const selected = boards.find((board) => board.uuid === uuid);
 	const [lines, setLines] = useState<LogLine[]>([]);
 	const [error, setError] = useState("");
 	const [active, setActive] = useState("");
@@ -68,6 +106,11 @@ export default function Debug() {
 	const [liveCopied, setLiveCopied] = useState(false);
 	const client = useRef<ReconnectSocket | null>(null);
 	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const refetch = query.refetch;
+
+	useEffect(() => {
+		void refetch({ force: true }).catch(() => undefined);
+	}, [refetch]);
 
 	useEffect(() => {
 		function onAppState(state: AppStateStatus) {
@@ -108,6 +151,25 @@ export default function Debug() {
 		[lines],
 	);
 
+	function resetStream() {
+		client.current?.stop();
+		client.current = null;
+		setActive("");
+		setLines([]);
+		setJournal("");
+		setJournalFor("");
+		setUpdateNote("");
+		setError("");
+	}
+
+	function pickBoard(next: string) {
+		if (next === uuid) {
+			return;
+		}
+		resetStream();
+		setUuidState(next);
+	}
+
 	async function copyLive() {
 		if (!liveText) {
 			return;
@@ -117,15 +179,15 @@ export default function Debug() {
 		setTimeout(() => setLiveCopied(false), 1500);
 	}
 
-	async function fetchLogs(uuid: string) {
+	async function fetchLogs(nextUuid: string) {
 		if (!token) {
 			return;
 		}
 		setError("");
-		setJournalBusy(uuid);
+		setJournalBusy(nextUuid);
 		try {
-			const next = await loadDeviceLogs(token, uuid);
-			setJournalFor(uuid);
+			const next = await loadDeviceLogs(token, nextUuid);
+			setJournalFor(nextUuid);
 			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "logs failed");
@@ -134,7 +196,7 @@ export default function Debug() {
 		}
 	}
 
-	async function runUpdate(uuid: string) {
+	async function runUpdate(nextUuid: string) {
 		if (!token || updateBusy) {
 			return;
 		}
@@ -144,9 +206,9 @@ export default function Debug() {
 		}
 		setError("");
 		setUpdateNote("");
-		setUpdateBusy(uuid);
+		setUpdateBusy(nextUuid);
 		try {
-			await startDeviceUpdate(token, uuid);
+			await startDeviceUpdate(token, nextUuid);
 			setUpdateNote("Update started. The board may restart.");
 			updateLock.current = setTimeout(() => {
 				setUpdateBusy("");
@@ -158,23 +220,18 @@ export default function Debug() {
 		}
 	}
 
-	function connect(uuid: string) {
+	function connect(nextUuid: string) {
 		if (!token) {
 			return;
 		}
 		setError("");
 		client.current?.stop();
-		setActive(uuid);
+		setActive(nextUuid);
 		setLines([]);
 		client.current = startReconnectSocket({
-			open: async () => {
-				const next = await connectDebug(token, uuid);
-				const wsUrl = next.wsUrl?.trim() ?? "";
-				if (!wsUrl) {
-					throw new Error("missing websocket url");
-				}
-				return wsUrl;
-			},
+			headers: { Origin: "https://gpio-companion.com" },
+			open: async () =>
+				debugWsUrlFromConnect(await connectDebug(token, nextUuid)),
 			onMessage(data) {
 				try {
 					const parsed = JSON.parse(data) as LogLine;
@@ -183,8 +240,8 @@ export default function Debug() {
 					setLines((current) => [...current.slice(-199), { message: data }]);
 				}
 			},
-			onError() {
-				setError("debug websocket failed");
+			onError(message) {
+				setError(message || "debug websocket failed");
 			},
 			onOpen() {
 				setError("");
@@ -195,45 +252,81 @@ export default function Debug() {
 	return (
 		<Screen>
 			<Title>Debug</Title>
+			<Muted>
+				Live companion API errors over WebSocket. Pick an online Pi to connect.
+			</Muted>
 			<ErrorText>{error || query.error}</ErrorText>
 			{updateNote ? <Muted>{updateNote}</Muted> : null}
+			<Muted>Board</Muted>
 			{query.loading ? (
 				<>
 					<Skeleton />
 					<Skeleton />
 				</>
+			) : boards.length === 0 ? (
+				<Muted>
+					Pair a board, or wait until your companion is live and websocket
+					debuggable.
+				</Muted>
 			) : (
-				boards.map((board) => (
-					<Paper key={board.uuid}>
-						<Muted>{deviceDisplayName(board)}</Muted>
-						<Muted>
-							{board.live ? "live" : "offline"}
-							{board.email ? ` · ${board.email}` : ""}
-							{board.maintenance?.diskAvailMb != null &&
-							board.maintenance.diskTotalMb
-								? ` · ${board.maintenance.diskAvailMb} MB free of ${board.maintenance.diskTotalMb} MB`
-								: ""}
-						</Muted>
-						<TextButton
-							label={active === board.uuid ? "Reconnect" : "Connect"}
-							onPress={() => void connect(board.uuid)}
-						/>
-						<TextButton
-							label={journalBusy === board.uuid ? "Loading…" : "Last 24h"}
-							disabled={journalBusy === board.uuid}
-							onPress={() => void fetchLogs(board.uuid)}
-						/>
-						<TextButton
-							label={
-								updateBusy === board.uuid ? "Updating…" : "Update companion"
-							}
-							disabled={Boolean(updateBusy)}
-							onPress={() => void runUpdate(board.uuid)}
-						/>
-						<BleHealthRunner uuid={board.uuid} />
-					</Paper>
-				))
+				<View style={{ gap: 8 }}>
+					{boards.map((board) => {
+						const picked = board.uuid === uuid;
+						return (
+							<Pressable
+								key={board.uuid}
+								onPress={() => pickBoard(board.uuid)}
+								style={{
+									backgroundColor: colors.surface,
+									borderRadius: 12,
+									padding: 12,
+									borderWidth: 1,
+									borderColor: picked ? colors.primary : colors.border,
+								}}
+							>
+								<Text
+									style={{
+										color: picked ? colors.primary : colors.text,
+										fontWeight: picked ? "600" : "400",
+									}}
+								>
+									{debugBoardOptionLabel(board)}
+								</Text>
+							</Pressable>
+						);
+					})}
+				</View>
 			)}
+			{selected ? (
+				<Paper>
+					<Muted>{deviceDisplayName(selected)}</Muted>
+					<Muted>
+						{selected.live ? "live · websocket debug" : "offline"}
+						{selected.email ? ` · ${selected.email}` : ""}
+						{selected.maintenance?.diskAvailMb != null &&
+						selected.maintenance.diskTotalMb
+							? ` · ${selected.maintenance.diskAvailMb} MB free of ${selected.maintenance.diskTotalMb} MB`
+							: ""}
+					</Muted>
+					<TextButton
+						label={active === selected.uuid ? "Reconnect" : "Connect"}
+						onPress={() => void connect(selected.uuid)}
+					/>
+					<TextButton
+						label={journalBusy === selected.uuid ? "Loading…" : "Last 24h"}
+						disabled={journalBusy === selected.uuid}
+						onPress={() => void fetchLogs(selected.uuid)}
+					/>
+					<TextButton
+						label={
+							updateBusy === selected.uuid ? "Updating…" : "Update companion"
+						}
+						disabled={Boolean(updateBusy)}
+						onPress={() => void runUpdate(selected.uuid)}
+					/>
+					<BleHealthRunner uuid={selected.uuid} />
+				</Paper>
+			) : null}
 			{journal ? (
 				<Paper>
 					<Muted>{journalFor}</Muted>

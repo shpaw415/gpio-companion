@@ -76,13 +76,23 @@ export function isAllowedDebugOrigin(
 	dashboardUrl?: string,
 ): boolean {
 	const value = origin.trim();
-	if (!value) {
+	if (!value || value.toLowerCase() === "null") {
 		return true;
 	}
 	try {
 		const url = new URL(value);
 		const host = url.hostname.toLowerCase();
+		const scheme = url.protocol.replace(/:$/, "").toLowerCase();
 		if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+			return true;
+		}
+		if (host === "tauri.localhost") {
+			return true;
+		}
+		if (scheme === "gpio-companion" || scheme === "gpio-companion-desktop") {
+			return true;
+		}
+		if (host === "gpio-companion.com" || host.endsWith(".gpio-companion.com")) {
 			return true;
 		}
 		if (url.origin === DEFAULT_DASHBOARD_ORIGIN) {

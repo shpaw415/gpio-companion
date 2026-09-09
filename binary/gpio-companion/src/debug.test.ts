@@ -126,6 +126,21 @@ describe("device debug suite", () => {
 		expect(blocked.status).toBe(401);
 	});
 
+	test("accepts native websocket origins", async () => {
+		const native = await fetch(
+			`${server.url}v1/debug?${await signedDebugQuery()}`,
+			{ headers: { origin: "https://api-abc.gpio-companion.com" } },
+		);
+		expect(native.status).toBe(400);
+		expect(await native.text()).toBe("upgrade failed");
+		const tauri = await fetch(
+			`${server.url}v1/debug?${await signedDebugQuery()}`,
+			{ headers: { origin: "https://tauri.localhost" } },
+		);
+		expect(tauri.status).toBe(400);
+		expect(await tauri.text()).toBe("upgrade failed");
+	});
+
 	test("streams request warnings without secrets", async () => {
 		const query = await signedDebugQuery();
 		const events: DebugEvent[] = [];

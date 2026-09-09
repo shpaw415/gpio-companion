@@ -62,6 +62,7 @@ describe("debug helpers", () => {
 
 	test("allows dashboard and loopback origins", () => {
 		expect(isAllowedDebugOrigin("")).toBe(true);
+		expect(isAllowedDebugOrigin("null")).toBe(true);
 		expect(isAllowedDebugOrigin("http://localhost:3010")).toBe(true);
 		expect(isAllowedDebugOrigin("http://127.0.0.1:8787")).toBe(true);
 		expect(isAllowedDebugOrigin(DEFAULT_DASHBOARD_ORIGIN)).toBe(true);
@@ -72,6 +73,18 @@ describe("debug helpers", () => {
 				"https://preview.example",
 			),
 		).toBe(true);
+	});
+
+	test("allows native app websocket origins", () => {
+		expect(isAllowedDebugOrigin("https://api-abc.gpio-companion.com")).toBe(
+			true,
+		);
+		expect(isAllowedDebugOrigin("https://tauri.localhost")).toBe(true);
+		expect(isAllowedDebugOrigin("http://tauri.localhost:1420")).toBe(true);
+		expect(isAllowedDebugOrigin("gpio-companion://")).toBe(true);
+		expect(isAllowedDebugOrigin("gpio-companion-desktop://auth/callback")).toBe(
+			true,
+		);
 	});
 
 	test("builds websocket url from device url", () => {

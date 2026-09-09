@@ -4,7 +4,7 @@ import T3WebView from "../components/T3WebView.tsx";
 import { Paper, PrimaryButton, Title } from "../components/ui.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
-import { deviceTabs } from "../lib/dashboard-mode.ts";
+import { deviceTabs, isAllowedDeviceTab } from "../lib/dashboard-mode.ts";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import Admin from "./Admin.tsx";
@@ -24,7 +24,7 @@ export default function DevicesHub() {
 	const admin = auth.session?.role === "admin";
 	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
-	const allowed = tabs.some((item) => item.id === tab);
+	const allowed = isAllowedDeviceTab(mode, admin, tab);
 	const expertOnly = tab === "debug" || tab === "admin";
 
 	useEffect(() => {

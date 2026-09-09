@@ -96,11 +96,20 @@ export type ReconnectSocket = {
 	resume(): void;
 };
 
+type NativeWebSocket = {
+	new (
+		url: string,
+		protocols?: string | string[],
+		options?: { headers?: Record<string, string> },
+	): WebSocket;
+};
+
 export function startReconnectSocket(options: {
 	open: () => Promise<string>;
 	onMessage?: (data: string) => void;
-	onError?: () => void;
+	onError?: (message?: string) => void;
 	onOpen?: () => void;
+	headers?: Record<string, string>;
 	webSocket?: typeof WebSocket;
 	delayMs?: number;
 	maxDelayMs?: number;
@@ -149,7 +158,11 @@ export function startReconnectSocket(options: {
 				throw new Error("missing websocket url");
 			}
 			socket?.close();
-			const next = new Socket(wsUrl);
+			const next = options.headers
+				? new (Socket as unknown as NativeWebSocket)(wsUrl, undefined, {
+						headers: options.headers,
+					})
+				: new Socket(wsUrl);
 			socket = next;
 			next.addEventListener("open", () => {
 				delay = options.delayMs ?? START_MS;
@@ -159,7 +172,7 @@ export function startReconnectSocket(options: {
 				options.onMessage?.(String((event as MessageEvent).data ?? ""));
 			});
 			next.addEventListener("error", () => {
-				options.onError?.();
+				options.onError?.("debug websocket failed");
 				next.close();
 			});
 			next.addEventListener("close", () => {
@@ -168,8 +181,10 @@ export function startReconnectSocket(options: {
 				}
 				scheduleReconnect();
 			});
-		} catch {
-			options.onError?.();
+		} catch (caught) {
+			options.onError?.(
+				caught instanceof Error ? caught.message : "debug websocket failed",
+			);
 			scheduleReconnect();
 		}
 	}
