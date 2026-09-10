@@ -3,6 +3,7 @@ import {
 	createBleAssembler,
 	createSignedEnvelope,
 	envelopeToPasteText,
+	isBleCompleteStatus,
 	isBleIdleStatus,
 	parseSignedEnvelope,
 	splitBleFrames,
@@ -49,6 +50,19 @@ describe("ble", () => {
 		expect(isBleIdleStatus("")).toBe(true);
 		expect(isBleIdleStatus('{"error":"missing device signature"}')).toBe(false);
 		expect(isBleIdleStatus('{"running":false}')).toBe(false);
+	});
+
+	test("complete status waits for valid non-idle json", () => {
+		expect(isBleCompleteStatus('{"ready":true}')).toBe(false);
+		expect(isBleCompleteStatus('{"pending":true}')).toBe(false);
+		expect(isBleCompleteStatus("")).toBe(false);
+		expect(isBleCompleteStatus('{"hardware":"orangepi","pins":[')).toBe(false);
+		expect(isBleCompleteStatus('{"error":"missing device signature"}')).toBe(
+			true,
+		);
+		expect(
+			isBleCompleteStatus('{"hardware":"orangepi","pins":[{"physical":1}]}'),
+		).toBe(true);
 	});
 
 	test("signed envelope verifies like an http device request", async () => {

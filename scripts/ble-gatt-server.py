@@ -26,6 +26,8 @@ LE_AD = "org.bluez.LEAdvertisement1"
 OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 PROP_IFACE = "org.freedesktop.DBus.Properties"
 
+GATT_NOTIFY_MAX = 512
+
 SERVICE_UUID = os.environ.get(
 	"GPIO_BLE_SERVICE", "a1c15e00-6f10-4c9a-9c31-47b0c15e0001"
 )
@@ -121,7 +123,7 @@ class Characteristic(dbus.service.Object):
 
 	def set_value(self, data):
 		self.value = list(data)
-		if self.notifying:
+		if self.notifying and should_notify_value(self.value):
 			self.PropertiesChanged(
 				GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
 			)
@@ -136,7 +138,7 @@ class Characteristic(dbus.service.Object):
 
 	@dbus.service.method(GATT_CHRC, in_signature="a{sv}", out_signature="ay")
 	def ReadValue(self, options):
-		return dbus.Array(self.value, signature="y")
+		return dbus.Array(characteristic_read(self.value, options), signature="y")
 
 	@dbus.service.method(GATT_CHRC, in_signature="aya{sv}")
 	def WriteValue(self, value, options):
@@ -145,7 +147,7 @@ class Characteristic(dbus.service.Object):
 	@dbus.service.method(GATT_CHRC)
 	def StartNotify(self):
 		self.notifying = True
-		if self.value:
+		if should_notify_value(self.value):
 			self.PropertiesChanged(
 				GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
 			)
@@ -175,6 +177,26 @@ class CommandCharacteristic(Characteristic):
 		payload = take_command(self.buf)
 		if payload is not None:
 			self.on_payload(payload)
+
+
+def characteristic_read(value, options=None):
+	offset = 0
+	if options:
+		raw = options.get("offset", 0)
+		try:
+			offset = int(raw)
+		except (TypeError, ValueError):
+			offset = 0
+	if offset < 0:
+		offset = 0
+	data = bytes(value)
+	if offset >= len(data):
+		return b""
+	return data[offset:]
+
+
+def should_notify_value(value):
+	return 0 < len(value) <= GATT_NOTIFY_MAX
 
 
 def take_command(buf):

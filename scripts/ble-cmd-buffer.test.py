@@ -46,6 +46,16 @@ class TakeCommandTest(unittest.TestCase):
 		self.assertEqual(headers["X-Gpio-Via"], "ble")
 		self.assertEqual(headers["X-Gpio-Signature"], "sig")
 
+	def test_characteristic_read_honors_offset(self):
+		body = b'{"hardware":"orangepi","pins":[1,2,3]}'
+		self.assertEqual(self.mod.characteristic_read(body, None), body)
+		self.assertEqual(self.mod.characteristic_read(body, {"offset": 10}), body[10:])
+		self.assertEqual(self.mod.characteristic_read(body, {"offset": 999}), b"")
+
+	def test_large_status_is_not_notified(self):
+		self.assertTrue(self.mod.should_notify_value(b'{"pending":true}'))
+		self.assertFalse(self.mod.should_notify_value(b"x" * (self.mod.GATT_NOTIFY_MAX + 1)))
+
 	def test_ble_debug_payload(self):
 		payload = json.loads(
 			self.mod.ble_debug_payload("GET", "/v1/info", 401, "missing device signature")

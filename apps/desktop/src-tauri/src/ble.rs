@@ -562,6 +562,20 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 			Err(err) => {
 				last = err.to_string();
 				crate::log::line(&format!("bluetooth connect attempt={attempt}: {last}"));
+				#[cfg(target_os = "linux")]
+				if frames::is_profile_unavailable(&last) {
+					if let Ok(Some(props)) = peripheral.properties().await {
+						let addr = props.address.to_string();
+						let _ = tokio::task::spawn_blocking(move || {
+							crate::bluez::connect_le(&addr)
+						})
+						.await;
+						if peripheral.is_connected().await.unwrap_or(false) {
+							crate::log::line("bluetooth connected via ConnectProfile");
+							return Ok(());
+						}
+					}
+				}
 				let _ = peripheral.disconnect().await;
 				sleep(Duration::from_millis(400 * attempt as u64)).await;
 			}
@@ -631,14 +645,22 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 						continue;
 					}
 					let text = String::from_utf8_lossy(&notification.value).into_owned();
-					if !frames::is_ble_idle_status(&text) && text != previous {
+					if frames::is_ble_idle_status(&text) {
+						previous.clear();
+						continue;
+					}
+					if frames::is_ble_complete_status(&text) && text != previous {
 						return text;
 					}
 				}
 				_ = sleep(Duration::from_millis(500)) => {
 					if let Ok(data) = peripheral.read(&status_char).await {
 						let text = String::from_utf8_lossy(&data).into_owned();
-						if !frames::is_ble_idle_status(&text) && text != previous {
+						if frames::is_ble_idle_status(&text) {
+							previous.clear();
+							continue;
+						}
+						if frames::is_ble_complete_status(&text) && text != previous {
 							return text;
 						}
 					}

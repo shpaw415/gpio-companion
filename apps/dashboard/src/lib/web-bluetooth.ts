@@ -5,6 +5,7 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 	type BleInfo,
+	isBleCompleteStatus,
 	isBleIdleStatus,
 	type SignedDeviceEnvelope,
 	splitBleFrames,
@@ -181,7 +182,14 @@ async function openCompanionSession(
 			let armed = false;
 			let poll: ReturnType<typeof setInterval> | undefined;
 			const finish = (text: string) => {
-				if (!armed || settled || isBleIdleStatus(text) || text === previous) {
+				if (!armed || settled) {
+					return;
+				}
+				if (isBleIdleStatus(text)) {
+					previous = "";
+					return;
+				}
+				if (!isBleCompleteStatus(text) || text === previous) {
 					return;
 				}
 				settled = true;

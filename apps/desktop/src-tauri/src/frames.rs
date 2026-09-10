@@ -20,6 +20,19 @@ pub fn is_ble_idle_status(raw: &str) -> bool {
 	})
 }
 
+pub fn is_ble_complete_status(raw: &str) -> bool {
+	let text = raw.trim();
+	if text.is_empty() || is_ble_idle_status(text) {
+		return false;
+	}
+	serde_json::from_str::<serde_json::Value>(text).is_ok()
+}
+
+pub fn is_profile_unavailable(message: &str) -> bool {
+	let lower = message.to_ascii_lowercase();
+	lower.contains("br-connection-profile-unavailable") || lower.contains("profile unavailable")
+}
+
 pub fn split_ble_frames(payload: &str, mtu: usize) -> Vec<Vec<u8>> {
 	let mtu = mtu.max(1);
 	let body = payload.as_bytes();
@@ -110,6 +123,15 @@ mod tests {
 		assert!(is_ble_idle_status(""));
 		assert!(!is_ble_idle_status(r#"{"error":"missing device signature"}"#));
 		assert!(!is_ble_idle_status(r#"{"running":false}"#));
+		assert!(!is_ble_complete_status(r#"{"ready":true}"#));
+		assert!(!is_ble_complete_status(r#"{"hardware":"orangepi","pins":["#));
+		assert!(is_ble_complete_status(
+			r#"{"hardware":"orangepi","pins":[{"physical":1}]}"#
+		));
+		assert!(is_profile_unavailable(
+			"bluetooth connect: br-connection-profile-unavailable"
+		));
+		assert!(!is_profile_unavailable("bluetooth connect: wrong PIN"));
 	}
 
 	#[test]

@@ -5,6 +5,7 @@ import {
 	BLE_SERVICE_UUID,
 	encodeFrames,
 	forPicker,
+	isBleCompleteStatus,
 	matchesBoard,
 	nearbyBoardLabel,
 	toBase64,
@@ -50,6 +51,16 @@ describe("encodeFrames", () => {
 		const view = new DataView(new Uint8Array(joined).buffer);
 		expect(view.getUint32(0)).toBe(payload.length);
 		expect(new TextDecoder().decode(new Uint8Array(joined.slice(4)))).toBe(payload);
+	});
+});
+
+describe("isBleCompleteStatus", () => {
+	test("rejects idle and truncated json", () => {
+		expect(isBleCompleteStatus('{"ready":true}')).toBe(false);
+		expect(isBleCompleteStatus('{"hardware":"orangepi","pins":[')).toBe(false);
+		expect(
+			isBleCompleteStatus('{"hardware":"orangepi","pins":[{"physical":1}]}'),
+		).toBe(true);
 	});
 });
 

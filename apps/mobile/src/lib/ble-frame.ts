@@ -59,6 +59,19 @@ export function isBleIdleStatus(raw: string): boolean {
 	}
 }
 
+export function isBleCompleteStatus(raw: string): boolean {
+	const text = raw.trim();
+	if (!text || isBleIdleStatus(text)) {
+		return false;
+	}
+	try {
+		JSON.parse(text);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export function matchesBoard(name: string, serviceUUIDs: string[]): boolean {
 	const lower = name.toLowerCase();
 	if (lower.startsWith(BLE_DEVICE_NAME) || lower === "gpio") {

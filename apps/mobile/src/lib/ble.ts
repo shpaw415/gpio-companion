@@ -14,6 +14,7 @@ import {
 	type BleInfo,
 	encodeFrames,
 	forPicker,
+	isBleCompleteStatus,
 	isBleIdleStatus,
 	looksLikeMac,
 	matchesBoard,
@@ -344,7 +345,14 @@ export async function sendEnvelope(
 			settle();
 		};
 		const accept = (raw: string) => {
-			if (!armed || isBleIdleStatus(raw) || raw === previous) {
+			if (!armed) {
+				return;
+			}
+			if (isBleIdleStatus(raw)) {
+				previous = "";
+				return;
+			}
+			if (!isBleCompleteStatus(raw) || raw === previous) {
 				return;
 			}
 			finish(() => resolve(raw));
