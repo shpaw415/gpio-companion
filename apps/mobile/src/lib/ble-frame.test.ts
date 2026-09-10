@@ -6,6 +6,7 @@ import {
 	encodeFrames,
 	forPicker,
 	isBleCompleteStatus,
+	isBleSettledStatus,
 	matchesBoard,
 	nearbyBoardLabel,
 	toBase64,
@@ -41,7 +42,9 @@ describe("encodeFrames", () => {
 	test("large payload splits into length-prefixed chunks", () => {
 		const payload = "x".repeat(1_000);
 		const frames = encodeFrames(payload);
-		expect(frames.length).toBe(Math.ceil((4 + payload.length) / BLE_CHUNK_SIZE));
+		expect(frames.length).toBe(
+			Math.ceil((4 + payload.length) / BLE_CHUNK_SIZE),
+		);
 		const joined: number[] = [];
 		for (const frame of frames) {
 			for (const byte of decodeBase64(frame)) {
@@ -50,7 +53,9 @@ describe("encodeFrames", () => {
 		}
 		const view = new DataView(new Uint8Array(joined).buffer);
 		expect(view.getUint32(0)).toBe(payload.length);
-		expect(new TextDecoder().decode(new Uint8Array(joined.slice(4)))).toBe(payload);
+		expect(new TextDecoder().decode(new Uint8Array(joined.slice(4)))).toBe(
+			payload,
+		);
 	});
 });
 
@@ -60,6 +65,14 @@ describe("isBleCompleteStatus", () => {
 		expect(isBleCompleteStatus('{"hardware":"orangepi","pins":[')).toBe(false);
 		expect(
 			isBleCompleteStatus('{"hardware":"orangepi","pins":[{"physical":1}]}'),
+		).toBe(true);
+		expect(
+			isBleSettledStatus('{"hardware":"orangepi","pins":[{"physical":1'),
+		).toBe(true);
+		expect(
+			isBleSettledStatus(
+				'{"dashboardUrl":"https://gpio-companion.com","deviceAuth":{"keyId":"gpio',
+			),
 		).toBe(true);
 	});
 });
@@ -78,7 +91,9 @@ describe("matchesBoard", () => {
 	});
 
 	test("ignores other devices", () => {
-		expect(matchesBoard("Samsung TV", ["0000abcd-0000-0000-0000-000000000000"])).toBe(false);
+		expect(
+			matchesBoard("Samsung TV", ["0000abcd-0000-0000-0000-000000000000"]),
+		).toBe(false);
 	});
 });
 

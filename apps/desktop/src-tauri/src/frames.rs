@@ -28,6 +28,20 @@ pub fn is_ble_complete_status(raw: &str) -> bool {
 	serde_json::from_str::<serde_json::Value>(text).is_ok()
 }
 
+pub fn is_ble_partial_snapshot(raw: &str) -> bool {
+	let text = raw.trim();
+	if text.is_empty() || is_ble_idle_status(text) || is_ble_complete_status(text) {
+		return false;
+	}
+	(text.contains("\"hardware\"") && text.contains("\"pins\":["))
+		|| text.contains("\"dashboardUrl\"")
+		|| text.contains("\"deviceAuth\"")
+}
+
+pub fn is_ble_settled_status(raw: &str) -> bool {
+	is_ble_complete_status(raw) || is_ble_partial_snapshot(raw)
+}
+
 pub fn is_profile_unavailable(message: &str) -> bool {
 	let lower = message.to_ascii_lowercase();
 	lower.contains("br-connection-profile-unavailable") || lower.contains("profile unavailable")
@@ -135,6 +149,12 @@ mod tests {
 		assert!(!is_ble_idle_status(r#"{"running":false}"#));
 		assert!(!is_ble_complete_status(r#"{"ready":true}"#));
 		assert!(!is_ble_complete_status(r#"{"hardware":"orangepi","pins":["#));
+		assert!(is_ble_partial_snapshot(
+			r#"{"hardware":"orangepi","pins":[{"physical":1"#
+		));
+		assert!(is_ble_settled_status(
+			r#"{"dashboardUrl":"https://gpio-companion.com","deviceAuth":{"keyId":"gpio"#
+		));
 		assert!(is_ble_complete_status(
 			r#"{"hardware":"orangepi","pins":[{"physical":1}]}"#
 		));

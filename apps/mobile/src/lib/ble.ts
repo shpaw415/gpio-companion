@@ -14,8 +14,8 @@ import {
 	type BleInfo,
 	encodeFrames,
 	forPicker,
-	isBleCompleteStatus,
 	isBleIdleStatus,
+	isBleSettledStatus,
 	looksLikeMac,
 	matchesBoard,
 	type NearbyRadio,
@@ -327,6 +327,7 @@ export async function sendEnvelope(
 		let settled = false;
 		let armed = false;
 		let previous = "";
+		let lastUseful = "";
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let poll: ReturnType<typeof setInterval> | undefined;
 		const finish = (settle: () => void) => {
@@ -345,14 +346,17 @@ export async function sendEnvelope(
 			settle();
 		};
 		const accept = (raw: string) => {
-			if (!armed) {
-				return;
-			}
 			if (isBleIdleStatus(raw)) {
 				previous = "";
 				return;
 			}
-			if (!isBleCompleteStatus(raw) || raw === previous) {
+			if (isBleSettledStatus(raw)) {
+				lastUseful = raw;
+			}
+			if (!armed) {
+				return;
+			}
+			if (!isBleSettledStatus(raw) || raw === previous) {
 				return;
 			}
 			finish(() => resolve(raw));
@@ -364,13 +368,17 @@ export async function sendEnvelope(
 		};
 		timer = setTimeout(
 			() =>
-				finish(() =>
+				finish(() => {
+					if (isBleSettledStatus(lastUseful)) {
+						resolve(lastUseful);
+						return;
+					}
 					reject(
 						new Error(
 							"board did not respond over bluetooth (timed out). Update the Pi companion BLE helper if this persists.",
 						),
-					),
-				),
+					);
+				}),
 			RESPONSE_TIMEOUT_MS,
 		);
 		loss?.signal.addEventListener("abort", onAbort);

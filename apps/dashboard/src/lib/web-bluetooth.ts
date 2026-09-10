@@ -5,8 +5,8 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 	type BleInfo,
-	isBleCompleteStatus,
 	isBleIdleStatus,
+	isBleSettledStatus,
 	type SignedDeviceEnvelope,
 	splitBleFrames,
 } from "gpio-companion";
@@ -172,6 +172,7 @@ async function openCompanionSession(
 	async function sendEnvelope(envelope: SignedDeviceEnvelope): Promise<string> {
 		const frames = splitBleFrames(JSON.stringify(envelope));
 		let previous = "";
+		let lastUseful = "";
 		try {
 			previous = decodeView(await statusChar.readValue());
 		} catch {
@@ -182,14 +183,17 @@ async function openCompanionSession(
 			let armed = false;
 			let poll: ReturnType<typeof setInterval> | undefined;
 			const finish = (text: string) => {
-				if (!armed || settled) {
-					return;
-				}
 				if (isBleIdleStatus(text)) {
 					previous = "";
 					return;
 				}
-				if (!isBleCompleteStatus(text) || text === previous) {
+				if (isBleSettledStatus(text)) {
+					lastUseful = text;
+				}
+				if (!armed || settled) {
+					return;
+				}
+				if (!isBleSettledStatus(text) || text === previous) {
 					return;
 				}
 				settled = true;
@@ -206,6 +210,10 @@ async function openCompanionSession(
 				settled = true;
 				if (poll) {
 					clearInterval(poll);
+				}
+				if (isBleSettledStatus(lastUseful)) {
+					resolve(lastUseful);
+					return;
 				}
 				reject(
 					new Error(

@@ -5,6 +5,8 @@ import {
 	envelopeToPasteText,
 	isBleCompleteStatus,
 	isBleIdleStatus,
+	isBlePartialSnapshot,
+	isBleSettledStatus,
 	parseSignedEnvelope,
 	splitBleFrames,
 } from "./ble.ts";
@@ -62,6 +64,18 @@ describe("ble", () => {
 		);
 		expect(
 			isBleCompleteStatus('{"hardware":"orangepi","pins":[{"physical":1}]}'),
+		).toBe(true);
+		expect(
+			isBlePartialSnapshot('{"hardware":"orangepi","pins":[{"physical":1'),
+		).toBe(true);
+		expect(
+			isBlePartialSnapshot(
+				'{"dashboardUrl":"https://gpio-companion.com","deviceAuth":{"keyId":"gpio',
+			),
+		).toBe(true);
+		expect(isBlePartialSnapshot('{"running":false}')).toBe(false);
+		expect(
+			isBleSettledStatus('{"hardware":"orangepi","pins":[{"physical":1'),
 		).toBe(true);
 	});
 

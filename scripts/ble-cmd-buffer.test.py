@@ -52,9 +52,11 @@ class TakeCommandTest(unittest.TestCase):
 		self.assertEqual(self.mod.characteristic_read(body, {"offset": 10}), body[10:])
 		self.assertEqual(self.mod.characteristic_read(body, {"offset": 999}), b"")
 
-	def test_large_status_is_not_notified(self):
+	def test_large_status_notify_is_capped(self):
 		self.assertTrue(self.mod.should_notify_value(b'{"pending":true}'))
-		self.assertFalse(self.mod.should_notify_value(b"x" * (self.mod.GATT_NOTIFY_MAX + 1)))
+		huge = b"x" * (self.mod.GATT_NOTIFY_MAX + 1)
+		self.assertTrue(self.mod.should_notify_value(huge))
+		self.assertEqual(len(self.mod.notify_chunk(huge)), self.mod.GATT_NOTIFY_MAX)
 
 	def test_ble_debug_payload(self):
 		payload = json.loads(

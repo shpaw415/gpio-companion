@@ -63,6 +63,8 @@ export {
 	envelopeToRequest,
 	isBleCompleteStatus,
 	isBleIdleStatus,
+	isBlePartialSnapshot,
+	isBleSettledStatus,
 	parseSignedEnvelope,
 	type SignedDeviceEnvelope,
 	splitBleFrames,

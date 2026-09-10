@@ -123,9 +123,10 @@ class Characteristic(dbus.service.Object):
 
 	def set_value(self, data):
 		self.value = list(data)
-		if self.notifying and should_notify_value(self.value):
+		chunk = notify_chunk(self.value)
+		if self.notifying and chunk is not None:
 			self.PropertiesChanged(
-				GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
+				GATT_CHRC, {"Value": dbus.Array(chunk, signature="y")}, []
 			)
 
 	@dbus.service.method(PROP_IFACE, in_signature="s", out_signature="a{sv}")
@@ -147,9 +148,10 @@ class Characteristic(dbus.service.Object):
 	@dbus.service.method(GATT_CHRC)
 	def StartNotify(self):
 		self.notifying = True
-		if should_notify_value(self.value):
+		chunk = notify_chunk(self.value)
+		if chunk is not None:
 			self.PropertiesChanged(
-				GATT_CHRC, {"Value": dbus.Array(self.value, signature="y")}, []
+				GATT_CHRC, {"Value": dbus.Array(chunk, signature="y")}, []
 			)
 
 	@dbus.service.method(GATT_CHRC)
@@ -206,8 +208,15 @@ def characteristic_read(value, options=None):
 	return data[offset:]
 
 
+def notify_chunk(value):
+	data = bytes(value)
+	if not data:
+		return None
+	return data[:GATT_NOTIFY_MAX]
+
+
 def should_notify_value(value):
-	return 0 < len(value) <= GATT_NOTIFY_MAX
+	return notify_chunk(value) is not None
 
 
 def take_command(buf):

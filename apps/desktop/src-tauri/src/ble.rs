@@ -644,7 +644,7 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 						previous.clear();
 						continue;
 					}
-					if frames::is_ble_complete_status(&text) && text != previous {
+					if frames::is_ble_settled_status(&text) && text != previous {
 						return text;
 					}
 				}
@@ -655,7 +655,7 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 							previous.clear();
 							continue;
 						}
-						if frames::is_ble_complete_status(&text) && text != previous {
+						if frames::is_ble_settled_status(&text) && text != previous {
 							return text;
 						}
 					}

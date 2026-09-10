@@ -163,6 +163,22 @@ export function isBleCompleteStatus(raw: string): boolean {
 	}
 }
 
+export function isBlePartialSnapshot(raw: string): boolean {
+	const text = raw.trim();
+	if (!text || isBleIdleStatus(text) || isBleCompleteStatus(text)) {
+		return false;
+	}
+	return (
+		(/"hardware"\s*:/.test(text) && /"pins"\s*:\s*\[/.test(text)) ||
+		/"dashboardUrl"\s*:/.test(text) ||
+		/"deviceAuth"\s*:/.test(text)
+	);
+}
+
+export function isBleSettledStatus(raw: string): boolean {
+	return isBleCompleteStatus(raw) || isBlePartialSnapshot(raw);
+}
+
 export function splitBleFrames(
 	payload: string,
 	mtu = BLE_CHUNK_SIZE,
