@@ -4,22 +4,24 @@ import {
 	GITHUB_GIT_USER,
 	timingSafeEqualString,
 } from "gpio-companion";
-import {
-	loadDevices,
-	pairOwnerKey,
-	type PairingKv,
-} from "./pairing-store.ts";
+import { loadDevices, type PairingKv, pairOwnerKey } from "./pairing-store.ts";
 
 export type GithubAppEnv = {
 	DYNAMIC_PAGE_KV: KVNamespace;
 	GITHUB_APP_ID?: string;
 	GITHUB_APP_PRIVATE_KEY?: string;
 	GITHUB_APP_SLUG?: string;
+	GITHUB_APP_CLIENT_ID?: string;
+	GITHUB_APP_CLIENT_SECRET?: string;
+	PUBLIC_AUTH_REDIRECT_URI?: string;
 };
 
 export type GithubAppInstall = {
 	installationId: number;
 	login: string;
+	userToken?: string;
+	userTokenExpiresAt?: string;
+	refreshToken?: string;
 };
 
 export type GithubInstallationToken = {
@@ -27,6 +29,13 @@ export type GithubInstallationToken = {
 	expiresAt: string;
 	login: string;
 	username: string;
+};
+
+export type GithubAppStatus = {
+	connected: boolean;
+	login: string;
+	installUrl: string;
+	canCreate: boolean;
 };
 
 export function githubAppKey(userId: string): string {
@@ -37,7 +46,9 @@ export function githubAppStateKey(state: string): string {
 	return `github-app-state:${state}`;
 }
 
-export function parseGithubAppInstall(raw: string | null): GithubAppInstall | null {
+export function parseGithubAppInstall(
+	raw: string | null,
+): GithubAppInstall | null {
 	if (!raw) {
 		return null;
 	}
@@ -47,7 +58,21 @@ export function parseGithubAppInstall(raw: string | null): GithubAppInstall | nu
 	if (!Number.isFinite(installationId) || installationId <= 0 || !login) {
 		return null;
 	}
-	return { installationId, login };
+	const userToken =
+		typeof parsed.userToken === "string" ? parsed.userToken.trim() : "";
+	const refreshToken =
+		typeof parsed.refreshToken === "string" ? parsed.refreshToken.trim() : "";
+	const userTokenExpiresAt =
+		typeof parsed.userTokenExpiresAt === "string"
+			? parsed.userTokenExpiresAt.trim()
+			: "";
+	return {
+		installationId,
+		login,
+		...(userToken ? { userToken } : {}),
+		...(refreshToken ? { refreshToken } : {}),
+		...(userTokenExpiresAt ? { userTokenExpiresAt } : {}),
+	};
 }
 
 export async function loadGithubAppInstall(
@@ -65,8 +90,58 @@ export async function saveGithubAppInstall(
 	await kv.put(githubAppKey(userId), JSON.stringify(install));
 }
 
+export function githubAppCanCreate(install: GithubAppInstall): boolean {
+	return Boolean(install.userToken || install.refreshToken);
+}
+
 export function githubAppInstallUrl(slug: string, state: string): string {
 	return `https://github.com/apps/${encodeURIComponent(slug)}/installations/new?state=${encodeURIComponent(state)}`;
+}
+
+export function githubAppCallbackUri(
+	request: Request,
+	env: GithubAppEnv,
+): string {
+	const redirect = env.PUBLIC_AUTH_REDIRECT_URI?.trim() ?? "";
+	const origin = redirect
+		? new URL(redirect).origin
+		: new URL(request.url).origin;
+	return `${origin}/devices/keys`;
+}
+
+export function githubAppOAuthConfigured(env: GithubAppEnv): boolean {
+	return Boolean(
+		env.GITHUB_APP_CLIENT_ID?.trim() && env.GITHUB_APP_CLIENT_SECRET?.trim(),
+	);
+}
+
+export function githubAppOAuthUrl(
+	clientId: string,
+	redirectUri: string,
+	state: string,
+): string {
+	const url = new URL("https://github.com/login/oauth/authorize");
+	url.searchParams.set("client_id", clientId);
+	url.searchParams.set("redirect_uri", redirectUri);
+	url.searchParams.set("state", state);
+	return url.toString();
+}
+
+export function githubAppConnectUrl(
+	env: GithubAppEnv,
+	slug: string,
+	state: string,
+	request: Request,
+): string {
+	const clientId = env.GITHUB_APP_CLIENT_ID?.trim() ?? "";
+	if (clientId && githubAppOAuthConfigured(env)) {
+		return githubAppOAuthUrl(
+			clientId,
+			githubAppCallbackUri(request, env),
+			state,
+		);
+	}
+	return githubAppInstallUrl(slug, state);
 }
 
 async function githubAppHeaders(env: GithubAppEnv): Promise<HeadersInit> {
@@ -105,7 +180,10 @@ export async function readGithubInstallation(
 	env: GithubAppEnv,
 	installationId: number,
 ): Promise<{ id: number; login: string }> {
-	const response = await githubAppFetch(env, `/app/installations/${installationId}`);
+	const response = await githubAppFetch(
+		env,
+		`/app/installations/${installationId}`,
+	);
 	if (!response.ok) {
 		throw new Error("github app installation not found");
 	}
@@ -143,9 +221,241 @@ export async function mintInstallationToken(
 	}
 	return {
 		token,
-		expiresAt: body.expires_at ?? new Date(Date.now() + 3_600_000).toISOString(),
+		expiresAt:
+			body.expires_at ?? new Date(Date.now() + 3_600_000).toISOString(),
 		login,
 		username: GITHUB_GIT_USER,
+	};
+}
+
+type GithubOAuthTokens = {
+	accessToken: string;
+	refreshToken: string;
+	expiresAt: string;
+};
+
+function oauthExpiry(expiresIn: number | undefined): string {
+	const seconds = Number(expiresIn);
+	const ms = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
+	return ms ? new Date(Date.now() + ms).toISOString() : "";
+}
+
+async function githubOAuthTokenRequest(
+	env: GithubAppEnv,
+	body: Record<string, string>,
+): Promise<GithubOAuthTokens> {
+	const clientId = env.GITHUB_APP_CLIENT_ID?.trim() ?? "";
+	const clientSecret = env.GITHUB_APP_CLIENT_SECRET?.trim() ?? "";
+	if (!clientId || !clientSecret) {
+		throw new Error("github app oauth is not configured");
+	}
+	const response = await fetch("https://github.com/login/oauth/access_token", {
+		method: "POST",
+		headers: {
+			accept: "application/json",
+			"content-type": "application/json",
+			"user-agent": "gpio-companion",
+		},
+		body: JSON.stringify({
+			client_id: clientId,
+			client_secret: clientSecret,
+			...body,
+		}),
+	});
+	const payload = (await response.json()) as {
+		access_token?: string;
+		refresh_token?: string;
+		expires_in?: number;
+		error?: string;
+		error_description?: string;
+	};
+	const accessToken = payload.access_token?.trim() ?? "";
+	if (!response.ok || !accessToken) {
+		throw new Error(
+			payload.error_description?.trim() ||
+				payload.error?.trim() ||
+				"github app oauth failed",
+		);
+	}
+	return {
+		accessToken,
+		refreshToken: payload.refresh_token?.trim() ?? "",
+		expiresAt: oauthExpiry(payload.expires_in),
+	};
+}
+
+export async function exchangeGithubOAuthCode(
+	env: GithubAppEnv,
+	code: string,
+	redirectUri: string,
+): Promise<GithubOAuthTokens> {
+	return githubOAuthTokenRequest(env, {
+		code,
+		redirect_uri: redirectUri,
+	});
+}
+
+async function refreshGithubUserToken(
+	env: GithubAppEnv,
+	refreshToken: string,
+): Promise<GithubOAuthTokens> {
+	return githubOAuthTokenRequest(env, {
+		grant_type: "refresh_token",
+		refresh_token: refreshToken,
+	});
+}
+
+function userTokenFresh(expiresAt: string | undefined): boolean {
+	if (!expiresAt) {
+		return true;
+	}
+	const expires = Date.parse(expiresAt);
+	if (!Number.isFinite(expires)) {
+		return true;
+	}
+	return expires - Date.now() > 60_000;
+}
+
+export async function loadFreshUserToken(
+	env: GithubAppEnv,
+	userId: string,
+	install: GithubAppInstall,
+): Promise<string> {
+	if (install.userToken && userTokenFresh(install.userTokenExpiresAt)) {
+		return install.userToken;
+	}
+	const refreshToken = install.refreshToken ?? "";
+	if (!refreshToken) {
+		return install.userToken ?? "";
+	}
+	try {
+		const next = await refreshGithubUserToken(env, refreshToken);
+		await saveGithubAppInstall(env.DYNAMIC_PAGE_KV, userId, {
+			...install,
+			userToken: next.accessToken,
+			refreshToken: next.refreshToken || refreshToken,
+			...(next.expiresAt ? { userTokenExpiresAt: next.expiresAt } : {}),
+		});
+		return next.accessToken;
+	} catch {
+		return install.userToken ?? "";
+	}
+}
+
+async function userJson<T>(token: string, path: string): Promise<T> {
+	const response = await fetch(`${GITHUB_API}${path}`, {
+		headers: {
+			authorization: `Bearer ${token}`,
+			accept: "application/vnd.github+json",
+			"user-agent": "gpio-companion",
+			"x-github-api-version": "2022-11-28",
+		},
+	});
+	if (!response.ok) {
+		throw new Error(`github ${response.status}`);
+	}
+	return (await response.json()) as T;
+}
+
+async function installationIdFromUserToken(
+	env: GithubAppEnv,
+	userToken: string,
+): Promise<number> {
+	const appId = Number(env.GITHUB_APP_ID);
+	const body = await userJson<{
+		installations?: Array<{ id?: number; app_id?: number }>;
+	}>(userToken, "/user/installations");
+	const match = (body.installations ?? []).find(
+		(item) => Number(item.app_id) === appId && Number(item.id) > 0,
+	);
+	return Number(match?.id) || 0;
+}
+
+export async function githubAppStatusForUser(
+	env: GithubAppEnv,
+	userId: string,
+	request: Request,
+): Promise<GithubAppStatus> {
+	const slug = env.GITHUB_APP_SLUG?.trim() ?? "";
+	if (!slug || !env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY) {
+		throw new Error("github app is not configured");
+	}
+	const install = await loadGithubAppInstall(env.DYNAMIC_PAGE_KV, userId);
+	const canCreate = Boolean(install && githubAppCanCreate(install));
+	if (install && canCreate) {
+		return {
+			connected: true,
+			login: install.login,
+			installUrl: "",
+			canCreate: true,
+		};
+	}
+	const state = crypto.randomUUID();
+	await env.DYNAMIC_PAGE_KV.put(githubAppStateKey(state), userId, {
+		expirationTtl: 900,
+	});
+	return {
+		connected: Boolean(install),
+		login: install?.login ?? "",
+		installUrl: githubAppConnectUrl(env, slug, state, request),
+		canCreate: false,
+	};
+}
+
+export async function completeGithubAppConnect(
+	env: GithubAppEnv,
+	userId: string,
+	input: {
+		installationId?: number | string;
+		code?: string;
+		state: string;
+	},
+	request: Request,
+): Promise<{ connected: true; login: string; canCreate: boolean }> {
+	const state = input.state.trim();
+	const expected = await env.DYNAMIC_PAGE_KV.get(githubAppStateKey(state));
+	if (!state || expected !== userId) {
+		throw new Error("github app state is invalid");
+	}
+	const existing = await loadGithubAppInstall(env.DYNAMIC_PAGE_KV, userId);
+	const code = input.code?.trim() ?? "";
+	let userToken = existing?.userToken ?? "";
+	let refreshToken = existing?.refreshToken ?? "";
+	let userTokenExpiresAt = existing?.userTokenExpiresAt ?? "";
+	if (code) {
+		const tokens = await exchangeGithubOAuthCode(
+			env,
+			code,
+			githubAppCallbackUri(request, env),
+		);
+		userToken = tokens.accessToken;
+		refreshToken = tokens.refreshToken || refreshToken;
+		userTokenExpiresAt = tokens.expiresAt || userTokenExpiresAt;
+	}
+	let installationId = Number(input.installationId);
+	if (!Number.isFinite(installationId) || installationId <= 0) {
+		installationId = existing?.installationId ?? 0;
+	}
+	if ((!Number.isFinite(installationId) || installationId <= 0) && userToken) {
+		installationId = await installationIdFromUserToken(env, userToken);
+	}
+	if (!Number.isFinite(installationId) || installationId <= 0) {
+		throw new Error("installation id is required");
+	}
+	const info = await readGithubInstallation(env, installationId);
+	const install: GithubAppInstall = {
+		installationId: info.id,
+		login: info.login,
+		...(userToken ? { userToken } : {}),
+		...(refreshToken ? { refreshToken } : {}),
+		...(userTokenExpiresAt ? { userTokenExpiresAt } : {}),
+	};
+	await saveGithubAppInstall(env.DYNAMIC_PAGE_KV, userId, install);
+	await env.DYNAMIC_PAGE_KV.delete(githubAppStateKey(state));
+	return {
+		connected: true,
+		login: info.login,
+		canCreate: githubAppCanCreate(install),
 	};
 }
 

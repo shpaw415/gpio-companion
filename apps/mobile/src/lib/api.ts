@@ -196,6 +196,7 @@ export type GithubAppStatus = {
 	connected: boolean;
 	login: string;
 	installUrl: string;
+	canCreate?: boolean;
 };
 
 export type PendingRequest = {

@@ -9,7 +9,8 @@ export default function ProfileGithubPage() {
 			<SectionHeader title="GitHub" />
 			<Typography color="secondary">
 				Connect the gpio-companion GitHub App so your boards can push project
-				files. You do not create a personal access token.
+				files. Creating a project also needs a one-time GitHub authorization.
+				You do not create a personal access token.
 			</Typography>
 			<KeysForm />
 		</Stack>

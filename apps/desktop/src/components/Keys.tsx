@@ -22,7 +22,7 @@ export default function Keys() {
 	const loading = github.loading;
 
 	useEffect(() => {
-		if (status?.connected || loading) {
+		if ((status?.connected && !status.installUrl) || loading) {
 			return;
 		}
 		const timer = window.setInterval(() => {
@@ -31,7 +31,7 @@ export default function Keys() {
 				.catch(() => undefined);
 		}, 2500);
 		return () => window.clearInterval(timer);
-	}, [status?.connected, loading, github.setData]);
+	}, [status?.connected, status?.installUrl, loading, github.setData]);
 
 	return (
 		<Stack spacing={2}>
@@ -46,22 +46,25 @@ export default function Keys() {
 			{error ? <DebugLog error={error} /> : null}
 			<Paper sx={{ p: 3 }} elevation={1}>
 				{loading ? <LinesSkeleton lines={2} /> : null}
-				{loading ? null : status?.connected ? (
+				{loading ? null : status?.connected && !status.installUrl ? (
 					<Typography>
 						GitHub App connected as {status.login || "your account"}.
 					</Typography>
 				) : (
 					<Stack spacing={2}>
 						<Typography color="secondary">
-							GitHub App is not connected. Finish the install in your browser;
-							this page polls until it shows up.
+							{status?.connected
+								? "Authorize again in your browser so the dashboard can create repositories."
+								: "GitHub App is not connected. Finish the install in your browser; this page polls until it shows up."}
 						</Typography>
 						<Button
 							variant="contained"
 							disabled={!status?.installUrl}
 							onClick={() => void openExternal(status?.installUrl ?? "")}
 						>
-							Connect GitHub App
+							{status?.connected
+								? "Authorize creating repositories"
+								: "Connect GitHub App"}
 						</Button>
 					</Stack>
 				)}

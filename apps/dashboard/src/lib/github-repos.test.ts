@@ -28,7 +28,7 @@ describe("createGpioCompanionRepo", () => {
 		});
 	}
 
-	test("app tokens create user repos with GraphQL, not POST /user/repos", async () => {
+	test("user access tokens POST /user/repos", async () => {
 		const paths: string[] = [];
 		globalThis.fetch = (async (
 			input: RequestInfo | URL,
@@ -37,22 +37,20 @@ describe("createGpioCompanionRepo", () => {
 			const url = String(input);
 			const path = url.replace("https://api.github.com", "");
 			paths.push(`${init?.method ?? "GET"} ${path}`);
-			if (path === "/users/ada") {
-				return json({ login: "ada", type: "User", node_id: "U_ada" });
-			}
-			if (path === "/graphql") {
-				return json({
-					data: {
-						createRepository: {
-							repository: {
-								name: "blink",
-								nameWithOwner: "ada/blink",
-								url: "https://github.com/ada/blink",
-								owner: { login: "ada" },
-							},
-						},
+			if (path === "/user/repos") {
+				return json(
+					{
+						id: 77,
+						full_name: "ada/blink",
+						name: "blink",
+						owner: { login: "ada" },
+						html_url: "https://github.com/ada/blink",
 					},
-				});
+					201,
+				);
+			}
+			if (path === "/user/installations/9/repositories/77") {
+				return new Response(null, { status: 204 });
 			}
 			if (path === "/repos/ada/blink/contents/.gpio-companion") {
 				return json({}, 201);
@@ -60,20 +58,21 @@ describe("createGpioCompanionRepo", () => {
 			return json({ message: `unexpected ${path}` }, 500);
 		}) as typeof fetch;
 		const repo = await createGpioCompanionRepo(
-			{ username: "ada", token: "ghs_install" },
+			{
+				username: "ada",
+				token: "ghs_install",
+				createToken: "ghu_user",
+				installationId: 9,
+			},
 			"blink",
 		);
-		expect(repo).toEqual({
-			full_name: "ada/blink",
-			name: "blink",
-			owner: "ada",
-			html_url: "https://github.com/ada/blink",
-		});
-		expect(paths.some((item) => item.includes("/user/repos"))).toBe(false);
-		expect(paths).toContain("POST /graphql");
+		expect(repo.full_name).toBe("ada/blink");
+		expect(paths).toContain("POST /user/repos");
+		expect(paths).toContain("PUT /user/installations/9/repositories/77");
+		expect(paths.some((item) => item.includes("/graphql"))).toBe(false);
 	});
 
-	test("app tokens create org repos with POST /orgs/{org}/repos", async () => {
+	test("installation tokens create org repos with POST /orgs/{org}/repos", async () => {
 		const paths: string[] = [];
 		globalThis.fetch = (async (
 			input: RequestInfo | URL,
@@ -107,7 +106,25 @@ describe("createGpioCompanionRepo", () => {
 		);
 		expect(repo.full_name).toBe("acme/blink");
 		expect(paths).toContain("POST /orgs/acme/repos");
-		expect(paths.some((item) => item.includes("/user/repos"))).toBe(false);
+	});
+
+	test("installation tokens cannot create user repos without a user token", async () => {
+		globalThis.fetch = (async (
+			input: RequestInfo | URL,
+			_init?: RequestInit,
+		) => {
+			const path = String(input).replace("https://api.github.com", "");
+			if (path === "/users/ada") {
+				return json({ login: "ada", type: "User", node_id: "U_ada" });
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		await expect(
+			createGpioCompanionRepo(
+				{ username: "ada", token: "ghs_install" },
+				"blink",
+			),
+		).rejects.toThrow("Reconnect GitHub on Profile");
 	});
 
 	test("classic tokens still POST /user/repos", async () => {

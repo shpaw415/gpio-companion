@@ -1,9 +1,21 @@
 import { useCallback, useEffect } from "react";
 import { Linking, View } from "react-native";
+import {
+	Body,
+	ErrorText,
+	Muted,
+	Paper,
+	PrimaryButton,
+	Skeleton,
+	Title,
+} from "../components/ui.tsx";
 import { getGithubApp } from "../lib/api.ts";
-import { CACHE_KEYS, useCachedQuery, useUserBoards } from "../lib/api-cache.tsx";
+import {
+	CACHE_KEYS,
+	useCachedQuery,
+	useUserBoards,
+} from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
-import { Body, ErrorText, Muted, Paper, PrimaryButton, Skeleton, Title } from "../components/ui.tsx";
 
 export default function Keys() {
 	const auth = useAuth();
@@ -24,7 +36,7 @@ export default function Keys() {
 	}, [token]);
 
 	useEffect(() => {
-		if (status?.connected || github.loading) {
+		if ((status?.connected && !status.installUrl) || github.loading) {
 			return;
 		}
 		const timer = setInterval(() => {
@@ -33,7 +45,13 @@ export default function Keys() {
 				.catch(() => undefined);
 		}, 2500);
 		return () => clearInterval(timer);
-	}, [status?.connected, github.loading, fetcher, github.setData]);
+	}, [
+		status?.connected,
+		status?.installUrl,
+		github.loading,
+		fetcher,
+		github.setData,
+	]);
 
 	return (
 		<View style={{ gap: 12 }}>
@@ -45,15 +63,21 @@ export default function Keys() {
 			<ErrorText>{github.error}</ErrorText>
 			<Paper>
 				{github.loading ? <Skeleton height={40} /> : null}
-				{github.loading ? null : status?.connected ? (
+				{github.loading ? null : status?.connected && !status.installUrl ? (
 					<Body>GitHub App connected as {status.login || "your account"}.</Body>
 				) : (
 					<>
 						<Muted>
-							GitHub App is not connected. Finish the install in your browser; this page polls until it shows up.
+							{status?.connected
+								? "Authorize again in your browser so the dashboard can create repositories."
+								: "GitHub App is not connected. Finish the install in your browser; this page polls until it shows up."}
 						</Muted>
 						<PrimaryButton
-							label="Connect GitHub App"
+							label={
+								status?.connected
+									? "Authorize creating repositories"
+									: "Connect GitHub App"
+							}
 							disabled={!status?.installUrl}
 							onPress={() => void Linking.openURL(status?.installUrl ?? "")}
 						/>

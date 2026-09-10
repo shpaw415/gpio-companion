@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { issueGithubCredentials, parseGithubAppInstall } from "./github-app.ts";
+import {
+	githubAppCanCreate,
+	githubAppOAuthUrl,
+	issueGithubCredentials,
+	parseGithubAppInstall,
+} from "./github-app.ts";
 import type { StoredPairing } from "./pairing-store.ts";
 
 class MemoryKv {
@@ -35,6 +40,36 @@ describe("github app kv", () => {
 				JSON.stringify({ installationId: 9, login: "ada" }),
 			),
 		).toEqual({ installationId: 9, login: "ada" });
+		expect(
+			parseGithubAppInstall(
+				JSON.stringify({
+					installationId: 9,
+					login: "ada",
+					userToken: "ghu_x",
+					refreshToken: "ghr_x",
+				}),
+			),
+		).toEqual({
+			installationId: 9,
+			login: "ada",
+			userToken: "ghu_x",
+			refreshToken: "ghr_x",
+		});
+		expect(githubAppCanCreate({ installationId: 9, login: "ada" })).toBe(false);
+		expect(
+			githubAppCanCreate({
+				installationId: 9,
+				login: "ada",
+				refreshToken: "ghr_x",
+			}),
+		).toBe(true);
+		expect(
+			githubAppOAuthUrl(
+				"Iv1.abc",
+				"https://gpio-companion.com/devices/keys",
+				"st",
+			),
+		).toContain("client_id=Iv1.abc");
 	});
 
 	test("issues credentials for a matching pairing key", async () => {

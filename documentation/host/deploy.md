@@ -97,7 +97,7 @@ If a board is offline for more than an hour, the user does nothing except push a
    | Homepage URL | `https://gpio-companion.com` |
    | Callback URL | `https://gpio-companion.com/devices/keys` (unused for OAuth; required by the form) |
    | Expire user authorization tokens | leave default |
-   | Request user authorization (OAuth) during installation | **unchecked** |
+    | Request user authorization (OAuth) during installation | **checked** (needed to create user repos; installation tokens cannot `POST /user/repos`) |
    | Setup URL (Post installation) | `https://gpio-companion.com/devices/keys` |
    | Redirect on update | **checked** so GitHub returns `?installation_id=&setup_action=&state=` |
    | Webhook | **unchecked** (inactive). This App does not consume webhooks. |
@@ -116,9 +116,10 @@ If a board is offline for more than an hour, the user does nothing except push a
 4. Create the App. On the app page copy:
 
    - **App ID** — integer, e.g. `123456` → `GITHUB_APP_ID`
-   - **Public link** `/apps/<slug>` → `GITHUB_APP_SLUG` (the path segment only, e.g. `gpio-companion`)
+    - **Public link** `/apps/<slug>` → `GITHUB_APP_SLUG` (the path segment only, e.g. `gpio-companion`)
+    - **Client ID** — `Iv1…` / `Iv23…` → `GITHUB_APP_CLIENT_ID`
 5. **Generate a private key**. GitHub downloads `*.pem` (`-----BEGIN RSA PRIVATE KEY-----` or `BEGIN PRIVATE KEY`). Store it outside git (mode 0600). This is `GITHUB_APP_PRIVATE_KEY`. You cannot re-download it; generate a new key if lost.
-6. Optional: set the app logo. Do not enable “Expire user authorization tokens” workflows; we mint **installation** tokens, not user-to-server OAuth.
+6. **Generate a client secret** (Client secrets → Generate). This is `GITHUB_APP_CLIENT_SECRET`. You cannot re-download it. Optional: set the app logo. Leave “Expire user authorization tokens” on; the dashboard stores the refresh token and mints a user access token (`ghu_`) to **create** repos. Boards still mint **installation** tokens (`ghs_`) for `git push`.
 
 Staging: repeat as a second App (`gpio-companion-staging`) with Setup URL `http://localhost:3010/devices/keys` (or your tunnel). Do not reuse production keys.
 
@@ -134,6 +135,9 @@ npx wrangler pages secret put GITHUB_APP_ID
 npx wrangler pages secret put GITHUB_APP_SLUG
 # paste the slug only, e.g. gpio-companion
 
+# Client secret — never commit, never PUBLIC_
+printf '%s' "$GITHUB_APP_CLIENT_SECRET" | npx wrangler pages secret put GITHUB_APP_CLIENT_SECRET
+
 # private PEM — never commit, never PUBLIC_
 printf '%s' "$(cat /path/to/gpio-companion.private-key.pem)" | npx wrangler pages secret put GITHUB_APP_PRIVATE_KEY
 ```
@@ -143,6 +147,8 @@ Local (`apps/dashboard/.dev.vars` or `.env`, see `.env.exemple`):
 ```
 GITHUB_APP_ID=123456
 GITHUB_APP_SLUG=gpio-companion
+GITHUB_APP_CLIENT_ID=Iv23…
+GITHUB_APP_CLIENT_SECRET=
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 ```
 
@@ -159,7 +165,7 @@ Newlines in `.dev.vars` can be literal; Wrangler accepts a PEM block. Never pref
 | Git on the Pi | `/etc/gitconfig` helper `!/usr/local/bin/gpio-companion git-credential` |
 | Agent API token | `gpio-companion github-token` (same mint path) |
 
-`/projects` lists **installation** repos (`GET /installation/repositories`), not `/user/repos`. Creating a project with an App installation token uses `POST /orgs/{org}/repos` for organization installs and GraphQL `createRepository` for user installs (`POST /user/repos` is user-to-server only and returns `403 Resource not accessible by integration` for `ghs_` tokens). Legacy KV `github:<userId>` PATs still work if present; Keys no longer collects them.
+`/projects` lists **installation** repos (`GET /installation/repositories`), not `/user/repos`. Creating a project uses a GitHub App **user** access token (`POST /user/repos`, UAT-only) after Profile → GitHub OAuth; organization installs can still `POST /orgs/{org}/repos` with an installation token. Installation tokens (`ghs_`) cannot create user repos (`403 Resource not accessible by integration`). Legacy KV `github:<userId>` PATs still work if present; Keys no longer collects them.
 
 #### Confirm
 

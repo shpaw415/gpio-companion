@@ -47,12 +47,17 @@ export default function KeysForm() {
 		setChecking(true);
 		const params = new URLSearchParams(window.location.search);
 		const installationId = params.get("installation_id");
+		const code = params.get("code") ?? "";
 		const state = params.get("state") ?? "";
 		void (async () => {
 			try {
-				if (installationId && state) {
+				if ((installationId || code) && state) {
 					const saved = unwrapAction(
-						await saveGithubApp({ installationId, state }),
+						await saveGithubApp({
+							installationId: installationId ?? "",
+							code,
+							state,
+						}),
 					);
 					setLogin(saved.login);
 					setInstallUrl("");
@@ -93,12 +98,19 @@ export default function KeysForm() {
 				</Typography>
 				{checking ? (
 					<Skeleton variant="rounded" height={40} width="60%" />
-				) : login ? (
+				) : login && !installUrl ? (
 					<Alert severity="success">Connected as @{login}</Alert>
 				) : installUrl ? (
-					<Button href={installUrl} variant="contained">
-						Connect GitHub
-					</Button>
+					<Stack spacing={1}>
+						{login ? (
+							<Alert severity="info">
+								Connected as @{login}. Authorize again to create projects.
+							</Alert>
+						) : null}
+						<Button href={installUrl} variant="contained">
+							{login ? "Authorize creating repositories" : "Connect GitHub"}
+						</Button>
+					</Stack>
 				) : (
 					<Typography color="secondary">GitHub App not connected.</Typography>
 				)}
