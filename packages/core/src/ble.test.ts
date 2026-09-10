@@ -3,6 +3,7 @@ import {
 	createBleAssembler,
 	createSignedEnvelope,
 	envelopeToPasteText,
+	ingestBleStatus,
 	isBleCompleteStatus,
 	isBleIdleStatus,
 	isBlePartialSnapshot,
@@ -23,6 +24,28 @@ describe("ble", () => {
 			result = assembler.push(frame);
 		}
 		expect(result).toBe(payload);
+	});
+
+	test("ingests framed status chunks and complete json reads", () => {
+		const payload = JSON.stringify({
+			hardware: "orangepi",
+			pins: Array.from({ length: 40 }, (_, physical) => ({ physical })),
+		});
+		const assembler = createBleAssembler();
+		let got: string | null = null;
+		for (const frame of splitBleFrames(payload, 32)) {
+			got = ingestBleStatus(assembler, frame) ?? got;
+		}
+		expect(JSON.parse(got ?? "")).toEqual(JSON.parse(payload));
+		expect(
+			ingestBleStatus(assembler, new TextEncoder().encode('{"ready":true}')),
+		).toBe('{"ready":true}');
+		expect(
+			ingestBleStatus(
+				assembler,
+				new TextEncoder().encode('{"hardware":"orangepi","pins":['),
+			),
+		).toBeNull();
 	});
 
 	test("accepts pasted utf-8 json from a ble text app", () => {

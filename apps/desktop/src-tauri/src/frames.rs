@@ -100,6 +100,25 @@ impl BleAssembler {
 		self.buf.drain(..4 + length);
 		Some(text)
 	}
+
+	pub fn reset(&mut self) {
+		self.buf.clear();
+	}
+}
+
+pub fn ingest_ble_status(assembler: &mut BleAssembler, chunk: &[u8]) -> Option<String> {
+	if chunk.is_empty() {
+		return None;
+	}
+	if chunk[0] == 0x7b {
+		let text = String::from_utf8_lossy(chunk).trim().to_string();
+		if is_ble_idle_status(&text) || is_ble_complete_status(&text) {
+			assembler.reset();
+			return Some(text);
+		}
+		return None;
+	}
+	assembler.push(chunk)
 }
 
 pub fn matches_board(name: Option<&str>, service_ids: &[&str]) -> bool {
@@ -203,6 +222,18 @@ mod tests {
 			}
 		}
 		assert_eq!(got.as_deref(), Some(payload.as_str()));
+		let mut ingest = BleAssembler::default();
+		let mut from_ingest = None;
+		for frame in split_ble_frames(&payload, 32) {
+			if let Some(text) = ingest_ble_status(&mut ingest, &frame) {
+				from_ingest = Some(text);
+			}
+		}
+		assert_eq!(from_ingest.as_deref(), Some(payload.as_str()));
+		assert_eq!(
+			ingest_ble_status(&mut ingest, br#"{"ready":true}"#).as_deref(),
+			Some(r#"{"ready":true}"#)
+		);
 		assert!(is_profile_unavailable(
 			"bluetooth connect: br-connection-profile-unavailable"
 		));

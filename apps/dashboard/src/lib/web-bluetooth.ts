@@ -6,6 +6,7 @@ import {
 	BLE_STATUS_UUID,
 	type BleInfo,
 	createBleAssembler,
+	ingestBleStatus,
 	isBleCompleteStatus,
 	isBleIdleStatus,
 	type SignedDeviceEnvelope,
@@ -230,7 +231,7 @@ async function openCompanionSession(
 				if (!target.value) {
 					return;
 				}
-				const text = assembler.push(viewBytes(target.value));
+				const text = ingestBleStatus(assembler, viewBytes(target.value));
 				if (text) {
 					finish(text);
 				}
@@ -250,7 +251,10 @@ async function openCompanionSession(
 				poll = setInterval(() => {
 					void statusChar.readValue().then(
 						(view) => {
-							finish(decodeView(view));
+							const text = ingestBleStatus(assembler, viewBytes(view));
+							if (text) {
+								finish(text);
+							}
 						},
 						() => undefined,
 					);

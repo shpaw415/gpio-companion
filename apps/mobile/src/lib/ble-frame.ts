@@ -146,6 +146,24 @@ export function isBleSettledStatus(raw: string): boolean {
 	return isBleCompleteStatus(raw) || isBlePartialSnapshot(raw);
 }
 
+export function ingestBleStatus(
+	assembler: ReturnType<typeof createBleAssembler>,
+	chunk: Uint8Array,
+): string | null {
+	if (chunk.length === 0) {
+		return null;
+	}
+	if (chunk[0] === 0x7b) {
+		const text = new TextDecoder().decode(chunk).trim();
+		if (isBleIdleStatus(text) || isBleCompleteStatus(text)) {
+			assembler.reset();
+			return text;
+		}
+		return null;
+	}
+	return assembler.push(chunk);
+}
+
 export function matchesBoard(name: string, serviceUUIDs: string[]): boolean {
 	const lower = name.toLowerCase();
 	if (lower.startsWith(BLE_DEVICE_NAME) || lower === "gpio") {

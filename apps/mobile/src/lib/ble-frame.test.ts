@@ -6,6 +6,7 @@ import {
 	createBleAssembler,
 	encodeFrames,
 	forPicker,
+	ingestBleStatus,
 	isBleCompleteStatus,
 	isBleSettledStatus,
 	matchesBoard,
@@ -49,6 +50,12 @@ describe("encodeFrames", () => {
 			got = assembler.push(decodeBase64(frame)) ?? got;
 		}
 		expect(got).toBe(payload);
+		const ingest = createBleAssembler();
+		let ingested: string | null = null;
+		for (const frame of frames) {
+			ingested = ingestBleStatus(ingest, decodeBase64(frame)) ?? ingested;
+		}
+		expect(ingested).toBe(payload);
 	});
 
 	test("large payload splits into length-prefixed chunks", () => {

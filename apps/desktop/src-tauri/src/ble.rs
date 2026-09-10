@@ -640,7 +640,7 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 					if notification.uuid != status_char.uuid {
 						continue;
 					}
-					let Some(text) = assembler.push(&notification.value) else {
+					let Some(text) = frames::ingest_ble_status(&mut assembler, &notification.value) else {
 						continue;
 					};
 					if frames::is_ble_idle_status(&text) {
@@ -653,7 +653,9 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 				}
 				_ = sleep(Duration::from_millis(500)) => {
 					if let Ok(data) = peripheral.read(&status_char).await {
-						let text = String::from_utf8_lossy(&data).into_owned();
+						let Some(text) = frames::ingest_ble_status(&mut assembler, &data) else {
+							continue;
+						};
 						if frames::is_ble_idle_status(&text) {
 							previous.clear();
 							continue;

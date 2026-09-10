@@ -16,9 +16,9 @@ import {
 	encodeFrames,
 	forPicker,
 	fromBase64,
+	ingestBleStatus,
 	isBleCompleteStatus,
 	isBleIdleStatus,
-	isBleSettledStatus,
 	looksLikeMac,
 	matchesBoard,
 	type NearbyRadio,
@@ -354,7 +354,7 @@ export async function sendEnvelope(
 				previous = "";
 				return;
 			}
-			if (isBleSettledStatus(raw)) {
+			if (isBleCompleteStatus(raw)) {
 				lastUseful = raw;
 			}
 			if (!armed) {
@@ -366,7 +366,7 @@ export async function sendEnvelope(
 			finish(() => resolve(raw));
 		};
 		const acceptChunk = (bytes: Uint8Array) => {
-			const text = assembler.push(bytes);
+			const text = ingestBleStatus(assembler, bytes);
 			if (text) {
 				accept(text);
 			}
@@ -434,7 +434,7 @@ export async function sendEnvelope(
 						.then(
 							(characteristic) => {
 								if (characteristic.value) {
-									accept(atob(characteristic.value));
+									acceptChunk(fromBase64(characteristic.value));
 								}
 							},
 							() => undefined,

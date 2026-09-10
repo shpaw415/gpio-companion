@@ -61,6 +61,7 @@ export {
 	createSignedEnvelope,
 	envelopeToPasteText,
 	envelopeToRequest,
+	ingestBleStatus,
 	isBleCompleteStatus,
 	isBleIdleStatus,
 	isBlePartialSnapshot,
