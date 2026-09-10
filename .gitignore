@@ -24,6 +24,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # device Ed25519 private keys
 .device-keys/
 
+# BLE central venv for scripts/device-endpoint-runner.ts
+scripts/.ble-central-venv/
+
 # dotenv environment variable files
 .env
 .env.development.local

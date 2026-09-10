@@ -6,6 +6,7 @@ import {
 	extractT3PairingToken,
 	extractT3PairingUrl,
 	pairingSlug,
+	pairingUuidFromDeviceUrl,
 	parseDashboardT3PairLocation,
 	publicDeviceUrl,
 	rewriteT3PairingUrl,
@@ -23,6 +24,11 @@ describe("tunnel hostnames", () => {
 			apiHostname: "api-550e8400e29b41d4a716446655440000.gpio-companion.com",
 		});
 		expect(cloudflareTunnelName(uuid)).toBe(`gpio-${uuid}`);
+		expect(
+			pairingUuidFromDeviceUrl(
+				"https://api-550e8400e29b41d4a716446655440000.gpio-companion.com/",
+			),
+		).toBe(uuid);
 	});
 
 	test("rewrites local pairing urls to the device tunnel pair link", () => {
@@ -68,7 +74,9 @@ describe("tunnel hostnames", () => {
 		expect(t3PairPageUrl("t3-abc.gpio-companion.com", "abc123")).toBe(
 			"https://t3-abc.gpio-companion.com/pair#token=abc123",
 		);
-		expect(dashboardT3PairPath("550e8400-e29b-41d4-a716-446655440000", "abc123")).toBe(
+		expect(
+			dashboardT3PairPath("550e8400-e29b-41d4-a716-446655440000", "abc123"),
+		).toBe(
 			"/devices/t3?uuid=550e8400-e29b-41d4-a716-446655440000#token=abc123",
 		);
 		expect(
@@ -86,10 +94,7 @@ describe("tunnel hostnames", () => {
 			token: "abc123",
 		});
 		expect(
-			parseDashboardT3PairLocation(
-				"?uuid=x&token=from-query",
-				"",
-			),
+			parseDashboardT3PairLocation("?uuid=x&token=from-query", ""),
 		).toEqual({ uuid: "x", token: "from-query" });
 	});
 });

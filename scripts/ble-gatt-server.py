@@ -166,9 +166,13 @@ class CommandCharacteristic(Characteristic):
 		super().__init__(bus, index, uuid, flags, service)
 		self.on_payload = on_payload
 		self.buf = bytearray()
+		self.idle_id = None
 
 	@dbus.service.method(GATT_CHRC, in_signature="aya{sv}")
 	def WriteValue(self, value, options):
+		if self.idle_id is not None:
+			GLib.source_remove(self.idle_id)
+			self.idle_id = None
 		self.buf.extend(bytes(value))
 		if len(self.buf) > 256 * 1024:
 			self.buf = bytearray()
@@ -177,6 +181,13 @@ class CommandCharacteristic(Characteristic):
 		payload = take_command(self.buf)
 		if payload is not None:
 			self.on_payload(payload)
+			return
+		self.idle_id = GLib.timeout_add(2000, self.clear_idle_buffer)
+
+	def clear_idle_buffer(self):
+		self.buf = bytearray()
+		self.idle_id = None
+		return False
 
 
 def characteristic_read(value, options=None):

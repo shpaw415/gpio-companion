@@ -41,6 +41,25 @@ export function publicDeviceUrl(apiHostname: string): string {
 	return `https://${host}`;
 }
 
+export function pairingUuidFromDeviceUrl(deviceUrl: string): string {
+	const origin = publicDeviceUrl(deviceUrl);
+	if (!origin) {
+		return "";
+	}
+	let host = origin;
+	try {
+		host = new URL(origin).hostname;
+	} catch {
+		host = origin.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+	}
+	const match = host.toLowerCase().match(/^api-([0-9a-f]{32})\./);
+	const slug = match?.[1] ?? "";
+	if (slug.length !== 32) {
+		return "";
+	}
+	return `${slug.slice(0, 8)}-${slug.slice(8, 12)}-${slug.slice(12, 16)}-${slug.slice(16, 20)}-${slug.slice(20)}`;
+}
+
 export function extractT3PairingUrl(text: string): string {
 	const matches = text.match(/https?:\/\/[^\s"'<>]+/g);
 	if (!matches) {

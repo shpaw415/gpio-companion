@@ -177,6 +177,17 @@ export {
 	verifyEd25519Message,
 } from "./device-auth.ts";
 export {
+	type DeviceEndpointAuth,
+	type DeviceEndpointExpect,
+	type DeviceEndpointProbe,
+	type DeviceEndpointVerdict,
+	type DeviceEndpointVia,
+	deviceEndpointErrorMessage,
+	deviceEndpointProbes,
+	evaluateDeviceEndpointProbe,
+	parseDeviceEndpointBody,
+} from "./device-endpoint-runner.ts";
+export {
 	type DeviceInfoRow,
 	flattenDeviceInfo,
 	formatNetworkLabel,
@@ -339,6 +350,7 @@ export {
 	extractT3PairingToken,
 	extractT3PairingUrl,
 	pairingSlug,
+	pairingUuidFromDeviceUrl,
 	parseDashboardT3PairLocation,
 	publicDeviceUrl,
 	rewriteT3PairingUrl,
