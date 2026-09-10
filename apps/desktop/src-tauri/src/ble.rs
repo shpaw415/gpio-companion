@@ -621,7 +621,7 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 		.await
 		.map_err(|err| err.to_string())?;
 	let cmd_char = find_char(peripheral, BLE_CMD_UUID)?;
-	let previous = peripheral
+	let mut previous = peripheral
 		.read(&status_char)
 		.await
 		.map(|data| String::from_utf8_lossy(&data).into_owned())
