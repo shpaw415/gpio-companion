@@ -66,6 +66,42 @@ pub fn split_ble_frames(payload: &str, mtu: usize) -> Vec<Vec<u8>> {
 	all.chunks(mtu).map(|chunk| chunk.to_vec()).collect()
 }
 
+#[derive(Default)]
+pub struct BleAssembler {
+	buf: Vec<u8>,
+}
+
+impl BleAssembler {
+	pub fn push(&mut self, chunk: &[u8]) -> Option<String> {
+		self.buf.extend_from_slice(chunk);
+		if self.buf.is_empty() {
+			return None;
+		}
+		if self.buf[0] == 0x7b {
+			let text = String::from_utf8_lossy(&self.buf).trim().to_string();
+			if serde_json::from_str::<serde_json::Value>(&text).is_ok() {
+				self.buf.clear();
+				return Some(text);
+			}
+			return None;
+		}
+		if self.buf.len() < 4 {
+			return None;
+		}
+		let length = u32::from_be_bytes(self.buf[0..4].try_into().ok()?) as usize;
+		if length > 256 * 1024 {
+			self.buf.clear();
+			return None;
+		}
+		if self.buf.len() < 4 + length {
+			return None;
+		}
+		let text = String::from_utf8_lossy(&self.buf[4..4 + length]).into_owned();
+		self.buf.drain(..4 + length);
+		Some(text)
+	}
+}
+
 pub fn matches_board(name: Option<&str>, service_ids: &[&str]) -> bool {
 	if service_ids
 		.iter()
@@ -158,6 +194,15 @@ mod tests {
 		assert!(is_ble_complete_status(
 			r#"{"hardware":"orangepi","pins":[{"physical":1}]}"#
 		));
+		let payload = format!(r#"{{"dashboardUrl":"https://gpio-companion.com","pad":"{}"}}"#, "x".repeat(200));
+		let mut assembler = BleAssembler::default();
+		let mut got = None;
+		for frame in split_ble_frames(&payload, 32) {
+			if let Some(text) = assembler.push(&frame) {
+				got = Some(text);
+			}
+		}
+		assert_eq!(got.as_deref(), Some(payload.as_str()));
 		assert!(is_profile_unavailable(
 			"bluetooth connect: br-connection-profile-unavailable"
 		));

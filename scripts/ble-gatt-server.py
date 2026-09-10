@@ -27,6 +27,8 @@ OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 PROP_IFACE = "org.freedesktop.DBus.Properties"
 
 GATT_NOTIFY_MAX = 512
+BLE_CHUNK_SIZE = 160
+NOTIFY_FRAME_MS = 20
 
 SERVICE_UUID = os.environ.get(
 	"GPIO_BLE_SERVICE", "a1c15e00-6f10-4c9a-9c31-47b0c15e0001"
@@ -106,6 +108,8 @@ class Characteristic(dbus.service.Object):
 		self.flags = flags
 		self.value = []
 		self.notifying = False
+		self.notify_id = None
+		self.notify_queue = []
 		dbus.service.Object.__init__(self, bus, self.path)
 
 	def get_properties(self):
@@ -123,11 +127,35 @@ class Characteristic(dbus.service.Object):
 
 	def set_value(self, data):
 		self.value = list(data)
-		chunk = notify_chunk(self.value)
-		if self.notifying and chunk is not None:
-			self.PropertiesChanged(
-				GATT_CHRC, {"Value": dbus.Array(chunk, signature="y")}, []
-			)
+		self.start_notify_pump()
+
+	def cancel_notify_pump(self):
+		if self.notify_id is not None:
+			GLib.source_remove(self.notify_id)
+			self.notify_id = None
+		self.notify_queue = []
+
+	def start_notify_pump(self):
+		self.cancel_notify_pump()
+		if not self.notifying:
+			return
+		payload = bytes(self.value)
+		if not payload:
+			return
+		self.notify_queue = split_ble_frames(payload)
+		self.pump_notify()
+
+	def pump_notify(self):
+		self.notify_id = None
+		if not self.notifying or not self.notify_queue:
+			return False
+		chunk = self.notify_queue.pop(0)
+		self.PropertiesChanged(
+			GATT_CHRC, {"Value": dbus.Array(list(chunk), signature="y")}, []
+		)
+		if self.notify_queue:
+			self.notify_id = GLib.timeout_add(NOTIFY_FRAME_MS, self.pump_notify)
+		return False
 
 	@dbus.service.method(PROP_IFACE, in_signature="s", out_signature="a{sv}")
 	def GetAll(self, interface):
@@ -148,15 +176,12 @@ class Characteristic(dbus.service.Object):
 	@dbus.service.method(GATT_CHRC)
 	def StartNotify(self):
 		self.notifying = True
-		chunk = notify_chunk(self.value)
-		if chunk is not None:
-			self.PropertiesChanged(
-				GATT_CHRC, {"Value": dbus.Array(chunk, signature="y")}, []
-			)
+		self.start_notify_pump()
 
 	@dbus.service.method(GATT_CHRC)
 	def StopNotify(self):
 		self.notifying = False
+		self.cancel_notify_pump()
 
 	@dbus.service.signal(PROP_IFACE, signature="sa{sv}as")
 	def PropertiesChanged(self, interface, changed, invalidated):
@@ -208,58 +233,11 @@ def characteristic_read(value, options=None):
 	return data[offset:]
 
 
-def _pick(record, keys):
-	if not isinstance(record, dict):
-		return {}
-	return {key: record.get(key) for key in keys if key in record}
-
-
-def compact_ble_body(path, body):
-	data = body if isinstance(body, (bytes, bytearray)) else bytes(body)
-	normalized = (path or "").split("?")[0].rstrip("/") or "/"
-	if normalized != "/v1/info" or len(data) <= GATT_NOTIFY_MAX:
-		return data
-	try:
-		parsed = json.loads(data)
-	except json.JSONDecodeError:
-		return data
-	if not isinstance(parsed, dict):
-		return data
-	services = parsed.get("services") if isinstance(parsed.get("services"), dict) else {}
-	companion = services.get("gpio-companion")
-	compact = {
-		"dashboardUrl": parsed.get("dashboardUrl") or "",
-		"hardware": parsed.get("hardware") or "",
-		"host": _pick(parsed.get("host"), ("hostname", "kernel", "arch", "wifiSsid")),
-		"network": _pick(parsed.get("network"), ("type", "ssid")),
-		"pairing": _pick(parsed.get("pairing"), ("uuid", "claimed", "login")),
-		"tunnel": _pick(parsed.get("tunnel"), ("apiHostname", "deviceUrl")),
-		"deviceAuth": _pick(parsed.get("deviceAuth"), ("keyId", "publicKeySet")),
-		"ble": _pick(parsed.get("ble"), ("adapter", "scriptPresent")),
-		"secrets": _pick(
-			parsed.get("secrets"),
-			("githubUsername", "githubTokenSet", "gpioAiKeySet"),
-		),
-		"services": {
-			"gpio-companion": _pick(companion, ("active", "enabled"))
-			if isinstance(companion, dict)
-			else companion,
-			"port": services.get("port"),
-		},
-		"versions": _pick(parsed.get("versions"), ("gpioCompanion",)),
-	}
-	raw = json.dumps(compact, separators=(",", ":")).encode("utf-8")
-	if len(raw) <= GATT_NOTIFY_MAX:
-		return raw
-	smaller = {
-		"dashboardUrl": compact["dashboardUrl"],
-		"hardware": compact["hardware"],
-		"deviceAuth": compact["deviceAuth"],
-		"pairing": compact["pairing"],
-		"tunnel": compact["tunnel"],
-		"ble": compact["ble"],
-	}
-	return json.dumps(smaller, separators=(",", ":")).encode("utf-8")
+def split_ble_frames(payload, mtu=BLE_CHUNK_SIZE):
+	body = payload if isinstance(payload, (bytes, bytearray)) else bytes(payload)
+	mtu = max(int(mtu), 1)
+	blob = struct.pack(">I", len(body)) + body
+	return [blob[i : i + mtu] for i in range(0, len(blob), mtu)]
 
 
 def notify_chunk(value):
@@ -270,7 +248,7 @@ def notify_chunk(value):
 
 
 def should_notify_value(value):
-	return notify_chunk(value) is not None
+	return len(bytes(value)) > 0
 
 
 def take_command(buf):
@@ -493,14 +471,14 @@ def forward_envelope(payload, status_char):
 			headers=ble_forward_headers(headers),
 		)
 		with urllib.request.urlopen(req, timeout=45) as resp:
-			status_char.set_value(compact_ble_body(path, resp.read()))
+			status_char.set_value(resp.read())
 	except json.JSONDecodeError:
 		status_char.set_value(b'{"error":"ble forward failed"}')
 		report_debug(method, path, 400, "invalid envelope")
 	except Exception as error:
 		message = b'{"error":"ble forward failed"}'
 		if isinstance(error, urllib.error.HTTPError):
-			message = compact_ble_body(path, error.read() or message)
+			message = error.read() or message
 		else:
 			report_debug(method, path, 504, "ble forward failed")
 		status_char.set_value(message)

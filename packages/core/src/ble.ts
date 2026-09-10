@@ -226,6 +226,10 @@ export function createBleAssembler(): {
 				buf.byteOffset,
 				buf.byteLength,
 			).getUint32(0);
+			if (length > 256 * 1024) {
+				buf = new Uint8Array(0);
+				return null;
+			}
 			if (buf.length < 4 + length) {
 				return null;
 			}

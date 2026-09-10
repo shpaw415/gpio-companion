@@ -3,6 +3,7 @@ import {
 	BLE_CHUNK_SIZE,
 	BLE_DEVICE_NAME,
 	BLE_SERVICE_UUID,
+	createBleAssembler,
 	encodeFrames,
 	forPicker,
 	isBleCompleteStatus,
@@ -37,6 +38,17 @@ describe("encodeFrames", () => {
 		const bytes = decodeBase64(frames[0]);
 		expect(new DataView(bytes.buffer).getUint32(0)).toBe(payload.length);
 		expect(new TextDecoder().decode(bytes.slice(4))).toBe(payload);
+	});
+
+	test("reassembles length-prefixed status chunks", () => {
+		const payload = `{"dashboardUrl":"https://gpio-companion.com","pad":"${"x".repeat(200)}"}`;
+		const frames = encodeFrames(payload);
+		const assembler = createBleAssembler();
+		let got: string | null = null;
+		for (const frame of frames) {
+			got = assembler.push(decodeBase64(frame)) ?? got;
+		}
+		expect(got).toBe(payload);
 	});
 
 	test("large payload splits into length-prefixed chunks", () => {

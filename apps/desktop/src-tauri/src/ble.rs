@@ -629,6 +629,7 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 			.map_err(|err| err.to_string())?;
 		sleep(Duration::from_millis(20)).await;
 	}
+	let mut assembler = frames::BleAssembler::default();
 	timeout(Duration::from_secs(30), async {
 		loop {
 			tokio::select! {
@@ -639,12 +640,14 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 					if notification.uuid != status_char.uuid {
 						continue;
 					}
-					let text = String::from_utf8_lossy(&notification.value).into_owned();
+					let Some(text) = assembler.push(&notification.value) else {
+						continue;
+					};
 					if frames::is_ble_idle_status(&text) {
 						previous.clear();
 						continue;
 					}
-					if frames::is_ble_settled_status(&text) && text != previous {
+					if frames::is_ble_complete_status(&text) && text != previous {
 						return text;
 					}
 				}
@@ -655,7 +658,7 @@ pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<
 							previous.clear();
 							continue;
 						}
-						if frames::is_ble_settled_status(&text) && text != previous {
+						if frames::is_ble_complete_status(&text) && text != previous {
 							return text;
 						}
 					}

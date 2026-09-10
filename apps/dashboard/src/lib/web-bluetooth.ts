@@ -5,8 +5,9 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 	type BleInfo,
+	createBleAssembler,
+	isBleCompleteStatus,
 	isBleIdleStatus,
-	isBleSettledStatus,
 	type SignedDeviceEnvelope,
 	splitBleFrames,
 } from "gpio-companion";
@@ -74,10 +75,12 @@ export function bluetoothChooserCancelled(error: unknown): boolean {
 	return name === "NotFoundError" || name === "AbortError";
 }
 
+function viewBytes(view: DataView): Uint8Array {
+	return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+}
+
 function decodeView(view: DataView): string {
-	return new TextDecoder().decode(
-		new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
-	);
+	return new TextDecoder().decode(viewBytes(view));
 }
 
 async function requestCompanionDevice(
@@ -171,6 +174,7 @@ async function openCompanionSession(
 
 	async function sendEnvelope(envelope: SignedDeviceEnvelope): Promise<string> {
 		const frames = splitBleFrames(JSON.stringify(envelope));
+		const assembler = createBleAssembler();
 		let previous = "";
 		let lastUseful = "";
 		try {
@@ -187,13 +191,13 @@ async function openCompanionSession(
 					previous = "";
 					return;
 				}
-				if (isBleSettledStatus(text)) {
+				if (isBleCompleteStatus(text)) {
 					lastUseful = text;
 				}
 				if (!armed || settled) {
 					return;
 				}
-				if (!isBleSettledStatus(text) || text === previous) {
+				if (!isBleCompleteStatus(text) || text === previous) {
 					return;
 				}
 				settled = true;
@@ -211,7 +215,7 @@ async function openCompanionSession(
 				if (poll) {
 					clearInterval(poll);
 				}
-				if (isBleSettledStatus(lastUseful)) {
+				if (isBleCompleteStatus(lastUseful)) {
 					resolve(lastUseful);
 					return;
 				}
@@ -226,7 +230,10 @@ async function openCompanionSession(
 				if (!target.value) {
 					return;
 				}
-				finish(decodeView(target.value));
+				const text = assembler.push(viewBytes(target.value));
+				if (text) {
+					finish(text);
+				}
 			});
 			void statusChar.startNotifications().then(async () => {
 				for (const frame of frames) {

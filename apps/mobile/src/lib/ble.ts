@@ -12,8 +12,11 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 	type BleInfo,
+	createBleAssembler,
 	encodeFrames,
 	forPicker,
+	fromBase64,
+	isBleCompleteStatus,
 	isBleIdleStatus,
 	isBleSettledStatus,
 	looksLikeMac,
@@ -322,6 +325,7 @@ export async function sendEnvelope(
 	loss?: BoardLoss,
 ): Promise<string> {
 	const frames = encodeFrames(JSON.stringify(envelope));
+	const assembler = createBleAssembler();
 	return new Promise<string>((resolve, reject) => {
 		let subscription: Subscription | undefined;
 		let settled = false;
@@ -356,10 +360,16 @@ export async function sendEnvelope(
 			if (!armed) {
 				return;
 			}
-			if (!isBleSettledStatus(raw) || raw === previous) {
+			if (!isBleCompleteStatus(raw) || raw === previous) {
 				return;
 			}
 			finish(() => resolve(raw));
+		};
+		const acceptChunk = (bytes: Uint8Array) => {
+			const text = assembler.push(bytes);
+			if (text) {
+				accept(text);
+			}
 		};
 		const onAbort = () => {
 			finish(() =>
@@ -369,7 +379,7 @@ export async function sendEnvelope(
 		timer = setTimeout(
 			() =>
 				finish(() => {
-					if (isBleSettledStatus(lastUseful)) {
+					if (isBleCompleteStatus(lastUseful)) {
 						resolve(lastUseful);
 						return;
 					}
@@ -393,7 +403,7 @@ export async function sendEnvelope(
 				if (!characteristic?.value) {
 					return;
 				}
-				accept(atob(characteristic.value));
+				acceptChunk(fromBase64(characteristic.value));
 			},
 		);
 		void (async () => {

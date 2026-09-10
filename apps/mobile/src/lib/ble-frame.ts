@@ -20,6 +20,64 @@ export function toBase64(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
+export function fromBase64(value: string): Uint8Array {
+	const binary = atob(value);
+	const bytes = new Uint8Array(binary.length);
+	for (let index = 0; index < binary.length; index += 1) {
+		bytes[index] = binary.charCodeAt(index);
+	}
+	return bytes;
+}
+
+export function createBleAssembler(): {
+	push(chunk: Uint8Array): string | null;
+	reset(): void;
+} {
+	let buf = new Uint8Array(0);
+	return {
+		push(chunk: Uint8Array) {
+			const next = new Uint8Array(buf.length + chunk.length);
+			next.set(buf);
+			next.set(chunk, buf.length);
+			buf = next;
+			if (buf.length === 0) {
+				return null;
+			}
+			if (buf[0] === 0x7b) {
+				try {
+					const text = new TextDecoder().decode(buf).trim();
+					JSON.parse(text);
+					buf = new Uint8Array(0);
+					return text;
+				} catch {
+					return null;
+				}
+			}
+			if (buf.length < 4) {
+				return null;
+			}
+			const length = new DataView(
+				buf.buffer,
+				buf.byteOffset,
+				buf.byteLength,
+			).getUint32(0);
+			if (length > 256 * 1024) {
+				buf = new Uint8Array(0);
+				return null;
+			}
+			if (buf.length < 4 + length) {
+				return null;
+			}
+			const text = new TextDecoder().decode(buf.slice(4, 4 + length));
+			buf = buf.slice(4 + length);
+			return text;
+		},
+		reset() {
+			buf = new Uint8Array(0);
+		},
+	};
+}
+
 export function encodeFrames(payload: string): string[] {
 	const body = new TextEncoder().encode(payload);
 	const all = new Uint8Array(4 + body.length);
