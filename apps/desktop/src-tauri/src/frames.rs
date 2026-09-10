@@ -33,6 +33,16 @@ pub fn is_profile_unavailable(message: &str) -> bool {
 	lower.contains("br-connection-profile-unavailable") || lower.contains("profile unavailable")
 }
 
+pub fn is_already_connected(message: &str) -> bool {
+	let lower = message.to_ascii_lowercase();
+	lower.contains("already connected") || lower.contains("alreadyconnected")
+}
+
+pub fn is_not_connected_error(message: &str) -> bool {
+	let lower = message.to_ascii_lowercase();
+	lower.contains("not connected") || lower.contains("notconnected")
+}
+
 pub fn split_ble_frames(payload: &str, mtu: usize) -> Vec<Vec<u8>> {
 	let mtu = mtu.max(1);
 	let body = payload.as_bytes();
@@ -132,6 +142,8 @@ mod tests {
 			"bluetooth connect: br-connection-profile-unavailable"
 		));
 		assert!(!is_profile_unavailable("bluetooth connect: wrong PIN"));
+		assert!(is_already_connected("org.bluez.Error.AlreadyConnected"));
+		assert!(is_not_connected_error("bluetooth info read: Not connected"));
 	}
 
 	#[test]

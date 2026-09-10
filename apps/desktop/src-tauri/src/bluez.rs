@@ -221,6 +221,33 @@ fn trust_device(conn: &Connection, path: &str) {
 	let _: Result<(), dbus::Error> = proxy.set(DEVICE, "Trusted", true);
 }
 
+fn device_address_type(conn: &Connection, path: &str) -> String {
+	let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(3));
+	proxy
+		.get::<String>(DEVICE, "AddressType")
+		.unwrap_or_else(|_| "public".to_string())
+}
+
+fn device_services_resolved(conn: &Connection, path: &str) -> bool {
+	let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(3));
+	proxy.get::<bool>(DEVICE, "ServicesResolved").unwrap_or(false)
+}
+
+fn wait_connected(conn: &Connection, path: &str) -> bool {
+	for _ in 0..20 {
+		if device_connected(conn, path).unwrap_or(false) {
+			return true;
+		}
+		std::thread::sleep(Duration::from_millis(150));
+	}
+	false
+}
+
+fn is_already_connected_err(err: &dbus::Error) -> bool {
+	err.name() == Some("org.bluez.Error.AlreadyConnected")
+		|| crate::frames::is_already_connected(err.message().unwrap_or_default())
+}
+
 fn is_profile_unavailable_err(err: &dbus::Error) -> bool {
 	crate::frames::is_profile_unavailable(err.message().unwrap_or_default())
 		|| err.name() == Some("org.bluez.Error.NotAvailable")
@@ -232,30 +259,61 @@ fn connect_gatt_profile(
 	timeout: Duration,
 ) -> Result<(), String> {
 	let proxy = conn.with_proxy(BLUEZ, path, timeout);
-	const PROFILES: &[&str] = &[
-		crate::frames::BLE_SERVICE_UUID,
-		"00001801-0000-1000-8000-00805f9b34fb",
-		"00001800-0000-1000-8000-00805f9b34fb",
-	];
-	let mut last = "ConnectProfile failed".to_string();
-	for uuid in PROFILES {
-		crate::log::line(&format!("bluetooth ConnectProfile {uuid}"));
-		match proxy.method_call(DEVICE, "ConnectProfile", (uuid.to_string(),)) {
-			Ok(()) => return Ok(()),
-			Err(err) if err.name() == Some("org.bluez.Error.AlreadyConnected") => {
-				return Ok(());
+	let uuid = crate::frames::BLE_SERVICE_UUID;
+	crate::log::line(&format!("bluetooth ConnectProfile {uuid}"));
+	match proxy.method_call(DEVICE, "ConnectProfile", (uuid.to_string(),)) {
+		Ok(()) => Ok(()),
+		Err(err) if is_already_connected_err(&err) => Ok(()),
+		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => {
+			std::thread::sleep(Duration::from_millis(400));
+			if device_connected(conn, path).unwrap_or(false) {
+				Ok(())
+			} else {
+				Err(connect_error(&err))
 			}
-			Err(err) if err.name() == Some("org.bluez.Error.InProgress") => {
-				std::thread::sleep(Duration::from_millis(400));
-				if device_connected(conn, path).unwrap_or(false) {
-					return Ok(());
-				}
-				last = connect_error(&err);
-			}
-			Err(err) => last = connect_error(&err),
+		}
+		Err(err) => {
+			let message = connect_error(&err);
+			crate::log::line(&format!("bluetooth ConnectProfile failed: {message}"));
+			Err(message)
 		}
 	}
-	Err(last)
+}
+
+fn connect_adapter_device(
+	conn: &Connection,
+	addr: &str,
+	address_type: &str,
+	timeout: Duration,
+) -> Result<(), String> {
+	let adapter = adapter_path(conn)?;
+	crate::log::line(&format!(
+		"bluetooth ConnectDevice {addr} type={address_type}"
+	));
+	let proxy = conn.with_proxy(BLUEZ, &adapter, timeout);
+	let mut props: PropMap = HashMap::new();
+	props.insert("Address".into(), Variant(Box::new(addr.to_string())));
+	props.insert(
+		"AddressType".into(),
+		Variant(Box::new(address_type.to_string())),
+	);
+	match proxy.method_call(ADAPTER, "ConnectDevice", (props,)) {
+		Ok(()) => Ok(()),
+		Err(err) if is_already_connected_err(&err) => Ok(()),
+		Err(err) if err.name() == Some("org.bluez.Error.AlreadyExists") => Ok(()),
+		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => {
+			std::thread::sleep(Duration::from_millis(400));
+			Ok(())
+		}
+		Err(err)
+			if err.name() == Some("org.freedesktop.DBus.Error.UnknownMethod")
+				|| err.name() == Some("org.bluez.Error.NotPermitted")
+				|| err.name() == Some("org.bluez.Error.NotSupported") =>
+		{
+			Err(format!("bluetooth ConnectDevice unavailable: {err}"))
+		}
+		Err(err) => Err(connect_error(&err)),
+	}
 }
 
 pub fn connect_le_timeout(addr: &str, timeout: Duration) -> Result<(), String> {
@@ -263,30 +321,52 @@ pub fn connect_le_timeout(addr: &str, timeout: Duration) -> Result<(), String> {
 	let path = resolve_device_path(&conn, addr)?;
 	crate::log::line(&format!("bluetooth le connect {path}"));
 	trust_device(&conn, &path);
-	let proxy = conn.with_proxy(BLUEZ, &path, timeout);
-	// Only disconnect when the link is actually up. BlueZ's Disconnect can
-	// cancel an in-flight Connect and, for non-trusted LE devices, disables
-	// incoming connections until Connect is called again — so an unconditional
-	// pre-disconnect is not safe.
 	if device_connected(&conn, &path).unwrap_or(false) {
+		if device_services_resolved(&conn, &path) {
+			return Ok(());
+		}
+		crate::log::line("bluetooth connected without GATT; reconnecting");
+		let proxy = conn.with_proxy(BLUEZ, &path, Duration::from_secs(3));
 		let _: Result<(), _> = proxy.method_call(DEVICE, "Disconnect", ());
-		std::thread::sleep(Duration::from_millis(150));
+		std::thread::sleep(Duration::from_millis(250));
 	}
-	// Connect() tries BR/EDR profiles first and fails with
-	// br-connection-profile-unavailable on LE-only Pi peripherals.
-	if connect_gatt_profile(&conn, &path, timeout).is_ok() {
+	if connect_gatt_profile(&conn, &path, timeout).is_ok() && wait_connected(&conn, &path) {
 		return Ok(());
 	}
+	let address_type = device_address_type(&conn, &path);
+	if connect_adapter_device(&conn, addr, &address_type, timeout).is_ok()
+		&& wait_connected(&conn, &path)
+	{
+		return Ok(());
+	}
+	let proxy = conn.with_proxy(BLUEZ, &path, timeout);
 	match proxy.method_call(DEVICE, "Connect", ()) {
 		Ok(()) => Ok(()),
-		Err(err) if err.name() == Some("org.bluez.Error.AlreadyConnected") => Ok(()),
-		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => Ok(()),
+		Err(err) if is_already_connected_err(&err) => Ok(()),
+		Err(err) if err.name() == Some("org.bluez.Error.InProgress") => {
+			if wait_connected(&conn, &path) {
+				Ok(())
+			} else {
+				Err(connect_error(&err))
+			}
+		}
 		Err(err) if is_profile_unavailable_err(&err) => {
 			crate::log::line(&format!(
 				"bluetooth Connect profile unavailable: {}",
 				err.message().unwrap_or_default()
 			));
-			connect_gatt_profile(&conn, &path, timeout)
+			let other = if address_type.eq_ignore_ascii_case("random") {
+				"public"
+			} else {
+				"random"
+			};
+			if connect_adapter_device(&conn, addr, other, timeout).is_ok()
+				&& wait_connected(&conn, &path)
+			{
+				Ok(())
+			} else {
+				Err(connect_error(&err))
+			}
 		}
 		Err(err) => Err(connect_error(&err)),
 	}

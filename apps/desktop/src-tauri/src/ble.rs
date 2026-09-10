@@ -513,30 +513,13 @@ fn find_char(peripheral: &Peripheral, uuid: &str) -> Result<Characteristic, Stri
 }
 
 async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
-	if peripheral.is_connected().await.unwrap_or(false) {
-		crate::log::line("bluetooth already connected");
-		return Ok(());
-	}
 	#[cfg(target_os = "linux")]
 	{
-		let mut linked = false;
 		if let Ok(Some(props)) = peripheral.properties().await {
 			let addr = props.address.to_string();
-			let outcome = tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await;
-			match outcome {
-				Ok(Ok(())) => {
-					for _ in 0..20 {
-						if peripheral.is_connected().await.unwrap_or(false) {
-							crate::log::line("bluetooth connected via Connect");
-							linked = true;
-							break;
-						}
-						sleep(Duration::from_millis(150)).await;
-					}
-				}
+			match tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await {
+				Ok(Ok(())) => crate::log::line("bluetooth le link ready"),
 				Ok(Err(err)) => {
-					// BlueZ lost the device object — retrying blindly here would
-					// only repeat the same error, so let the caller re-scan.
 					crate::log::line(&err);
 					if frames::is_retryable_connect_error(&err) {
 						return Err(err);
@@ -544,9 +527,6 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 				}
 				Err(err) => crate::log::line(&format!("bluetooth le connect join: {err}")),
 			}
-		}
-		if linked {
-			return Ok(());
 		}
 	}
 	let mut last = "connect failed".to_string();
@@ -556,25 +536,14 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 			.await
 		{
 			Ok(()) => {
-				crate::log::line(&format!("bluetooth connected attempt={attempt}"));
+				crate::log::line(&format!("bluetooth gatt attached attempt={attempt}"));
 				return Ok(());
 			}
 			Err(err) => {
 				last = err.to_string();
 				crate::log::line(&format!("bluetooth connect attempt={attempt}: {last}"));
-				#[cfg(target_os = "linux")]
-				if frames::is_profile_unavailable(&last) {
-					if let Ok(Some(props)) = peripheral.properties().await {
-						let addr = props.address.to_string();
-						let _ = tokio::task::spawn_blocking(move || {
-							crate::bluez::connect_le(&addr)
-						})
-						.await;
-						if peripheral.is_connected().await.unwrap_or(false) {
-							crate::log::line("bluetooth connected via ConnectProfile");
-							return Ok(());
-						}
-					}
+				if frames::is_already_connected(&last) {
+					return Ok(());
 				}
 				let _ = peripheral.disconnect().await;
 				sleep(Duration::from_millis(400 * attempt as u64)).await;
@@ -584,16 +553,15 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 	Err(format!("bluetooth connect: {last}"))
 }
 
-pub async fn read_info(peripheral: &Peripheral) -> Result<BleInfo, String> {
-	ensure_connected(peripheral).await?;
+async fn read_info_connected(peripheral: &Peripheral) -> Result<BleInfo, String> {
 	peripheral
 		.discover_services_with_timeout(Duration::from_secs(10))
 		.await
 		.map_err(|err| {
-		let message = format!("bluetooth discover: {err}");
-		crate::log::line(&message);
-		message
-	})?;
+			let message = format!("bluetooth discover: {err}");
+			crate::log::line(&message);
+			message
+		})?;
 	let info_char = find_char(peripheral, BLE_INFO_UUID)?;
 	let data = peripheral.read(&info_char).await.map_err(|err| {
 		let message = format!("bluetooth info read: {err}");
@@ -608,6 +576,33 @@ pub async fn read_info(peripheral: &Peripheral) -> Result<BleInfo, String> {
 		crate::log::line(&message);
 		message
 	})
+}
+
+pub async fn read_info(peripheral: &Peripheral) -> Result<BleInfo, String> {
+	let mut last = "bluetooth info read failed".to_string();
+	for attempt in 1..=2 {
+		if let Err(err) = ensure_connected(peripheral).await {
+			last = err;
+			continue;
+		}
+		match read_info_connected(peripheral).await {
+			Ok(info) => return Ok(info),
+			Err(err) if attempt == 1 && frames::is_not_connected_error(&err) => {
+				crate::log::line(&format!("bluetooth retry info after: {err}"));
+				let _ = peripheral.disconnect().await;
+				#[cfg(target_os = "linux")]
+				if let Ok(Some(props)) = peripheral.properties().await {
+					let addr = props.address.to_string();
+					let _ = tokio::task::spawn_blocking(move || crate::bluez::disconnect_le(&addr))
+						.await;
+				}
+				sleep(Duration::from_millis(400)).await;
+				last = err;
+			}
+			Err(err) => return Err(err),
+		}
+	}
+	Err(last)
 }
 
 pub async fn send_envelope(peripheral: &Peripheral, envelope: &Value) -> Result<String, String> {
