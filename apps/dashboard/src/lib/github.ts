@@ -181,25 +181,145 @@ export async function repoHasWatermark(
 	return response.ok;
 }
 
+const REPO_DESCRIPTION = "gpio-companion project";
+
+type CreatedGithubRepo = {
+	full_name: string;
+	name: string;
+	owner: { login: string };
+	html_url: string;
+};
+
+function githubCreateDenied(detail: string): Error {
+	const suffix = detail.trim() ? `: ${detail.trim()}` : "";
+	return new Error(
+		`github cannot create that repository${suffix}. Reconnect GitHub on Profile and grant Administration, or create the repo on GitHub and add a .gpio-companion file.`,
+	);
+}
+
+function rethrowGithubCreate(caught: unknown): never {
+	const message =
+		caught instanceof Error ? caught.message : "github create failed";
+	if (/not accessible by integration/i.test(message)) {
+		throw githubCreateDenied(message);
+	}
+	throw caught instanceof Error ? caught : new Error(message);
+}
+
+async function githubOwner(
+	account: GithubAccount,
+): Promise<{ login: string; type: string; node_id: string }> {
+	return githubJson(account, `/users/${encodeURIComponent(account.username)}`);
+}
+
+async function createRepoAsApp(
+	account: GithubAccount,
+	repoName: string,
+): Promise<CreatedGithubRepo> {
+	const owner = await githubOwner(account);
+	if (owner.type === "Organization") {
+		return githubJson<CreatedGithubRepo>(
+			account,
+			`/orgs/${encodeURIComponent(owner.login)}/repos`,
+			{
+				method: "POST",
+				body: JSON.stringify({
+					name: repoName,
+					auto_init: true,
+					private: true,
+					description: REPO_DESCRIPTION,
+				}),
+			},
+		);
+	}
+	return createUserRepoWithGraphql(account, owner.node_id, repoName);
+}
+
+async function createUserRepoWithGraphql(
+	account: GithubAccount,
+	ownerId: string,
+	repoName: string,
+): Promise<CreatedGithubRepo> {
+	if (!ownerId) {
+		throw githubCreateDenied("missing GitHub account id");
+	}
+	const response = await githubFetch(account, "/graphql", {
+		method: "POST",
+		body: JSON.stringify({
+			query: `mutation($input: CreateRepositoryInput!) {
+				createRepository(input: $input) {
+					repository {
+						name
+						nameWithOwner
+						url
+						owner { login }
+					}
+				}
+			}`,
+			variables: {
+				input: {
+					name: repoName,
+					ownerId,
+					visibility: "PRIVATE",
+					description: REPO_DESCRIPTION,
+				},
+			},
+		}),
+	});
+	const body = (await response.json()) as {
+		data?: {
+			createRepository?: {
+				repository?: {
+					name?: string;
+					nameWithOwner?: string;
+					url?: string;
+					owner?: { login?: string };
+				} | null;
+			} | null;
+		};
+		errors?: Array<{ message?: string }>;
+	};
+	const graphError = body.errors?.[0]?.message?.trim() ?? "";
+	if (!response.ok || graphError) {
+		throw githubCreateDenied(graphError || `github ${response.status}`);
+	}
+	const repository = body.data?.createRepository?.repository;
+	const login = repository?.owner?.login?.trim() ?? "";
+	const name = repository?.name?.trim() ?? "";
+	const fullName = repository?.nameWithOwner?.trim() ?? "";
+	const htmlUrl = repository?.url?.trim() ?? "";
+	if (!login || !name) {
+		throw githubCreateDenied("empty GraphQL repository");
+	}
+	return {
+		full_name: fullName || `${login}/${name}`,
+		name,
+		owner: { login },
+		html_url: htmlUrl || `https://github.com/${login}/${name}`,
+	};
+}
+
 export async function createGpioCompanionRepo(
 	account: GithubAccount,
 	name: string,
 ): Promise<GithubRepo> {
 	const repoName = parseRepoName(name);
-	const created = await githubJson<{
-		full_name: string;
-		name: string;
-		owner: { login: string };
-		html_url: string;
-	}>(account, "/user/repos", {
-		method: "POST",
-		body: JSON.stringify({
-			name: repoName,
-			auto_init: true,
-			private: true,
-			description: "gpio-companion project",
-		}),
-	});
+	let created: CreatedGithubRepo;
+	try {
+		created = isGithubAppToken(account.token)
+			? await createRepoAsApp(account, repoName)
+			: await githubJson<CreatedGithubRepo>(account, "/user/repos", {
+					method: "POST",
+					body: JSON.stringify({
+						name: repoName,
+						auto_init: true,
+						private: true,
+						description: REPO_DESCRIPTION,
+					}),
+				});
+	} catch (caught) {
+		rethrowGithubCreate(caught);
+	}
 	await putRepoFile(
 		account,
 		created.owner.login,

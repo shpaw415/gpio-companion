@@ -109,7 +109,7 @@ If a board is offline for more than an hour, the user does nothing except push a
    | --- | --- | --- |
    | **Contents** | Read and write | clone / commit / `git push` |
    | **Metadata** | Read-only | mandatory with Contents |
-   | **Administration** | Read and write | agent **creates** repos under the installer account |
+    | **Administration** | Read and write | dashboard **creates** repos under the installer account (org REST or user GraphQL; installation tokens cannot `POST /user/repos`) |
 
    Leave all other repository, organization, and account permissions **No access**.
 
@@ -159,7 +159,7 @@ Newlines in `.dev.vars` can be literal; Wrangler accepts a PEM block. Never pref
 | Git on the Pi | `/etc/gitconfig` helper `!/usr/local/bin/gpio-companion git-credential` |
 | Agent API token | `gpio-companion github-token` (same mint path) |
 
-`/projects` lists **installation** repos (`GET /installation/repositories`), not `/user/repos`. Legacy KV `github:<userId>` PATs still work if present; Keys no longer collects them.
+`/projects` lists **installation** repos (`GET /installation/repositories`), not `/user/repos`. Creating a project with an App installation token uses `POST /orgs/{org}/repos` for organization installs and GraphQL `createRepository` for user installs (`POST /user/repos` is user-to-server only and returns `403 Resource not accessible by integration` for `ghs_` tokens). Legacy KV `github:<userId>` PATs still work if present; Keys no longer collects them.
 
 #### Confirm
 
