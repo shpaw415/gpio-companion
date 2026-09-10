@@ -98,15 +98,35 @@ export function githubAppInstallUrl(slug: string, state: string): string {
 	return `https://github.com/apps/${encodeURIComponent(slug)}/installations/new?state=${encodeURIComponent(state)}`;
 }
 
+export function githubAppOrigin(request: Request, env: GithubAppEnv): string {
+	const redirect = env.PUBLIC_AUTH_REDIRECT_URI?.trim() ?? "";
+	return redirect ? new URL(redirect).origin : new URL(request.url).origin;
+}
+
 export function githubAppCallbackUri(
 	request: Request,
 	env: GithubAppEnv,
 ): string {
-	const redirect = env.PUBLIC_AUTH_REDIRECT_URI?.trim() ?? "";
-	const origin = redirect
-		? new URL(redirect).origin
-		: new URL(request.url).origin;
-	return `${origin}/devices/keys`;
+	return `${githubAppOrigin(request, env)}/profile/github`;
+}
+
+export function githubAppCallbackCandidates(
+	request: Request,
+	env: GithubAppEnv,
+	preferred?: string,
+): string[] {
+	const origin = githubAppOrigin(request, env);
+	const allowed = new Set([
+		`${origin}/profile/github`,
+		`${origin}/devices/keys`,
+	]);
+	const preferredUri = preferred?.trim() ?? "";
+	const list = [
+		preferredUri && allowed.has(preferredUri) ? preferredUri : "",
+		`${origin}/profile/github`,
+		`${origin}/devices/keys`,
+	].filter(Boolean);
+	return [...new Set(list)];
 }
 
 export function githubAppOAuthConfigured(env: GithubAppEnv): boolean {
@@ -295,6 +315,24 @@ export async function exchangeGithubOAuthCode(
 	});
 }
 
+async function exchangeGithubOAuthCodeWithFallback(
+	env: GithubAppEnv,
+	code: string,
+	request: Request,
+	preferred?: string,
+): Promise<GithubOAuthTokens> {
+	const uris = githubAppCallbackCandidates(request, env, preferred);
+	let last: unknown;
+	for (const redirectUri of uris) {
+		try {
+			return await exchangeGithubOAuthCode(env, code, redirectUri);
+		} catch (caught) {
+			last = caught;
+		}
+	}
+	throw last instanceof Error ? last : new Error("github app oauth failed");
+}
+
 async function refreshGithubUserToken(
 	env: GithubAppEnv,
 	refreshToken: string,
@@ -409,6 +447,7 @@ export async function completeGithubAppConnect(
 		installationId?: number | string;
 		code?: string;
 		state: string;
+		redirectUri?: string;
 	},
 	request: Request,
 ): Promise<{ connected: true; login: string; canCreate: boolean }> {
@@ -423,10 +462,11 @@ export async function completeGithubAppConnect(
 	let refreshToken = existing?.refreshToken ?? "";
 	let userTokenExpiresAt = existing?.userTokenExpiresAt ?? "";
 	if (code) {
-		const tokens = await exchangeGithubOAuthCode(
+		const tokens = await exchangeGithubOAuthCodeWithFallback(
 			env,
 			code,
-			githubAppCallbackUri(request, env),
+			request,
+			input.redirectUri,
 		);
 		userToken = tokens.accessToken;
 		refreshToken = tokens.refreshToken || refreshToken;

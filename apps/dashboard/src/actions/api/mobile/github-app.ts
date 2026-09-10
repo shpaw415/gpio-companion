@@ -32,6 +32,7 @@ export async function onRequestPost(ctx: MobileContext) {
 				installationId: asString(body.installationId) || body.installationId,
 				code: asString(body.code),
 				state: asString(body.state),
+				redirectUri: asString(body.redirectUri),
 			},
 			ctx.request,
 		);

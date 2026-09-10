@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+	githubAppCallbackCandidates,
+	githubAppCallbackUri,
 	githubAppCanCreate,
 	githubAppOAuthUrl,
 	issueGithubCredentials,
@@ -66,10 +68,31 @@ describe("github app kv", () => {
 		expect(
 			githubAppOAuthUrl(
 				"Iv1.abc",
-				"https://gpio-companion.com/devices/keys",
+				"https://gpio-companion.com/profile/github",
 				"st",
 			),
 		).toContain("client_id=Iv1.abc");
+	});
+
+	test("oauth callback is profile github, with keys fallback", () => {
+		const request = new Request("https://gpio-companion.com/api/github-app");
+		const env = {
+			DYNAMIC_PAGE_KV: {} as KVNamespace,
+			PUBLIC_AUTH_REDIRECT_URI: "https://gpio-companion.com/callback",
+		};
+		expect(githubAppCallbackUri(request, env)).toBe(
+			"https://gpio-companion.com/profile/github",
+		);
+		expect(
+			githubAppCallbackCandidates(
+				request,
+				env,
+				"https://gpio-companion.com/profile/github",
+			),
+		).toEqual([
+			"https://gpio-companion.com/profile/github",
+			"https://gpio-companion.com/devices/keys",
+		]);
 	});
 
 	test("issues credentials for a matching pairing key", async () => {

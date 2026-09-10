@@ -40,23 +40,27 @@ export default function KeysForm() {
 	}, [session.data?.id, run]);
 
 	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const installationId = params.get("installation_id") ?? "";
+		const code = params.get("code") ?? "";
+		const state = params.get("state") ?? "";
+		const pending = Boolean((installationId || code) && state);
 		if (!session.data?.id) {
-			setChecking(false);
+			if (!pending) {
+				setChecking(false);
+			}
 			return;
 		}
 		setChecking(true);
-		const params = new URLSearchParams(window.location.search);
-		const installationId = params.get("installation_id");
-		const code = params.get("code") ?? "";
-		const state = params.get("state") ?? "";
 		void (async () => {
 			try {
-				if ((installationId || code) && state) {
+				if (pending) {
 					const saved = unwrapAction(
 						await saveGithubApp({
-							installationId: installationId ?? "",
+							installationId,
 							code,
 							state,
+							redirectUri: `${window.location.origin}${window.location.pathname}`,
 						}),
 					);
 					setLogin(saved.login);

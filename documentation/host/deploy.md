@@ -95,7 +95,7 @@ If a board is offline for more than an hour, the user does nothing except push a
    | --- | --- |
    | GitHub App name | `gpio-companion` (or `gpio-companion-staging`). This becomes the **slug** in `https://github.com/apps/<slug>`. |
    | Homepage URL | `https://gpio-companion.com` |
-   | Callback URL | `https://gpio-companion.com/devices/keys` (unused for OAuth; required by the form) |
+    | Callback URL | `https://gpio-companion.com/profile/github` (OAuth user-token exchange). Also keep `https://gpio-companion.com/devices/keys`. |
    | Expire user authorization tokens | leave default |
     | Request user authorization (OAuth) during installation | **checked** (needed to create user repos; installation tokens cannot `POST /user/repos`) |
    | Setup URL (Post installation) | `https://gpio-companion.com/devices/keys` |

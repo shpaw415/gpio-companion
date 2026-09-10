@@ -20,6 +20,7 @@ export const POST = wrapAction(async function POST(input: {
 	installationId?: number | string;
 	code?: string;
 	state: string;
+	redirectUri?: string;
 }) {
 	const ctx = getContext<GithubAppEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
