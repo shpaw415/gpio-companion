@@ -39,6 +39,9 @@ export default function T3Pairing({
 	const token = tokenFrom(status);
 	const onT3 = useCallback((next: T3Status) => {
 		setStatus(next);
+		if (next.pairingUrl || next.pairingToken) {
+			setError("");
+		}
 	}, []);
 	useDeviceHub(uuid, { onT3 });
 

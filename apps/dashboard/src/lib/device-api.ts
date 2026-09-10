@@ -89,9 +89,16 @@ export async function signedDeviceFetch(
 	});
 }
 
+const DEVICE_GATEWAY = new Set([502, 521, 522, 523, 524]);
+
+export const DEVICE_GATEWAY_ERROR =
+	"board did not respond in time. If it is online, wait a few seconds and mint again.";
+
 export async function readDeviceJson<T>(response: Response): Promise<T> {
 	if (!response.ok) {
-		let detail = `device ${response.status}`;
+		let detail = DEVICE_GATEWAY.has(response.status)
+			? DEVICE_GATEWAY_ERROR
+			: `device ${response.status}`;
 		try {
 			const errorBody = (await response.json()) as { error?: string };
 			if (errorBody.error) {

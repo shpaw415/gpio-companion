@@ -133,6 +133,8 @@ export default function T3PairingPanel({
 		if (result.pairingUrl) {
 			setPairingUrl(result.pairingUrl);
 			setPairingToken(tokenFrom(result.pairingUrl, result.pairingToken));
+			setError("");
+			setStatus("scan the QR or open the pairing URL in the browser");
 		}
 		if (result.paired) {
 			setT3Ready(true);

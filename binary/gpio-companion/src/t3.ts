@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import {
 	extractT3PairingToken,
 	publicDeviceUrl,
@@ -23,7 +25,8 @@ export type T3Controller = {
 	revoke(): Promise<void>;
 };
 
-const PAIR_WAIT_MS = 20_000;
+const PAIR_WAIT_MS = 5_000;
+const MINT_WAIT_MS = 8_000;
 const STATUS_SPAWN_MS = 2_000;
 const STATUS_CACHE_MS = 10_000;
 const SERVICE_CACHE_MS = 5 * 60_000;
@@ -31,6 +34,7 @@ const SERVICE_CACHE_MS = 5 * 60_000;
 let lastPairingUrl = "";
 let lastPairingToken = "";
 let markedPaired = false;
+let pairInFlight: Promise<T3Pairing> | null = null;
 let statusInFlight: Promise<T3Status> | null = null;
 let cachedStatus: { at: number; value: T3Status } | null = null;
 let cachedService: { at: number; value: boolean } | null = null;
@@ -44,10 +48,20 @@ export function liveT3Controller(): T3Controller {
 }
 
 export async function pairT3(t3Hostname: string): Promise<T3Pairing> {
+	if (pairInFlight) {
+		return pairInFlight;
+	}
+	pairInFlight = runPair(t3Hostname).finally(() => {
+		pairInFlight = null;
+	});
+	return pairInFlight;
+}
+
+async function runPair(t3Hostname: string): Promise<T3Pairing> {
 	clearPairing();
 	invalidateT3Status();
 	const user = gpioUser();
-	const raw = await spawnT3(user, ["pair"]).catch(() => "");
+	const raw = await spawnT3(user, ["pair"], PAIR_WAIT_MS).catch(() => "");
 	const fromPair = pairingFromOutput(raw, t3Hostname);
 	if (fromPair.pairingToken) {
 		return rememberPairing(fromPair);
@@ -81,9 +95,19 @@ export function resetT3Runtime(): void {
 	clearPairing();
 	markedPaired = false;
 	invalidateT3Status();
+	pairInFlight = null;
 }
 
 async function loadT3Status(): Promise<T3Status> {
+	if (pairInFlight) {
+		return {
+			running: true,
+			pairingUrl: lastPairingUrl,
+			pairingToken: lastPairingToken,
+			paired: markedPaired,
+			serviceInstalled: cachedService?.value ?? true,
+		};
+	}
 	const user = gpioUser();
 	const running = await portOpen(3773);
 	const serviceInstalled = await cachedServiceInstalled(user, running);
@@ -140,12 +164,82 @@ function gpioUser(): string {
 	return process.env.SUDO_USER?.trim() || "root";
 }
 
+function t3Bin(): string {
+	return process.env.GPIO_COMPANION_T3 ?? Bun.which("t3") ?? "t3";
+}
+
 function t3Command(user: string, args: string[]): string[] {
-	const bin = process.env.GPIO_COMPANION_T3 ?? Bun.which("t3") ?? "t3";
+	const bin = t3Bin();
 	if (user === "root") {
 		return [bin, ...args];
 	}
-	return ["sudo", "-u", user, "-H", bin, ...args];
+	const runtime = runtimeDir(user);
+	const session = runtime
+		? [
+				`XDG_RUNTIME_DIR=${runtime}`,
+				`DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime}/bus`,
+			]
+		: [];
+	return [
+		"sudo",
+		"-u",
+		user,
+		"-H",
+		"env",
+		"-u",
+		"SUDO_USER",
+		"-u",
+		"SUDO_UID",
+		"-u",
+		"SUDO_GID",
+		"-u",
+		"SUDO_COMMAND",
+		...session,
+		bin,
+		...args,
+	];
+}
+
+function runtimeDir(user: string): string {
+	if (user === "root") {
+		return "/run/user/0";
+	}
+	const uid = uidFor(user);
+	return uid ? `/run/user/${uid}` : "";
+}
+
+function uidFor(user: string): string {
+	try {
+		const text = readFileSync("/etc/passwd", "utf8");
+		for (const line of text.split("\n")) {
+			const [name, , uid] = line.split(":");
+			if (name === user && uid) {
+				return uid;
+			}
+		}
+	} catch {
+		return "";
+	}
+	return "";
+}
+
+function spawnCwd(user: string): string {
+	const home = user === "root" ? homedir() : `/home/${user}`;
+	return existsSync(home) ? home : process.cwd();
+}
+
+function spawnEnv(user: string): Record<string, string | undefined> {
+	const env: Record<string, string | undefined> = { ...process.env };
+	const runtime = runtimeDir(user);
+	if (runtime) {
+		env.XDG_RUNTIME_DIR = runtime;
+		env.DBUS_SESSION_BUS_ADDRESS = `unix:path=${runtime}/bus`;
+	}
+	delete env.SUDO_USER;
+	delete env.SUDO_UID;
+	delete env.SUDO_GID;
+	delete env.SUDO_COMMAND;
+	return env;
 }
 
 function clearPairing(): void {
@@ -175,15 +269,16 @@ async function mintPairing(
 	t3Hostname: string,
 ): Promise<T3Pairing> {
 	const baseUrl = publicDeviceUrl(t3Hostname);
-	const stdout = await spawnT3(user, [
-		"auth",
-		"pairing",
-		"create",
-		"--base-url",
-		baseUrl,
-		"--json",
-	]).catch(() =>
-		spawnT3(user, ["auth", "pairing", "create", "--base-url", baseUrl]),
+	const stdout = await spawnT3(
+		user,
+		["auth", "pairing", "create", "--base-url", baseUrl, "--json"],
+		MINT_WAIT_MS,
+	).catch(() =>
+		spawnT3(
+			user,
+			["auth", "pairing", "create", "--base-url", baseUrl],
+			MINT_WAIT_MS,
+		),
 	);
 	const pairing = pairingFromOutput(stdout, t3Hostname);
 	if (pairing.pairingToken) {
@@ -198,10 +293,11 @@ async function spawnT3(
 	timeoutMs = PAIR_WAIT_MS,
 ): Promise<string> {
 	const proc = Bun.spawn(t3Command(user, args), {
+		cwd: spawnCwd(user),
 		stdout: "pipe",
 		stderr: "pipe",
 		stdin: "ignore",
-		env: process.env,
+		env: spawnEnv(user),
 	});
 	const timeout = setTimeout(() => proc.kill(), timeoutMs);
 	try {

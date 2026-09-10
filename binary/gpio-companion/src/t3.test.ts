@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetT3Runtime, t3Status } from "./t3.ts";
+import { pairT3, resetT3Runtime, t3Status } from "./t3.ts";
 
 const previousT3 = process.env.GPIO_COMPANION_T3;
 const previousUser = process.env.GPIO_USER;
@@ -21,14 +21,15 @@ afterEach(() => {
 	}
 });
 
-async function fakeT3(): Promise<string> {
+async function fakeT3(script?: string): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), "gpio-t3-"));
 	const log = join(dir, "t3.log");
 	const bin = join(dir, "t3");
 	await mkdir(dir, { recursive: true });
 	await Bun.write(
 		bin,
-		`#!/bin/sh
+		script ??
+			`#!/bin/sh
 printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
 case "$1" in
   service) echo active ;;
@@ -64,5 +65,63 @@ describe("t3 status cache", () => {
 		await t3Status();
 		const second = invocations(await readFile(logPath, "utf8"));
 		expect(second).toEqual(first);
+	});
+});
+
+describe("t3 pair", () => {
+	test("falls back to auth pairing create when pair prints no token", async () => {
+		const logPath = await fakeT3(`#!/bin/sh
+printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
+printf 'XDG=%s\\n' "$XDG_RUNTIME_DIR" >> "$GPIO_T3_ENV"
+case "$1" in
+  pair) echo failed >&2; exit 1 ;;
+  auth)
+    if [ "$2" = "pairing" ]; then
+      echo "Token: mint-token"
+      echo "Pairing URL: https://127.0.0.1/pair#token=mint-token"
+      exit 0
+    fi
+    echo "no sessions"
+    ;;
+  service) echo active ;;
+  *) echo ok ;;
+esac
+`);
+		const envLog = join(logPath, "..", "t3.env");
+		process.env.GPIO_T3_ENV = envLog;
+		resetT3Runtime();
+		const paired = await pairT3("t3.example.gpio-companion.com");
+		expect(paired.pairingToken).toBe("mint-token");
+		expect(paired.pairingUrl).toBe(
+			"https://t3.example.gpio-companion.com/pair#token=mint-token",
+		);
+		const calls = invocations(await readFile(logPath, "utf8"));
+		expect(calls.some((line) => line === "pair")).toBe(true);
+		expect(calls.some((line) => line.startsWith("auth pairing create"))).toBe(
+			true,
+		);
+		expect(await readFile(envLog, "utf8")).toContain("XDG=/run/user/0");
+	});
+
+	test("single-flight pair does not stack t3 cli", async () => {
+		const logPath = await fakeT3(`#!/bin/sh
+printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
+case "$1" in
+  pair)
+    echo "Token: once"
+    echo "Pairing URL: https://127.0.0.1/pair#token=once"
+    ;;
+  *) echo ok ;;
+esac
+`);
+		resetT3Runtime();
+		const [first, second] = await Promise.all([
+			pairT3("t3.example.gpio-companion.com"),
+			pairT3("t3.example.gpio-companion.com"),
+		]);
+		expect(first.pairingToken).toBe("once");
+		expect(second.pairingToken).toBe("once");
+		const calls = invocations(await readFile(logPath, "utf8"));
+		expect(calls.filter((line) => line === "pair")).toEqual(["pair"]);
 	});
 });

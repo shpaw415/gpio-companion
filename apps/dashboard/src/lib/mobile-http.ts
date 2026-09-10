@@ -35,6 +35,16 @@ export function errorStatus(caught: unknown): number {
 	if (message === "admin only") {
 		return 403;
 	}
+	if (message.includes("board did not respond in time")) {
+		return 502;
+	}
+	const deviceCode = /^device (\d{3})$/.exec(message);
+	if (deviceCode?.[1]) {
+		const status = Number(deviceCode[1]);
+		if (status >= 400 && status <= 599) {
+			return status;
+		}
+	}
 	return 400;
 }
 

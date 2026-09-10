@@ -19,6 +19,14 @@ describe("mobile-http", () => {
 		).toBe(401);
 		expect(errorStatus(new Error("admin only"))).toBe(403);
 		expect(errorStatus(new Error("uuid is required"))).toBe(400);
+		expect(errorStatus(new Error("device 502"))).toBe(502);
+		expect(
+			errorStatus(
+				new Error(
+					"board did not respond in time. If it is online, wait a few seconds and mint again.",
+				),
+			),
+		).toBe(502);
 	});
 
 	it("returns fail envelopes", async () => {
