@@ -52,6 +52,29 @@ class TakeCommandTest(unittest.TestCase):
 		self.assertEqual(self.mod.characteristic_read(body, {"offset": 10}), body[10:])
 		self.assertEqual(self.mod.characteristic_read(body, {"offset": 999}), b"")
 
+	def test_compacts_oversized_info_for_ble_status(self):
+		huge = json.dumps(
+			{
+				"dashboardUrl": "https://gpio-companion.com",
+				"hardware": "orangepi",
+				"deviceAuth": {"keyId": "gpio-companion-v1", "publicKeySet": True},
+				"pairing": {"uuid": "pair-uuid", "claimed": True, "login": "ada"},
+				"padding": "x" * 2000,
+			}
+		).encode()
+		out = self.mod.compact_ble_body("/v1/info", huge)
+		self.assertLessEqual(len(out), self.mod.GATT_NOTIFY_MAX)
+		parsed = json.loads(out)
+		self.assertEqual(parsed["dashboardUrl"], "https://gpio-companion.com")
+		self.assertEqual(parsed["hardware"], "orangepi")
+		self.assertNotIn("padding", parsed)
+
+	def test_leaves_small_and_non_info_bodies_alone(self):
+		small = b'{"dashboardUrl":"https://gpio-companion.com"}'
+		self.assertEqual(self.mod.compact_ble_body("/v1/info", small), small)
+		gpio = b'{"hardware":"orangepi","pins":[' + b"x" * 600
+		self.assertEqual(self.mod.compact_ble_body("/v1/gpio", gpio), gpio)
+
 	def test_large_status_notify_is_capped(self):
 		self.assertTrue(self.mod.should_notify_value(b'{"pending":true}'))
 		huge = b"x" * (self.mod.GATT_NOTIFY_MAX + 1)
