@@ -30,6 +30,23 @@ describe("ble-health", () => {
 		expect(result.detail).toContain("does not match");
 	});
 
+	test("passes truncated companion info over BLE MTU", () => {
+		const result = evaluateBleHealthCheck("get-info", {
+			body: parseBleHealthBody(
+				'{"ble":{"adapter":"hci0"},"dashboardUrl":"https://gpio-companion.com","deviceAuth":{"keyId":"gpio-companion-v1"',
+			),
+		});
+		expect(result.pass).toBe(true);
+		expect(result.detail).toContain("truncated");
+	});
+
+	test("keeps the full non-JSON payload in the error", () => {
+		const payload = `{"ble":${"x".repeat(300)}`;
+		expect(parseBleHealthBody(payload)).toEqual({
+			error: `non-JSON status payload: ${payload}`,
+		});
+	});
+
 	test("passes truncated gpio snapshots over BLE MTU", () => {
 		const result = evaluateBleHealthCheck("get-gpio", {
 			body: parseBleHealthBody(

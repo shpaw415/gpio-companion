@@ -81,7 +81,7 @@ export function parseBleHealthBody(raw: string): unknown {
 	try {
 		return JSON.parse(text) as unknown;
 	} catch {
-		return { error: `non-JSON status payload: ${clip(text)}` };
+		return { error: `non-JSON status payload: ${text}` };
 	}
 }
 
@@ -166,6 +166,13 @@ function evaluateBody(
 		}
 		case "get-info": {
 			if (error) {
+				if (looksLikeInfoSnapshotText(error)) {
+					return {
+						pass: true,
+						detail:
+							"Companion info received over GATT (payload truncated to BLE MTU).",
+					};
+				}
 				return {
 					pass: false,
 					detail: `GET /v1/info failed after BLE forward: ${error}`,
@@ -200,7 +207,7 @@ function evaluateBody(
 			if (!Array.isArray(pins)) {
 				return {
 					pass: false,
-					detail: `GET /v1/gpio JSON has no pins array. Body: ${clip(JSON.stringify(body))}`,
+					detail: `GET /v1/gpio JSON has no pins array. Body: ${JSON.stringify(body)}`,
 				};
 			}
 			return {
@@ -241,7 +248,7 @@ function evaluateBody(
 			) {
 				return {
 					pass: false,
-					detail: `GET /v1/flash JSON is missing running. Body: ${clip(JSON.stringify(body))}`,
+					detail: `GET /v1/flash JSON is missing running. Body: ${JSON.stringify(body)}`,
 				};
 			}
 			return { pass: true, detail: "Flash status received over GATT." };
@@ -260,7 +267,7 @@ function evaluateBody(
 			if (!Array.isArray(ports)) {
 				return {
 					pass: false,
-					detail: `GET /v1/flash/ports JSON has no ports array. Body: ${clip(JSON.stringify(body))}`,
+					detail: `GET /v1/flash/ports JSON has no ports array. Body: ${JSON.stringify(body)}`,
 				};
 			}
 			return {
@@ -297,7 +304,7 @@ function evaluateBody(
 			}
 			return {
 				pass: false,
-				detail: `PUT /v1/config/wifi returned an unexpected payload: ${clip(JSON.stringify(body))}`,
+				detail: `PUT /v1/config/wifi returned an unexpected payload: ${JSON.stringify(body)}`,
 			};
 		}
 		default:
@@ -307,6 +314,10 @@ function evaluateBody(
 
 function looksLikeGpioSnapshotText(text: string): boolean {
 	return /"hardware"\s*:/.test(text) && /"pins"\s*:\s*\[/.test(text);
+}
+
+function looksLikeInfoSnapshotText(text: string): boolean {
+	return /"dashboardUrl"\s*:/.test(text) || /"deviceAuth"\s*:/.test(text);
 }
 
 function isPowerPinRefusal(message: string): boolean {
@@ -335,11 +346,4 @@ function failMessage(id: BleHealthCheckId, thrown: string): string {
 
 function checkName(id: BleHealthCheckId): string {
 	return BLE_HEALTH_CHECKS.find((item) => item.id === id)?.name ?? id;
-}
-
-function clip(value: string, max = 220): string {
-	if (value.length <= max) {
-		return value;
-	}
-	return `${value.slice(0, max)}…`;
 }
