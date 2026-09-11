@@ -6,14 +6,15 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
-import { useAuthSession } from "../hooks/useAuth.ts";
+import { useAuth, useAuthSession } from "../hooks/useAuth.ts";
 import { unwrapAction } from "../lib/action.ts";
 import type { StoredPairing } from "../lib/pairing-store.ts";
 
 export default function KeysForm() {
 	const session = useAuthSession();
+	const auth = useAuth();
 	const { run } = useActionError();
 	const [login, setLogin] = useState("");
 	const [installUrl, setInstallUrl] = useState("");
@@ -23,23 +24,7 @@ export default function KeysForm() {
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState("");
 
-	useEffect(() => {
-		if (!session.data?.id) {
-			setDevices([]);
-			setDevicesLoading(false);
-			return;
-		}
-		setDevicesLoading(true);
-		void run(getPairing())
-			.then((result) => {
-				setDevices(result?.devices ?? []);
-			})
-			.finally(() => {
-				setDevicesLoading(false);
-			});
-	}, [session.data?.id, run]);
-
-	useEffect(() => {
+	const onGithubAppCallbackEvent = useCallback(() => {
 		const params = new URLSearchParams(window.location.search);
 		const installationId = params.get("installation_id") ?? "";
 		const code = params.get("code") ?? "";
@@ -81,6 +66,32 @@ export default function KeysForm() {
 			}
 		})();
 	}, [session.data?.id]);
+
+	useEffect(() => {
+		if (!session.data?.id) {
+			setDevices([]);
+			setDevicesLoading(false);
+			return;
+		}
+		setDevicesLoading(true);
+		void run(getPairing())
+			.then((result) => {
+				setDevices(result?.devices ?? []);
+			})
+			.finally(() => {
+				setDevicesLoading(false);
+			});
+	}, [session.data?.id, run]);
+
+	useEffect(() => {
+		auth?.addInitializationListener(
+			"github-app-register",
+			onGithubAppCallbackEvent,
+		);
+		return () => {
+			auth?.removeInitializationListener("github-app-register");
+		};
+	}, [auth, onGithubAppCallbackEvent]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
