@@ -25,9 +25,9 @@ export type T3Controller = {
 	revoke(): Promise<void>;
 };
 
-const PAIR_WAIT_MS = 5_000;
-const MINT_WAIT_MS = 8_000;
-const STATUS_SPAWN_MS = 2_000;
+const PAIR_WAIT_MS = 25_000;
+const MINT_WAIT_MS = 45_000;
+const STATUS_SPAWN_MS = 20_000;
 const STATUS_CACHE_MS = 10_000;
 const SERVICE_CACHE_MS = 5 * 60_000;
 
@@ -61,12 +61,12 @@ async function runPair(t3Hostname: string): Promise<T3Pairing> {
 	clearPairing();
 	invalidateT3Status();
 	const user = gpioUser();
-	const raw = await spawnT3(user, ["pair"], PAIR_WAIT_MS).catch(() => "");
-	const fromPair = pairingFromOutput(raw, t3Hostname);
-	if (fromPair.pairingToken) {
-		return rememberPairing(fromPair);
+	const minted = await mintPairing(user, t3Hostname).catch(() => null);
+	if (minted?.pairingToken) {
+		return rememberPairing(minted);
 	}
-	return rememberPairing(await mintPairing(user, t3Hostname));
+	const raw = await spawnT3(user, ["pair"], PAIR_WAIT_MS).catch(() => "");
+	return rememberPairing(pairingFromOutput(raw, t3Hostname));
 }
 
 export async function t3Status(): Promise<T3Status> {
@@ -310,7 +310,11 @@ async function spawnT3(
 		stdin: "ignore",
 		env: spawnEnv(user),
 	});
-	const timeout = setTimeout(() => proc.kill(), timeoutMs);
+	let timedOut = false;
+	const timeout = setTimeout(() => {
+		timedOut = true;
+		proc.kill();
+	}, timeoutMs);
 	try {
 		const [stdout, stderr, code] = await Promise.all([
 			readAll(proc.stdout),
@@ -319,7 +323,15 @@ async function spawnT3(
 		]);
 		const output = `${stdout}\n${stderr}`;
 		if (code !== 0) {
-			throw new Error(output.trim() || `t3 ${args.join(" ")} failed`);
+			if (extractT3PairingToken(output)) {
+				return output;
+			}
+			throw new Error(
+				output.trim() ||
+					(timedOut
+						? `t3 ${args.join(" ")} timed out after ${timeoutMs}ms`
+						: `t3 ${args.join(" ")} failed`),
+			);
 		}
 		return output;
 	} finally {

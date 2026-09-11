@@ -69,7 +69,7 @@ describe("t3 status cache", () => {
 });
 
 describe("t3 pair", () => {
-	test("falls back to auth pairing create when pair prints no token", async () => {
+	test("mints with auth pairing create", async () => {
 		const logPath = await fakeT3(`#!/bin/sh
 printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
 printf 'XDG=%s\\n' "$XDG_RUNTIME_DIR" >> "$GPIO_T3_ENV"
@@ -96,17 +96,68 @@ esac
 			"https://t3.example.gpio-companion.com/pair#token=mint-token",
 		);
 		const calls = invocations(await readFile(logPath, "utf8"));
-		expect(calls.some((line) => line === "pair")).toBe(true);
+		expect(calls.some((line) => line === "pair")).toBe(false);
 		expect(calls.some((line) => line.startsWith("auth pairing create"))).toBe(
 			true,
 		);
 		expect(await readFile(envLog, "utf8")).toContain("XDG=/run/user/0");
 	});
 
+	test("falls back to t3 pair when mint prints no token", async () => {
+		const logPath = await fakeT3(`#!/bin/sh
+printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
+case "$1" in
+  pair)
+    echo "Token: pair-token"
+    echo "Pairing URL: https://127.0.0.1/pair#token=pair-token"
+    ;;
+  auth)
+    echo failed >&2
+    exit 1
+    ;;
+  *) echo ok ;;
+esac
+`);
+		resetT3Runtime();
+		const paired = await pairT3("t3.example.gpio-companion.com");
+		expect(paired.pairingToken).toBe("pair-token");
+		const calls = invocations(await readFile(logPath, "utf8"));
+		expect(calls.some((line) => line.startsWith("auth pairing create"))).toBe(
+			true,
+		);
+		expect(calls.some((line) => line === "pair")).toBe(true);
+	});
+
+	test("keeps pairing token when t3 exits non-zero after printing", async () => {
+		await fakeT3(`#!/bin/sh
+printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
+case "$1" in
+  auth)
+    if [ "$2" = "pairing" ]; then
+      echo "Token: killed-token"
+      echo "Pairing URL: https://127.0.0.1/pair#token=killed-token"
+      exit 143
+    fi
+    echo "no sessions"
+    ;;
+  *) echo ok ;;
+esac
+`);
+		resetT3Runtime();
+		const paired = await pairT3("t3.example.gpio-companion.com");
+		expect(paired.pairingToken).toBe("killed-token");
+	});
+
 	test("single-flight pair does not stack t3 cli", async () => {
 		const logPath = await fakeT3(`#!/bin/sh
 printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
 case "$1" in
+  auth)
+    if [ "$2" = "pairing" ]; then
+      echo "Token: once"
+      echo "Pairing URL: https://127.0.0.1/pair#token=once"
+    fi
+    ;;
   pair)
     echo "Token: once"
     echo "Pairing URL: https://127.0.0.1/pair#token=once"
@@ -122,6 +173,8 @@ esac
 		expect(first.pairingToken).toBe("once");
 		expect(second.pairingToken).toBe("once");
 		const calls = invocations(await readFile(logPath, "utf8"));
-		expect(calls.filter((line) => line === "pair")).toEqual(["pair"]);
+		expect(
+			calls.filter((line) => line.startsWith("auth pairing create")),
+		).toHaveLength(1);
 	});
 });
