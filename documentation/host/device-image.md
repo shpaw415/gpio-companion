@@ -100,7 +100,7 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 
 `scripts/update-script.sh` (timer):
 
-- Corruption guard then `git fetch --depth 1` + `reset --hard origin/<branch>` (`/etc/gpio-companion/branch` or `main`): prune empty git objects, retry, reclone `.git` if still corrupt
+- Corruption guard then `git fetch --depth 1` + `reset --hard origin/<branch>` (`/etc/gpio-companion/branch` or `main`): prune empty git objects, retry, reclone `.git` if still corrupt. Root updater uses `git -c safe.directory=<checkout>` so a companion-owned tree is not treated as corrupt (`dubious ownership`); after fetch/reset/reclone the checkout is chowned to `GPIO_USER` so `.git` does not stay root-owned under `/home/<user>`
 - Reinstalls the SD/USB home-link helper (`scripts/storage-link.sh`, udev + systemd) so extra media appears at `~/storage/<label>`
 - Copies `opencode/skills` and `opencode/preferences` into the device OpenCode config
 - Fetches `GET /api/device-public-key` and writes `/etc/gpio-companion/device-auth.json` if it changed

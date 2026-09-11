@@ -211,21 +211,30 @@ install_opencode() {
 	sudo -u "$GPIO_USER" bash -lc 'curl -fsSL https://opencode.ai/install | bash'
 }
 
-update_opencode() {
-	echo "gpio-companion update: opencode upgrade"
-	if [[ "$GPIO_USER" == "root" ]]; then
-		if ! command -v opencode >/dev/null 2>&1; then
-			echo "gpio-companion update: opencode not found, skipping upgrade" >&2
-			return 1
-		fi
-		opencode upgrade
-		return
+opencode_bin() {
+	local home bin
+	home="$(gpio_user_home)"
+	bin="$home/.opencode/bin/opencode"
+	if [[ -x "$bin" ]]; then
+		printf '%s\n' "$bin"
+		return 0
 	fi
-	if ! sudo -u "$GPIO_USER" bash -lc 'command -v opencode >/dev/null 2>&1'; then
+	command -v opencode 2>/dev/null
+}
+
+update_opencode() {
+	local bin
+	echo "gpio-companion update: opencode upgrade"
+	bin="$(opencode_bin || true)"
+	if [[ -z "$bin" ]]; then
 		echo "gpio-companion update: opencode not found, skipping upgrade" >&2
 		return 1
 	fi
-	sudo -u "$GPIO_USER" bash -lc 'opencode upgrade'
+	if [[ "$GPIO_USER" == "root" || "$(id -u)" -eq "$(gpio_user_uid)" ]]; then
+		"$bin" upgrade
+		return
+	fi
+	sudo -u "$GPIO_USER" -H "$bin" upgrade
 }
 
 gpio_user_home() {
@@ -493,6 +502,36 @@ sync_t3_service() {
 	else
 		run_as_gpio_user_session t3 service install
 	fi
+	reap_leaked_t3_servers
+}
+
+reap_leaked_t3_servers() {
+	local uid main pgid pid this
+	if [[ "${GPIO_COMPANION_T3_SKIP_RESTART:-}" == "1" ]]; then
+		return 0
+	fi
+	uid="$(gpio_user_uid)" || return 0
+	if [[ -z "$uid" ]]; then
+		return 0
+	fi
+	main="$(run_as_gpio_user_session systemctl --user show -p MainPID --value t3code.service 2>/dev/null || true)"
+	if [[ -z "$main" || "$main" == "0" ]]; then
+		return 0
+	fi
+	pgid="$(ps -o pgid= -p "$main" 2>/dev/null | tr -d '[:space:]')" || true
+	while read -r pid; do
+		if [[ -z "$pid" || "$pid" == "$main" ]]; then
+			continue
+		fi
+		if [[ -n "$pgid" ]]; then
+			this="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d '[:space:]')" || true
+			if [[ "$this" == "$pgid" ]]; then
+				continue
+			fi
+		fi
+		echo "gpio-companion update: stopping leaked t3 pid $pid" >&2
+		kill "$pid" 2>/dev/null || true
+	done < <(pgrep -u "$uid" -f '/t3/.*/dist/bin\.mjs serve|/t3/runtime/service-launcher\.mjs' || true)
 }
 
 update_t3code() {
@@ -505,11 +544,13 @@ update_t3code() {
 	latest="$(t3_latest_npm_version || true)"
 	if [[ -z "$latest" ]]; then
 		echo "gpio-companion update: t3@latest unavailable, keeping ${current:-none}" >&2
+		reap_leaked_t3_servers || true
 		configure_t3_opencode_only || true
 		return 0
 	fi
 	if [[ "$force" != "1" && -n "$current" && "$current" == "$latest" ]]; then
 		echo "gpio-companion update: t3 $current is current"
+		reap_leaked_t3_servers || true
 		configure_t3_opencode_only || true
 		return 0
 	fi
@@ -591,11 +632,28 @@ EOF
 	echo "gpio-companion: passwordless sudo granted to $user"
 }
 
+git_in() {
+	local root="$1"
+	shift
+	git -c "safe.directory=${root}" -C "$root" "$@"
+}
+
+chown_managed_checkout() {
+	local root="${1:-$REPO_ROOT}"
+	if [[ -z "${GPIO_USER:-}" || "$GPIO_USER" == "root" ]]; then
+		return 0
+	fi
+	if [[ ! -d "$root" ]]; then
+		return 0
+	fi
+	chown -R "$GPIO_USER:$GPIO_USER" "$root" 2>/dev/null || true
+}
+
 write_repo_metadata() {
 	install -d -m 0755 "$CONFIG_DIR"
 	printf "%s\n" "$REPO_ROOT" >"$CONFIG_DIR/repo.path"
 	local branch
-	branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+	branch="$(git_in "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 	if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
 		branch="main"
 	fi
@@ -611,7 +669,7 @@ EOF
 
 git_dir_for() {
 	local root="${1:-$REPO_ROOT}" gitdir
-	gitdir="$(git -C "$root" rev-parse --git-dir 2>/dev/null || true)"
+	gitdir="$(git_in "$root" rev-parse --git-dir 2>/dev/null || true)"
 	if [[ -z "$gitdir" && -d "$root/.git" ]]; then
 		gitdir="$root/.git"
 	fi
@@ -626,7 +684,7 @@ git_dir_for() {
 
 origin_url_for() {
 	local root="${1:-$REPO_ROOT}" gitdir
-	git -C "$root" remote get-url origin 2>/dev/null && return 0
+	git_in "$root" remote get-url origin 2>/dev/null && return 0
 	gitdir="$(git_dir_for "$root")" || return 1
 	git config --file "$gitdir/config" --get remote.origin.url
 }
@@ -659,10 +717,10 @@ git_checkout_corrupt() {
 	if [[ -n "$(find "$objects" -type f -empty -print -quit 2>/dev/null)" ]]; then
 		return 0
 	fi
-	if ! git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
+	if ! git_in "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
 		return 0
 	fi
-	if ! git -C "$root" cat-file -e HEAD^{commit} >/dev/null 2>&1; then
+	if ! git_in "$root" cat-file -e HEAD^{commit} >/dev/null 2>&1; then
 		return 0
 	fi
 	return 1
@@ -670,23 +728,23 @@ git_checkout_corrupt() {
 
 configure_lowmem_git() {
 	local root="${1:-$REPO_ROOT}"
-	git -C "$root" config --local pack.windowMemory 32m 2>/dev/null || true
-	git -C "$root" config --local pack.threads 1 2>/dev/null || true
-	git -C "$root" config --local pack.deltaCacheSize 16m 2>/dev/null || true
+	git_in "$root" config --local pack.windowMemory 32m 2>/dev/null || true
+	git_in "$root" config --local pack.threads 1 2>/dev/null || true
+	git_in "$root" config --local pack.deltaCacheSize 16m 2>/dev/null || true
 }
 
 fetch_managed_checkout() {
 	local root="$1" branch="$2"
 	configure_lowmem_git "$root"
-	git -C "$root" fetch --depth 1 origin "$branch"
+	git_in "$root" fetch --depth 1 origin "$branch"
 }
 
 reset_managed_checkout() {
 	local root="$1" branch="$2"
-	if git -C "$root" rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
-		git -C "$root" reset --hard "origin/$branch"
-	elif git -C "$root" rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
-		git -C "$root" reset --hard FETCH_HEAD
+	if git_in "$root" rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
+		git_in "$root" reset --hard "origin/$branch"
+	elif git_in "$root" rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+		git_in "$root" reset --hard FETCH_HEAD
 	else
 		return 1
 	fi
@@ -704,8 +762,10 @@ reclone_managed_checkout() {
 	rm -rf "$root/.git"
 	mv "$tmp/repo/.git" "$root/.git"
 	rm -rf "$tmp"
+	chown_managed_checkout "$root"
 	configure_lowmem_git "$root"
 	reset_managed_checkout "$root" "$branch"
+	chown_managed_checkout "$root"
 }
 
 sync_managed_checkout() {
@@ -723,6 +783,7 @@ sync_managed_checkout() {
 	while [[ "$attempt" -lt 2 ]]; do
 		attempt=$((attempt + 1))
 		if fetch_managed_checkout "$root" "$branch" && reset_managed_checkout "$root" "$branch"; then
+			chown_managed_checkout "$root"
 			return 0
 		fi
 		echo "gpio-companion update: fetch failed, repairing git objects" >&2
@@ -737,6 +798,7 @@ sync_managed_checkout() {
 		echo "gpio-companion update: git still corrupt" >&2
 		return 1
 	fi
+	chown_managed_checkout "$root"
 	return 0
 }
 
@@ -1298,6 +1360,7 @@ install_github_git_helper() {
 [credential "https://github.com"]
 	helper = !/usr/local/bin/gpio-companion git-credential
 EOF
+	chmod 644 /etc/gitconfig
 }
 
 write_update_wrapper() {

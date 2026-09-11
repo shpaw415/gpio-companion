@@ -65,6 +65,33 @@ update_opencode
 		expect(await Bun.file(log).text()).toContain("upgrade");
 	});
 
+	test("uses ~/.opencode/bin when not on PATH", async () => {
+		const dir = await tempDir();
+		const ocbin = join(dir, ".opencode", "bin");
+		await mkdir(ocbin, { recursive: true });
+		const log = join(dir, "oc.log");
+		await writeFile(
+			join(ocbin, "opencode"),
+			`#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "\${GPIO_OC_LOG:?}"
+exit 0
+`,
+		);
+		await chmod(join(ocbin, "opencode"), 0o755);
+		const result = await bash(
+			`
+PATH="/usr/bin:/bin"
+source "${libSh}"
+GPIO_USER=root
+update_opencode
+`,
+			{ GPIO_OC_LOG: log, GPIO_COMPANION_HOME: dir },
+		);
+		expect(result.exit).toBe(0);
+		expect(await Bun.file(log).text()).toContain("upgrade");
+	});
+
 	test("skips when opencode is missing", async () => {
 		const dir = await tempDir();
 		const bin = join(dir, "bin");

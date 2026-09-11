@@ -95,6 +95,17 @@ if git_checkout_corrupt "${clone}"; then echo STILL_CORRUPT; else echo CLEAN; fi
 		expect(result.stdout).toContain("CLEAN");
 	});
 
+	test("git_in allows a checkout git refuses without safe.directory", async () => {
+		const { clone } = await setupPair();
+		const result = await bash(`
+${ident}
+source "${libSh}"
+git_in "${clone}" rev-parse --is-inside-work-tree
+`);
+		expect(result.exit).toBe(0);
+		expect(result.stdout.trim()).toBe("true");
+	});
+
 	test("reclone restores a wrecked object store", async () => {
 		const { origin, clone } = await setupPair();
 		const result = await bash(`
