@@ -88,10 +88,10 @@ export default function KeysForm() {
 		const code = params.get("code") ?? "";
 		const state = params.get("state") ?? "";
 
-		window.location.search = "";
 		if (!code || !installationId || !state) {
 			return;
 		}
+		window.location.search = "";
 		auth?.init().then(() => {
 			onGithubAppCallbackEvent(code, installationId, state);
 		});
