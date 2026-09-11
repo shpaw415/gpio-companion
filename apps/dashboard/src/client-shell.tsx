@@ -28,6 +28,7 @@ import {
 	installAuthAwareFetch,
 	syncAccessCookie,
 } from "./lib/auth/refresh.ts";
+import { stashGithubAppCallbackFromLocation } from "./lib/github-app-callback.ts";
 
 export default function ClientWrapper({ children }: { children: JSX.Element }) {
 	const routeChangePromiseRef = useRef<
@@ -98,6 +99,7 @@ function AuthProvider({ children }: { children: JSX.Element }) {
 		attachAccessCookieSync(client);
 		const uninstallFetch = installAuthAwareFetch(client);
 		let cancelled = false;
+		stashGithubAppCallbackFromLocation();
 		client
 			.init()
 			.then(async (ready) => {

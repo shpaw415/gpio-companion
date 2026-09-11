@@ -6,15 +6,19 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
-import { useAuth, useAuthSession } from "../hooks/useAuth.ts";
+import { useAuthSession } from "../hooks/useAuth.ts";
 import { unwrapAction } from "../lib/action.ts";
+import {
+	peekGithubAppCallback,
+	stashGithubAppCallbackFromLocation,
+	takeGithubAppCallback,
+} from "../lib/github-app-callback.ts";
 import type { StoredPairing } from "../lib/pairing-store.ts";
 
 export default function KeysForm() {
 	const session = useAuthSession();
-	const auth = useAuth();
 	const { run } = useActionError();
 	const [login, setLogin] = useState("");
 	const [installUrl, setInstallUrl] = useState("");
@@ -22,51 +26,6 @@ export default function KeysForm() {
 	const [devices, setDevices] = useState<StoredPairing[]>([]);
 	const [devicesLoading, setDevicesLoading] = useState(true);
 	const [error, setError] = useState("");
-	const [status, setStatus] = useState("");
-
-	const onGithubAppCallbackEvent = useCallback(
-		(code: string, installationId: string, state: string) => {
-			const pending = Boolean((installationId || code) && state);
-			if (!session.data?.id) {
-				if (!pending) {
-					setChecking(false);
-				}
-				return Promise.resolve(false);
-			}
-			setChecking(true);
-
-			return (async () => {
-				try {
-					if (pending) {
-						const saved = unwrapAction(
-							await saveGithubApp({
-								installationId,
-								code,
-								state,
-								redirectUri: `${window.location.origin}${window.location.pathname}`,
-							}),
-						);
-						setLogin(saved.login);
-						setInstallUrl("");
-						setStatus(`connected as @${saved.login}`);
-						return true;
-					}
-					const current = unwrapAction(await getGithubApp());
-					setLogin(current.login);
-					setInstallUrl(current.installUrl);
-					return true;
-				} catch (caught) {
-					setError(
-						caught instanceof Error ? caught.message : "github app failed",
-					);
-					return false;
-				} finally {
-					setChecking(false);
-				}
-			})();
-		},
-		[session.data?.id],
-	);
 
 	useEffect(() => {
 		if (!session.data?.id) {
@@ -85,42 +44,44 @@ export default function KeysForm() {
 	}, [session.data?.id, run]);
 
 	useEffect(() => {
-		const params = new URLSearchParams(window.location.search);
-		const installationId = params.get("installation_id") ?? "";
-		const code = params.get("code") ?? "";
-		const state = params.get("state") ?? "";
-
-		if (installationId && code && state) {
-			window.localStorage.setItem(
-				"github_app_callback",
-				JSON.stringify({ installationId, code, state }),
-			);
-			window.history.replaceState({}, "", window.location.pathname);
-		}
-
-		console.log(auth);
-		const storedString = window.localStorage.getItem("github_app_callback");
-		if (!storedString) {
-			void onGithubAppCallbackEvent("", "", "");
+		stashGithubAppCallbackFromLocation();
+		const pending = peekGithubAppCallback();
+		if (!session.data?.id) {
+			if (!pending) {
+				setChecking(false);
+			}
 			return;
 		}
-		const stored = JSON.parse(storedString) as {
-			installationId: string;
-			code: string;
-			state: string;
-		};
-		void onGithubAppCallbackEvent(
-			stored.code,
-			stored.installationId,
-			stored.state,
-		).then((success) => {
-			window.localStorage.removeItem("github_app_callback");
-
-			if (success) {
-				window.history.replaceState({}, "", "/profile/github");
+		setChecking(true);
+		void (async () => {
+			try {
+				if (pending) {
+					const saved = unwrapAction(
+						await saveGithubApp({
+							code: pending.code,
+							state: pending.state,
+							installationId: pending.installationId,
+							redirectUri: pending.redirectUri,
+						}),
+					);
+					takeGithubAppCallback();
+					setLogin(saved.login);
+					setInstallUrl("");
+					window.history.replaceState({}, "", "/profile/github");
+					return;
+				}
+				const current = unwrapAction(await getGithubApp());
+				setLogin(current.login);
+				setInstallUrl(current.installUrl);
+			} catch (caught) {
+				setError(
+					caught instanceof Error ? caught.message : "github app failed",
+				);
+			} finally {
+				setChecking(false);
 			}
-		});
-	}, [onGithubAppCallbackEvent]);
+		})();
+	}, [session.data?.id]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
@@ -173,7 +134,6 @@ export default function KeysForm() {
 						use this App at git push.
 					</Typography>
 				)}
-				{status ? <Alert severity="success">{status}</Alert> : null}
 				{error ? <Alert severity="error">{error}</Alert> : null}
 			</Stack>
 		</Paper>
