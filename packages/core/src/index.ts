@@ -251,10 +251,16 @@ export {
 	headerPin,
 	headerPinPairs,
 	headerPins,
+	headerPinsForBoard,
 	parseGpioPut,
 	parsePhysicalPin,
 	pinByPhysical,
 } from "./gpio.ts";
+export {
+	type SkuGpioLine,
+	type SkuPinout,
+	skuPinout,
+} from "./gpio-sku.ts";
 export {
 	asFlashStatus,
 	asGpioSnapshot,

@@ -127,6 +127,27 @@ describe("gpio controller", () => {
 			gpio.apply("orangepi", { physical: 11, dir: "out", value: 1 }),
 		).rejects.toThrow("unresolved");
 	});
+
+	test("orange pi 3 lts uses sku chip/line without wiringop", async () => {
+		const gpio = createGpioController(memoryGpioBackend(""), {
+			model: "Orange Pi 3 LTS",
+		});
+		const snap = await gpio.snapshot("orangepi");
+		expect(snap.pins).toHaveLength(26);
+		const pin7 = snap.pins.find((pin) => pin.physical === 7);
+		expect(pin7?.unresolved).toBeUndefined();
+		expect(pin7?.chip).toBe("gpiochip0");
+		expect(pin7?.line).toBe(118);
+		const after = await gpio.apply("orangepi", {
+			physical: 7,
+			dir: "out",
+			value: 1,
+		});
+		expect(after.pins.find((pin) => pin.physical === 7)?.value).toBe(1);
+		await expect(
+			gpio.apply("orangepi", { physical: 40, dir: "out", value: 1 }),
+		).rejects.toThrow("not on this header");
+	});
 });
 
 const dir = await mkdtemp(join(tmpdir(), "gpio-api-"));

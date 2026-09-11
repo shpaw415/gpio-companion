@@ -1,6 +1,7 @@
 import type { HardwareId } from "./config.ts";
 import { debugAuthQuery } from "./debug.ts";
 import type { DeviceAuthHeaders } from "./device-auth.ts";
+import { skuPinout } from "./gpio-sku.ts";
 
 export const GPIO_PATH = "/v1/gpio";
 export const GPIO_STREAM_MS = 1_000;
@@ -203,6 +204,18 @@ const HEADER_PINS: Record<HardwareId, HeaderPinDef[]> = {
 
 export function headerPins(hardware: HardwareId): HeaderPinDef[] {
 	return HEADER_PINS[hardware];
+}
+
+export function headerPinsForBoard(
+	hardware: HardwareId,
+	model?: string,
+): HeaderPinDef[] {
+	const pins = headerPins(hardware);
+	const sku = skuPinout(model);
+	if (!sku) {
+		return pins;
+	}
+	return pins.filter((pin) => pin.physical <= sku.pinCount);
 }
 
 export function headerPin(

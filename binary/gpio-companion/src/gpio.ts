@@ -8,8 +8,10 @@ import {
 	type GpioSnapshot,
 	gpioNamedLine,
 	type HardwareId,
-	headerPins,
+	headerPinsForBoard,
+	skuPinout,
 } from "gpio-companion";
+import { readBoardModel } from "./board-model.ts";
 import { privileged } from "./priv.ts";
 
 export type GpioInfoLine = {
@@ -35,6 +37,10 @@ export type GpioBackend = {
 export type GpioController = {
 	snapshot(hardware: HardwareId): Promise<GpioSnapshot>;
 	apply(hardware: HardwareId, put: GpioPut): Promise<GpioSnapshot>;
+};
+
+export type GpioControllerOptions = {
+	model?: string | (() => string | undefined);
 };
 
 export function parseGpioinfo(text: string): GpioInfoLine[] {
@@ -83,7 +89,20 @@ export function resolveHeaderLines(
 	hardware: HardwareId,
 	gpioinfoText: string,
 	readallText = "",
+	model?: string,
 ): Map<number, GpioLineRef> {
+	const sku = skuPinout(model);
+	if (sku) {
+		const resolved = new Map<number, GpioLineRef>();
+		for (const pin of sku.lines) {
+			resolved.set(pin.physical, {
+				chip: pin.chip,
+				line: pin.line,
+				name: pin.soc ?? pin.name,
+			});
+		}
+		return resolved;
+	}
 	const info = parseGpioinfo(gpioinfoText);
 	const byName = new Map<string, GpioInfoLine>();
 	for (const line of info) {
@@ -91,7 +110,7 @@ export function resolveHeaderLines(
 	}
 	const wiringNames = parseWiringOpReadall(readallText);
 	const resolved = new Map<number, GpioLineRef>();
-	for (const pin of headerPins(hardware)) {
+	for (const pin of headerPinsForBoard(hardware, model)) {
 		if (pin.type !== "gpio") {
 			continue;
 		}
@@ -113,17 +132,34 @@ export function resolveHeaderLines(
 	return resolved;
 }
 
-export function createGpioController(backend: GpioBackend): GpioController {
+export function createGpioController(
+	backend: GpioBackend,
+	options?: GpioControllerOptions,
+): GpioController {
+	function model(): string | undefined {
+		if (typeof options?.model === "function") {
+			return options.model();
+		}
+		return options?.model;
+	}
 	return {
 		async snapshot(hardware) {
-			return readSnapshot(hardware, backend);
+			return readSnapshot(hardware, backend, undefined, undefined, model());
 		},
 		async apply(hardware, put) {
+			const board = model();
+			const sku = skuPinout(board);
+			if (sku && put.physical > sku.pinCount) {
+				throw new GpioError(`pin ${put.physical} is not on this header`);
+			}
 			const pin = assertGpioDrive(hardware, put.physical);
 			const { gpioinfoText, readallText } = await probe(backend);
-			const ref = resolveHeaderLines(hardware, gpioinfoText, readallText).get(
-				put.physical,
-			);
+			const ref = resolveHeaderLines(
+				hardware,
+				gpioinfoText,
+				readallText,
+				board,
+			).get(put.physical);
 			if (!ref) {
 				throw new GpioError(
 					pin.resolve === "live"
@@ -132,30 +168,33 @@ export function createGpioController(backend: GpioBackend): GpioController {
 				);
 			}
 			await backend.set(ref, put.dir, put.value);
-			return readSnapshot(hardware, backend, gpioinfoText, readallText);
+			return readSnapshot(hardware, backend, gpioinfoText, readallText, board);
 		},
 	};
 }
 
 export function createLibgpiodGpio(): GpioController {
-	return createGpioController({
-		gpioinfo: () => spawnText(["gpioinfo"]),
-		readall: () => spawnText(["gpio", "readall"]).catch(() => ""),
-		async get(ref) {
-			const text = await spawnGpioGet(ref);
-			return parseGpioGet(text);
+	return createGpioController(
+		{
+			gpioinfo: () => spawnText(["gpioinfo"]),
+			readall: () => spawnText(["gpio", "readall"]).catch(() => ""),
+			async get(ref) {
+				const text = await spawnGpioGet(ref);
+				return parseGpioGet(text);
+			},
+			async set(ref, dir, value) {
+				if (dir === "in") {
+					await spawnGpioGet(ref);
+					return;
+				}
+				if (value !== 0 && value !== 1) {
+					throw new GpioError("value is required for output");
+				}
+				await spawnGpioSet(ref, value);
+			},
 		},
-		async set(ref, dir, value) {
-			if (dir === "in") {
-				await spawnGpioGet(ref);
-				return;
-			}
-			if (value !== 0 && value !== 1) {
-				throw new GpioError("value is required for output");
-			}
-			await spawnGpioSet(ref, value);
-		},
-	});
+		{ model: () => readBoardModel() },
+	);
 }
 
 export function memoryGpioBackend(
@@ -192,13 +231,14 @@ async function readSnapshot(
 	backend: GpioBackend,
 	gpioinfoText?: string,
 	readallText?: string,
+	model?: string,
 ): Promise<GpioSnapshot> {
 	const infoText = gpioinfoText ?? (await backend.gpioinfo());
 	const wiringText =
 		readallText ?? (hardware === "orangepi" ? await backend.readall() : "");
-	const resolved = resolveHeaderLines(hardware, infoText, wiringText);
+	const resolved = resolveHeaderLines(hardware, infoText, wiringText, model);
 	const pins: GpioPinState[] = [];
-	for (const def of headerPins(hardware)) {
+	for (const def of headerPinsForBoard(hardware, model)) {
 		const reserved = GPIO_RESERVED_PHYSICAL[hardware].includes(def.physical);
 		const ref = resolved.get(def.physical);
 		if (def.type !== "gpio") {
