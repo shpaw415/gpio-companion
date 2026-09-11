@@ -1,12 +1,29 @@
 import { POST as signGpioLive } from "@api/gpio-live";
-import { asGpioSnapshot, type GpioSnapshot } from "gpio-companion";
-import { useEffect } from "react";
+import {
+	asGpioSnapshot,
+	asGpioWsError,
+	type GpioPut,
+	type GpioSnapshot,
+} from "gpio-companion";
+import { useCallback, useEffect, useRef } from "react";
 import { unwrapAction } from "../lib/action.ts";
+
+export type GpioTunnel = {
+	drive: (put: GpioPut) => boolean;
+	refresh: () => boolean;
+};
 
 export function useGpioTunnel(
 	uuid: string,
 	onSnapshot: (snapshot: GpioSnapshot) => void,
-): void {
+	onError?: (message: string) => void,
+): GpioTunnel {
+	const socketRef = useRef<WebSocket | null>(null);
+	const onSnapshotRef = useRef(onSnapshot);
+	const onErrorRef = useRef(onError);
+	onSnapshotRef.current = onSnapshot;
+	onErrorRef.current = onError;
+
 	useEffect(() => {
 		const trimmed = uuid.trim();
 		if (!trimmed || typeof window === "undefined") {
@@ -33,6 +50,7 @@ export function useGpioTunnel(
 				socket?.close();
 				const next = new WebSocket(wsUrl);
 				socket = next;
+				socketRef.current = next;
 				next.addEventListener("open", () => {
 					delay = 500;
 				});
@@ -41,11 +59,15 @@ export function useGpioTunnel(
 						return;
 					}
 					try {
-						const snapshot = asGpioSnapshot(
-							JSON.parse(String(event.data ?? "")),
-						);
+						const parsed = JSON.parse(String(event.data ?? ""));
+						const error = asGpioWsError(parsed);
+						if (error) {
+							onErrorRef.current?.(error);
+							return;
+						}
+						const snapshot = asGpioSnapshot(parsed);
 						if (snapshot) {
-							onSnapshot(snapshot);
+							onSnapshotRef.current(snapshot);
 						}
 					} catch {
 						undefined;
@@ -54,6 +76,9 @@ export function useGpioTunnel(
 				next.addEventListener("close", () => {
 					if (socket === next) {
 						socket = null;
+					}
+					if (socketRef.current === next) {
+						socketRef.current = null;
 					}
 					schedule();
 				});
@@ -78,6 +103,21 @@ export function useGpioTunnel(
 			closed = true;
 			window.clearTimeout(timer);
 			socket?.close();
+			socketRef.current = null;
 		};
-	}, [uuid, onSnapshot]);
+	}, [uuid]);
+
+	const send = useCallback((payload: unknown) => {
+		const ws = socketRef.current;
+		if (!ws || ws.readyState !== WebSocket.OPEN) {
+			return false;
+		}
+		ws.send(JSON.stringify(payload));
+		return true;
+	}, []);
+
+	return {
+		drive: (put) => send(put),
+		refresh: () => send({ op: "refresh" }),
+	};
 }

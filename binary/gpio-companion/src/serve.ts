@@ -255,7 +255,16 @@ export function startDeviceApi(options: ServeOptions) {
 				}
 				debug.add(ws);
 			},
-			message() {},
+			message(ws, message) {
+				if (ws.data.stream !== "gpio") {
+					return;
+				}
+				const text =
+					typeof message === "string"
+						? message
+						: new TextDecoder().decode(message);
+				void gpioStream.handle(ws, text);
+			},
 			close(ws) {
 				if (ws.data.stream === "gpio") {
 					gpioStream.remove(ws);

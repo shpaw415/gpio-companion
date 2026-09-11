@@ -77,12 +77,29 @@ export default function GpioPanel({
 			.finally(() => setBusy(false));
 	}
 
-	useGpioTunnel(poll && available ? uuid : "", applySnapshot);
+	const tunnel = useGpioTunnel(
+		poll && available ? uuid : "",
+		applySnapshot,
+		setError,
+	);
 
 	const pins = snapshot?.pins ?? [];
 	const gpioPins = pins.filter((pin) => pin.type === "gpio");
 
 	function drive(pin: GpioPinState, dir: "in" | "out", value?: 0 | 1) {
+		if (poll) {
+			setError("");
+			if (
+				!tunnel.drive({
+					physical: pin.physical,
+					dir,
+					value,
+				})
+			) {
+				setError("live gpio websocket is not connected");
+			}
+			return;
+		}
 		start(async () => {
 			applySnapshot(
 				unwrapAction(
@@ -133,7 +150,7 @@ export default function GpioPanel({
 			{poll ? (
 				<Typography variant="body2" color="secondary">
 					{snapshot
-						? "Tap a GPIO to toggle output. Set In to watch a pin."
+						? "Tap a GPIO to toggle output over the board websocket. Set In to watch a pin."
 						: "Waiting for live pin state from the board."}
 				</Typography>
 			) : null}
@@ -144,6 +161,13 @@ export default function GpioPanel({
 					size="small"
 					disabled={busy || !uuid}
 					onClick={() => {
+						if (poll) {
+							setError("");
+							if (!tunnel.refresh()) {
+								setError("live gpio websocket is not connected");
+							}
+							return;
+						}
 						start(async () => {
 							applySnapshot(unwrapAction(await loadGpio(uuid)));
 						});
@@ -266,6 +290,16 @@ function PinStatusChip({ pin }: { pin: GpioPinState }) {
 	}
 	if (pin.unresolved) {
 		return <Chip label="Unresolved" size="small" variant="outlined" />;
+	}
+	if (typeof pin.pwm === "number") {
+		return (
+			<Chip
+				label={`PWM ${Math.round(pin.pwm)}%`}
+				size="small"
+				color="primary"
+				variant="outlined"
+			/>
+		);
 	}
 	if (pin.value === 1) {
 		return (

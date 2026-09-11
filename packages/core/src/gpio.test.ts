@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	asGpioWsError,
 	assertGpioDrive,
 	canDriveGpio,
 	GpioError,
@@ -9,7 +10,9 @@ import {
 	gpioWsUrl,
 	headerPin,
 	headerPinPairs,
+	isGpioWsRefresh,
 	parseGpioPut,
+	parseGpioWsCommand,
 	parsePhysicalPin,
 	pinByPhysical,
 } from "./gpio.ts";
@@ -72,6 +75,25 @@ describe("parseGpioPut", () => {
 	});
 });
 
+describe("gpio websocket command", () => {
+	test("parses put and refresh", () => {
+		expect(parseGpioWsCommand({ physical: 11, dir: "out", value: 1 })).toEqual({
+			physical: 11,
+			dir: "out",
+			value: 1,
+		});
+		expect(isGpioWsRefresh(parseGpioWsCommand({ op: "refresh" }))).toBe(true);
+		expect(isGpioWsRefresh(parseGpioWsCommand({ refresh: true }))).toBe(true);
+	});
+
+	test("ignores snapshot-shaped errors", () => {
+		expect(asGpioWsError({ error: "pin 1 is power" })).toBe("pin 1 is power");
+		expect(
+			asGpioWsError({ hardware: "raspberrypi", pins: [], error: "nope" }),
+		).toBeNull();
+	});
+});
+
 describe("gpio websocket url", () => {
 	test("uses the companion tunnel path", () => {
 		expect(gpioWsUrl("https://api-abc.gpio-companion.com")).toBe(
@@ -123,5 +145,6 @@ describe("header", () => {
 		expect(gpioPinTone(power)).toBe("power");
 		expect(gpioPinTone(gpio)).toBe("high");
 		expect(gpioPinTone(reserved)).toBe("reserved");
+		expect(gpioPinTone({ ...gpio, pwm: 40 })).toBe("pwm");
 	});
 });

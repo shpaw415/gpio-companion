@@ -2,6 +2,8 @@ import {
 	GPIO_MAX_SOCKETS,
 	GPIO_STREAM_MS,
 	type HardwareId,
+	isGpioWsRefresh,
+	parseGpioWsCommand,
 } from "gpio-companion";
 import type { GpioController } from "./gpio.ts";
 
@@ -18,6 +20,7 @@ export function createGpioStream(options: {
 	add(ws: GpioStreamSocket): void;
 	remove(ws: GpioStreamSocket): void;
 	publish(): void;
+	handle(ws: GpioStreamSocket, data: string): Promise<void>;
 } {
 	const sockets = new Set<GpioStreamSocket>();
 	const intervalMs = options.intervalMs ?? GPIO_STREAM_MS;
@@ -93,6 +96,23 @@ export function createGpioStream(options: {
 		publish() {
 			last = "";
 			void broadcast();
+		},
+		async handle(ws, data) {
+			try {
+				const command = parseGpioWsCommand(JSON.parse(data));
+				if (!isGpioWsRefresh(command)) {
+					await options.gpio.apply(await options.hardware(), command);
+				}
+				last = "";
+				await broadcast();
+			} catch (error) {
+				const message = error instanceof Error ? error.message : "gpio failed";
+				try {
+					ws.send(JSON.stringify({ error: message }));
+				} catch {
+					undefined;
+				}
+			}
 		},
 	};
 }

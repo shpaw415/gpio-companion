@@ -7,6 +7,7 @@ type GpioPinTone =
 	| "gnd"
 	| "reserved"
 	| "unresolved"
+	| "pwm"
 	| "high"
 	| "low"
 	| "idle";
@@ -43,6 +44,9 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
+	if (typeof pin.pwm === "number") {
+		return "pwm";
+	}
 	if (pin.value === 1) {
 		return "high";
 	}
@@ -78,6 +82,7 @@ export default function GpioHeader({
 		gnd: colors.text,
 		reserved: colors.border,
 		unresolved: colors.warning,
+		pwm: colors.primary,
 		high: colors.success,
 		low: colors.muted,
 		idle: colors.border,

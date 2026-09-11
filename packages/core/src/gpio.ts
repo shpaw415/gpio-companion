@@ -51,6 +51,7 @@ export type GpioPinState = {
 	line?: number;
 	dir?: GpioDir;
 	value?: 0 | 1;
+	pwm?: number;
 	reserved?: boolean;
 	unresolved?: boolean;
 };
@@ -65,6 +66,12 @@ export type GpioPut = {
 	dir: GpioDir;
 	value?: 0 | 1;
 };
+
+export type GpioWsRefresh = {
+	op: "refresh";
+};
+
+export type GpioWsCommand = GpioPut | GpioWsRefresh;
 
 export class GpioError extends Error {
 	readonly status = 400;
@@ -249,6 +256,7 @@ export type GpioPinTone =
 	| "gnd"
 	| "reserved"
 	| "unresolved"
+	| "pwm"
 	| "high"
 	| "low"
 	| "idle";
@@ -265,6 +273,9 @@ export function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	}
 	if (pin.unresolved) {
 		return "unresolved";
+	}
+	if (typeof pin.pwm === "number") {
+		return "pwm";
 	}
 	if (pin.value === 1) {
 		return "high";
@@ -317,6 +328,44 @@ export function parseGpioPut(input: unknown): GpioPut {
 		throw new GpioError("value is required for output");
 	}
 	return put;
+}
+
+export function parseGpioWsCommand(input: unknown): GpioWsCommand {
+	if (input === null || typeof input !== "object") {
+		throw new GpioError("gpio must be an object");
+	}
+	const record = input as Record<string, unknown>;
+	if (record.op === "refresh" || record.refresh === true) {
+		return { op: "refresh" };
+	}
+	return parseGpioPut(input);
+}
+
+export function isGpioWsRefresh(
+	command: GpioWsCommand,
+): command is GpioWsRefresh {
+	return "op" in command && command.op === "refresh";
+}
+
+export function asGpioWsError(payload: unknown): string | null {
+	if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+		return null;
+	}
+	const record = payload as {
+		error?: unknown;
+		hardware?: unknown;
+		pins?: unknown;
+	};
+	if (
+		Array.isArray(record.pins) ||
+		record.hardware === "raspberrypi" ||
+		record.hardware === "orangepi"
+	) {
+		return null;
+	}
+	return typeof record.error === "string" && record.error.trim()
+		? record.error
+		: null;
 }
 
 export function gpioNamedLine(bcm: number): string {

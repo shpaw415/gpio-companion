@@ -16,6 +16,7 @@ const TONE_BG: Record<GpioPinTone, string> = {
 	gnd: "text-main",
 	reserved: "bg-surface",
 	unresolved: "bg-warning",
+	pwm: "bg-info",
 	high: "bg-success",
 	low: "bg-secondary",
 	idle: "bg-surface",

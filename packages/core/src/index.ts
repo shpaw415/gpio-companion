@@ -230,6 +230,7 @@ export {
 	parseGithubAppCallbackSearch,
 } from "./github-app-callback.ts";
 export {
+	asGpioWsError,
 	assertGpioDrive,
 	canDriveGpio,
 	GPIO_MAX_SOCKETS,
@@ -242,6 +243,8 @@ export {
 	type GpioPinTone,
 	type GpioPut,
 	type GpioSnapshot,
+	type GpioWsCommand,
+	type GpioWsRefresh,
 	gpioNamedLine,
 	gpioPinTone,
 	gpioWsConnectUrl,
@@ -252,7 +255,9 @@ export {
 	headerPinPairs,
 	headerPins,
 	headerPinsForBoard,
+	isGpioWsRefresh,
 	parseGpioPut,
+	parseGpioWsCommand,
 	parsePhysicalPin,
 	pinByPhysical,
 } from "./gpio.ts";

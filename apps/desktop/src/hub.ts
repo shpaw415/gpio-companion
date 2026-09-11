@@ -94,6 +94,7 @@ export type ReconnectSocket = {
 	stop(): void;
 	pause(): void;
 	resume(): void;
+	send(data: string): boolean;
 };
 
 export function startReconnectSocket(options: {
@@ -178,6 +179,13 @@ export function startReconnectSocket(options: {
 
 	void connect();
 	return {
+		send(data) {
+			if (!socket || socket.readyState !== WebSocket.OPEN) {
+				return false;
+			}
+			socket.send(data);
+			return true;
+		},
 		stop() {
 			stopped = true;
 			clearTimer();

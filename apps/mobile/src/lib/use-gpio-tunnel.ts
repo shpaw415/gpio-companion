@@ -1,13 +1,54 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { connectGpioLive, type GpioSnapshot } from "./api.ts";
 import { asGpioSnapshot, startReconnectSocket } from "./hub.ts";
+
+export type GpioPut = {
+	physical: number;
+	dir: "in" | "out";
+	value?: 0 | 1;
+};
+
+export type GpioTunnel = {
+	drive: (put: GpioPut) => boolean;
+	refresh: () => boolean;
+};
+
+function asGpioWsError(payload: unknown): string | null {
+	if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+		return null;
+	}
+	const record = payload as {
+		error?: unknown;
+		hardware?: unknown;
+		pins?: unknown;
+	};
+	if (
+		Array.isArray(record.pins) ||
+		record.hardware === "raspberrypi" ||
+		record.hardware === "orangepi"
+	) {
+		return null;
+	}
+	return typeof record.error === "string" && record.error.trim()
+		? record.error
+		: null;
+}
 
 export function useGpioTunnel(
 	uuid: string,
 	token: string | null | undefined,
 	onSnapshot: (snapshot: GpioSnapshot) => void,
-): void {
+	onError?: (message: string) => void,
+): GpioTunnel {
+	const clientRef = useRef<ReturnType<typeof startReconnectSocket> | null>(
+		null,
+	);
+	const onSnapshotRef = useRef(onSnapshot);
+	const onErrorRef = useRef(onError);
+	onSnapshotRef.current = onSnapshot;
+	onErrorRef.current = onError;
+
 	useEffect(() => {
 		const trimmed = uuid.trim();
 		if (!trimmed || !token) {
@@ -15,7 +56,7 @@ export function useGpioTunnel(
 		}
 		const authToken = token;
 		let closed = false;
-		let client: { stop(): void; pause(): void; resume(): void } | null = null;
+		let client: ReturnType<typeof startReconnectSocket> | null = null;
 
 		function start() {
 			client?.stop();
@@ -34,15 +75,22 @@ export function useGpioTunnel(
 				},
 				onMessage(data) {
 					try {
-						const snapshot = asGpioSnapshot(JSON.parse(data));
+						const parsed = JSON.parse(data);
+						const error = asGpioWsError(parsed);
+						if (error) {
+							onErrorRef.current?.(error);
+							return;
+						}
+						const snapshot = asGpioSnapshot(parsed);
 						if (snapshot) {
-							onSnapshot(snapshot);
+							onSnapshotRef.current(snapshot);
 						}
 					} catch {
 						undefined;
 					}
 				},
 			});
+			clientRef.current = client;
 		}
 
 		function onAppState(state: AppStateStatus) {
@@ -52,6 +100,7 @@ export function useGpioTunnel(
 			}
 			client?.stop();
 			client = null;
+			clientRef.current = null;
 		}
 
 		if (AppState.currentState === "active") {
@@ -62,6 +111,16 @@ export function useGpioTunnel(
 			closed = true;
 			sub.remove();
 			client?.stop();
+			clientRef.current = null;
 		};
-	}, [uuid, token, onSnapshot]);
+	}, [uuid, token]);
+
+	const send = useCallback((payload: unknown) => {
+		return clientRef.current?.send(JSON.stringify(payload)) ?? false;
+	}, []);
+
+	return {
+		drive: (put) => send(put),
+		refresh: () => send({ op: "refresh" }),
+	};
 }

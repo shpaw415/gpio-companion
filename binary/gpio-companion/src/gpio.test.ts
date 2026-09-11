@@ -15,6 +15,7 @@ import {
 	parseWiringOpReadall,
 	resolveHeaderLines,
 } from "./gpio.ts";
+import { createGpioStream } from "./gpio-stream.ts";
 import { filePairingStore } from "./pairing.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { handleDeviceRequest, startDeviceApi } from "./serve.ts";
@@ -148,6 +149,70 @@ describe("gpio controller", () => {
 			gpio.apply("orangepi", { physical: 40, dir: "out", value: 1 }),
 		).rejects.toThrow("not on this header");
 	});
+
+	test("snapshot includes pwm duty on PWM0 pins", async () => {
+		const gpio = createGpioController(
+			memoryGpioBackend(GPIOINFO, "", {}, { 0: 42.5 }),
+		);
+		const snap = await gpio.snapshot("raspberrypi");
+		expect(snap.pins.find((pin) => pin.physical === 12)?.pwm).toBe(42.5);
+		expect(snap.pins.find((pin) => pin.physical === 11)?.pwm).toBeUndefined();
+	});
+});
+
+describe("gpio stream commands", () => {
+	test("applies a put from the websocket and broadcasts", async () => {
+		const gpio = createGpioController(memoryGpioBackend(GPIOINFO));
+		const sent: string[] = [];
+		const stream = createGpioStream({
+			gpio,
+			hardware: async () => "raspberrypi",
+			intervalMs: 60_000,
+		});
+		const ws = {
+			send(data: string) {
+				sent.push(data);
+			},
+			close() {},
+		};
+		stream.add(ws);
+		const start = Date.now();
+		while (Date.now() - start < 500 && sent.length === 0) {
+			await Bun.sleep(10);
+		}
+		sent.length = 0;
+		await stream.handle(
+			ws,
+			JSON.stringify({ physical: 11, dir: "out", value: 1 }),
+		);
+		const last = JSON.parse(sent.at(-1) ?? "{}") as {
+			pins?: { physical: number; value?: number }[];
+		};
+		expect(last.pins?.find((pin) => pin.physical === 11)?.value).toBe(1);
+	});
+
+	test("returns an error for power pins", async () => {
+		const gpio = createGpioController(memoryGpioBackend(GPIOINFO));
+		const sent: string[] = [];
+		const stream = createGpioStream({
+			gpio,
+			hardware: async () => "raspberrypi",
+			intervalMs: 60_000,
+		});
+		const ws = {
+			send(data: string) {
+				sent.push(data);
+			},
+			close() {},
+		};
+		await stream.handle(
+			ws,
+			JSON.stringify({ physical: 1, dir: "out", value: 1 }),
+		);
+		expect(JSON.parse(sent.at(-1) ?? "{}")).toEqual({
+			error: "pin 1 is power, not gpio",
+		});
+	});
 });
 
 const dir = await mkdtemp(join(tmpdir(), "gpio-api-"));
@@ -228,6 +293,54 @@ describe("gpio http", () => {
 		);
 		expect(response.status).toBe(400);
 		expect(await response.text()).toBe("upgrade failed");
+	});
+
+	test("drives a pin over the companion websocket", async () => {
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: GPIO_PATH,
+		});
+		const snapshots: Array<{
+			pins?: { physical: number; value?: number }[];
+			error?: string;
+		}> = [];
+		const ws = new WebSocket(
+			`${String(server.url).replace(/^http/, "ws")}v1/gpio?${debugAuthQuery(headers)}`,
+		);
+		ws.addEventListener("message", (event) => {
+			snapshots.push(
+				JSON.parse(String(event.data)) as {
+					pins?: { physical: number; value?: number }[];
+					error?: string;
+				},
+			);
+		});
+		await new Promise<void>((resolve, reject) => {
+			ws.addEventListener("open", () => resolve());
+			ws.addEventListener("error", () => reject(new Error("ws error")));
+		});
+		const start = Date.now();
+		while (Date.now() - start < 1000 && snapshots.length === 0) {
+			await Bun.sleep(10);
+		}
+		ws.send(JSON.stringify({ physical: 11, dir: "out", value: 1 }));
+		const after = Date.now();
+		while (
+			Date.now() - after < 1000 &&
+			!snapshots.some(
+				(snap) => snap.pins?.find((pin) => pin.physical === 11)?.value === 1,
+			)
+		) {
+			await Bun.sleep(10);
+		}
+		ws.close();
+		expect(
+			snapshots.some(
+				(snap) => snap.pins?.find((pin) => pin.physical === 11)?.value === 1,
+			),
+		).toBe(true);
 	});
 
 	test("streams gpio snapshots over the companion websocket", async () => {

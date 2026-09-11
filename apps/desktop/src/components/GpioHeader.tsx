@@ -9,6 +9,7 @@ type GpioPinTone =
 	| "gnd"
 	| "reserved"
 	| "unresolved"
+	| "pwm"
 	| "high"
 	| "low"
 	| "idle";
@@ -18,6 +19,7 @@ const TONE_BG: Record<GpioPinTone, string> = {
 	gnd: "text-main",
 	reserved: "bg-surface",
 	unresolved: "bg-warning",
+	pwm: "bg-info",
 	high: "bg-success",
 	low: "bg-secondary",
 	idle: "bg-surface",
@@ -54,6 +56,9 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	}
 	if (pin.unresolved) {
 		return "unresolved";
+	}
+	if (typeof pin.pwm === "number") {
+		return "pwm";
 	}
 	if (pin.value === 1) {
 		return "high";

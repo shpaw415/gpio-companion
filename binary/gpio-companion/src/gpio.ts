@@ -8,6 +8,7 @@ import {
 	type GpioSnapshot,
 	gpioNamedLine,
 	type HardwareId,
+	type HeaderPinDef,
 	headerPinsForBoard,
 	skuPinout,
 } from "gpio-companion";
@@ -32,6 +33,7 @@ export type GpioBackend = {
 	readall(): Promise<string>;
 	get(ref: GpioLineRef): Promise<{ dir: GpioDir; value: 0 | 1 }>;
 	set(ref: GpioLineRef, dir: GpioDir, value?: 0 | 1): Promise<void>;
+	pwm?(): Promise<Map<number, number>>;
 };
 
 export type GpioController = {
@@ -174,15 +176,25 @@ export function createGpioController(
 }
 
 export function createLibgpiodGpio(): GpioController {
+	const held = new Map<
+		string,
+		{ proc: ReturnType<typeof Bun.spawn>; value: 0 | 1 }
+	>();
 	return createGpioController(
 		{
 			gpioinfo: () => spawnText(["gpioinfo"]),
 			readall: () => spawnText(["gpio", "readall"]).catch(() => ""),
+			pwm: readSysfsPwm,
 			async get(ref) {
+				const current = held.get(lineKey(ref));
+				if (current) {
+					return { dir: "out", value: current.value };
+				}
 				const text = await spawnGpioGet(ref);
 				return parseGpioGet(text);
 			},
 			async set(ref, dir, value) {
+				await releaseHeld(held, ref);
 				if (dir === "in") {
 					await spawnGpioGet(ref);
 					return;
@@ -190,7 +202,10 @@ export function createLibgpiodGpio(): GpioController {
 				if (value !== 0 && value !== 1) {
 					throw new GpioError("value is required for output");
 				}
-				await spawnGpioSet(ref, value);
+				const proc = await spawnGpioHold(ref, value);
+				if (proc) {
+					held.set(lineKey(ref), { proc, value });
+				}
 			},
 		},
 		{ model: () => readBoardModel() },
@@ -201,6 +216,7 @@ export function memoryGpioBackend(
 	infoText: string,
 	readallText = "",
 	values: Record<string, 0 | 1> = {},
+	pwm: Record<number, number> = {},
 ): GpioBackend {
 	const state = new Map<string, { dir: GpioDir; value: 0 | 1 }>();
 	for (const line of parseGpioinfo(infoText)) {
@@ -223,6 +239,14 @@ export function memoryGpioBackend(
 				value: dir === "out" ? (value ?? 0) : 0,
 			});
 		},
+		async pwm() {
+			return new Map(
+				Object.entries(pwm).map(([channel, percent]) => [
+					Number(channel),
+					percent,
+				]),
+			);
+		},
 	};
 }
 
@@ -236,6 +260,9 @@ async function readSnapshot(
 	const infoText = gpioinfoText ?? (await backend.gpioinfo());
 	const wiringText =
 		readallText ?? (hardware === "orangepi" ? await backend.readall() : "");
+	const pwmDuties = backend.pwm
+		? await backend.pwm().catch(() => new Map<number, number>())
+		: new Map<number, number>();
 	const resolved = resolveHeaderLines(hardware, infoText, wiringText, model);
 	const pins: GpioPinState[] = [];
 	for (const def of headerPinsForBoard(hardware, model)) {
@@ -250,13 +277,18 @@ async function readSnapshot(
 			continue;
 		}
 		if (!ref) {
-			pins.push({
+			const pin: GpioPinState = {
 				physical: def.physical,
 				name: def.name,
 				type: "gpio",
 				reserved,
 				unresolved: !reserved,
-			});
+			};
+			const pwm = pwmForPin(def, pwmDuties);
+			if (pwm !== undefined) {
+				pin.pwm = pwm;
+			}
+			pins.push(pin);
 			continue;
 		}
 		let live: { dir: GpioDir; value: 0 | 1 } | undefined;
@@ -265,7 +297,8 @@ async function readSnapshot(
 		} catch {
 			live = undefined;
 		}
-		pins.push({
+		const pwm = pwmForPin(def, pwmDuties);
+		const pin: GpioPinState = {
 			physical: def.physical,
 			name: def.name,
 			type: "gpio",
@@ -274,7 +307,11 @@ async function readSnapshot(
 			dir: live?.dir,
 			value: live?.value,
 			reserved,
-		});
+		};
+		if (pwm !== undefined) {
+			pin.pwm = pwm;
+		}
+		pins.push(pin);
 	}
 	return { hardware, pins };
 }
@@ -382,6 +419,124 @@ function parseGpioGet(text: string): { dir: GpioDir; value: 0 | 1 } {
 		throw new GpioError("gpioget returned no value");
 	}
 	return { dir: "in", value: match[1] === "1" ? 1 : 0 };
+}
+
+function pwmForPin(
+	def: HeaderPinDef,
+	duties: Map<number, number>,
+): number | undefined {
+	const alts = def.alt ?? [];
+	if (alts.includes("PWM0") && duties.has(0)) {
+		return duties.get(0);
+	}
+	if (alts.includes("PWM1") && duties.has(1)) {
+		return duties.get(1);
+	}
+	return undefined;
+}
+
+async function readSysfsPwm(): Promise<Map<number, number>> {
+	const duties = new Map<number, number>();
+	for (const chip of ["pwmchip0", "pwmchip1"]) {
+		for (const channel of [0, 1]) {
+			const percent = await readSysfsPwmChannel(chip, channel);
+			if (percent !== undefined && !duties.has(channel)) {
+				duties.set(channel, percent);
+			}
+		}
+	}
+	return duties;
+}
+
+async function readSysfsPwmChannel(
+	chip: string,
+	channel: number,
+): Promise<number | undefined> {
+	const base = `/sys/class/pwm/${chip}/pwm${channel}`;
+	try {
+		const [enableText, periodText, dutyText] = await Promise.all([
+			Bun.file(`${base}/enable`).text(),
+			Bun.file(`${base}/period`).text(),
+			Bun.file(`${base}/duty_cycle`).text(),
+		]);
+		if (enableText.trim() !== "1") {
+			return undefined;
+		}
+		const period = Number(periodText.trim());
+		const duty = Number(dutyText.trim());
+		if (!Number.isFinite(period) || period <= 0 || !Number.isFinite(duty)) {
+			return undefined;
+		}
+		return Math.round((Math.min(duty, period) / period) * 1000) / 10;
+	} catch {
+		return undefined;
+	}
+}
+
+async function releaseHeld(
+	held: Map<string, { proc: ReturnType<typeof Bun.spawn>; value: 0 | 1 }>,
+	ref: GpioLineRef,
+): Promise<void> {
+	const current = held.get(lineKey(ref));
+	if (!current) {
+		return;
+	}
+	held.delete(lineKey(ref));
+	try {
+		current.proc.kill();
+	} catch {
+		undefined;
+	}
+	await current.proc.exited.catch(() => undefined);
+}
+
+async function spawnGpioHold(
+	ref: GpioLineRef,
+	value: 0 | 1,
+): Promise<ReturnType<typeof Bun.spawn> | undefined> {
+	const signal = await spawnDetached([
+		"gpioset",
+		"-m",
+		"signal",
+		"-c",
+		ref.chip,
+		`${ref.line}=${value}`,
+	]);
+	if (signal) {
+		return signal;
+	}
+	const waiting = await spawnDetached(
+		["gpioset", "-c", ref.chip, `${ref.line}=${value}`],
+		"pipe",
+	);
+	if (waiting) {
+		return waiting;
+	}
+	try {
+		await spawnGpioSet(ref, value);
+	} catch {
+		await spawnText(["gpioset", ref.chip, `${ref.line}=${value}`]);
+	}
+	return undefined;
+}
+
+async function spawnDetached(
+	cmd: string[],
+	stdin: "ignore" | "pipe" = "ignore",
+): Promise<ReturnType<typeof Bun.spawn> | undefined> {
+	const proc = Bun.spawn(privileged(cmd), {
+		stdout: "ignore",
+		stderr: "pipe",
+		stdin,
+	});
+	const exited = await Promise.race([
+		proc.exited,
+		Bun.sleep(80).then(() => null),
+	]);
+	if (exited === null) {
+		return proc;
+	}
+	return undefined;
 }
 
 async function spawnGpioGet(ref: GpioLineRef): Promise<string> {

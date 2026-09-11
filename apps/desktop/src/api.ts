@@ -745,6 +745,7 @@ export type GpioPinState = {
 	type: string;
 	dir?: "in" | "out";
 	value?: 0 | 1;
+	pwm?: number;
 	reserved?: boolean;
 	unresolved?: boolean;
 };

@@ -312,8 +312,8 @@ export default function Project() {
 					</View>
 					<Body>Live GPIO</Body>
 					<Muted>
-						Watch header pins from the board over the companion API websocket.
-						Tap a GPIO to drive it high or low.
+						Watch header pins and PWM from the board over the companion API
+						websocket. Tap a GPIO to drive it high or low on that socket.
 					</Muted>
 					<GpioPanel
 						uuid={activeUuid}
