@@ -4,7 +4,9 @@ import {
 	createGpioCompanionRepo,
 	githubAccountForUser,
 	githubConfigured,
+	indexProject,
 	listRepos,
+	loadIndexedProjects,
 	loadProjectBundle,
 	readRepoFile,
 } from "../../../lib/github.ts";
@@ -26,7 +28,13 @@ export async function onRequestGet(ctx: MobileContext) {
 		if (!githubConfigured(account)) {
 			return { configured: false, repos: [] };
 		}
-		return { configured: true, repos: await listRepos(account) };
+		return {
+			configured: true,
+			repos: await listRepos(
+				account,
+				await loadIndexedProjects(env(ctx).DYNAMIC_PAGE_KV, identity.id),
+			),
+		};
 	});
 	const headers = new Headers(response.headers);
 	headers.set("Cache-Control", "private, no-store");
@@ -77,6 +85,8 @@ export async function onRequestPatch(ctx: MobileContext) {
 		if (!githubConfigured(account)) {
 			throw new Error("github is not configured");
 		}
-		return createGpioCompanionRepo(account, name);
+		const repo = await createGpioCompanionRepo(account, name);
+		await indexProject(env(ctx).DYNAMIC_PAGE_KV, identity.id, repo);
+		return repo;
 	});
 }

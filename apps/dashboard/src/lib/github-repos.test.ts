@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createGpioCompanionRepo, parseRepoName } from "./github.ts";
+import {
+	createGpioCompanionRepo,
+	indexProject,
+	listRepos,
+	loadIndexedProjects,
+	parseRepoName,
+} from "./github.ts";
 
 describe("parseRepoName", () => {
 	test("accepts github names", () => {
@@ -157,5 +163,174 @@ describe("createGpioCompanionRepo", () => {
 			"blink",
 		);
 		expect(paths).toContain("POST /user/repos");
+	});
+});
+
+describe("listRepos", () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	function json(body: unknown, status = 200, link?: string) {
+		const headers = new Headers({ "content-type": "application/json" });
+		if (link) {
+			headers.set("link", link);
+		}
+		return new Response(JSON.stringify(body), { status, headers });
+	}
+
+	function repo(login: string, name: string, description?: string) {
+		return {
+			full_name: `${login}/${name}`,
+			name,
+			owner: { login },
+			html_url: `https://github.com/${login}/${name}`,
+			description: description ?? null,
+		};
+	}
+
+	test("keeps installation repos that have the watermark", async () => {
+		globalThis.fetch = (async (input: RequestInfo | URL) => {
+			const path = String(input).replace("https://api.github.com", "");
+			if (path.startsWith("/installation/repositories")) {
+				return json({ repositories: [repo("ada", "blink")] });
+			}
+			if (path === "/repos/ada/blink/contents/.gpio-companion") {
+				return json({}, 200);
+			}
+			if (path.startsWith("/search/")) {
+				return json({ items: [] });
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		const repos = await listRepos({ username: "ada", token: "ghs_install" });
+		expect(repos.map((item) => item.full_name)).toEqual(["ada/blink"]);
+	});
+
+	test("fetches owned watermarked repos with the user token when the installation list is empty", async () => {
+		const paths: string[] = [];
+		globalThis.fetch = (async (
+			input: RequestInfo | URL,
+			init?: RequestInit,
+		) => {
+			const url = String(input);
+			const path = url.replace("https://api.github.com", "");
+			const auth = String(
+				new Headers(init?.headers).get("authorization") ?? "",
+			);
+			paths.push(`${auth} ${path}`);
+			if (path.startsWith("/installation/repositories")) {
+				return json({ repositories: [] });
+			}
+			if (path.startsWith("/user/repos")) {
+				expect(auth).toContain("ghu_user");
+				return json([repo("ada", "blink", "gpio-companion project")]);
+			}
+			if (path === "/repos/ada/blink/contents/.gpio-companion") {
+				expect(auth).toContain("ghu_user");
+				return json({}, 200);
+			}
+			if (path.startsWith("/search/")) {
+				return json({ items: [] });
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		const repos = await listRepos({
+			username: "ada",
+			token: "ghs_install",
+			createToken: "ghu_user",
+		});
+		expect(repos.map((item) => item.full_name)).toEqual(["ada/blink"]);
+		expect(paths.some((item) => item.includes("/user/repos"))).toBe(true);
+	});
+
+	test("includes indexed repos after refresh", async () => {
+		globalThis.fetch = (async (input: RequestInfo | URL) => {
+			const path = String(input).replace("https://api.github.com", "");
+			if (path.startsWith("/installation/repositories")) {
+				return json({ repositories: [] });
+			}
+			if (path.startsWith("/user/repos")) {
+				return json([]);
+			}
+			if (path === "/repos/ada/blink/contents/.gpio-companion") {
+				return json({}, 200);
+			}
+			if (path.startsWith("/search/")) {
+				return json({ items: [] });
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		const repos = await listRepos(
+			{
+				username: "ada",
+				token: "ghs_install",
+				createToken: "ghu_user",
+			},
+			[
+				{
+					full_name: "ada/blink",
+					name: "blink",
+					owner: "ada",
+					html_url: "https://github.com/ada/blink",
+				},
+			],
+		);
+		expect(repos.map((item) => item.full_name)).toEqual(["ada/blink"]);
+	});
+
+	test("follows installation pagination", async () => {
+		globalThis.fetch = (async (input: RequestInfo | URL) => {
+			const url = String(input);
+			const path = url.replace("https://api.github.com", "");
+			if (path === "/installation/repositories?per_page=100") {
+				return json(
+					{ repositories: [repo("ada", "one")] },
+					200,
+					'<https://api.github.com/installation/repositories?per_page=100&page=2>; rel="next"',
+				);
+			}
+			if (path === "/installation/repositories?per_page=100&page=2") {
+				return json({ repositories: [repo("ada", "two")] });
+			}
+			if (path.endsWith("/contents/.gpio-companion")) {
+				return json({}, 200);
+			}
+			if (path.startsWith("/search/")) {
+				return json({ items: [] });
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		const repos = await listRepos({ username: "ada", token: "ghs_install" });
+		expect(repos.map((item) => item.full_name).sort()).toEqual([
+			"ada/one",
+			"ada/two",
+		]);
+	});
+});
+
+describe("indexed projects", () => {
+	test("stores created repos for later list", async () => {
+		const store = new Map<string, string>();
+		const kv = {
+			get: async (key: string) => store.get(key) ?? null,
+			put: async (key: string, value: string) => {
+				store.set(key, value);
+			},
+			delete: async (key: string) => {
+				store.delete(key);
+			},
+		} as unknown as KVNamespace;
+		const repo = {
+			full_name: "ada/blink",
+			name: "blink",
+			owner: "ada",
+			html_url: "https://github.com/ada/blink",
+		};
+		await indexProject(kv, "user-1", repo);
+		await indexProject(kv, "user-1", repo);
+		expect(await loadIndexedProjects(kv, "user-1")).toEqual([repo]);
 	});
 });

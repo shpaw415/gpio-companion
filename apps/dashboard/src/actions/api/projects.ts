@@ -4,7 +4,9 @@ import {
 	createGpioCompanionRepo,
 	githubAccountForUser,
 	githubConfigured,
+	indexProject,
 	listRepos,
+	loadIndexedProjects,
 	loadProjectBundle,
 	readRepoFile,
 } from "../../lib/github.ts";
@@ -30,7 +32,13 @@ export const GET = wrapAction(async function GET() {
 			repos: [] as Awaited<ReturnType<typeof listRepos>>,
 		};
 	}
-	return { configured: true, repos: await listRepos(account) };
+	return {
+		configured: true,
+		repos: await listRepos(
+			account,
+			await loadIndexedProjects(ctx.env.DYNAMIC_PAGE_KV, identity.id),
+		),
+	};
 });
 
 export const POST = wrapAction(async function POST(
@@ -76,5 +84,7 @@ export const PATCH = wrapAction(async function PATCH(name: string) {
 	if (!githubConfigured(account)) {
 		throw new Error("github is not configured");
 	}
-	return createGpioCompanionRepo(account, name);
+	const repo = await createGpioCompanionRepo(account, name);
+	await indexProject(ctx.env.DYNAMIC_PAGE_KV, identity.id, repo);
+	return repo;
 });

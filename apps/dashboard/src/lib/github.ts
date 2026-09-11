@@ -31,7 +31,10 @@ export type GithubRepo = {
 	name: string;
 	owner: string;
 	html_url: string;
+	description?: string;
 };
+
+type ListedRepo = GithubRepo;
 
 export type GithubContent = {
 	name: string;
@@ -110,12 +113,154 @@ export async function saveGithubAccount(
 	);
 }
 
-export async function listRepos(account: GithubAccount): Promise<GithubRepo[]> {
-	const repos = await listAllRepos(account);
-	const marked = await mapPool(repos, 8, async (repo) =>
-		(await repoHasWatermark(account, repo.owner, repo.name)) ? repo : null,
+export function githubProjectsKey(userId: string): string {
+	return `github-projects:${userId}`;
+}
+
+export async function loadIndexedProjects(
+	kv: KVNamespace,
+	userId: string,
+): Promise<GithubRepo[]> {
+	const raw = await kv.get(githubProjectsKey(userId));
+	if (!raw) {
+		return [];
+	}
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!Array.isArray(parsed)) {
+			return [];
+		}
+		return parsed.filter(isGithubRepo);
+	} catch {
+		return [];
+	}
+}
+
+export async function indexProject(
+	kv: KVNamespace,
+	userId: string,
+	repo: GithubRepo,
+): Promise<void> {
+	const current = await loadIndexedProjects(kv, userId);
+	if (current.some((item) => item.full_name === repo.full_name)) {
+		return;
+	}
+	await kv.put(
+		githubProjectsKey(userId),
+		JSON.stringify([publicRepo(repo), ...current.map(publicRepo)]),
+	);
+}
+
+function isGithubRepo(value: unknown): value is GithubRepo {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+	const repo = value as Partial<GithubRepo>;
+	return Boolean(repo.full_name && repo.name && repo.owner && repo.html_url);
+}
+
+function publicRepo(repo: GithubRepo): GithubRepo {
+	return {
+		full_name: repo.full_name,
+		name: repo.name,
+		owner: repo.owner,
+		html_url: repo.html_url,
+	};
+}
+
+function readerAccount(account: GithubAccount): GithubAccount {
+	if (!account.createToken) {
+		return account;
+	}
+	return {
+		username: account.username,
+		token: account.createToken,
+		installationId: account.installationId,
+	};
+}
+
+export async function listRepos(
+	account: GithubAccount,
+	extra: GithubRepo[] = [],
+): Promise<GithubRepo[]> {
+	const reader = readerAccount(account);
+	const extraNames = new Set(
+		extra.map((repo) => repo.full_name).filter(Boolean),
+	);
+	const [installed, owned, searched, watermarked] = await Promise.all([
+		listAllRepos(account).catch(() => [] as ListedRepo[]),
+		account.createToken
+			? listOwnedRepos(reader).catch(() => [] as ListedRepo[])
+			: Promise.resolve([] as ListedRepo[]),
+		searchProjectRepos(reader).catch(() => [] as ListedRepo[]),
+		searchWatermarkedRepos(reader).catch(() => [] as ListedRepo[]),
+	]);
+	const searchNames = new Set(
+		[...searched, ...watermarked].map((repo) => repo.full_name),
+	);
+	const byName = new Map<string, ListedRepo>();
+	for (const repo of [
+		...installed,
+		...owned,
+		...searched,
+		...watermarked,
+		...extra,
+	]) {
+		if (!repo.full_name) {
+			continue;
+		}
+		byName.set(repo.full_name, {
+			...publicRepo(repo),
+			...(repo.description ? { description: repo.description } : {}),
+		});
+	}
+	const candidates = pickWatermarkCandidates(
+		[...byName.values()],
+		extraNames,
+		searchNames,
+	);
+	const marked = await mapPool(candidates, 8, async (repo) =>
+		(await repoVisibleAsProject(reader, account, repo))
+			? publicRepo(repo)
+			: null,
 	);
 	return marked.filter((repo): repo is GithubRepo => repo !== null);
+}
+
+async function repoVisibleAsProject(
+	reader: GithubAccount,
+	fallback: GithubAccount,
+	repo: ListedRepo,
+): Promise<boolean> {
+	if (await repoHasWatermark(reader, repo.owner, repo.name)) {
+		return true;
+	}
+	if (reader.token !== fallback.token) {
+		return repoHasWatermark(fallback, repo.owner, repo.name);
+	}
+	return false;
+}
+
+const MAX_WATERMARK_CHECKS = 80;
+
+function pickWatermarkCandidates(
+	repos: ListedRepo[],
+	extraNames: Set<string>,
+	searchNames: Set<string>,
+): ListedRepo[] {
+	if (repos.length <= MAX_WATERMARK_CHECKS) {
+		return repos;
+	}
+	const preferred = repos.filter(
+		(repo) =>
+			extraNames.has(repo.full_name) ||
+			searchNames.has(repo.full_name) ||
+			repo.description === REPO_DESCRIPTION,
+	);
+	if (preferred.length > 0) {
+		return preferred.slice(0, MAX_WATERMARK_CHECKS);
+	}
+	return repos.slice(0, MAX_WATERMARK_CHECKS);
 }
 
 async function mapPool<T, R>(
@@ -137,37 +282,73 @@ async function mapPool<T, R>(
 	return out;
 }
 
-async function listAllRepos(account: GithubAccount): Promise<GithubRepo[]> {
-	if (isGithubAppToken(account.token)) {
-		const data = await githubJson<{
-			repositories?: Array<{
-				full_name: string;
-				name: string;
-				owner: { login: string };
-				html_url: string;
-			}>;
-		}>(account, "/installation/repositories?per_page=100");
-		return (data.repositories ?? []).map((item) => ({
-			full_name: item.full_name,
-			name: item.name,
-			owner: item.owner.login,
-			html_url: item.html_url,
-		}));
-	}
-	const items = await githubJson<
-		Array<{
-			full_name: string;
-			name: string;
-			owner: { login: string };
-			html_url: string;
-		}>
-	>(account, "/user/repos?affiliation=owner&per_page=100");
-	return items.map((item) => ({
+type RepoJson = {
+	full_name: string;
+	name: string;
+	owner: { login: string };
+	html_url: string;
+	description?: string | null;
+};
+
+function mapRepo(item: RepoJson): ListedRepo {
+	return {
 		full_name: item.full_name,
 		name: item.name,
 		owner: item.owner.login,
 		html_url: item.html_url,
-	}));
+		...(item.description ? { description: item.description } : {}),
+	};
+}
+
+async function listAllRepos(account: GithubAccount): Promise<ListedRepo[]> {
+	if (isGithubAppToken(account.token)) {
+		return githubPaginate<{ repositories?: RepoJson[] }>(
+			account,
+			"/installation/repositories?per_page=100",
+			(body) => (body.repositories ?? []).map(mapRepo),
+		);
+	}
+	return listOwnedRepos(account);
+}
+
+async function listOwnedRepos(account: GithubAccount): Promise<ListedRepo[]> {
+	return githubPaginate<RepoJson[]>(
+		account,
+		"/user/repos?affiliation=owner&per_page=100",
+		(body) => (Array.isArray(body) ? body.map(mapRepo) : []),
+	);
+}
+
+async function searchProjectRepos(
+	account: GithubAccount,
+): Promise<ListedRepo[]> {
+	const query = `user:${account.username} "${REPO_DESCRIPTION}" in:description`;
+	try {
+		const data = await githubJson<{ items?: RepoJson[] }>(
+			account,
+			`/search/repositories?per_page=100&q=${encodeURIComponent(query)}`,
+		);
+		return (data.items ?? []).map(mapRepo);
+	} catch {
+		return [];
+	}
+}
+
+async function searchWatermarkedRepos(
+	account: GithubAccount,
+): Promise<ListedRepo[]> {
+	const query = `filename:${PROJECT_WATERMARK_PATH} user:${account.username}`;
+	try {
+		const data = await githubJson<{
+			items?: Array<{ repository?: RepoJson }>;
+		}>(account, `/search/code?per_page=100&q=${encodeURIComponent(query)}`);
+		return (data.items ?? [])
+			.map((item) => item.repository)
+			.filter((item): item is RepoJson => Boolean(item?.full_name))
+			.map(mapRepo);
+	} catch {
+		return [];
+	}
 }
 
 export function parseRepoName(value: string): string {
@@ -330,10 +511,11 @@ export async function loadProjectBundle(
 	owner: string,
 	repo: string,
 ): Promise<ProjectBundle> {
+	const reader = readerAccount(account);
 	const dirs = await Promise.all(
 		PROJECT_FILE_DIRS.map(async (dir) => {
 			try {
-				return await listContents(account, owner, repo, dir);
+				return await listContents(reader, owner, repo, dir);
 			} catch {
 				return [] as GithubContent[];
 			}
@@ -362,12 +544,13 @@ export async function readRepoFile(
 	repo: string,
 	path: string,
 ): Promise<string> {
+	const reader = readerAccount(account);
 	const data = await githubJson<{
 		content?: string;
 		encoding?: string;
 		download_url?: string | null;
 	}>(
-		account,
+		reader,
 		`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}`,
 	);
 	if (data.encoding === "base64" && data.content) {
@@ -375,7 +558,7 @@ export async function readRepoFile(
 	}
 	if (data.download_url) {
 		const response = await fetch(data.download_url, {
-			headers: githubHeaders(account),
+			headers: githubHeaders(reader),
 		});
 		if (!response.ok) {
 			throw new Error(`github raw ${response.status}`);
@@ -414,12 +597,35 @@ function githubHeaders(account: GithubAccount): HeadersInit {
 	};
 }
 
+function githubUrl(path: string): string {
+	if (
+		path.startsWith("https://api.github.com/") ||
+		path.startsWith(GITHUB_API)
+	) {
+		return path;
+	}
+	return `${GITHUB_API}${path}`;
+}
+
+function nextLink(header: string | null): string | null {
+	if (!header) {
+		return null;
+	}
+	for (const part of header.split(",")) {
+		const match = part.match(/<([^>]+)>\s*;\s*rel="next"/);
+		if (match?.[1]) {
+			return match[1];
+		}
+	}
+	return null;
+}
+
 async function githubFetch(
 	account: GithubAccount,
 	path: string,
 	init?: RequestInit,
 ): Promise<Response> {
-	return fetch(`${GITHUB_API}${path}`, {
+	return fetch(githubUrl(path), {
 		...init,
 		headers: {
 			...githubHeaders(account),
@@ -433,19 +639,47 @@ async function githubJson<T>(
 	path: string,
 	init?: RequestInit,
 ): Promise<T> {
+	const { body } = await githubJsonWithLink<T>(account, path, init);
+	return body;
+}
+
+async function githubJsonWithLink<T>(
+	account: GithubAccount,
+	path: string,
+	init?: RequestInit,
+): Promise<{ body: T; next: string | null }> {
 	const response = await githubFetch(account, path, init);
 	if (!response.ok) {
 		let detail = "";
 		try {
-			const body = (await response.json()) as { message?: string };
-			detail = body.message ? `: ${body.message}` : "";
+			const payload = (await response.json()) as { message?: string };
+			detail = payload.message ? `: ${payload.message}` : "";
 		} catch {
 			detail = "";
 		}
 		throw new Error(`github ${response.status}${detail}`);
 	}
 	if (response.status === 204) {
-		return undefined as T;
+		return { body: undefined as T, next: null };
 	}
-	return (await response.json()) as T;
+	return {
+		body: (await response.json()) as T,
+		next: nextLink(response.headers.get("link")),
+	};
+}
+
+async function githubPaginate<T>(
+	account: GithubAccount,
+	path: string,
+	items: (body: T) => ListedRepo[],
+): Promise<ListedRepo[]> {
+	const out: ListedRepo[] = [];
+	let next: string | null = path;
+	for (let page = 0; next && page < 10; page += 1) {
+		const result: { body: T; next: string | null } =
+			await githubJsonWithLink<T>(account, next);
+		out.push(...items(result.body));
+		next = result.next;
+	}
+	return out;
 }

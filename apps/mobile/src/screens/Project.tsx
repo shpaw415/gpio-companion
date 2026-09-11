@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, Linking, Pressable, Text, View } from "react-native";
 import FlashPanel from "../components/FlashPanel.tsx";
 import GpioPanel from "../components/GpioPanel.tsx";
@@ -141,6 +142,19 @@ export default function Project() {
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
+
+	useFocusEffect(
+		useCallback(() => {
+			if (!token) {
+				return;
+			}
+			void listProjects(token)
+				.then((projects) => {
+					projectsQuery.setData(projects);
+				})
+				.catch(() => undefined);
+		}, [token, projectsQuery.setData]),
+	);
 
 	useEffect(() => {
 		if (app?.connected || loading) {

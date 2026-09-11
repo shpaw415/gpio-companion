@@ -419,61 +419,12 @@ export function getCredits(token: string) {
 	return request<Credits>(token, "/api/mobile/credits");
 }
 
-async function mapPool<T, R>(
-	items: T[],
-	limit: number,
-	fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-	const out: R[] = new Array(items.length);
-	let next = 0;
-	async function worker() {
-		while (next < items.length) {
-			const index = next;
-			next += 1;
-			out[index] = await fn(items[index] as T);
-		}
-	}
-	const workers = Math.min(Math.max(limit, 1), items.length || 1);
-	await Promise.all(Array.from({ length: workers }, () => worker()));
-	return out;
-}
-
-async function filterWatermarkedRepos(
-	token: string,
-	repos: GithubRepo[],
-): Promise<GithubRepo[]> {
-	const marked = await mapPool(repos, 6, async (repo) => {
-		try {
-			await request<{ text: string }>(token, "/api/mobile/projects", {
-				method: "PUT",
-				body: JSON.stringify({
-					owner: repo.owner,
-					repo: repo.name,
-					path: ".gpio-companion",
-				}),
-				cache: "no-store",
-			});
-			return repo;
-		} catch {
-			return null;
-		}
-	});
-	return marked.filter((repo): repo is GithubRepo => repo !== null);
-}
-
-export async function listProjects(token: string) {
-	const data = await request<{ configured: boolean; repos: GithubRepo[] }>(
+export function listProjects(token: string) {
+	return request<{ configured: boolean; repos: GithubRepo[] }>(
 		token,
-		"/api/mobile/projects?v=gpio",
+		"/api/mobile/projects",
 		{ cache: "no-store" },
 	);
-	if (!data.configured || data.repos.length === 0) {
-		return data;
-	}
-	return {
-		...data,
-		repos: await filterWatermarkedRepos(token, data.repos),
-	};
 }
 
 export function loadProject(token: string, owner: string, repo: string) {

@@ -175,6 +175,14 @@ export default function Project() {
 	const activeUuid = activeBoard?.device.uuid ?? "";
 
 	useEffect(() => {
+		void listProjects()
+			.then((projects) => {
+				projectsQuery.setData(projects);
+			})
+			.catch(() => undefined);
+	}, [projectsQuery.setData]);
+
+	useEffect(() => {
 		if (app?.connected || loading) {
 			return;
 		}

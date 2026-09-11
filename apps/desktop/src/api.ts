@@ -540,32 +540,11 @@ export function getCredits() {
 	return apiRequest<Credits>("GET", "/api/mobile/credits");
 }
 
-export async function listProjects() {
-	const data = await apiRequest<{ configured: boolean; repos: GithubRepo[] }>(
+export function listProjects() {
+	return apiRequest<{ configured: boolean; repos: GithubRepo[] }>(
 		"GET",
-		"/api/mobile/projects?v=gpio",
+		"/api/mobile/projects",
 	);
-	if (!data.configured || data.repos.length === 0) {
-		return data;
-	}
-	const marked = await Promise.all(
-		data.repos.map(async (repo) => {
-			try {
-				await apiRequest<{ text: string }>("PUT", "/api/mobile/projects", {
-					owner: repo.owner,
-					repo: repo.name,
-					path: ".gpio-companion",
-				});
-				return repo;
-			} catch {
-				return null;
-			}
-		}),
-	);
-	return {
-		...data,
-		repos: marked.filter((repo): repo is GithubRepo => repo !== null),
-	};
 }
 
 export function loadProject(owner: string, repo: string) {
