@@ -28,6 +28,7 @@ let t3Running = false;
 let t3PairingUrl = "";
 const clockSets: number[] = [];
 let updateStarts = 0;
+const projectSyncs: Array<{ owner?: string; name?: string }> = [];
 
 const server = startDeviceApi({
 	port: 0,
@@ -40,6 +41,9 @@ const server = startDeviceApi({
 	},
 	applyUpdate: async () => {
 		updateStarts += 1;
+	},
+	applyProjects: async (target) => {
+		projectSyncs.push(target);
 	},
 	applyWifi: async (config) => {
 		if (config.ssid === "missing") {
@@ -74,6 +78,9 @@ const server = startDeviceApi({
 			t3Revoked += 1;
 			t3Paired = false;
 			t3PairingUrl = "";
+		},
+		async addProject() {
+			return "added";
 		},
 	},
 	revokeT3: async () => {
@@ -267,6 +274,22 @@ describe("gpio-companion-bin", () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ started: true });
 		expect(updateStarts).toBe(1);
+	});
+
+	test("starts project sync when signed", async () => {
+		const denied = await deviceFetch(
+			"v1/projects/sync",
+			{ method: "POST" },
+			false,
+		);
+		expect(denied.status).toBe(401);
+		const response = await deviceFetch("v1/projects/sync", {
+			method: "POST",
+			body: JSON.stringify({ owner: "ada", name: "blink" }),
+		});
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ started: true });
+		expect(projectSyncs).toEqual([{ owner: "ada", name: "blink" }]);
 	});
 
 	test("quotes tunnel env values", () => {

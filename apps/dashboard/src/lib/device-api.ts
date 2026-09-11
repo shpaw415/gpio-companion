@@ -13,6 +13,11 @@ export type DeviceSigningEnv = {
 	GPIO_COMPANION_DEVICE_KEY_ID?: string;
 };
 
+export type FetchLike = (
+	input: string | URL | Request,
+	init?: RequestInit,
+) => Promise<Response>;
+
 export async function mintDeviceOfflineGrant(
 	env: DeviceSigningEnv,
 	uuid: string,
@@ -75,17 +80,23 @@ export async function signedDeviceFetch(
 	method: string,
 	path: string,
 	body?: unknown,
+	init?: { timeoutMs?: number; fetchImpl?: FetchLike },
 ): Promise<Response> {
 	const origin = deviceUrl.replace(/\/+$/, "");
 	const bodyText = body === undefined ? "" : JSON.stringify(body);
 	const headers = await signDeviceHeaders(env, method, path, body);
-	return fetch(`${origin}${path}`, {
+	const fetcher: FetchLike = init?.fetchImpl ?? fetch;
+	return fetcher(`${origin}${path}`, {
 		method,
 		headers: {
 			"content-type": "application/json",
 			...headers,
 		},
 		body: bodyText || undefined,
+		signal:
+			init?.timeoutMs !== undefined
+				? AbortSignal.timeout(init.timeoutMs)
+				: undefined,
 	});
 }
 

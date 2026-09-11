@@ -30,6 +30,7 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
   - `technical/` sheets
   Then `git add`, commit, `git push` on the project remote (`https://github.com/<user>/<project>.git`). The dashboard viewer reads those paths.
 - Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
+- Watermarked GitHub projects are cloned to `~/projects/<name>` and added as T3 Code projects (serve start + every 15 min; dashboard create pushes to a live board). Prefer those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
 - Generate Arduino firmware in C and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). Sketch dir must be absolute and contain `.c` or `.ino`.
 - Load the pinout skill for the current hardware before wiring GPIO

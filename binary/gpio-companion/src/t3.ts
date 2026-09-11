@@ -19,10 +19,13 @@ export type T3Status = {
 	serviceInstalled: boolean;
 };
 
+export type T3AddResult = "added" | "exists";
+
 export type T3Controller = {
 	pair(t3Hostname: string): Promise<T3Pairing>;
 	status(): Promise<T3Status>;
 	revoke(): Promise<void>;
+	addProject(workspaceRoot: string, title?: string): Promise<T3AddResult>;
 };
 
 const PAIR_WAIT_MS = 25_000;
@@ -44,6 +47,7 @@ export function liveT3Controller(): T3Controller {
 		pair: pairT3,
 		status: t3Status,
 		revoke: revokeT3Authorization,
+		addProject: addT3Project,
 	};
 }
 
@@ -81,6 +85,40 @@ export async function t3Status(): Promise<T3Status> {
 		statusInFlight = null;
 	});
 	return statusInFlight;
+}
+
+export async function addT3Project(
+	workspaceRoot: string,
+	title?: string,
+): Promise<T3AddResult> {
+	const user = gpioUser();
+	const args = ["project", "add"];
+	const baseDir = t3BaseDir(user);
+	if (baseDir) {
+		args.push("--base-dir", baseDir);
+	}
+	if (title?.trim()) {
+		args.push("--title", title.trim());
+	}
+	args.push(workspaceRoot);
+	try {
+		await spawnT3(user, args, PAIR_WAIT_MS);
+		return "added";
+	} catch (caught) {
+		const message = caught instanceof Error ? caught.message : "";
+		if (/already exists/i.test(message)) {
+			return "exists";
+		}
+		throw caught;
+	}
+}
+
+function t3BaseDir(user: string): string {
+	if (process.env.GPIO_COMPANION_T3_HOME?.trim()) {
+		return process.env.GPIO_COMPANION_T3_HOME.trim();
+	}
+	const home = user === "root" ? homedir() : `/home/${user}`;
+	return `${home}/.t3`;
 }
 
 export async function revokeT3Authorization(): Promise<void> {

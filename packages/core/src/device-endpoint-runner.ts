@@ -5,6 +5,7 @@ import { FLASH_PATH, FLASH_PORTS_PATH } from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";
 import { LOGS_PATH, UPDATE_PATH } from "./maintenance.ts";
 import { isOfflineGrantScope, WIFI_PATH } from "./offline-grant.ts";
+import { PROJECTS_SYNC_PATH } from "./project-files.ts";
 
 export type DeviceEndpointAuth = "none" | "master" | "offline" | "offline-deny";
 export type DeviceEndpointVia = "any" | "http" | "ble";
@@ -304,6 +305,16 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			via: "http",
 			body: EMPTY_OBJECT,
 			expect: { kind: "error", includes: ["local-only"], status: 403 },
+		}),
+		probe({
+			id: "post-projects-sync",
+			name: "POST /v1/projects/sync",
+			method: "POST",
+			path: PROJECTS_SYNC_PATH,
+			auth: "master",
+			via: "http",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
 		}),
 		probe({
 			id: "get-github-token",

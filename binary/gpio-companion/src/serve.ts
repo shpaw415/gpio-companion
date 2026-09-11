@@ -23,12 +23,14 @@ import {
 	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
 	type NetworkStatus,
+	PROJECTS_SYNC_PATH,
 	pairingCredentials,
 	parseDebugEventInput,
 	parseDeviceSecrets,
 	parseGpioPut,
 	parsePairingClaim,
 	parsePairingUnpair,
+	parseProjectSyncPut,
 	parseTunnelConfig,
 	parseWifiConfig,
 	publicDeviceUrl,
@@ -62,6 +64,7 @@ import {
 	type PairingStore,
 } from "./pairing.ts";
 import { privileged } from "./priv.ts";
+import type { ApplyProjects } from "./projects.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { T3Controller } from "./t3.ts";
@@ -85,6 +88,7 @@ export type ServeOptions = {
 	applyTunnel: ApplyTunnel;
 	applyWifi?: ApplyWifi;
 	applyUpdate?: ApplyUpdate;
+	applyProjects?: ApplyProjects;
 	revokeT3?: () => Promise<void>;
 	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
@@ -115,6 +119,7 @@ export type DeviceRequestExtras = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	applyUpdate?: ApplyUpdate;
+	applyProjects?: ApplyProjects;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
 	debug?: { publish(event: DebugEvent): void };
@@ -147,6 +152,7 @@ export function startDeviceApi(options: ServeOptions) {
 		gpioStream,
 		flash: options.flash ?? createArduinoFlash(),
 		applyUpdate: options.applyUpdate,
+		applyProjects: options.applyProjects,
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
 		fetchImpl: options.fetchImpl,
@@ -579,6 +585,17 @@ export async function handleDeviceRequest(
 			throw new Error("update is not configured");
 		}
 		await extras.applyUpdate();
+		return json({ started: true });
+	}
+
+	if (method === "POST" && path === PROJECTS_SYNC_PATH) {
+		if (!extras?.applyProjects) {
+			throw new Error("projects sync is not configured");
+		}
+		const target = bodyText.trim()
+			? parseProjectSyncPut(parseJson(bodyText))
+			: {};
+		await extras.applyProjects(target);
 		return json({ started: true });
 	}
 

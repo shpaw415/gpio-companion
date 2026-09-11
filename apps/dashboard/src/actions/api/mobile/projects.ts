@@ -17,9 +17,16 @@ import {
 	readJsonBody,
 	runMobile,
 } from "../../../lib/mobile-http.ts";
+import { pushProjectToLiveBoards } from "../../../lib/projects-push.ts";
 
-function env(ctx: MobileContext): GithubAppEnv {
-	return ctx.env as GithubAppEnv;
+function env(ctx: MobileContext): GithubAppEnv & {
+	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
+	GPIO_COMPANION_DEVICE_KEY_ID?: string;
+} {
+	return ctx.env as GithubAppEnv & {
+		GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
+		GPIO_COMPANION_DEVICE_KEY_ID?: string;
+	};
 }
 
 export async function onRequestGet(ctx: MobileContext) {
@@ -87,6 +94,7 @@ export async function onRequestPatch(ctx: MobileContext) {
 		}
 		const repo = await createGpioCompanionRepo(account, name);
 		await indexProject(env(ctx).DYNAMIC_PAGE_KV, identity.id, repo);
+		await pushProjectToLiveBoards(env(ctx), identity.id, repo);
 		return repo;
 	});
 }

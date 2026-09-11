@@ -37,6 +37,7 @@ describe("device-endpoint-runner", () => {
 			"GET /v1/debug",
 			"POST /v1/debug/event",
 			"GET /v1/github-token",
+			"POST /v1/projects/sync",
 			"GET /v1/ai",
 			"offline GET /v1/info",
 			"offline GET /v1/gpio",
@@ -46,6 +47,7 @@ describe("device-endpoint-runner", () => {
 			"offline PUT /v1/config/wifi",
 			"offline deny GET /v1/status",
 			"offline deny POST /v1/update",
+			"offline deny POST /v1/projects/sync",
 			"offline deny POST /v1/t3/pair",
 		]) {
 			expect(names).toContain(required);

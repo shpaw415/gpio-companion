@@ -358,13 +358,20 @@ export {
 export {
 	BREADBOARD_CIRCUIT_JSON,
 	BREADBOARD_PREVIEW_SVG,
+	githubCloneUrl,
 	isProjectFileDir,
+	MAX_PROJECT_WATERMARK_CHECKS,
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
 	PROJECT_FILE_DIRS,
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
+	PROJECTS_DIR_NAME,
+	PROJECTS_SYNC_PATH,
 	type ProjectFileDir,
+	type ProjectSyncPut,
+	parseGithubRepoName,
+	parseProjectSyncPut,
 } from "./project-files.ts";
 export {
 	DEFAULT_GITHUB_URL,

@@ -48,7 +48,7 @@ OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), no
 
 ## 6. Overview
 
-When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). T3 Code pairing is **Pair T3** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
+When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). Create a project there: an online board clones it to `~/projects/<name>` and adds it in T3 Code. T3 Code pairing is **Pair T3** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
 
 ## If something fails
 

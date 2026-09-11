@@ -8,6 +8,7 @@ import {
 	PROJECT_FILE_DIRS,
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
+	parseGithubRepoName,
 } from "gpio-companion";
 import {
 	type GithubAppEnv,
@@ -352,11 +353,7 @@ async function searchWatermarkedRepos(
 }
 
 export function parseRepoName(value: string): string {
-	const name = value.trim().replace(/\.git$/i, "");
-	if (!/^[A-Za-z0-9._-]+$/.test(name) || name === "." || name === "..") {
-		throw new Error("use a GitHub repo name like blink-led");
-	}
-	return name;
+	return parseGithubRepoName(value);
 }
 
 export async function repoHasWatermark(

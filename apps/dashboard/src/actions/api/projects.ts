@@ -11,9 +11,13 @@ import {
 	readRepoFile,
 } from "../../lib/github.ts";
 import type { GithubAppEnv } from "../../lib/github-app.ts";
+import { pushProjectToLiveBoards } from "../../lib/projects-push.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
-type PagesEnv = GithubAppEnv;
+type PagesEnv = GithubAppEnv & {
+	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
+	GPIO_COMPANION_DEVICE_KEY_ID?: string;
+};
 
 async function accountForUser(env: PagesEnv, userId: string) {
 	return githubAccountForUser(env, userId);
@@ -86,5 +90,6 @@ export const PATCH = wrapAction(async function PATCH(name: string) {
 	}
 	const repo = await createGpioCompanionRepo(account, name);
 	await indexProject(ctx.env.DYNAMIC_PAGE_KV, identity.id, repo);
+	await pushProjectToLiveBoards(ctx.env, identity.id, repo);
 	return repo;
 });

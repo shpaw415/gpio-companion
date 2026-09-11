@@ -19,6 +19,8 @@ Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/fl
 
 One git repo per electronics project. The dashboard only lists repos with a `.gpio-companion` file at the repo root. Create a project from the dashboard, or ask Code on the board — new repos must include that watermark.
 
+The board clones those repos to `~/projects/<name>` and adds them to T3 Code. If the board is online when you create a project, it happens immediately. If it is offline, nothing is queued — the clone runs the next time gpio-companion starts (and every 15 minutes while it is up). Existing folders are left alone.
+
 When a PCB, breadboard, or technical-sheet task is done, the agent must **push**:
 
 | Directory | Expected files |

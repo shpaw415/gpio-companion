@@ -3,6 +3,7 @@ import {
 	DEFAULT_DEVICE_KEY_ID,
 	type HardwareId,
 	isHardwareId,
+	type ProjectSyncPut,
 	parseDeviceConfig,
 	publicDeviceUrl,
 	VERSION,
@@ -18,6 +19,7 @@ import {
 import { createLibgpiodGpio } from "./gpio.ts";
 import { startHubClient } from "./hub-client.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
+import { projectsRoot, syncProjects } from "./projects.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
 import {
@@ -98,6 +100,25 @@ const githubCredentials = async () => {
 	await persistGithubLogin(secrets, creds);
 	return creds;
 };
+const PROJECT_SYNC_MS = 15 * 60 * 1000;
+
+async function syncGithubProjects(target: ProjectSyncPut = {}): Promise<void> {
+	try {
+		await syncProjects(
+			{
+				destRoot: projectsRoot(),
+				token: async () => (await githubCredentials()).token,
+				t3Add: (path, title) => t3.addProject(path, title),
+			},
+			target,
+		);
+	} catch (caught) {
+		const message =
+			caught instanceof Error ? caught.message : "projects sync failed";
+		console.error(`gpio-companion projects sync: ${message}`);
+	}
+}
+
 const server = startDeviceApi({
 	port,
 	store: fileConfigStore(configPath, hardware),
@@ -106,6 +127,9 @@ const server = startDeviceApi({
 	applyTunnel: applyCloudflaredReplica(envPath),
 	applyWifi: applyNetworkManagerWifi(),
 	applyUpdate: applySystemdUpdate(),
+	applyProjects: async (target) => {
+		void syncGithubProjects(target);
+	},
 	t3,
 	gpio,
 	flash,
@@ -122,6 +146,16 @@ setInterval(
 	},
 	30 * 60 * 1000,
 );
+void syncGithubProjects();
+setTimeout(() => {
+	void syncGithubProjects();
+}, 30_000);
+setTimeout(() => {
+	void syncGithubProjects();
+}, 150_000);
+setInterval(() => {
+	void syncGithubProjects();
+}, PROJECT_SYNC_MS);
 
 startBleBridge({
 	pairingUuid,
