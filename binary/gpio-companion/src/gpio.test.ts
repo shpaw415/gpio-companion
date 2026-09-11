@@ -2,7 +2,12 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
+import {
+	debugAuthQuery,
+	GPIO_PATH,
+	generateDeviceKeyPair,
+	signDeviceRequest,
+} from "gpio-companion";
 import {
 	createGpioController,
 	memoryGpioBackend,
@@ -180,6 +185,54 @@ describe("gpio http", () => {
 			body,
 		});
 		expect(response.status).toBe(200);
+	});
+
+	test("gpio websocket requires a signature", async () => {
+		const missing = await fetch(`${server.url}v1/gpio`, {
+			headers: { upgrade: "websocket" },
+		});
+		expect(missing.status).toBe(401);
+	});
+
+	test("signed gpio websocket handshake upgrades", async () => {
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: GPIO_PATH,
+		});
+		const response = await fetch(
+			`${server.url}v1/gpio?${debugAuthQuery(headers)}`,
+			{ headers: { upgrade: "websocket" } },
+		);
+		expect(response.status).toBe(400);
+		expect(await response.text()).toBe("upgrade failed");
+	});
+
+	test("streams gpio snapshots over the companion websocket", async () => {
+		const headers = await signDeviceRequest({
+			privateKeyPem: keys.privateKeyPem,
+			keyId: keys.keyId,
+			method: "GET",
+			path: GPIO_PATH,
+		});
+		const snapshots: Array<{ hardware?: string }> = [];
+		const ws = new WebSocket(
+			`${String(server.url).replace(/^http/, "ws")}v1/gpio?${debugAuthQuery(headers)}`,
+		);
+		ws.addEventListener("message", (event) => {
+			snapshots.push(JSON.parse(String(event.data)) as { hardware?: string });
+		});
+		await new Promise<void>((resolve, reject) => {
+			ws.addEventListener("open", () => resolve());
+			ws.addEventListener("error", () => reject(new Error("ws error")));
+		});
+		const start = Date.now();
+		while (Date.now() - start < 1000 && snapshots.length === 0) {
+			await Bun.sleep(10);
+		}
+		ws.close();
+		expect(snapshots[0]?.hardware).toBe("raspberrypi");
 	});
 
 	test("off-loopback unsigned is 401", async () => {

@@ -1,6 +1,28 @@
 import type { HardwareId } from "./config.ts";
+import { debugAuthQuery } from "./debug.ts";
+import type { DeviceAuthHeaders } from "./device-auth.ts";
 
 export const GPIO_PATH = "/v1/gpio";
+export const GPIO_STREAM_MS = 1_000;
+export const GPIO_MAX_SOCKETS = 8;
+
+export function gpioWsUrl(deviceUrl: string): string {
+	const origin = deviceUrl.replace(/\/+$/, "");
+	if (origin.startsWith("https://")) {
+		return `wss://${origin.slice("https://".length)}${GPIO_PATH}`;
+	}
+	if (origin.startsWith("http://")) {
+		return `ws://${origin.slice("http://".length)}${GPIO_PATH}`;
+	}
+	return `wss://${origin}${GPIO_PATH}`;
+}
+
+export function gpioWsConnectUrl(
+	deviceUrl: string,
+	headers: DeviceAuthHeaders,
+): string {
+	return `${gpioWsUrl(deviceUrl)}?${debugAuthQuery(headers)}`;
+}
 
 export const GPIO_RESERVED_PHYSICAL: Record<HardwareId, number[]> = {
 	raspberrypi: [27, 28],

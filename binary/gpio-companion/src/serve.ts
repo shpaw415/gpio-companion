@@ -17,6 +17,7 @@ import {
 	grantHeaderValue,
 	hasDeviceSignature,
 	INFO_PATH,
+	isAllowedDebugOrigin,
 	isFlashPath,
 	LOGS_PATH,
 	LOGS_SINCE_HOURS,
@@ -50,6 +51,7 @@ import { readDiskStats } from "./disk.ts";
 import { createArduinoFlash, type FlashController } from "./flash.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
 import { createLibgpiodGpio, type GpioController } from "./gpio.ts";
+import { createGpioStream } from "./gpio-stream.ts";
 import { readDeviceInfoJson } from "./info.ts";
 import { readJournalLogs } from "./logs.ts";
 import { readNetworkStatus } from "./network.ts";
@@ -116,23 +118,33 @@ export type DeviceRequestExtras = {
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
 	debug?: { publish(event: DebugEvent): void };
+	gpioStream?: { publish(): void };
 };
+
+type TunnelWsData = { stream: "debug" | "gpio" };
 
 export function startDeviceApi(options: ServeOptions) {
 	const port = options.port ?? DEFAULT_PORT;
 	const hostname = options.hostname ?? "0.0.0.0";
 	const clock = createClockGate(options);
 	const nonces = createNonceGate(options);
+	const dashboardUrl =
+		options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL;
 	const debug = createDebugHub({
-		dashboardUrl:
-			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
+		dashboardUrl,
+	});
+	const gpio = options.gpio ?? createLibgpiodGpio();
+	const gpioStream = createGpioStream({
+		gpio,
+		hardware: async () => (await options.store.read()).hardware,
 	});
 	const extras: DeviceRequestExtras = {
 		readDisk: options.readDisk ?? readDiskStats,
 		readLogs: options.readLogs ?? readJournalLogs,
 		readNetwork: options.readNetwork ?? readNetworkStatus,
 		readInfo: options.readInfo ?? (async () => readDeviceInfoJson()),
-		gpio: options.gpio ?? createLibgpiodGpio(),
+		gpio,
+		gpioStream,
 		flash: options.flash ?? createArduinoFlash(),
 		applyUpdate: options.applyUpdate,
 		dashboardUrl:
@@ -140,7 +152,7 @@ export function startDeviceApi(options: ServeOptions) {
 		fetchImpl: options.fetchImpl,
 		debug,
 	};
-	return Bun.serve({
+	return Bun.serve<TunnelWsData>({
 		port,
 		hostname,
 		async fetch(request, server) {
@@ -150,58 +162,42 @@ export function startDeviceApi(options: ServeOptions) {
 			const url = new URL(request.url);
 			const path = url.pathname.replace(/\/+$/, "") || "/";
 			const upgrade = request.headers.get("upgrade")?.toLowerCase() ?? "";
-			if (upgrade === "websocket" && path !== DEBUG_PATH) {
+			if (
+				upgrade === "websocket" &&
+				path !== DEBUG_PATH &&
+				path !== GPIO_PATH
+			) {
 				console.error(`gpio-companion debug: websocket to ${path}`);
 			}
 			if (request.method === "GET" && path === DEBUG_PATH) {
-				const origin = request.headers.get("origin") ?? "";
-				console.log(
-					`gpio-companion debug: handshake origin=${origin || "-"} upgrade=${upgrade || "-"}`,
-				);
-				if (!debug.allowOrigin(origin)) {
-					console.error(`gpio-companion debug: unauthorized origin ${origin}`);
-					return Response.json(
-						{ error: "unauthorized debug origin" },
-						{ status: 401 },
-					);
-				}
-				if (!options.deviceAuth.publicKeyPem.trim()) {
-					console.error(
-						"gpio-companion debug: device public key not registered",
-					);
-					return Response.json(
-						{ error: "device public key not registered" },
-						{ status: 401 },
-					);
-				}
-				try {
-					const trusted = await clock.trusted();
-					const verified = await verifyDeviceRequest({
-						publicKeyPem: options.deviceAuth.publicKeyPem,
-						keyId: options.deviceAuth.keyId,
-						method: "GET",
+				return (
+					(await acceptSignedUpgrade(request, server, {
 						path: DEBUG_PATH,
-						body: "",
-						headers: debugAuthHeadersFromRequest(request),
-						enforceSkew: trusted,
-					});
-					nonces.consume(verified.nonce);
-					await clock.sync(verified.issued, verified.clockBehind);
-				} catch (error) {
-					if (error instanceof DeviceAuthError) {
-						console.error(`gpio-companion debug: ${error.message}`);
-						return Response.json(
-							{ error: error.message },
-							{ status: error.status },
-						);
-					}
-					throw error;
-				}
-				if (server.upgrade(request)) {
-					return undefined as never;
-				}
-				console.error("gpio-companion debug: upgrade failed");
-				return new Response("upgrade failed", { status: 400 });
+						stream: "debug",
+						label: "debug",
+						allowOrigin: (origin) => debug.allowOrigin(origin),
+						deviceAuth: options.deviceAuth,
+						clock,
+						nonces,
+					})) ?? (undefined as never)
+				);
+			}
+			if (
+				request.method === "GET" &&
+				path === GPIO_PATH &&
+				upgrade === "websocket"
+			) {
+				return (
+					(await acceptSignedUpgrade(request, server, {
+						path: GPIO_PATH,
+						stream: "gpio",
+						label: "gpio",
+						allowOrigin: (origin) => isAllowedDebugOrigin(origin, dashboardUrl),
+						deviceAuth: options.deviceAuth,
+						clock,
+						nonces,
+					})) ?? (undefined as never)
+				);
 			}
 			let response: Response;
 			try {
@@ -253,10 +249,18 @@ export function startDeviceApi(options: ServeOptions) {
 		},
 		websocket: {
 			open(ws) {
+				if (ws.data.stream === "gpio") {
+					gpioStream.add(ws);
+					return;
+				}
 				debug.add(ws);
 			},
 			message() {},
 			close(ws) {
+				if (ws.data.stream === "gpio") {
+					gpioStream.remove(ws);
+					return;
+				}
 				debug.remove(ws);
 			},
 		},
@@ -340,7 +344,13 @@ export async function handleDeviceRequest(
 		!hasDeviceSignature(request.headers)
 	) {
 		if (path === GPIO_PATH) {
-			return handleGpio(method, bodyText, store, extras?.gpio);
+			return handleGpio(
+				method,
+				bodyText,
+				store,
+				extras?.gpio,
+				extras?.gpioStream,
+			);
 		}
 		return handleFlash(method, path, bodyText, extras?.flash);
 	}
@@ -564,7 +574,13 @@ export async function handleDeviceRequest(
 	}
 
 	if (path === GPIO_PATH) {
-		return handleGpio(method, bodyText, store, extras?.gpio);
+		return handleGpio(
+			method,
+			bodyText,
+			store,
+			extras?.gpio,
+			extras?.gpioStream,
+		);
 	}
 
 	if (isFlashPath(path)) {
@@ -604,6 +620,71 @@ export async function handleDeviceRequest(
 	}
 
 	return json({ error: "not found" }, 404);
+}
+
+async function acceptSignedUpgrade(
+	request: Request,
+	server: {
+		upgrade(request: Request, options?: { data: TunnelWsData }): boolean;
+	},
+	options: {
+		path: string;
+		stream: TunnelWsData["stream"];
+		label: string;
+		allowOrigin: (origin: string) => boolean;
+		deviceAuth: DeviceAuthConfig;
+		clock: ClockGate;
+		nonces: NonceGate;
+	},
+): Promise<Response | undefined> {
+	const origin = request.headers.get("origin") ?? "";
+	const upgrade = request.headers.get("upgrade")?.toLowerCase() ?? "";
+	console.log(
+		`gpio-companion ${options.label}: handshake origin=${origin || "-"} upgrade=${upgrade || "-"}`,
+	);
+	if (!options.allowOrigin(origin)) {
+		console.error(
+			`gpio-companion ${options.label}: unauthorized origin ${origin}`,
+		);
+		return Response.json(
+			{ error: `unauthorized ${options.label} origin` },
+			{ status: 401 },
+		);
+	}
+	if (!options.deviceAuth.publicKeyPem.trim()) {
+		console.error(
+			`gpio-companion ${options.label}: device public key not registered`,
+		);
+		return Response.json(
+			{ error: "device public key not registered" },
+			{ status: 401 },
+		);
+	}
+	try {
+		const trusted = await options.clock.trusted();
+		const verified = await verifyDeviceRequest({
+			publicKeyPem: options.deviceAuth.publicKeyPem,
+			keyId: options.deviceAuth.keyId,
+			method: "GET",
+			path: options.path,
+			body: "",
+			headers: debugAuthHeadersFromRequest(request),
+			enforceSkew: trusted,
+		});
+		options.nonces.consume(verified.nonce);
+		await options.clock.sync(verified.issued, verified.clockBehind);
+	} catch (error) {
+		if (error instanceof DeviceAuthError) {
+			console.error(`gpio-companion ${options.label}: ${error.message}`);
+			return Response.json({ error: error.message }, { status: error.status });
+		}
+		throw error;
+	}
+	if (server.upgrade(request, { data: { stream: options.stream } })) {
+		return undefined;
+	}
+	console.error(`gpio-companion ${options.label}: upgrade failed`);
+	return new Response("upgrade failed", { status: 400 });
 }
 
 type ClockGate = {
@@ -792,6 +873,7 @@ async function handleGpio(
 	bodyText: string,
 	store: ConfigStore,
 	gpio: GpioController | undefined,
+	gpioStream?: { publish(): void },
 ): Promise<Response> {
 	if (!gpio) {
 		return json({ error: "gpio is unavailable" }, 503);
@@ -801,7 +883,12 @@ async function handleGpio(
 		return json(await gpio.snapshot(hardware));
 	}
 	if (method === "PUT") {
-		return json(await gpio.apply(hardware, parseGpioPut(parseJson(bodyText))));
+		const snapshot = await gpio.apply(
+			hardware,
+			parseGpioPut(parseJson(bodyText)),
+		);
+		gpioStream?.publish();
+		return json(snapshot);
 	}
 	return json({ error: "method not allowed" }, 405);
 }

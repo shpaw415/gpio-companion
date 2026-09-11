@@ -10,7 +10,7 @@ import {
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { openPairedBoard } from "../lib/paired-ble.ts";
-import { useDeviceHub } from "../lib/use-device-hub.ts";
+import { useGpioTunnel } from "../lib/use-gpio-tunnel.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import GpioHeader from "./GpioHeader.tsx";
 import { Body, Chip, ErrorText, Muted, TextButton } from "./ui.tsx";
@@ -62,7 +62,7 @@ export default function GpioPanel({
 	const onGpio = useCallback((next: GpioSnapshot) => {
 		setSnapshot(next);
 	}, []);
-	useDeviceHub(poll && available ? uuid : "", token, { onGpio });
+	useGpioTunnel(poll && available ? uuid : "", token, onGpio);
 
 	function start(task: () => Promise<GpioSnapshot>) {
 		setBusy(true);

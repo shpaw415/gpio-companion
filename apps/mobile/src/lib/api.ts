@@ -569,6 +569,13 @@ export function putGpio(
 	});
 }
 
+export function connectGpioLive(token: string, uuid: string) {
+	return request<{ wsUrl: string }>(token, "/api/mobile/gpio-live", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
+}
+
 export function signGpio(
 	token: string,
 	input: { uuid: string; physical?: number; dir?: string; value?: number },

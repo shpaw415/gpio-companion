@@ -19,7 +19,7 @@ import {
 	putGpio,
 } from "../api";
 import { useSavedBleId } from "../hooks/useApiCache";
-import { useDeviceHub } from "../hooks/useDeviceHub";
+import { useGpioTunnel } from "../hooks/useGpioTunnel";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 import GpioHeader from "./GpioHeader";
 
@@ -47,7 +47,7 @@ export default function GpioPanel({
 	const onGpio = useCallback((next: GpioSnapshot) => {
 		setSnapshot(next);
 	}, []);
-	useDeviceHub(poll && available ? uuid : "", { onGpio });
+	useGpioTunnel(poll && available ? uuid : "", onGpio);
 
 	function start(task: () => Promise<GpioSnapshot>) {
 		setBusy(true);

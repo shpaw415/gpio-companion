@@ -5,6 +5,8 @@ import {
 	GpioError,
 	gpioNamedLine,
 	gpioPinTone,
+	gpioWsConnectUrl,
+	gpioWsUrl,
 	headerPin,
 	headerPinPairs,
 	parseGpioPut,
@@ -67,6 +69,22 @@ describe("parseGpioPut", () => {
 	test("rejects out of range", () => {
 		expect(() => parsePhysicalPin(0)).toThrow("1-40");
 		expect(() => parsePhysicalPin(41)).toThrow("1-40");
+	});
+});
+
+describe("gpio websocket url", () => {
+	test("uses the companion tunnel path", () => {
+		expect(gpioWsUrl("https://api-abc.gpio-companion.com")).toBe(
+			"wss://api-abc.gpio-companion.com/v1/gpio",
+		);
+		expect(
+			gpioWsConnectUrl("https://api-abc.gpio-companion.com", {
+				"X-Gpio-Key-Id": "k",
+				"X-Gpio-Timestamp": "1",
+				"X-Gpio-Nonce": "n",
+				"X-Gpio-Signature": "s",
+			}),
+		).toContain("/v1/gpio?x-gpio-key-id=k");
 	});
 });
 

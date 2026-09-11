@@ -770,6 +770,12 @@ export function putGpio(input: {
 	return apiRequest<GpioSnapshot>("PUT", "/api/mobile/gpio", input);
 }
 
+export function connectGpioLive(uuid: string) {
+	return apiRequest<{ wsUrl: string }>("POST", "/api/mobile/gpio-live", {
+		uuid,
+	});
+}
+
 export function loadDeviceInfo(uuid: string) {
 	return apiRequest<{ info: unknown }>(
 		"GET",

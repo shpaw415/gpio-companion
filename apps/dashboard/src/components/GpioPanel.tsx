@@ -22,7 +22,7 @@ import {
 	type GpioSnapshot,
 } from "gpio-companion";
 import { useCallback, useState } from "react";
-import { useDeviceHub } from "../hooks/useDeviceHub.ts";
+import { useGpioTunnel } from "../hooks/useGpioTunnel.ts";
 import useMobile from "../hooks/useMobile.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -77,9 +77,7 @@ export default function GpioPanel({
 			.finally(() => setBusy(false));
 	}
 
-	useDeviceHub(poll && available ? uuid : "", {
-		onGpio: applySnapshot,
-	});
+	useGpioTunnel(poll && available ? uuid : "", applySnapshot);
 
 	const pins = snapshot?.pins ?? [];
 	const gpioPins = pins.filter((pin) => pin.type === "gpio");
