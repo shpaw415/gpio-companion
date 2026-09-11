@@ -20,6 +20,61 @@ need_root() {
 	fi
 }
 
+gpio_user_exists() {
+	local user="${1:-}"
+	if [[ -z "$user" ]]; then
+		return 1
+	fi
+	getent passwd "$user" >/dev/null 2>&1
+}
+
+guess_gpio_runtime_user() {
+	local login="" guessed=""
+	if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]] && gpio_user_exists "$SUDO_USER"; then
+		printf '%s\n' "$SUDO_USER"
+		return
+	fi
+	if [[ "$(id -u)" -ne 0 ]]; then
+		printf '%s\n' "$(id -un)"
+		return
+	fi
+	login="$(logname 2>/dev/null || true)"
+	if [[ -n "$login" && "$login" != "root" ]] && gpio_user_exists "$login"; then
+		printf '%s\n' "$login"
+		return
+	fi
+	guessed="$(
+		getent passwd 2>/dev/null | awk -F: '$3 >= 1000 && $3 < 60000 && $6 ~ /^\/home\// { print $1; exit }'
+	)"
+	if [[ -n "$guessed" ]] && gpio_user_exists "$guessed"; then
+		printf '%s\n' "$guessed"
+		return
+	fi
+	printf '%s\n' "root"
+}
+
+resolve_gpio_runtime_user() {
+	if [[ -n "${GPIO_USER:-}" && "$GPIO_USER" != "root" ]]; then
+		if gpio_user_exists "$GPIO_USER"; then
+			export GPIO_USER
+			return 0
+		fi
+		die "GPIO_USER $GPIO_USER does not exist"
+	fi
+	GPIO_USER="$(guess_gpio_runtime_user)"
+	export GPIO_USER
+}
+
+chown_gpio_config() {
+	if [[ -z "${GPIO_USER:-}" || "$GPIO_USER" == "root" ]]; then
+		return 0
+	fi
+	if [[ ! -d "$CONFIG_DIR" ]]; then
+		return 0
+	fi
+	chown -R "$GPIO_USER:$GPIO_USER" "$CONFIG_DIR" 2>/dev/null || true
+}
+
 ensure_root() {
 	if [[ "$(id -u)" -eq 0 ]]; then
 		return 0
@@ -462,7 +517,7 @@ add_user_groups() {
 	if [[ "$GPIO_USER" == "root" ]]; then
 		return
 	fi
-	for group in dialout plugdev gpio i2c spi; do
+	for group in dialout plugdev gpio i2c spi bluetooth netdev adm systemd-journal; do
 		if getent group "$group" >/dev/null; then
 			usermod -aG "$group" "$GPIO_USER" || true
 		fi
@@ -523,6 +578,7 @@ GPIO_COMPANION_CONFIG_DIR=$CONFIG_DIR
 GPIO_COMPANION_BIN_DIR=$BIN_DIR
 GPIO_COMPANION_DASHBOARD_URL=$(dashboard_url)
 EOF
+	chown_gpio_config
 }
 
 git_dir_for() {
@@ -758,6 +814,7 @@ fetch_device_public_key() {
 	fi
 	rm -f "$tmp"
 	chmod 644 "$dest"
+	chown_gpio_config
 	return 0
 }
 
@@ -846,6 +903,7 @@ EOF
 		printf "TUNNEL_TOKEN=''\nTUNNEL_HOSTNAME=''\nTUNNEL_API_HOSTNAME=''\nTUNNEL_ID=''\n" >"$CONFIG_DIR/cloudflared.env"
 		chmod 600 "$CONFIG_DIR/cloudflared.env"
 	fi
+	chown_gpio_config
 }
 
 write_pairing_env() {
@@ -853,6 +911,7 @@ write_pairing_env() {
 	if [[ -f "$CONFIG_DIR/pairing.env" ]]; then
 		# shellcheck disable=SC1091
 		source "$CONFIG_DIR/pairing.env"
+		chown_gpio_config
 		echo "pairing UUID: ${GPIO_COMPANION_PAIRING_UUID:-}"
 		echo "pairing key:  ${GPIO_COMPANION_PAIRING_KEY:-}"
 		return
@@ -874,6 +933,7 @@ GPIO_COMPANION_PAIRING_UUID=$uuid
 GPIO_COMPANION_PAIRING_KEY=$key
 EOF
 	chmod 600 "$CONFIG_DIR/pairing.env"
+	chown_gpio_config
 	echo "pairing UUID: $uuid"
 	echo "pairing key:  $key"
 	echo "enter these on the dashboard /pair page to bind this board to your account"
@@ -906,6 +966,7 @@ def env_value(value: str) -> str:
 )
 PY
 	chmod 600 "$CONFIG_DIR/cloudflared.env"
+	chown_gpio_config
 	if [[ -n "$token" ]] && command -v systemctl >/dev/null; then
 		systemctl enable --now cloudflared-gpio.service || true
 		systemctl restart cloudflared-gpio.service || true
@@ -935,6 +996,7 @@ GITHUB_USERNAME=$github_user
 GITHUB_TOKEN=$github_token
 EOF
 	chmod 600 "$CONFIG_DIR/secrets.env"
+	chown_gpio_config
 }
 
 ensure_gpio_ai_key() {
@@ -959,6 +1021,7 @@ ensure_gpio_ai_key() {
 		write_secrets_file "$key" "" ""
 	fi
 	chmod 600 "$CONFIG_DIR/secrets.env"
+	chown_gpio_config
 	printf '%s' "$key"
 }
 
@@ -1274,15 +1337,31 @@ install_cleanup_units() {
 	systemctl enable --now gpio-companion-cleanup.timer
 }
 
+write_gpio_companion_service() {
+	local hardware="$1"
+	local dest="${GPIO_COMPANION_SERVICE_UNIT:-/etc/systemd/system/gpio-companion.service}"
+	local tmp
+	if [[ -z "$hardware" ]]; then
+		hardware="$(read_hardware)"
+	fi
+	tmp="$(mktemp)"
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion.service" "$tmp"
+	sed -i "s/^Environment=GPIO_COMPANION_HARDWARE=.*/Environment=GPIO_COMPANION_HARDWARE=$hardware/" "$tmp"
+	sed -i "s|__GPIO_USER__|$GPIO_USER|g" "$tmp"
+	install -d -m 0755 "$(dirname "$dest")"
+	install -m 0644 "$tmp" "$dest"
+	rm -f "$tmp"
+}
+
 install_systemd_units() {
 	local hardware="$1"
-	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion.service" /etc/systemd/system/gpio-companion.service
+	write_gpio_companion_service "$hardware"
 	install -m 0644 "$SCRIPT_DIR/systemd/cloudflared-gpio.service" /etc/systemd/system/cloudflared-gpio.service
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.service" /etc/systemd/system/gpio-companion-update.service
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
-	sed -i "s/^Environment=GPIO_COMPANION_HARDWARE=.*/Environment=GPIO_COMPANION_HARDWARE=$hardware/" /etc/systemd/system/gpio-companion.service
 	install_update_wrapper
 	install_cleanup_units
+	chown_gpio_config
 	systemctl daemon-reload
 	systemctl enable --now gpio-companion.service
 	systemctl enable --now gpio-companion-update.timer
@@ -1292,6 +1371,7 @@ install_systemd_units() {
 install_common() {
 	local hardware="$1"
 	need_root
+	resolve_gpio_runtime_user
 	install_apt_base
 	install_node
 	install_bun

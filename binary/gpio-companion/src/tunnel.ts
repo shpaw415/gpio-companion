@@ -1,4 +1,5 @@
 import type { DeviceConfig } from "gpio-companion";
+import { privileged } from "./priv.ts";
 import { DEFAULT_TUNNEL_ENV_PATH, tunnelEnvContents } from "./store.ts";
 
 export type ApplyTunnel = (config: DeviceConfig) => Promise<void>;
@@ -25,7 +26,10 @@ async function spawnSystemctl(args: string[]): Promise<void> {
 		}
 	}
 	const systemctl = process.env.GPIO_COMPANION_SYSTEMCTL ?? "systemctl";
-	const result = await Bun.spawn([systemctl, ...args], {
+	const cmd = process.env.GPIO_COMPANION_SYSTEMCTL
+		? [systemctl, ...args]
+		: privileged(["systemctl", ...args]);
+	const result = await Bun.spawn(cmd, {
 		stdout: "pipe",
 		stderr: "pipe",
 	}).exited;

@@ -59,6 +59,7 @@ import {
 	applyUnpair,
 	type PairingStore,
 } from "./pairing.ts";
+import { privileged } from "./priv.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { T3Controller } from "./t3.ts";
@@ -683,7 +684,7 @@ async function defaultApplyClock(issuedMs: number): Promise<void> {
 		return;
 	}
 	try {
-		const date = Bun.spawn(["date", "-u", "-s", `@${unix}`], {
+		const date = Bun.spawn(privileged(["date", "-u", "-s", `@${unix}`]), {
 			stdout: "ignore",
 			stderr: "ignore",
 		});
@@ -692,7 +693,7 @@ async function defaultApplyClock(issuedMs: number): Promise<void> {
 		return;
 	}
 	try {
-		const hw = Bun.spawn(["fake-hwclock", "save"], {
+		const hw = Bun.spawn(privileged(["fake-hwclock", "save"]), {
 			stdout: "ignore",
 			stderr: "ignore",
 		});

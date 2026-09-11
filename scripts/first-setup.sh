@@ -8,7 +8,9 @@ source "$SCRIPT_DIR/lib.sh"
 MARKER="${GPIO_COMPANION_SETUP_MARKER:-/etc/gpio-companion/first-setup-complete}"
 
 need_root
+resolve_gpio_runtime_user
 grant_gpio_user_nopasswd_sudo
+echo "gpio-companion: runtime user $GPIO_USER (API + T3 Code)"
 
 if [[ -f "$MARKER" && "${GPIO_COMPANION_FORCE_SETUP:-}" != "1" ]]; then
 	echo "gpio-companion first-setup already complete ($MARKER)"

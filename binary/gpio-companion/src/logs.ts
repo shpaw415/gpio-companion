@@ -4,6 +4,7 @@ import {
 	LOGS_MAX_LINES,
 	redactLogText,
 } from "gpio-companion";
+import { privileged } from "./priv.ts";
 
 export function journalctlArgs(): string[] {
 	const units = LOG_JOURNAL_UNITS.flatMap((unit) => ["-u", unit]);
@@ -24,7 +25,7 @@ export async function readJournalLogs(
 	spawn: typeof Bun.spawn = Bun.spawn,
 ): Promise<string> {
 	try {
-		const proc = spawn(journalctlArgs(), {
+		const proc = spawn(privileged(journalctlArgs()), {
 			stdout: "pipe",
 			stderr: "pipe",
 		});

@@ -3,6 +3,7 @@ import {
 	type WifiConfig,
 	WifiConnectError,
 } from "gpio-companion";
+import { privileged } from "./priv.ts";
 
 export type ApplyWifi = (config: WifiConfig) => Promise<{ ssid: string }>;
 
@@ -18,7 +19,7 @@ async function readPipe(
 export function applyNetworkManagerWifi(): ApplyWifi {
 	return async (config) => {
 		const proc = Bun.spawn(
-			[
+			privileged([
 				"nmcli",
 				"device",
 				"wifi",
@@ -26,7 +27,7 @@ export function applyNetworkManagerWifi(): ApplyWifi {
 				config.ssid,
 				"password",
 				config.psk,
-			],
+			]),
 			{ stdout: "pipe", stderr: "pipe" },
 		);
 		const [stdout, stderr, code] = await Promise.all([

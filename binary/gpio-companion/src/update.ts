@@ -1,3 +1,5 @@
+import { privileged } from "./priv.ts";
+
 export const UPDATE_UNIT = "gpio-companion-update.service";
 
 export type ApplyUpdate = () => Promise<void>;
@@ -10,7 +12,10 @@ export function applySystemdUpdate(
 		if (!process.env.GPIO_COMPANION_SYSTEMCTL && !Bun.which("systemctl")) {
 			throw new Error("systemctl is not available");
 		}
-		const proc = spawn([systemctl, "start", "--no-block", UPDATE_UNIT], {
+		const cmd = process.env.GPIO_COMPANION_SYSTEMCTL
+			? [systemctl, "start", "--no-block", UPDATE_UNIT]
+			: privileged(["systemctl", "start", "--no-block", UPDATE_UNIT]);
+		const proc = spawn(cmd, {
 			stdout: "pipe",
 			stderr: "pipe",
 		});

@@ -46,6 +46,7 @@ SCRIPT_DIR="$REPO_ROOT/scripts"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+resolve_gpio_runtime_user
 grant_gpio_user_nopasswd_sudo
 sync_opencode_agent
 
@@ -88,6 +89,17 @@ install_ble_gatt_script
 install_storage_link
 install_cleanup_units
 install_update_wrapper
+write_repo_metadata
+unit_before=""
+if [[ -f /etc/systemd/system/gpio-companion.service ]]; then
+	unit_before="$(cat /etc/systemd/system/gpio-companion.service)"
+fi
+write_gpio_companion_service "$(read_hardware)"
+chown_gpio_config
+unit_changed=0
+if [[ "$unit_before" != "$(cat /etc/systemd/system/gpio-companion.service)" ]]; then
+	unit_changed=1
+fi
 
 if server_needs_build; then
 	if [[ "$FORCE" -eq 1 ]]; then
@@ -96,13 +108,15 @@ if server_needs_build; then
 		echo "gpio-companion update: server changed, rebuilding ($bin_rev -> $after)"
 	fi
 	install_gpio_companion_bin
-	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion.service" /etc/systemd/system/gpio-companion.service
-	sed -i "s/^Environment=GPIO_COMPANION_HARDWARE=.*/Environment=GPIO_COMPANION_HARDWARE=$(read_hardware)/" /etc/systemd/system/gpio-companion.service
 	if [[ -f "$SCRIPT_DIR/systemd/gpio-companion-update.service" ]]; then
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.service" /etc/systemd/system/gpio-companion-update.service
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	fi
 	printf '%s\n' "$after" >"$BIN_REV_FILE"
+	systemctl daemon-reload
+	systemctl restart gpio-companion.service
+elif [[ "$unit_changed" -eq 1 ]]; then
+	echo "gpio-companion update: gpio-companion.service user/unit changed, restarting"
 	systemctl daemon-reload
 	systemctl restart gpio-companion.service
 elif paths_changed '^scripts/ble-gatt-server\.py$'; then

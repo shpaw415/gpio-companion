@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import {
 	extractT3PairingToken,
 	publicDeviceUrl,
@@ -168,9 +168,20 @@ function t3Bin(): string {
 	return process.env.GPIO_COMPANION_T3 ?? Bun.which("t3") ?? "t3";
 }
 
+function runningAs(user: string): boolean {
+	if (user === "root") {
+		return typeof process.getuid === "function" && process.getuid() === 0;
+	}
+	try {
+		return userInfo().username === user;
+	} catch {
+		return process.env.USER === user || process.env.LOGNAME === user;
+	}
+}
+
 function t3Command(user: string, args: string[]): string[] {
 	const bin = t3Bin();
-	if (user === "root") {
+	if (user === "root" || runningAs(user)) {
 		return [bin, ...args];
 	}
 	const runtime = runtimeDir(user);

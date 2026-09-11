@@ -5,16 +5,20 @@ Wants=network-online.target bluetooth.service
 
 [Service]
 Type=simple
+User=__GPIO_USER__
+Group=__GPIO_USER__
 ExecStart=/usr/local/bin/gpio-companion serve
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=15
 KillMode=mixed
+EnvironmentFile=-/etc/gpio-companion/update.env
+EnvironmentFile=-/etc/gpio-companion/pairing.env
+Environment=GPIO_USER=__GPIO_USER__
 Environment=GPIO_COMPANION_CONFIG=/etc/gpio-companion/config.json
 Environment=GPIO_COMPANION_TUNNEL_ENV=/etc/gpio-companion/cloudflared.env
 Environment=GPIO_COMPANION_SECRETS=/etc/gpio-companion/secrets.env
 Environment=GPIO_COMPANION_PAIRING=/etc/gpio-companion/pairing.json
-EnvironmentFile=-/etc/gpio-companion/pairing.env
 Environment=GPIO_COMPANION_PORT=4150
 Environment=GPIO_COMPANION_HARDWARE=raspberrypi
 Environment=GPIO_COMPANION_DASHBOARD_URL=https://gpio-companion.com
