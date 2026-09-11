@@ -22,7 +22,8 @@
 	"kv_namespaces": [
 		{
 			"binding": "DYNAMIC_PAGE_KV",
-			"id": "91a78de240bc421187afe64a498d0014"
+			"id": "91a78de240bc421187afe64a498d0014",
+			"remote": true
 		}
 	],
 	"ai": {
@@ -38,7 +39,6 @@
 				"name": "DEVICE_HUB",
 				"class_name": "DeviceHub",
 				"script_name": "gpio-companion-hub",
-				"remote": true
 			}
 		]
 	}

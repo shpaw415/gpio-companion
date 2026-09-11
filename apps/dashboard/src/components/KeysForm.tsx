@@ -31,10 +31,11 @@ export default function KeysForm() {
 				if (!pending) {
 					setChecking(false);
 				}
-				return;
+				return Promise.resolve(false);
 			}
 			setChecking(true);
-			void (async () => {
+
+			return (async () => {
 				try {
 					if (pending) {
 						const saved = unwrapAction(
@@ -48,16 +49,17 @@ export default function KeysForm() {
 						setLogin(saved.login);
 						setInstallUrl("");
 						setStatus(`connected as @${saved.login}`);
-						window.history.replaceState({}, "", "/profile/github");
-						return;
+						return true;
 					}
 					const current = unwrapAction(await getGithubApp());
 					setLogin(current.login);
 					setInstallUrl(current.installUrl);
+					return true;
 				} catch (caught) {
 					setError(
 						caught instanceof Error ? caught.message : "github app failed",
 					);
+					return false;
 				} finally {
 					setChecking(false);
 				}
@@ -88,13 +90,37 @@ export default function KeysForm() {
 		const code = params.get("code") ?? "";
 		const state = params.get("state") ?? "";
 
-		if (!code || !installationId || !state) {
+		if (installationId && code && state) {
+			window.localStorage.setItem(
+				"github_app_callback",
+				JSON.stringify({ installationId, code, state }),
+			);
+			window.history.replaceState({}, "", window.location.pathname);
+		}
+
+		console.log(auth);
+		const storedString = window.localStorage.getItem("github_app_callback");
+		if (!storedString) {
+			void onGithubAppCallbackEvent("", "", "");
 			return;
 		}
-		auth?.init().then(() => {
-			onGithubAppCallbackEvent(code, installationId, state);
+		const stored = JSON.parse(storedString) as {
+			installationId: string;
+			code: string;
+			state: string;
+		};
+		void onGithubAppCallbackEvent(
+			stored.code,
+			stored.installationId,
+			stored.state,
+		).then((success) => {
+			window.localStorage.removeItem("github_app_callback");
+
+			if (success) {
+				window.history.replaceState({}, "", "/profile/github");
+			}
 		});
-	}, [auth, onGithubAppCallbackEvent]);
+	}, [onGithubAppCallbackEvent]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
