@@ -82,33 +82,96 @@ async fn auth_session() -> Result<Session, String> {
 	api::request(Method::GET, "/api/mobile/session", None::<&Value>).await
 }
 
+fn focus_main(app: &AppHandle) {
+	if let Some(window) = app.get_webview_window("main") {
+		let _ = window.unminimize();
+		let _ = window.show();
+		let _ = window.set_focus();
+	}
+}
+
+fn log_deep_link(href: &str) {
+	if let Ok(url) = url::Url::parse(href) {
+		log::line(&format!(
+			"deep link {}://{}{}",
+			url.scheme(),
+			url.host_str().unwrap_or(""),
+			url.path()
+		));
+	} else {
+		log::line("deep link unparsed");
+	}
+}
+
+async fn complete_login(
+	app: &AppHandle,
+	verifier: &str,
+	state: &str,
+	callback: &str,
+	redirect_uri: &str,
+) -> Result<(), String> {
+	auth::exchange_code(callback, verifier, state, redirect_uri).await?;
+	focus_main(app);
+	log::line("auth login ok");
+	Ok(())
+}
+
 #[tauri::command]
 async fn auth_login(app: AppHandle, flow: State<'_, AuthFlow>) -> Result<(), String> {
 	log::line("auth login start");
 	let (verifier, state) = auth::new_pkce();
-	let url = auth::authorize_url(&verifier, &state);
-	let rx = flow.wait().map_err(|err| {
-		log::line(&err);
-		err
-	})?;
-	app.opener().open_url(&url, None::<&str>).map_err(|err| {
-		flow.cancel();
-		err.to_string()
-	})?;
-	let callback = tokio::time::timeout(Duration::from_secs(180), rx)
-		.await
-		.map_err(|_| {
-			flow.cancel();
-			log::line("login timed out");
-			"login timed out".to_string()
-		})?
-		.map_err(|_| {
-			log::line("login cancelled");
-			"login cancelled".to_string()
-		})?;
-	auth::exchange_code(&callback, &verifier, &state).await?;
-	log::line("auth login ok");
-	Ok(())
+	match tokio::net::TcpListener::bind("127.0.0.1:0").await {
+		Ok(listener) => {
+			let port = listener
+				.local_addr()
+				.map_err(|err| format!("auth loopback addr: {err}"))?
+				.port();
+			let redirect_uri = auth::loopback_redirect_uri(port);
+			log::line(&format!("auth loopback {redirect_uri}"));
+			let url = auth::authorize_url(&verifier, &state, &redirect_uri);
+			app.opener()
+				.open_url(&url, None::<&str>)
+				.map_err(|err| err.to_string())?;
+			let callback = tokio::time::timeout(Duration::from_secs(180), auth::accept_loopback(listener))
+				.await
+				.map_err(|_| {
+					log::line("login timed out");
+					"login timed out".to_string()
+				})??;
+			complete_login(&app, &verifier, &state, &callback, &redirect_uri).await
+		}
+		Err(err) => {
+			log::line(&format!("auth loopback bind failed: {err}"));
+			let url = auth::authorize_url(&verifier, &state, config::AUTH_REDIRECT_URI);
+			let rx = flow.wait().map_err(|wait_err| {
+				log::line(&wait_err);
+				wait_err
+			})?;
+			app.opener().open_url(&url, None::<&str>).map_err(|open_err| {
+				flow.cancel();
+				open_err.to_string()
+			})?;
+			let callback = tokio::time::timeout(Duration::from_secs(180), rx)
+				.await
+				.map_err(|_| {
+					flow.cancel();
+					log::line("login timed out");
+					"login timed out".to_string()
+				})?
+				.map_err(|_| {
+					log::line("login cancelled");
+					"login cancelled".to_string()
+				})?;
+			complete_login(
+				&app,
+				&verifier,
+				&state,
+				&callback,
+				config::AUTH_REDIRECT_URI,
+			)
+			.await
+		}
+	}
 }
 
 #[tauri::command]
@@ -567,6 +630,7 @@ pub fn run() {
 			app.deep_link().on_open_url(move |event| {
 				for url in event.urls() {
 					let href = url.as_str();
+					log_deep_link(href);
 					if auth::is_github_app_oauth_callback(href) {
 						let _ = handle.emit("github-app-callback", href);
 					} else {
@@ -577,6 +641,7 @@ pub fn run() {
 			if let Ok(Some(urls)) = app.deep_link().get_current() {
 				for url in urls {
 					let href = url.as_str();
+					log_deep_link(href);
 					if auth::is_github_app_oauth_callback(href) {
 						let _ = app.emit("github-app-callback", href);
 					} else {

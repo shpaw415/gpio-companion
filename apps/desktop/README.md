@@ -1,6 +1,6 @@
 # gpio-companion desktop
 
-BLE-first companion for Windows, Linux, and macOS (Tauri 2). GitHub login uses the OpenAuthster public client with PKCE (`gpio-companion-desktop://auth/callback`). Pair and WiFi talk to `https://gpio-companion.com/api/mobile/*` with a Bearer token; the dashboard still signs Pi envelopes. Native GATT uses CoreBluetooth / WinRT / BlueZ.
+BLE-first companion for Windows, Linux, and macOS (Tauri 2). GitHub login uses the OpenAuthster public client with PKCE. The authorize redirect is a loopback `http://127.0.0.1:<port>/callback` (RFC 8252) so the browser does not hand the code to another desktop app. `gpio-companion-desktop://auth/callback` remains registered as a fallback if loopback bind fails. Pair and WiFi talk to `https://gpio-companion.com/api/mobile/*` with a Bearer token; the dashboard still signs Pi envelopes. Native GATT uses CoreBluetooth / WinRT / BlueZ.
 
 Project, GitHub App Keys, and credits stay on the web dashboard.
 
@@ -22,7 +22,7 @@ Without sudo, unpack GTK/WebKit/DBus `-dev` debs into `~/.local/opt/linux-dev`. 
 
 Add the signed-in user to the `bluetooth` group. Quit `bluetoothctl` while scanning.
 
-Register an OpenAuthster **public** client redirect `gpio-companion-desktop://auth/callback` on the existing `gpio_companion` client (GitHub already enabled). Same issuer as mobile: `https://auth.gpio-companion.com`.
+OpenAuthster already allows `http://127.0.0.1` / `http://localhost` redirects for this public client. Keep `gpio-companion-desktop://auth/callback` on the client allowlist as fallback (GitHub already enabled). Same issuer as mobile: `https://auth.gpio-companion.com`.
 
 ## GitHub Release
 

@@ -1,4 +1,4 @@
-use crate::config::{AUTH_CLIENT_ID, AUTH_REDIRECT_URI, ISSUER_URL};
+use crate::config::{AUTH_CLIENT_ID, ISSUER_URL};
 use crate::tokens::{self, Tokens};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
@@ -7,6 +7,8 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use url::Url;
 
@@ -98,6 +100,9 @@ pub fn is_github_app_oauth_callback(url: &str) -> bool {
 	let Ok(parsed) = Url::parse(url) else {
 		return false;
 	};
+	if parsed.scheme() == "gpio-companion-desktop" {
+		return false;
+	}
 	let iss = parsed.query_pairs().any(|(key, value)| {
 		key == "iss" && value.contains("github.com/login/oauth")
 	});
@@ -114,11 +119,11 @@ pub fn is_github_app_oauth_callback(url: &str) -> bool {
 		.any(|(key, _)| key == "code" || key == "installation_id")
 }
 
-pub fn authorize_url(verifier: &str, state: &str) -> String {
+pub fn authorize_url(verifier: &str, state: &str, redirect_uri: &str) -> String {
 	let challenge = sha256_base64url(verifier);
 	format!(
 		"{ISSUER_URL}/authorize?client_id={AUTH_CLIENT_ID}&redirect_uri={}&response_type=code&code_challenge={challenge}&code_challenge_method=S256&state={state}&provider=github",
-		urlencoding(AUTH_REDIRECT_URI)
+		urlencoding(redirect_uri)
 	)
 }
 
@@ -126,7 +131,12 @@ fn urlencoding(value: &str) -> String {
 	url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
 }
 
-pub async fn exchange_code(callback: &str, verifier: &str, expected_state: &str) -> Result<(), String> {
+pub async fn exchange_code(
+	callback: &str,
+	verifier: &str,
+	expected_state: &str,
+	redirect_uri: &str,
+) -> Result<(), String> {
 	let parsed = Url::parse(callback).map_err(|err| err.to_string())?;
 	let mut code = None;
 	let mut state = None;
@@ -144,17 +154,70 @@ pub async fn exchange_code(callback: &str, verifier: &str, expected_state: &str)
 	let body = format!(
 		"grant_type=authorization_code&client_id={AUTH_CLIENT_ID}&code={}&redirect_uri={}&code_verifier={}",
 		urlencoding(&code),
-		urlencoding(AUTH_REDIRECT_URI),
+		urlencoding(redirect_uri),
 		urlencoding(verifier)
 	);
 	crate::log::line("auth token exchange");
 	let payload = token_request(body).await.map_err(|err| {
 		format!(
-			"{err}; add redirect {AUTH_REDIRECT_URI} on OpenAuthster public client {AUTH_CLIENT_ID}"
+			"{err}; add redirect {redirect_uri} on OpenAuthster public client {AUTH_CLIENT_ID}"
 		)
 	})?;
 	crate::log::line("auth token exchange ok");
 	save_tokens(payload, None)
+}
+
+const LOOPBACK_OK: &[u8] = b"HTTP/1.1 200 OK\r\ncontent-type: text/html; charset=utf-8\r\nconnection: close\r\n\r\n<!doctype html><html><body><p>Signed in. You can close this tab and return to gpio-companion.</p></body></html>";
+const LOOPBACK_NO_CONTENT: &[u8] = b"HTTP/1.1 204 No Content\r\nconnection: close\r\n\r\n";
+
+pub fn loopback_redirect_uri(port: u16) -> String {
+	format!("http://127.0.0.1:{port}/callback")
+}
+
+pub fn http_callback_from_request(request: &str, port: u16) -> Option<String> {
+	let line = request.lines().next()?.trim();
+	let mut parts = line.split_whitespace();
+	let method = parts.next()?;
+	if !method.eq_ignore_ascii_case("GET") && !method.eq_ignore_ascii_case("HEAD") {
+		return None;
+	}
+	let target = parts.next()?;
+	let (path, query) = target.split_once('?').unwrap_or((target, ""));
+	if path != "/callback" && path != "/auth/callback" {
+		return None;
+	}
+	if !query
+		.split('&')
+		.any(|pair| pair.starts_with("code=") && pair.len() > 5)
+	{
+		return None;
+	}
+	Some(format!("http://127.0.0.1:{port}{target}"))
+}
+
+pub async fn accept_loopback(listener: TcpListener) -> Result<String, String> {
+	let port = listener
+		.local_addr()
+		.map_err(|err| format!("auth loopback addr: {err}"))?
+		.port();
+	loop {
+		let (mut stream, _) = listener
+			.accept()
+			.await
+			.map_err(|err| format!("auth loopback accept: {err}"))?;
+		let mut buf = vec![0u8; 8192];
+		let n = match stream.read(&mut buf).await {
+			Ok(0) => continue,
+			Ok(n) => n,
+			Err(_) => continue,
+		};
+		let request = String::from_utf8_lossy(&buf[..n]);
+		if let Some(callback) = http_callback_from_request(&request, port) {
+			let _ = stream.write_all(LOOPBACK_OK).await;
+			return Ok(callback);
+		}
+		let _ = stream.write_all(LOOPBACK_NO_CONTENT).await;
+	}
 }
 
 pub async fn refresh_access() -> Result<(), RefreshError> {
@@ -285,6 +348,36 @@ mod tests {
 		assert!(!is_github_app_oauth_callback(
 			"gpio-companion-desktop://auth/callback?code=x&state=st"
 		));
+		assert!(!is_github_app_oauth_callback(
+			"gpio-companion-desktop://auth/callback?code=x&iss=https%3A%2F%2Fgithub.com%2Flogin%2Foauth&state=st"
+		));
+	}
+
+	#[test]
+	fn loopback_http_callback_extracts_code() {
+		assert_eq!(
+			http_callback_from_request(
+				"GET /callback?code=abc&state=st HTTP/1.1\r\nHost: 127.0.0.1:4242\r\n\r\n",
+				4242
+			)
+			.as_deref(),
+			Some("http://127.0.0.1:4242/callback?code=abc&state=st")
+		);
+		assert_eq!(
+			http_callback_from_request("GET /favicon.ico HTTP/1.1\r\n\r\n", 4242),
+			None
+		);
+		assert_eq!(
+			http_callback_from_request("GET /callback HTTP/1.1\r\n\r\n", 4242),
+			None
+		);
+	}
+
+	#[test]
+	fn authorize_url_uses_loopback_redirect() {
+		let url = authorize_url("verifier", "state", "http://127.0.0.1:4242/callback");
+		assert!(url.contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A4242%2Fcallback"));
+		assert!(url.contains("provider=github"));
 	}
 
 	#[test]
