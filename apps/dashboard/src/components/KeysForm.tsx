@@ -91,7 +91,6 @@ export default function KeysForm() {
 		if (!code || !installationId || !state) {
 			return;
 		}
-		window.location.search = "";
 		auth?.init().then(() => {
 			onGithubAppCallbackEvent(code, installationId, state);
 		});
