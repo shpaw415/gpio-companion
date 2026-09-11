@@ -224,21 +224,32 @@ export {
 	timingSafeEqualString,
 } from "./github-app.ts";
 export {
+	type GithubAppCallback,
+	isGithubAppOAuthIssuer,
+	parseGithubAppCallbackFromUrl,
+	parseGithubAppCallbackSearch,
+} from "./github-app-callback.ts";
+export {
 	assertGpioDrive,
+	canDriveGpio,
 	GPIO_PATH,
 	GPIO_RESERVED_PHYSICAL,
 	type GpioDir,
 	GpioError,
 	type GpioPinState,
+	type GpioPinTone,
 	type GpioPut,
 	type GpioSnapshot,
 	gpioNamedLine,
+	gpioPinTone,
 	type HeaderPinDef,
 	type HeaderPinType,
 	headerPin,
+	headerPinPairs,
 	headerPins,
 	parseGpioPut,
 	parsePhysicalPin,
+	pinByPhysical,
 } from "./gpio.ts";
 export {
 	asFlashStatus,

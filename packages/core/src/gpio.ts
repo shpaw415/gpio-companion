@@ -190,6 +190,56 @@ export function headerPin(
 	return HEADER_PINS[hardware].find((pin) => pin.physical === physical);
 }
 
+export function headerPinPairs(): Array<{ odd: number; even: number }> {
+	const pairs: Array<{ odd: number; even: number }> = [];
+	for (let physical = 1; physical <= 40; physical += 2) {
+		pairs.push({ odd: physical, even: physical + 1 });
+	}
+	return pairs;
+}
+
+export function pinByPhysical(
+	pins: GpioPinState[],
+	physical: number,
+): GpioPinState | undefined {
+	return pins.find((pin) => pin.physical === physical);
+}
+
+export function canDriveGpio(pin: GpioPinState): boolean {
+	return pin.type === "gpio" && !pin.reserved && !pin.unresolved;
+}
+
+export type GpioPinTone =
+	| "power"
+	| "gnd"
+	| "reserved"
+	| "unresolved"
+	| "high"
+	| "low"
+	| "idle";
+
+export function gpioPinTone(pin: GpioPinState): GpioPinTone {
+	if (pin.type === "power") {
+		return "power";
+	}
+	if (pin.type === "gnd") {
+		return "gnd";
+	}
+	if (pin.reserved) {
+		return "reserved";
+	}
+	if (pin.unresolved) {
+		return "unresolved";
+	}
+	if (pin.value === 1) {
+		return "high";
+	}
+	if (pin.value === 0) {
+		return "low";
+	}
+	return "idle";
+}
+
 export function parsePhysicalPin(value: unknown): number {
 	const physical =
 		typeof value === "number"

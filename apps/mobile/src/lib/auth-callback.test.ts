@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	buildAuthCallbackUrl,
 	firstParam,
+	parseGithubAppCallbackFromUrl,
 	resolveAuthCallbackUrl,
 	unwrapAuthCallbackUrl,
 } from "./auth-callback.ts";
@@ -46,6 +47,33 @@ describe("resolveAuthCallbackUrl", () => {
 				linkingUrl: wrapped,
 			}),
 		).toBe(inner);
+	});
+});
+
+describe("parseGithubAppCallbackFromUrl", () => {
+	test("treats github iss as app oauth, not login", () => {
+		expect(
+			parseGithubAppCallbackFromUrl(
+				`${redirect}?code=abc&iss=https%3A%2F%2Fgithub.com%2Flogin%2Foauth&state=st`,
+			),
+		).toEqual({
+			code: "abc",
+			state: "st",
+			installationId: "",
+			redirectUri: redirect,
+		});
+	});
+
+	test("ignores openauthster login callbacks", () => {
+		expect(parseGithubAppCallbackFromUrl(inner)).toBeNull();
+	});
+
+	test("accepts web profile github oauth", () => {
+		expect(
+			parseGithubAppCallbackFromUrl(
+				"https://gpio-companion.com/profile/github?code=abc&state=st",
+			)?.code,
+		).toBe("abc");
 	});
 });
 

@@ -494,6 +494,21 @@ export function getGithubApp(token: string) {
 	return request<GithubAppStatus>(token, "/api/mobile/github-app");
 }
 
+export function saveGithubApp(
+	token: string,
+	input: {
+		code?: string;
+		state: string;
+		installationId?: string;
+		redirectUri?: string;
+	},
+) {
+	return request<GithubAppStatus>(token, "/api/mobile/github-app", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
 export function listNotifications(token: string) {
 	return request<{ items: PendingRequest[] }>(
 		token,

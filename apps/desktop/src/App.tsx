@@ -12,6 +12,7 @@ import logo from "../../../logo/logo.png";
 import { authLogout, authSession, authToken, type Session } from "./api";
 import { useColorMode } from "./color-mode";
 import DevicesHub, { type DeviceTab } from "./components/DevicesHub";
+import GithubAppCallbackBridge from "./components/GithubAppCallbackBridge";
 import Login from "./components/Login";
 import Profile from "./components/Profile";
 import Project from "./components/Project";
@@ -97,6 +98,7 @@ export default function App() {
 			}}
 		>
 			<ApiCacheProvider signedIn={signedIn}>
+				{signedIn ? <GithubAppCallbackBridge /> : null}
 				<Box
 					sx={{
 						height: "100%",

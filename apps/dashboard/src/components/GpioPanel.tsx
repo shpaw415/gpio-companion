@@ -15,6 +15,7 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
+	canDriveGpio,
 	envelopeToPasteText,
 	GPIO_PATH,
 	type GpioPinState,
@@ -32,6 +33,7 @@ import {
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
+import GpioHeader from "./GpioHeader.tsx";
 
 export default function GpioPanel({
 	uuid,
@@ -79,7 +81,23 @@ export default function GpioPanel({
 		onGpio: applySnapshot,
 	});
 
-	const gpioPins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
+	const pins = snapshot?.pins ?? [];
+	const gpioPins = pins.filter((pin) => pin.type === "gpio");
+
+	function drive(pin: GpioPinState, dir: "in" | "out", value?: 0 | 1) {
+		start(async () => {
+			applySnapshot(
+				unwrapAction(
+					await putGpio({
+						uuid,
+						physical: pin.physical,
+						dir,
+						value,
+					}),
+				),
+			);
+		});
+	}
 
 	if (!available) {
 		return (
@@ -92,10 +110,33 @@ export default function GpioPanel({
 
 	return (
 		<Stack spacing={1}>
-			<Typography variant="subtitle1">GPIO</Typography>
+			<Stack
+				direction="row"
+				spacing={1}
+				className="flex-wrap items-center justify-between"
+			>
+				<Typography variant="subtitle1">
+					{poll ? "Live GPIO" : "GPIO"}
+				</Typography>
+				{poll ? (
+					<Chip
+						label={snapshot ? "Live" : "Waiting"}
+						size="small"
+						color={snapshot ? "success" : "secondary"}
+						variant="outlined"
+					/>
+				) : null}
+			</Stack>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
+				</Typography>
+			) : null}
+			{poll ? (
+				<Typography variant="body2" color="secondary">
+					{snapshot
+						? "Tap a GPIO to toggle output. Set In to watch a pin."
+						: "Waiting for live pin state from the board."}
 				</Typography>
 			) : null}
 			<Stack direction="row" spacing={1} className="flex-wrap">
@@ -110,7 +151,7 @@ export default function GpioPanel({
 						});
 					}}
 				>
-					{busy ? "Loading…" : "Load GPIO"}
+					{busy ? "Loading…" : snapshot || poll ? "Refresh" : "Load GPIO"}
 				</Button>
 				<Button
 					type="button"
@@ -145,6 +186,20 @@ export default function GpioPanel({
 					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
 				</>
 			) : null}
+			{poll || snapshot ? (
+				<GpioHeader
+					pins={pins}
+					busy={busy}
+					interactive={Boolean(snapshot)}
+					onToggle={(pin) => {
+						drive(pin, "out", pin.value === 1 ? 0 : 1);
+					}}
+				/>
+			) : (
+				<Typography color="secondary" variant="body2">
+					Load GPIO to see live pin status.
+				</Typography>
+			)}
 			{snapshot ? (
 				<TableContainer>
 					<Table size="small">
@@ -159,7 +214,7 @@ export default function GpioPanel({
 						</TableHead>
 						<TableBody>
 							{gpioPins.map((pin) => {
-								const locked = Boolean(pin.reserved || pin.unresolved);
+								const locked = !canDriveGpio(pin);
 								return (
 									<TableRow key={pin.physical}>
 										<TableCell>{pin.physical}</TableCell>
@@ -173,29 +228,28 @@ export default function GpioPanel({
 											<PinStatusChip pin={pin} />
 										</TableCell>
 										<TableCell>
-											<Button
-												type="button"
-												size="small"
-												variant="outlined"
-												disabled={busy || !uuid || locked}
-												onClick={() => {
-													start(async () => {
-														const nextValue = pin.value === 1 ? 0 : 1;
-														applySnapshot(
-															unwrapAction(
-																await putGpio({
-																	uuid,
-																	physical: pin.physical,
-																	dir: "out",
-																	value: nextValue,
-																}),
-															),
-														);
-													});
-												}}
-											>
-												Toggle
-											</Button>
+											<Stack direction="row" spacing={1} className="flex-wrap">
+												<Button
+													type="button"
+													size="small"
+													variant="outlined"
+													disabled={busy || !uuid || locked}
+													onClick={() => drive(pin, "in")}
+												>
+													In
+												</Button>
+												<Button
+													type="button"
+													size="small"
+													variant="outlined"
+													disabled={busy || !uuid || locked}
+													onClick={() =>
+														drive(pin, "out", pin.value === 1 ? 0 : 1)
+													}
+												>
+													{pin.value === 1 ? "Set low" : "Set high"}
+												</Button>
+											</Stack>
 										</TableCell>
 									</TableRow>
 								);
@@ -203,11 +257,7 @@ export default function GpioPanel({
 						</TableBody>
 					</Table>
 				</TableContainer>
-			) : (
-				<Typography color="secondary" variant="body2">
-					Load GPIO to see live pin status.
-				</Typography>
-			)}
+			) : null}
 		</Stack>
 	);
 }

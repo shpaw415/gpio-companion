@@ -4,7 +4,11 @@ export function firstParam(
 	if (typeof value === "string" && value.length > 0) {
 		return value;
 	}
-	if (Array.isArray(value) && typeof value[0] === "string" && value[0].length > 0) {
+	if (
+		Array.isArray(value) &&
+		typeof value[0] === "string" &&
+		value[0].length > 0
+	) {
 		return value[0];
 	}
 	return undefined;
@@ -49,6 +53,27 @@ export function buildAuthCallbackUrl(
 	}
 	const base = redirectUri.replace(/\?.*$/, "");
 	return `${base}?${params.toString()}`;
+}
+
+export function parseGithubAppCallbackFromUrl(raw: string): {
+	code: string;
+	state: string;
+	installationId: string;
+	redirectUri: string;
+} | null {
+	const params = queryFrom(raw);
+	const code = params.get("code") ?? "";
+	const state = params.get("state") ?? "";
+	const installationId = params.get("installation_id") ?? "";
+	const iss = params.get("iss") ?? "";
+	const path = raw.replace(/[?#].*$/, "");
+	const githubPath =
+		path.includes("/profile/github") || path.includes("/devices/keys");
+	const githubIss = iss.includes("github.com/login/oauth");
+	if (!(githubPath || githubIss) || !(code || installationId) || !state) {
+		return null;
+	}
+	return { code, state, installationId, redirectUri: path };
 }
 
 export function resolveAuthCallbackUrl(input: {

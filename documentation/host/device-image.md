@@ -20,14 +20,15 @@ The clone does **not** bake a production public key. First-setup fetches it from
 
 `scripts/first-setup.sh` (root, TTY unless env is fully set):
 
-1. Hardware: `raspberrypi` or `orangepi` (guessed from `/proc/device-tree/model`)
-2. Cloudflare API token, account ID, and zone ID (creates a per-Pi tunnel; token is not written to disk)
-3. Runs `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
-4. Generates pairing UUID + key into `/etc/gpio-companion/pairing.env` (mode 600) if unset
-5. Creates `gpio-<uuid>` on Cloudflare with `api-<slug>` → :4150 and `t3-<slug>` → :3773
-6. Writes `/etc/gpio-companion/config.json` and `cloudflared.env`, enables the replica
-7. Fetches the dashboard Ed25519 public key into `/etc/gpio-companion/device-auth.json` (fails closed if the dashboard is unreachable)
-8. Writes `/etc/gpio-companion/first-setup-complete`
+1. Grants the GPIO user passwordless sudo (`/etc/sudoers.d/gpio-companion`, `NOPASSWD: ALL`, `!requiretty`) so the on-device agent can `sudo` without a TTY or password
+2. Hardware: `raspberrypi` or `orangepi` (guessed from `/proc/device-tree/model`)
+3. Cloudflare API token, account ID, and zone ID (creates a per-Pi tunnel; token is not written to disk)
+4. Runs `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
+5. Generates pairing UUID + key into `/etc/gpio-companion/pairing.env` (mode 600) if unset
+6. Creates `gpio-<uuid>` on Cloudflare with `api-<slug>` → :4150 and `t3-<slug>` → :3773
+7. Writes `/etc/gpio-companion/config.json` and `cloudflared.env`, enables the replica
+8. Fetches the dashboard Ed25519 public key into `/etc/gpio-companion/device-auth.json` (fails closed if the dashboard is unreachable)
+9. Writes `/etc/gpio-companion/first-setup-complete`
 
 It does **not** collect OpenCode or GitHub secrets. It **does** run `t3 service install` and lock T3 Code to OpenCode as the only provider. It does **not** run `t3 pair` (dashboard does that after claim).
 
@@ -51,7 +52,7 @@ Device binary: compiled `gpio-companion` on PATH (`/usr/local/bin/gpio-companion
 Systemd:
 
 - `gpio-companion.service` — `gpio-companion serve` on port **4150**, after network + bluetooth
-- `gpio-companion-update.timer` — updater OnBootSec=2min and every 24h (`Persistent=true`)
+- `gpio-companion-update.timer` — updater OnBootSec=2min and every 24h (`Persistent=true`). Unit runs `/usr/local/sbin/gpio-companion-update` as root. The same wrapper is on PATH at `/usr/local/bin/gpio-companion-update`; if the GPIO user runs it, it re-execs with `sudo -n` (NOPASSWD, no TTY) then `scripts/update-script.sh`. `gpio-companion-force-update` is the `--force` variant.
 - `gpio-companion-cleanup.timer` — disk/log cleanup OnBootSec=1min and every hour (`Persistent=true`); journals `MaxRetentionSec=1day`
 
 Env the unit loads:

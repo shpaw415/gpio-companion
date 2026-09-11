@@ -203,6 +203,11 @@ export default function ProjectPage() {
 							value={activeUuid}
 							onChange={selectBoard}
 						/>
+						<Typography variant="h6">Live GPIO</Typography>
+						<Typography color="secondary">
+							Watch header pins from the board over the companion websocket. Tap
+							a GPIO to drive it high or low.
+						</Typography>
 						{pairingLoading ? (
 							<LinesSkeleton lines={3} />
 						) : (

@@ -24,7 +24,7 @@ if [[ "${1:-}" == "--force" || "${GPIO_COMPANION_UPDATE_FORCE:-}" == "1" ]]; the
 	FORCE=1
 fi
 
-need_root
+ensure_root
 
 cd "$REPO_ROOT"
 
@@ -46,6 +46,7 @@ SCRIPT_DIR="$REPO_ROOT/scripts"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+grant_gpio_user_nopasswd_sudo
 sync_opencode_agent
 
 key_changed=0
@@ -86,6 +87,7 @@ server_needs_build() {
 install_ble_gatt_script
 install_storage_link
 install_cleanup_units
+install_update_wrapper
 
 if server_needs_build; then
 	if [[ "$FORCE" -eq 1 ]]; then
@@ -100,7 +102,6 @@ if server_needs_build; then
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.service" /etc/systemd/system/gpio-companion-update.service
 		install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	fi
-	install_update_wrapper
 	printf '%s\n' "$after" >"$BIN_REV_FILE"
 	systemctl daemon-reload
 	systemctl restart gpio-companion.service

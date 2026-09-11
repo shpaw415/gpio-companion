@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/lib.sh"
 MARKER="${GPIO_COMPANION_SETUP_MARKER:-/etc/gpio-companion/first-setup-complete}"
 
 need_root
+grant_gpio_user_nopasswd_sudo
 
 if [[ -f "$MARKER" && "${GPIO_COMPANION_FORCE_SETUP:-}" != "1" ]]; then
 	echo "gpio-companion first-setup already complete ($MARKER)"

@@ -1,42 +1,17 @@
+import {
+	type GithubAppCallback,
+	parseGithubAppCallbackSearch,
+} from "gpio-companion";
+
 export const GITHUB_APP_CALLBACK_KEY = "gpio-companion-github-app-callback";
 
-export type GithubAppCallback = {
-	code: string;
-	state: string;
-	installationId: string;
-	redirectUri: string;
-};
+export {
+	parseGithubAppCallbackFromUrl,
+	parseGithubAppCallbackSearch,
+} from "gpio-companion";
+export type { GithubAppCallback };
 
-function isGithubAppCallbackPath(pathname: string): boolean {
-	return pathname === "/profile/github" || pathname === "/devices/keys";
-}
-
-export function parseGithubAppCallbackSearch(
-	pathname: string,
-	search: string,
-	origin: string,
-): GithubAppCallback | null {
-	if (!isGithubAppCallbackPath(pathname)) {
-		return null;
-	}
-	const params = new URLSearchParams(
-		search.startsWith("?") ? search.slice(1) : search,
-	);
-	const code = params.get("code") ?? "";
-	const state = params.get("state") ?? "";
-	const installationId = params.get("installation_id") ?? "";
-	if (!(code || installationId) || !state) {
-		return null;
-	}
-	return {
-		code,
-		state,
-		installationId,
-		redirectUri: `${origin}${pathname}`,
-	};
-}
-
-export function peekGithubAppCallback(): GithubAppCallback | null {
+function readStored(): GithubAppCallback | null {
 	if (typeof window === "undefined") {
 		return null;
 	}
@@ -67,8 +42,12 @@ export function peekGithubAppCallback(): GithubAppCallback | null {
 	}
 }
 
+export function peekGithubAppCallback(): GithubAppCallback | null {
+	return readStored();
+}
+
 export function takeGithubAppCallback(): GithubAppCallback | null {
-	const value = peekGithubAppCallback();
+	const value = readStored();
 	if (typeof window !== "undefined") {
 		window.sessionStorage.removeItem(GITHUB_APP_CALLBACK_KEY);
 	}
@@ -79,7 +58,7 @@ export function stashGithubAppCallbackFromLocation(): GithubAppCallback | null {
 	if (typeof window === "undefined") {
 		return null;
 	}
-	const existing = peekGithubAppCallback();
+	const existing = readStored();
 	const next = parseGithubAppCallbackSearch(
 		window.location.pathname,
 		window.location.search,

@@ -296,6 +296,11 @@ export default function Project() {
 							</Pressable>
 						))}
 					</View>
+					<Body>Live GPIO</Body>
+					<Muted>
+						Watch header pins from the board over the companion websocket. Tap a
+						GPIO to drive it high or low.
+					</Muted>
 					<GpioPanel
 						uuid={activeUuid}
 						connected={Boolean(activeBoard?.status)}

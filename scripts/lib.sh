@@ -20,6 +20,21 @@ need_root() {
 	fi
 }
 
+ensure_root() {
+	if [[ "$(id -u)" -eq 0 ]]; then
+		return 0
+	fi
+	if ! command -v sudo >/dev/null 2>&1; then
+		die "run as root (sudo)"
+	fi
+	local self
+	self="$(readlink -f "$0" 2>/dev/null || true)"
+	if [[ -z "$self" || ! -e "$self" ]]; then
+		self="$0"
+	fi
+	exec sudo -n -- "$self" "$@"
+}
+
 apt_update() {
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -y
@@ -452,6 +467,45 @@ add_user_groups() {
 			usermod -aG "$group" "$GPIO_USER" || true
 		fi
 	done
+}
+
+grant_gpio_user_nopasswd_sudo() {
+	local user="${GPIO_USER:-}"
+	local dest_dir="${GPIO_COMPANION_SUDOERS_D:-/etc/sudoers.d}"
+	local dest tmp
+
+	if [[ -z "$user" || "$user" == "root" ]]; then
+		return 0
+	fi
+	if [[ ! "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]; then
+		die "invalid GPIO_USER for sudoers: $user"
+	fi
+	if ! getent passwd "$user" >/dev/null 2>&1; then
+		die "GPIO_USER $user does not exist"
+	fi
+	if ! command -v visudo >/dev/null 2>&1; then
+		die "visudo is required to grant passwordless sudo"
+	fi
+
+	install -d -m 0755 "$dest_dir"
+	dest="${dest_dir}/gpio-companion"
+	tmp="$(mktemp)"
+	cat >"$tmp" <<EOF
+Defaults:${user} !requiretty
+${user} ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+	chmod 0440 "$tmp"
+	if ! visudo -c -f "$tmp" >/dev/null 2>&1; then
+		rm -f "$tmp"
+		die "sudoers fragment failed visudo for $user"
+	fi
+	install -m 0440 "$tmp" "$dest"
+	rm -f "$tmp"
+	if [[ "$dest_dir" == "/etc/sudoers.d" ]] && ! visudo -c >/dev/null 2>&1; then
+		rm -f "$dest"
+		die "sudoers invalid after writing $dest"
+	fi
+	echo "gpio-companion: passwordless sudo granted to $user"
 }
 
 write_repo_metadata() {
@@ -1155,24 +1209,30 @@ install_github_git_helper() {
 EOF
 }
 
+write_update_wrapper() {
+	local dest="$1"
+	local extra="${2:-}"
+	cat >"$dest" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\$(id -u)" -ne 0 ]]; then
+	exec sudo -n -- "\$0" "\$@"
+fi
+CONFIG_DIR="\${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
+REPO="\$(cat "\$CONFIG_DIR/repo.path")"
+exec /bin/bash "\$REPO/scripts/update-script.sh"${extra:+ $extra} "\$@"
+EOF
+	chmod 0755 "$dest"
+}
+
 install_update_wrapper() {
-	install -d -m 0755 /usr/local/sbin
-	cat >/usr/local/sbin/gpio-companion-update <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
-REPO="$(cat "$CONFIG_DIR/repo.path")"
-exec /bin/bash "$REPO/scripts/update-script.sh" "$@"
-EOF
-	chmod 0755 /usr/local/sbin/gpio-companion-update
-	cat >/usr/local/sbin/gpio-companion-force-update <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-CONFIG_DIR="${GPIO_COMPANION_CONFIG_DIR:-/etc/gpio-companion}"
-REPO="$(cat "$CONFIG_DIR/repo.path")"
-exec /bin/bash "$REPO/scripts/update-script.sh" --force
-EOF
-	chmod 0755 /usr/local/sbin/gpio-companion-force-update
+	local sbin="${GPIO_COMPANION_SBIN_DIR:-/usr/local/sbin}"
+	local bin="${GPIO_COMPANION_BIN_DIR:-/usr/local/bin}"
+	install -d -m 0755 "$sbin" "$bin"
+	write_update_wrapper "$sbin/gpio-companion-update"
+	write_update_wrapper "$sbin/gpio-companion-force-update" "--force"
+	ln -sfn "$sbin/gpio-companion-update" "$bin/gpio-companion-update"
+	ln -sfn "$sbin/gpio-companion-force-update" "$bin/gpio-companion-force-update"
 }
 
 install_cleanup_wrapper() {
@@ -1241,6 +1301,7 @@ install_common() {
 	install_arduino_udev
 	install_storage_link
 	add_user_groups
+	grant_gpio_user_nopasswd_sudo
 	install_opencode
 	install_t3code
 	write_device_config "$hardware"

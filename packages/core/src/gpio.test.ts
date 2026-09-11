@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
 	assertGpioDrive,
+	canDriveGpio,
 	GpioError,
 	gpioNamedLine,
+	gpioPinTone,
 	headerPin,
+	headerPinPairs,
 	parseGpioPut,
 	parsePhysicalPin,
+	pinByPhysical,
 } from "./gpio.ts";
 
 describe("gpio safety", () => {
@@ -70,5 +74,36 @@ describe("header", () => {
 	test("named bcm line", () => {
 		expect(gpioNamedLine(25)).toBe("GPIO25");
 		expect(headerPin("raspberrypi", 22)?.bcm).toBe(25);
+	});
+
+	test("pairs odd/even physical seats", () => {
+		const pairs = headerPinPairs();
+		expect(pairs).toHaveLength(20);
+		expect(pairs[0]).toEqual({ odd: 1, even: 2 });
+		expect(pairs[19]).toEqual({ odd: 39, even: 40 });
+	});
+
+	test("looks up and classifies live pins", () => {
+		const power = { physical: 1, name: "3V3", type: "power" as const };
+		const gpio = {
+			physical: 11,
+			name: "GPIO17",
+			type: "gpio" as const,
+			dir: "out" as const,
+			value: 1 as const,
+		};
+		const reserved = {
+			physical: 27,
+			name: "GPIO0",
+			type: "gpio" as const,
+			reserved: true,
+		};
+		expect(pinByPhysical([power, gpio, reserved], 11)?.name).toBe("GPIO17");
+		expect(canDriveGpio(power)).toBe(false);
+		expect(canDriveGpio(gpio)).toBe(true);
+		expect(canDriveGpio(reserved)).toBe(false);
+		expect(gpioPinTone(power)).toBe("power");
+		expect(gpioPinTone(gpio)).toBe("high");
+		expect(gpioPinTone(reserved)).toBe("reserved");
 	});
 });

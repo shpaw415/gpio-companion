@@ -183,7 +183,7 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 
 function StatusMark({ state }: { state: RowState }) {
 	if (state === "running") {
-		return <CircularProgress size={16} />;
+		return <CircularProgress size="16px" />;
 	}
 	if (state === "pass") {
 		return (

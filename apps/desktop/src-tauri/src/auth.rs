@@ -44,6 +44,9 @@ impl Default for AuthFlow {
 
 impl AuthFlow {
 	pub fn complete(&self, url: &str) {
+		if is_github_app_oauth_callback(url) {
+			return;
+		}
 		if let Ok(mut pending) = self.pending.lock() {
 			if let Some(tx) = pending.take() {
 				let _ = tx.send(url.to_string());
@@ -89,6 +92,26 @@ fn random_url_safe(n: usize) -> String {
 fn sha256_base64url(input: &str) -> String {
 	let hash = Sha256::digest(input.as_bytes());
 	URL_SAFE_NO_PAD.encode(hash)
+}
+
+pub fn is_github_app_oauth_callback(url: &str) -> bool {
+	let Ok(parsed) = Url::parse(url) else {
+		return false;
+	};
+	let iss = parsed.query_pairs().any(|(key, value)| {
+		key == "iss" && value.contains("github.com/login/oauth")
+	});
+	if iss {
+		return true;
+	}
+	let path = parsed.path();
+	let github_path = path.ends_with("/profile/github") || path.ends_with("/devices/keys");
+	if !github_path {
+		return false;
+	}
+	parsed
+		.query_pairs()
+		.any(|(key, _)| key == "code" || key == "installation_id")
 }
 
 pub fn authorize_url(verifier: &str, state: &str) -> String {
@@ -252,6 +275,16 @@ mod tests {
 			RefreshError::Transient("offline".to_string()).to_string(),
 			"offline"
 		);
+	}
+
+	#[test]
+	fn github_app_oauth_iss_is_not_a_login_callback() {
+		assert!(is_github_app_oauth_callback(
+			"https://gpio-companion.com/profile/github?code=abc&iss=https%3A%2F%2Fgithub.com%2Flogin%2Foauth&state=st"
+		));
+		assert!(!is_github_app_oauth_callback(
+			"gpio-companion-desktop://auth/callback?code=x&state=st"
+		));
 	}
 
 	#[test]

@@ -583,6 +583,23 @@ export function getGithubApp() {
 	return apiRequest<GithubAppStatus>("GET", "/api/mobile/github-app");
 }
 
+export function saveGithubApp(input: {
+	code?: string;
+	state: string;
+	installationId?: string;
+	redirectUri?: string;
+}) {
+	return apiRequest<GithubAppStatus>("POST", "/api/mobile/github-app", input);
+}
+
+export function onGithubAppCallback(
+	handler: (url: string) => void,
+): Promise<UnlistenFn> {
+	return listen<string>("github-app-callback", (event) =>
+		handler(event.payload),
+	);
+}
+
 export function getT3Status(uuid: string) {
 	return apiRequest<T3Status>(
 		"GET",

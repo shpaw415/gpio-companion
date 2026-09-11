@@ -566,12 +566,22 @@ pub fn run() {
 			let handle = app.handle().clone();
 			app.deep_link().on_open_url(move |event| {
 				for url in event.urls() {
-					handle.state::<AuthFlow>().complete(url.as_str());
+					let href = url.as_str();
+					if auth::is_github_app_oauth_callback(href) {
+						let _ = handle.emit("github-app-callback", href);
+					} else {
+						handle.state::<AuthFlow>().complete(href);
+					}
 				}
 			});
 			if let Ok(Some(urls)) = app.deep_link().get_current() {
 				for url in urls {
-					app.state::<AuthFlow>().complete(url.as_str());
+					let href = url.as_str();
+					if auth::is_github_app_oauth_callback(href) {
+						let _ = app.emit("github-app-callback", href);
+					} else {
+						app.state::<AuthFlow>().complete(href);
+					}
 				}
 			}
 			Ok(())

@@ -21,6 +21,11 @@ import {
 import { useSavedBleId } from "../hooks/useApiCache";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import GpioHeader from "./GpioHeader";
+
+function canDriveGpio(pin: GpioPinState): boolean {
+	return pin.type === "gpio" && !pin.reserved && !pin.unresolved;
+}
 
 export default function GpioPanel({
 	uuid,
@@ -37,7 +42,8 @@ export default function GpioPanel({
 	const offline = useOfflineBleKey(uuid);
 	const bleId = useSavedBleId(uuid);
 	const available = Boolean(uuid) && connected !== false;
-	const pins = snapshot?.pins.filter((pin) => pin.type === "gpio") ?? [];
+	const pins = snapshot?.pins ?? [];
+	const gpioPins = pins.filter((pin) => pin.type === "gpio");
 	const onGpio = useCallback((next: GpioSnapshot) => {
 		setSnapshot(next);
 	}, []);
@@ -54,6 +60,17 @@ export default function GpioPanel({
 			.finally(() => setBusy(false));
 	}
 
+	function drive(pin: GpioPinState, dir: "in" | "out", value?: 0 | 1) {
+		start(() =>
+			putGpio({
+				uuid,
+				physical: pin.physical,
+				dir,
+				value,
+			}),
+		);
+	}
+
 	if (!available) {
 		return (
 			<Stack spacing={1} sx={{ mt: 1 }}>
@@ -65,10 +82,37 @@ export default function GpioPanel({
 
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
-			<Typography variant="subtitle2">GPIO</Typography>
+			<Stack
+				direction="row"
+				spacing={1}
+				sx={{
+					flexWrap: "wrap",
+					alignItems: "center",
+					justifyContent: "space-between",
+				}}
+			>
+				<Typography variant="subtitle2">
+					{poll ? "Live GPIO" : "GPIO"}
+				</Typography>
+				{poll ? (
+					<Chip
+						label={snapshot ? "Live" : "Waiting"}
+						size="small"
+						color={snapshot ? "success" : "secondary"}
+						variant="outlined"
+					/>
+				) : null}
+			</Stack>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
+				</Typography>
+			) : null}
+			{poll ? (
+				<Typography variant="body2" color="secondary">
+					{snapshot
+						? "Tap a GPIO to toggle output. Set In to watch a pin."
+						: "Waiting for live pin state from the board."}
 				</Typography>
 			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
@@ -80,7 +124,7 @@ export default function GpioPanel({
 						start(() => loadGpio(uuid));
 					}}
 				>
-					{busy ? "Loading…" : "Load GPIO"}
+					{busy ? "Loading…" : snapshot || poll ? "Refresh" : "Load GPIO"}
 				</Button>
 				<Button
 					variant="outlined"
@@ -94,6 +138,20 @@ export default function GpioPanel({
 				</Button>
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}
+			{poll || snapshot ? (
+				<GpioHeader
+					pins={pins}
+					busy={busy}
+					interactive={Boolean(snapshot)}
+					onToggle={(pin) => {
+						drive(pin, "out", pin.value === 1 ? 0 : 1);
+					}}
+				/>
+			) : (
+				<Typography color="secondary" variant="body2">
+					Load GPIO to see live pin status.
+				</Typography>
+			)}
 			{snapshot ? (
 				<TableContainer>
 					<Table size="small">
@@ -106,7 +164,7 @@ export default function GpioPanel({
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{pins.map((pin) => (
+							{gpioPins.map((pin) => (
 								<TableRow key={pin.physical}>
 									<TableCell>{pin.physical}</TableCell>
 									<TableCell>{pin.name}</TableCell>
@@ -114,34 +172,37 @@ export default function GpioPanel({
 										<PinStatusChip pin={pin} />
 									</TableCell>
 									<TableCell>
-										<Button
-											size="small"
-											variant="outlined"
-											disabled={busy || pin.reserved || pin.unresolved}
-											onClick={() => {
-												start(() =>
-													putGpio({
-														uuid,
-														physical: pin.physical,
-														dir: "out",
-														value: pin.value === 1 ? 0 : 1,
-													}),
-												);
-											}}
+										<Stack
+											direction="row"
+											spacing={1}
+											sx={{ flexWrap: "wrap" }}
 										>
-											Toggle
-										</Button>
+											<Button
+												size="small"
+												variant="outlined"
+												disabled={busy || !canDriveGpio(pin)}
+												onClick={() => drive(pin, "in")}
+											>
+												In
+											</Button>
+											<Button
+												size="small"
+												variant="outlined"
+												disabled={busy || !canDriveGpio(pin)}
+												onClick={() =>
+													drive(pin, "out", pin.value === 1 ? 0 : 1)
+												}
+											>
+												{pin.value === 1 ? "Set low" : "Set high"}
+											</Button>
+										</Stack>
 									</TableCell>
 								</TableRow>
 							))}
 						</TableBody>
 					</Table>
 				</TableContainer>
-			) : (
-				<Typography color="secondary" variant="body2">
-					Load GPIO to see live pin status.
-				</Typography>
-			)}
+			) : null}
 		</Stack>
 	);
 }

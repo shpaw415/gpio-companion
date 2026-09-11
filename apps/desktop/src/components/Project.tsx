@@ -328,6 +328,11 @@ export default function Project() {
 								</option>
 							))}
 						</Select>
+						<Typography variant="h6">Live GPIO</Typography>
+						<Typography color="secondary">
+							Watch header pins from the board over the companion websocket. Tap
+							a GPIO to drive it high or low.
+						</Typography>
 						<GpioPanel
 							uuid={activeUuid}
 							connected={Boolean(activeBoard?.status)}
