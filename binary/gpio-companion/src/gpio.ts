@@ -10,6 +10,7 @@ import {
 	type HardwareId,
 	headerPins,
 } from "gpio-companion";
+import { privileged } from "./priv.ts";
 
 export type GpioInfoLine = {
 	chip: string;
@@ -360,7 +361,7 @@ async function spawnGpioSet(ref: GpioLineRef, value: 0 | 1): Promise<void> {
 }
 
 async function spawnText(cmd: string[]): Promise<string> {
-	const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+	const proc = Bun.spawn(privileged(cmd), { stdout: "pipe", stderr: "pipe" });
 	const [stdout, stderr, code] = await Promise.all([
 		readPipe(proc.stdout),
 		readPipe(proc.stderr),
