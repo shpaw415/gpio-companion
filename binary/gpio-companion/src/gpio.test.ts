@@ -11,6 +11,7 @@ import {
 import {
 	createGpioController,
 	memoryGpioBackend,
+	parseGpioGet,
 	parseGpioinfo,
 	parseWiringOpReadall,
 	resolveHeaderLines,
@@ -43,6 +44,25 @@ gpiochip1 - 32 lines:
 	line  12:      "GPIO.2"      unused   input
 	line  21:      "TxD.3"       unused  output
 `;
+
+const OPI3_LIVE_INFO = `
+gpiochip0 - 64 lines:
+gpiochip1 - 256 lines:
+`;
+
+const OPI3_CLASSIC_INFO = `
+gpiochip0 - 256 lines:
+gpiochip1 - 64 lines:
+`;
+
+describe("gpioget parse", () => {
+	test("reads libgpiod v2 active/inactive and numeric", () => {
+		expect(parseGpioGet('"118"=active')).toEqual({ dir: "in", value: 1 });
+		expect(parseGpioGet('"118"=inactive')).toEqual({ dir: "in", value: 0 });
+		expect(parseGpioGet("1")).toEqual({ dir: "in", value: 1 });
+		expect(parseGpioGet("0")).toEqual({ dir: "in", value: 0 });
+	});
+});
 
 describe("gpioinfo parse", () => {
 	test("reads named lines across chips", () => {
@@ -130,15 +150,18 @@ describe("gpio controller", () => {
 	});
 
 	test("orange pi 3 lts uses sku chip/line without wiringop", async () => {
-		const gpio = createGpioController(memoryGpioBackend(""), {
+		const gpio = createGpioController(memoryGpioBackend(OPI3_LIVE_INFO), {
 			model: "Orange Pi 3 LTS",
 		});
 		const snap = await gpio.snapshot("orangepi");
 		expect(snap.pins).toHaveLength(26);
 		const pin7 = snap.pins.find((pin) => pin.physical === 7);
 		expect(pin7?.unresolved).toBeUndefined();
-		expect(pin7?.chip).toBe("gpiochip0");
+		expect(pin7?.chip).toBe("gpiochip1");
 		expect(pin7?.line).toBe(118);
+		const pin8 = snap.pins.find((pin) => pin.physical === 8);
+		expect(pin8?.chip).toBe("gpiochip0");
+		expect(pin8?.line).toBe(2);
 		const after = await gpio.apply("orangepi", {
 			physical: 7,
 			dir: "out",
@@ -148,6 +171,33 @@ describe("gpio controller", () => {
 		await expect(
 			gpio.apply("orangepi", { physical: 40, dir: "out", value: 1 }),
 		).rejects.toThrow("not on this header");
+	});
+
+	test("orange pi 3 lts follows gpiochip probe order", () => {
+		const live = resolveHeaderLines(
+			"orangepi",
+			OPI3_LIVE_INFO,
+			"",
+			"Orange Pi 3 LTS",
+		);
+		expect(live.get(7)).toEqual({
+			chip: "gpiochip1",
+			line: 118,
+			name: "PD22",
+		});
+		expect(live.get(8)).toEqual({
+			chip: "gpiochip0",
+			line: 2,
+			name: "PL2",
+		});
+		const classic = resolveHeaderLines(
+			"orangepi",
+			OPI3_CLASSIC_INFO,
+			"",
+			"Orange Pi 3 LTS",
+		);
+		expect(classic.get(7)?.chip).toBe("gpiochip0");
+		expect(classic.get(8)?.chip).toBe("gpiochip1");
 	});
 
 	test("snapshot includes pwm duty on PWM0 pins", async () => {

@@ -4,10 +4,11 @@ This gpio-companion device is an **Orange Pi 3 LTS** (exact model string: read `
 
 ## Line mapping (libgpiod on Armbian/mainline H6)
 
-- Main PIO = `gpiochip0`, using the legacy sunxi numbering: line = 32 x bank index + pin. Banks on the header: **PD** (bank 3 → lines 96-127), **PH** (bank 7 → lines 224-255).
-- CPUS / R-PIO (PL pins) = `gpiochip1`; its line numbering restarts at zero (**PL0 = gpiochip1 line 0**, so PL2 = line 2, PL10 = line 10).
-- Examples: pin 7 (PD22) = `gpiochip0` line 118. Pin 8 (PL2) = `gpiochip1` line 2.
-- WiringOP `gpio readall` matches this table when installed.
+- Character-device `gpiochipN` numbers follow kernel probe order and are **not stable**. On the live 3 LTS image, R-PIO (`7022000.pinctrl`, 64 lines) is `/dev/gpiochip0` and main PIO (`300b000.pinctrl`, 256 lines) is `/dev/gpiochip1`.
+- Main PIO uses legacy sunxi numbering: line = 32 × bank index + pin. Header banks: **PD** (bank 3 → lines 96-127), **PH** (bank 7 → lines 224-255).
+- CPUS / R-PIO (PL pins) numbering restarts at zero (**PL0 = line 0**, so PL2 = line 2, PL10 = line 10) on the 64-line chip.
+- Examples on the live image: pin 7 (PD22) = `gpiochip1` line 118. Pin 8 (PL2) = `gpiochip0` line 2.
+- Companion GPIO resolves pio vs rpio from `gpioinfo` chip sizes, not a hardcoded gpiochip index.
 - Always confirm with `gpioinfo` before first use — the active pinmux (Armbian device tree) decides the function actually muxed on each pin.
 
 ## Safety and board quirks

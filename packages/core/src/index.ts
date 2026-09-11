@@ -262,6 +262,10 @@ export {
 	pinByPhysical,
 } from "./gpio.ts";
 export {
+	type GpioChipSize,
+	parseGpioChips,
+	resolveSkuChip,
+	type SkuGpioDomain,
 	type SkuGpioLine,
 	type SkuPinout,
 	skuPinout,

@@ -10,6 +10,8 @@ import {
 	type HardwareId,
 	type HeaderPinDef,
 	headerPinsForBoard,
+	parseGpioChips,
+	resolveSkuChip,
 	skuPinout,
 } from "gpio-companion";
 import { readBoardModel } from "./board-model.ts";
@@ -95,10 +97,11 @@ export function resolveHeaderLines(
 ): Map<number, GpioLineRef> {
 	const sku = skuPinout(model);
 	if (sku) {
+		const chips = parseGpioChips(gpioinfoText);
 		const resolved = new Map<number, GpioLineRef>();
 		for (const pin of sku.lines) {
 			resolved.set(pin.physical, {
-				chip: pin.chip,
+				chip: resolveSkuChip(pin.domain, chips),
 				line: pin.line,
 				name: pin.soc ?? pin.name,
 			});
@@ -413,8 +416,15 @@ function lineKey(ref: { chip: string; line: number }): string {
 	return `${ref.chip}:${ref.line}`;
 }
 
-function parseGpioGet(text: string): { dir: GpioDir; value: 0 | 1 } {
-	const match = /\b([01])\b/.exec(text.trim());
+export function parseGpioGet(text: string): { dir: GpioDir; value: 0 | 1 } {
+	const trimmed = text.trim();
+	if (/\binactive\b/i.test(trimmed)) {
+		return { dir: "in", value: 0 };
+	}
+	if (/\bactive\b/i.test(trimmed)) {
+		return { dir: "in", value: 1 };
+	}
+	const match = /\b([01])\b/.exec(trimmed);
 	if (!match) {
 		throw new GpioError("gpioget returned no value");
 	}
@@ -514,7 +524,10 @@ async function spawnGpioHold(
 	}
 	try {
 		await spawnGpioSet(ref, value);
-	} catch {
+	} catch (error) {
+		if (!isUnknownCliOption(error)) {
+			throw error;
+		}
 		await spawnText(["gpioset", ref.chip, `${ref.line}=${value}`]);
 	}
 	return undefined;
@@ -541,18 +554,42 @@ async function spawnDetached(
 
 async function spawnGpioGet(ref: GpioLineRef): Promise<string> {
 	try {
-		return await spawnText(["gpioget", "-c", ref.chip, String(ref.line)]);
-	} catch {
-		return spawnText(["gpioget", ref.chip, String(ref.line)]);
+		return await spawnText([
+			"gpioget",
+			"--numeric",
+			"-c",
+			ref.chip,
+			String(ref.line),
+		]);
+	} catch (error) {
+		if (!isUnknownCliOption(error)) {
+			throw error;
+		}
 	}
+	try {
+		return await spawnText(["gpioget", "-c", ref.chip, String(ref.line)]);
+	} catch (error) {
+		if (!isUnknownCliOption(error)) {
+			throw error;
+		}
+	}
+	return spawnText(["gpioget", ref.chip, String(ref.line)]);
 }
 
 async function spawnGpioSet(ref: GpioLineRef, value: 0 | 1): Promise<void> {
 	try {
 		await spawnText(["gpioset", "-c", ref.chip, `${ref.line}=${value}`]);
-	} catch {
+	} catch (error) {
+		if (!isUnknownCliOption(error)) {
+			throw error;
+		}
 		await spawnText(["gpioset", ref.chip, `${ref.line}=${value}`]);
 	}
+}
+
+function isUnknownCliOption(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return /invalid option|unrecognized option|unknown option/i.test(message);
 }
 
 async function spawnText(cmd: string[]): Promise<string> {

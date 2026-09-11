@@ -454,6 +454,21 @@ install_t3code() {
 	configure_t3_opencode_only
 }
 
+t3_service_is_installed() {
+	local out=""
+	if ! command -v t3 >/dev/null 2>&1; then
+		return 1
+	fi
+	out="$(run_as_gpio_user_session t3 service status 2>/dev/null || true)"
+	if [[ -z "$out" ]]; then
+		return 1
+	fi
+	if grep -qi 'not installed' <<<"$out"; then
+		return 1
+	fi
+	return 0
+}
+
 install_t3_service() {
 	if ! command -v t3 >/dev/null 2>&1; then
 		return 1
@@ -463,6 +478,21 @@ install_t3_service() {
 		return 1
 	fi
 	run_as_gpio_user_session t3 service install
+}
+
+sync_t3_service() {
+	if ! command -v t3 >/dev/null 2>&1; then
+		return 1
+	fi
+	if ! ensure_user_systemd; then
+		echo "gpio-companion: skipping t3 service sync (systemd user manager unreachable)" >&2
+		return 1
+	fi
+	if t3_service_is_installed; then
+		run_as_gpio_user_session t3 service update
+	else
+		run_as_gpio_user_session t3 service install
+	fi
 }
 
 update_t3code() {
@@ -475,19 +505,17 @@ update_t3code() {
 	latest="$(t3_latest_npm_version || true)"
 	if [[ -z "$latest" ]]; then
 		echo "gpio-companion update: t3@latest unavailable, keeping ${current:-none}" >&2
-		install_t3_service || return 1
 		configure_t3_opencode_only || true
 		return 0
 	fi
 	if [[ "$force" != "1" && -n "$current" && "$current" == "$latest" ]]; then
 		echo "gpio-companion update: t3 $current is current"
-		install_t3_service || return 1
 		configure_t3_opencode_only || true
 		return 0
 	fi
 	echo "gpio-companion update: t3 ${current:-none} -> $latest"
 	install_t3_package
-	install_t3_service
+	sync_t3_service
 	configure_t3_opencode_only || true
 }
 

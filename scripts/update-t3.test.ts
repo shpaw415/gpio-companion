@@ -72,6 +72,17 @@ fi
 if [[ -n "\${GPIO_T3_CWD_LOG:-}" ]]; then
 	pwd >> "\$GPIO_T3_CWD_LOG"
 fi
+if [[ "\${1:-}" == "service" && "\${2:-}" == "status" ]]; then
+	if [[ "\${GPIO_T3_SERVICE_STATUS:-installed}" == "not-installed" ]]; then
+		echo "T3 Code service"
+		echo "  Status: not installed"
+		echo "  Next: Run \`t3 service install\`."
+	else
+		echo "T3 Code service"
+		echo "  Status: running"
+	fi
+	exit 0
+fi
 exit 0
 `,
 	);
@@ -138,7 +149,7 @@ update_t3code 0
 		expect(result.stdout).toContain("t3 1.2.3 is current");
 		const npmCalls = await Bun.file(npmLog).text();
 		expect(npmCalls).not.toContain("install -g t3@latest");
-		expect(await Bun.file(t3Log).text()).toContain("service install");
+		expect(await Bun.file(t3Log).exists()).toBe(false);
 	});
 
 	test("installs t3@latest when behind", async () => {
@@ -165,7 +176,8 @@ update_t3code 0
 		expect(await Bun.file(npmLog).text()).toContain(
 			"--allow-scripts=msgpackr-extract,node-pty",
 		);
-		expect(await Bun.file(t3Log).text()).toContain("service install");
+		expect(await Bun.file(t3Log).text()).toContain("service update");
+		expect(await Bun.file(t3Log).text()).not.toContain("service install");
 	});
 
 	test("installs t3@latest when t3 is missing", async () => {
@@ -184,11 +196,14 @@ update_t3code 0
 				GPIO_T3_CMD_LOG: t3Log,
 				GPIO_T3_INSTALLED: "",
 				GPIO_T3_LATEST: "2.0.0",
+				GPIO_T3_SERVICE_STATUS: "not-installed",
 			}),
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 none -> 2.0.0");
 		expect(await Bun.file(npmLog).text()).toContain("install -g t3@latest");
+		expect(await Bun.file(t3Log).text()).toContain("service install");
+		expect(await Bun.file(t3Log).text()).not.toContain("service update");
 	});
 
 	test("keeps current when t3@latest cannot be resolved", async () => {
@@ -212,7 +227,30 @@ update_t3code 0
 		expect(result.exit).toBe(0);
 		expect(result.stderr).toContain("t3@latest unavailable");
 		expect(await Bun.file(npmLog).text()).not.toContain("install -g t3@latest");
+		expect(await Bun.file(t3Log).exists()).toBe(false);
+	});
+
+	test("installs the service when behind and the unit is missing", async () => {
+		const { dir, bin } = await stubPath();
+		const t3Log = join(dir, "t3.log");
+		const result = await bash(
+			`
+PATH="${bin}:$PATH"
+source "${libSh}"
+GPIO_USER=root
+update_t3code 0
+`,
+			t3Env(dir, {
+				GPIO_T3_NPM_LOG: join(dir, "npm.log"),
+				GPIO_T3_CMD_LOG: t3Log,
+				GPIO_T3_INSTALLED: "1.2.3",
+				GPIO_T3_LATEST: "1.4.0",
+				GPIO_T3_SERVICE_STATUS: "not-installed",
+			}),
+		);
+		expect(result.exit).toBe(0);
 		expect(await Bun.file(t3Log).text()).toContain("service install");
+		expect(await Bun.file(t3Log).text()).not.toContain("service update");
 	});
 
 	test("force reinstalls t3@latest even when current", async () => {
@@ -236,6 +274,8 @@ update_t3code 1
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("t3 1.2.3 -> 1.2.3");
 		expect(await Bun.file(npmLog).text()).toContain("install -g t3@latest");
+		expect(await Bun.file(t3Log).text()).toContain("service update");
+		expect(await Bun.file(t3Log).text()).not.toContain("service install");
 	});
 
 	test("does not touch loginctl when restart is skipped", async () => {
