@@ -87,6 +87,38 @@ describe("syncProjects", () => {
 		expect(result.added).toEqual([]);
 	});
 
+	test("clones a gpio-companion repo past the first 80 installation repos", async () => {
+		const cloned: string[] = [];
+		const filler = Array.from({ length: 90 }, (_, index) => ({
+			name: `old-${index}`,
+			owner: { login: "ada" as const },
+		}));
+		await syncProjects({
+			destRoot: "/home/companion/projects",
+			token: async () => "ghs_token",
+			t3Add: async () => "added",
+			exists: () => false,
+			mkdirp: () => undefined,
+			gitClone: async (url, dest) => {
+				cloned.push(`${url} ${dest}`);
+			},
+			fetchImpl: githubFetch({
+				repos: [
+					...filler,
+					{
+						name: "blink-test",
+						owner: { login: "ada" },
+						description: "gpio-companion project",
+					},
+				],
+				watermarked: ["ada/blink-test"],
+			}),
+		});
+		expect(cloned).toEqual([
+			"https://github.com/ada/blink-test.git /home/companion/projects/blink-test",
+		]);
+	});
+
 	test("clones a single pushed repo without listing github", async () => {
 		const paths: string[] = [];
 		const cloned: string[] = [];
@@ -117,7 +149,11 @@ describe("syncProjects", () => {
 });
 
 function githubFetch(options: {
-	repos: Array<{ name: string; owner: { login: string } }>;
+	repos: Array<{
+		name: string;
+		owner: { login: string };
+		description?: string;
+	}>;
 	watermarked: string[];
 }) {
 	return async (input: string | URL | Request) => {

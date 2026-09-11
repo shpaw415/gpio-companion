@@ -5,13 +5,13 @@ import {
 	isProjectFileDir,
 	PCB_CIRCUIT_JSON,
 	PROJECT_FILE_DIRS,
+	PROJECT_REPO_DESCRIPTION,
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_SYNC_PATH,
 	parseGithubRepoName,
 	parseProjectSyncPut,
 	pickProjectWatermarkCandidates,
-	PROJECT_REPO_DESCRIPTION,
 } from "./project-files.ts";
 
 describe("project files", () => {
@@ -50,16 +50,19 @@ describe("project files", () => {
 	});
 
 	test("prefers gpio-companion descriptions past the watermark cap", () => {
-		const repos = Array.from({ length: 90 }, (_, index) => ({
-			name: `repo-${index}`,
-			full_name: `ada/repo-${index}`,
-		}));
-		repos.push({
-			name: "blink-test",
-			full_name: "ada/blink-test",
-			description: PROJECT_REPO_DESCRIPTION,
-		} as (typeof repos)[number] & { description: string });
-		const picked = pickProjectWatermarkCandidates(repos);
-		expect(picked.map((item) => item.full_name)).toEqual(["ada/blink-test"]);
+		const repos = [
+			...Array.from({ length: 90 }, (_, index) => ({
+				name: `repo-${index}`,
+				full_name: `ada/repo-${index}`,
+			})),
+			{
+				name: "blink-test",
+				full_name: "ada/blink-test",
+				description: PROJECT_REPO_DESCRIPTION,
+			},
+		];
+		expect(
+			pickProjectWatermarkCandidates(repos).map((item) => item.full_name),
+		).toEqual(["ada/blink-test"]);
 	});
 });

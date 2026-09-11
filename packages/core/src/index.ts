@@ -363,7 +363,6 @@ export {
 	MAX_PROJECT_WATERMARK_CHECKS,
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
-	pickProjectWatermarkCandidates,
 	PROJECT_FILE_DIRS,
 	PROJECT_REPO_DESCRIPTION,
 	PROJECT_WATERMARK_BODY,
@@ -375,6 +374,7 @@ export {
 	type ProjectWatermarkCandidate,
 	parseGithubRepoName,
 	parseProjectSyncPut,
+	pickProjectWatermarkCandidates,
 } from "./project-files.ts";
 export {
 	DEFAULT_GITHUB_URL,

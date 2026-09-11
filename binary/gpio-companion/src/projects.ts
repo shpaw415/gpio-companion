@@ -4,10 +4,10 @@ import { join } from "node:path";
 import {
 	GITHUB_API,
 	githubCloneUrl,
-	pickProjectWatermarkCandidates,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_DIR_NAME,
 	type ProjectSyncPut,
+	pickProjectWatermarkCandidates,
 } from "gpio-companion";
 
 export type FetchLike = (
@@ -42,6 +42,7 @@ export type ProjectSyncOptions = {
 type RepoJson = {
 	name?: string;
 	full_name?: string;
+	description?: string | null;
 	owner?: { login?: string };
 };
 
@@ -195,7 +196,11 @@ function mapRepo(item: RepoJson): GithubProject | null {
 	if (!name || !owner) {
 		return null;
 	}
-	return { owner, name };
+	return {
+		owner,
+		name,
+		...(item.description ? { description: item.description } : {}),
+	};
 }
 
 function nextPath(link: string | null): string | null {

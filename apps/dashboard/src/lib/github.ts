@@ -244,8 +244,6 @@ async function repoVisibleAsProject(
 	return false;
 }
 
-
-
 async function mapPool<T, R>(
 	items: T[],
 	limit: number,
