@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
+import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import {
+	DASHBOARD_BOTTOM_NAV_ID,
 	isT3Path,
 	readT3PairLocation,
 	T3_FRAME_SLOT_ID,
@@ -15,8 +17,20 @@ type FrameRect = {
 	height: number;
 };
 
+function frameBottom(mobile: boolean): number {
+	if (!mobile) {
+		return window.innerHeight;
+	}
+	const nav = document.getElementById(DASHBOARD_BOTTOM_NAV_ID);
+	if (!nav) {
+		return window.innerHeight;
+	}
+	return nav.getBoundingClientRect().top;
+}
+
 export default function T3Frame() {
 	const pathname = usePathname();
+	const mobile = useMobile();
 	const { uuid, setUuid } = useBoardSelection();
 	const visible = isT3Path(pathname);
 	const [pairToken, setPairToken] = useState("");
@@ -32,7 +46,7 @@ export default function T3Frame() {
 	useEffect(() => {
 		const apply = () => {
 			const next = readT3PairLocation();
-			if (next.uuid) {
+			if (next.uuid && isT3Path(pathname)) {
 				setUuid(next.uuid);
 			}
 			setPairToken(next.token);
@@ -68,7 +82,7 @@ export default function T3Frame() {
 				top: next.top,
 				left: next.left,
 				width: next.width,
-				height: next.height,
+				height: Math.max(0, frameBottom(mobile) - next.top),
 			});
 		};
 
@@ -98,7 +112,7 @@ export default function T3Frame() {
 			window.removeEventListener("resize", sync);
 			window.removeEventListener("scroll", sync, true);
 		};
-	}, [src, visible]);
+	}, [src, visible, mobile]);
 
 	if (!src) {
 		return null;

@@ -3,15 +3,12 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
-import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useRef, useState } from "react";
 import DeviceSelect from "../../components/DeviceSelect.tsx";
-import { SectionHeader } from "../../components/Section.tsx";
 import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
-import useMobile from "../../hooks/useMobile.ts";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
 import {
 	pickT3DeviceUuid,
@@ -24,7 +21,6 @@ export default function T3Page() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const { uuid, setUuid } = useBoardSelection();
-	const mobile = useMobile();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
@@ -44,10 +40,7 @@ export default function T3Page() {
 				const next = result?.devices ?? [];
 				setDevices(next);
 				setUuid(
-					pickT3DeviceUuid(
-						next,
-						readT3PairLocation().uuid || uuidRef.current,
-					),
+					pickT3DeviceUuid(next, readT3PairLocation().uuid || uuidRef.current),
 				);
 			})
 			.finally(() => {
@@ -57,45 +50,57 @@ export default function T3Page() {
 
 	return (
 		<Stack
-			spacing={1}
-			sx={{ flex: 1, minHeight: 0, height: "100%", display: "flex" }}
+			spacing={0}
+			sx={{
+				flex: 1,
+				minHeight: 0,
+				height: "100%",
+				display: "flex",
+				overflow: "hidden",
+			}}
 		>
-			<SectionHeader title="Code">
-				{mobile ? null : (
-					<Typography color="secondary">
-						Talk to the agent on your board. Leaving this tab keeps your place.
-					</Typography>
-				)}
-			</SectionHeader>
+			<Stack
+				spacing={1}
+				direction="row"
+				sx={{
+					alignItems: "center",
+					flexShrink: 0,
+					px: 1.5,
+					py: 0.5,
+					minHeight: 0,
+				}}
+			>
+				{!loggedIn ? (
+					<Box sx={{ flex: 1, minWidth: 0 }}>
+						<Alert severity="info">
+							<Button href="/login" variant="text" size="small">
+								Sign in
+							</Button>{" "}
+							to open Code on a paired board.
+						</Alert>
+					</Box>
+				) : null}
 
-			{!loggedIn ? (
-				<Alert severity="info">
-					<Button href="/login" variant="text">
-						Sign in
-					</Button>{" "}
-					to open Code on a paired board.
-				</Alert>
-			) : null}
+				{loggedIn && loading ? (
+					<Box sx={{ flex: 1, minWidth: 0 }}>
+						<SelectSkeleton height={40} />
+					</Box>
+				) : null}
 
-			{loggedIn && loading ? <SelectSkeleton /> : null}
+				{loggedIn && !loading && devices.length === 0 ? (
+					<Box sx={{ flex: 1, minWidth: 0 }}>
+						<Alert severity="info">
+							<Button href="/devices" variant="text" size="small">
+								Pair a board
+							</Button>{" "}
+							to load Code here.
+						</Alert>
+					</Box>
+				) : null}
 
-			{loggedIn && !loading && devices.length === 0 ? (
-				<Alert severity="info">
-					<Button href="/devices" variant="text">
-						Pair a board
-					</Button>{" "}
-					to load Code here.
-				</Alert>
-			) : null}
-
-			{loggedIn && devices.length > 0 ? (
-				<>
-					<Stack
-						direction={mobile ? "column" : "row"}
-						spacing={1}
-						className="items-stretch min-[900px]:items-end"
-					>
-						<Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+				{loggedIn && devices.length > 0 ? (
+					<>
+						<Box sx={{ flex: 1, minWidth: 0 }}>
 							<DeviceSelect
 								devices={devices}
 								value={uuid}
@@ -106,6 +111,7 @@ export default function T3Page() {
 						{src ? (
 							<Button
 								variant="text"
+								size="small"
 								onClick={() => {
 									window.open(src, "_blank", "noopener,noreferrer");
 								}}
@@ -113,12 +119,14 @@ export default function T3Page() {
 								Open
 							</Button>
 						) : null}
-					</Stack>
-					<Box
-						id={T3_FRAME_SLOT_ID}
-						sx={{ flex: 1, minHeight: mobile ? 160 : 240, width: "100%" }}
-					/>
-				</>
+					</>
+				) : null}
+			</Stack>
+			{loggedIn && devices.length > 0 ? (
+				<Box
+					id={T3_FRAME_SLOT_ID}
+					sx={{ flex: 1, minHeight: 0, width: "100%" }}
+				/>
 			) : null}
 		</Stack>
 	);

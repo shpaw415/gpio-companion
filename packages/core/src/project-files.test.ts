@@ -10,6 +10,8 @@ import {
 	PROJECTS_SYNC_PATH,
 	parseGithubRepoName,
 	parseProjectSyncPut,
+	pickProjectWatermarkCandidates,
+	PROJECT_REPO_DESCRIPTION,
 } from "./project-files.ts";
 
 describe("project files", () => {
@@ -45,5 +47,19 @@ describe("project files", () => {
 			"owner and name are required",
 		);
 		expect(() => parseProjectSyncPut([])).toThrow("body must be an object");
+	});
+
+	test("prefers gpio-companion descriptions past the watermark cap", () => {
+		const repos = Array.from({ length: 90 }, (_, index) => ({
+			name: `repo-${index}`,
+			full_name: `ada/repo-${index}`,
+		}));
+		repos.push({
+			name: "blink-test",
+			full_name: "ada/blink-test",
+			description: PROJECT_REPO_DESCRIPTION,
+		} as (typeof repos)[number] & { description: string });
+		const picked = pickProjectWatermarkCandidates(repos);
+		expect(picked.map((item) => item.full_name)).toEqual(["ada/blink-test"]);
 	});
 });

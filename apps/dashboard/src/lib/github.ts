@@ -6,9 +6,11 @@ import {
 	PCB_CIRCUIT_JSON,
 	PCB_PREVIEW_SVG,
 	PROJECT_FILE_DIRS,
+	PROJECT_REPO_DESCRIPTION,
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
 	parseGithubRepoName,
+	pickProjectWatermarkCandidates,
 } from "gpio-companion";
 import {
 	type GithubAppEnv,
@@ -215,7 +217,7 @@ export async function listRepos(
 			...(repo.description ? { description: repo.description } : {}),
 		});
 	}
-	const candidates = pickWatermarkCandidates(
+	const candidates = pickProjectWatermarkCandidates(
 		[...byName.values()],
 		extraNames,
 		searchNames,
@@ -242,27 +244,7 @@ async function repoVisibleAsProject(
 	return false;
 }
 
-const MAX_WATERMARK_CHECKS = 80;
 
-function pickWatermarkCandidates(
-	repos: ListedRepo[],
-	extraNames: Set<string>,
-	searchNames: Set<string>,
-): ListedRepo[] {
-	if (repos.length <= MAX_WATERMARK_CHECKS) {
-		return repos;
-	}
-	const preferred = repos.filter(
-		(repo) =>
-			extraNames.has(repo.full_name) ||
-			searchNames.has(repo.full_name) ||
-			repo.description === REPO_DESCRIPTION,
-	);
-	if (preferred.length > 0) {
-		return preferred.slice(0, MAX_WATERMARK_CHECKS);
-	}
-	return repos.slice(0, MAX_WATERMARK_CHECKS);
-}
 
 async function mapPool<T, R>(
 	items: T[],
@@ -368,7 +350,7 @@ export async function repoHasWatermark(
 	return response.ok;
 }
 
-const REPO_DESCRIPTION = "gpio-companion project";
+const REPO_DESCRIPTION = PROJECT_REPO_DESCRIPTION;
 
 type CreatedGithubRepo = {
 	id?: number;

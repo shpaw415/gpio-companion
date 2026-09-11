@@ -7,6 +7,40 @@ export const PROJECT_WATERMARK_BODY = "gpio-companion\n";
 export const PROJECTS_SYNC_PATH = "/v1/projects/sync";
 export const PROJECTS_DIR_NAME = "projects";
 export const MAX_PROJECT_WATERMARK_CHECKS = 80;
+export const PROJECT_REPO_DESCRIPTION = "gpio-companion project";
+
+export type ProjectWatermarkCandidate = {
+	name: string;
+	full_name?: string;
+	description?: string;
+};
+
+export function pickProjectWatermarkCandidates<
+	T extends ProjectWatermarkCandidate,
+>(
+	repos: T[],
+	extraNames: Iterable<string> = [],
+	searchNames: Iterable<string> = [],
+	max = MAX_PROJECT_WATERMARK_CHECKS,
+): T[] {
+	if (repos.length <= max) {
+		return repos;
+	}
+	const extra = new Set(extraNames);
+	const search = new Set(searchNames);
+	const preferred = repos.filter((repo) => {
+		const full = repo.full_name || repo.name;
+		return (
+			extra.has(full) ||
+			search.has(full) ||
+			repo.description === PROJECT_REPO_DESCRIPTION
+		);
+	});
+	if (preferred.length > 0) {
+		return preferred.slice(0, max);
+	}
+	return repos.slice(0, max);
+}
 
 export type ProjectSyncPut = {
 	owner?: string;

@@ -33,7 +33,13 @@ export default function DevicesLayout({
 				minWidth: 0,
 				width: "100%",
 				...(onT3
-					? { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }
+					? {
+							display: "flex",
+							flexDirection: "column",
+							flex: 1,
+							minHeight: 0,
+							overflow: "hidden",
+						}
 					: undefined),
 			}}
 		>
@@ -42,7 +48,12 @@ export default function DevicesLayout({
 				onChange={(_event, next) => navigate(String(next))}
 				variant="scrollable"
 				aria-label="Devices sections"
-				sx={{ flex: "0 0 auto", height: "auto", flexShrink: 0 }}
+				sx={{
+					flex: "0 0 auto",
+					height: "auto",
+					flexShrink: 0,
+					px: onT3 ? 1.5 : undefined,
+				}}
 			>
 				{tabs.map((tab) => (
 					<Tab key={tab.href} value={tab.href} label={tab.label} />
@@ -53,11 +64,11 @@ export default function DevicesLayout({
 				sx={
 					onT3
 						? {
-								mt: 1,
 								flex: 1,
 								minHeight: 0,
 								display: "flex",
 								flexDirection: "column",
+								overflow: "hidden",
 							}
 						: undefined
 				}

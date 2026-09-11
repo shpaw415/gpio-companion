@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
 	GITHUB_API,
 	githubCloneUrl,
-	MAX_PROJECT_WATERMARK_CHECKS,
+	pickProjectWatermarkCandidates,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_DIR_NAME,
 	type ProjectSyncPut,
@@ -20,6 +20,7 @@ export type ApplyProjects = (target: ProjectSyncPut) => Promise<void>;
 export type GithubProject = {
 	owner: string;
 	name: string;
+	description?: string;
 };
 
 export type ProjectSyncResult = {
@@ -122,7 +123,12 @@ async function listWatermarkedRepos(
 	fetcher: FetchLike,
 ): Promise<GithubProject[]> {
 	const repos = await listInstallationRepos(token, fetcher);
-	const candidates = repos.slice(0, MAX_PROJECT_WATERMARK_CHECKS);
+	const candidates = pickProjectWatermarkCandidates(
+		repos.map((repo) => ({
+			...repo,
+			full_name: `${repo.owner}/${repo.name}`,
+		})),
+	);
 	const marked: GithubProject[] = [];
 	await mapPool(candidates, 8, async (repo) => {
 		if (await repoHasWatermark(token, repo, fetcher)) {

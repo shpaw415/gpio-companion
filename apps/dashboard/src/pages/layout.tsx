@@ -14,13 +14,13 @@ import IconButton from "@shpaw415/mui-lite/IconButton";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Toolbar from "@shpaw415/mui-lite/Toolbar";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ActionErrorProvider } from "../hooks/useActionError.tsx";
 import { useColorMode } from "../hooks/useColorMode.tsx";
 import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
-import { isT3Path } from "../lib/t3-url.ts";
+import { DASHBOARD_BOTTOM_NAV_ID, isT3Path } from "../lib/t3-url.ts";
 
 const sections: Array<{ href: string; label: string; icon: ReactNode }> = [
 	{ href: "/project", label: "Project", icon: <FolderIcon /> },
@@ -52,6 +52,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 			<Box
 				sx={{
 					minHeight: "100dvh",
+					...(onT3 ? { height: "100dvh", overflow: "hidden" } : undefined),
 					bgcolor: "bg-main",
 					display: "flex",
 					flexDirection: "column",
@@ -113,7 +114,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 				<Box
 					className={
 						onT3
-							? "flex min-h-0 w-full min-w-0 flex-1 flex-col px-3 pt-2 min-[900px]:px-4"
+							? "flex min-h-0 w-full min-w-0 flex-1 flex-col"
 							: "mx-auto w-full min-w-0 max-w-5xl px-3 py-4 min-[900px]:px-4 min-[900px]:py-8"
 					}
 					sx={{
@@ -123,6 +124,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 									minHeight: 0,
 									display: "flex",
 									flexDirection: "column",
+									overflow: "hidden",
 								}
 							: undefined),
 						...(mobile
@@ -134,6 +136,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 				</Box>
 				{mobile ? (
 					<Paper
+						id={DASHBOARD_BOTTOM_NAV_ID}
 						elevation={3}
 						square
 						sx={{
