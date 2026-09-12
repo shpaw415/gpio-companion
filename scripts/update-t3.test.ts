@@ -510,14 +510,9 @@ configure_t3_opencode_only
 		};
 		expect(saved.providers.opencode.enabled).toBe(true);
 		expect(saved.providerInstances.opencode.config.binaryPath).toBe(
-			join(ocbin, "opencode"),
+			join(bindir, "opencode"),
 		);
-		const proc = Bun.spawn(["readlink", "-f", join(bindir, "opencode")], {
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		expect((await new Response(proc.stdout).text()).trim()).toBe(
-			join(ocbin, "opencode"),
-		);
+		const wrapper = await Bun.file(join(bindir, "opencode")).text();
+		expect(wrapper).toContain(join(ocbin, "opencode"));
 	});
 });

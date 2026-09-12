@@ -303,25 +303,74 @@ opencode_bin() {
 	command -v opencode 2>/dev/null
 }
 
+opencode_version_file() {
+	printf '%s\n' "$(gpio_user_home)/.opencode/version"
+}
+
+opencode_wrapper_bin() {
+	printf '%s\n' "${GPIO_COMPANION_BIN_DIR:-$BIN_DIR}/opencode"
+}
+
+cache_opencode_version() {
+	local real dest version
+	real="$(opencode_bin || true)"
+	dest="$(opencode_version_file)"
+	if [[ -z "$real" || ! -x "$real" ]]; then
+		return 1
+	fi
+	install -d -m 0755 "$(dirname "$dest")"
+	if [[ -s "$dest" && "$dest" -nt "$real" ]]; then
+		return 0
+	fi
+	if command -v timeout >/dev/null 2>&1; then
+		version="$(timeout 60 "$real" --version 2>/dev/null | head -n1 || true)"
+	else
+		version="$("$real" --version 2>/dev/null | head -n1 || true)"
+	fi
+	version="${version//$'\r'/}"
+	if [[ -z "$version" ]]; then
+		return 1
+	fi
+	printf '%s\n' "$version" >"$dest"
+	if [[ "$GPIO_USER" != "root" ]]; then
+		chown "$GPIO_USER:$GPIO_USER" "$dest" 2>/dev/null || true
+	fi
+}
+
 link_opencode_bin() {
-	local bin dest current bindir
+	local bin dest bindir version_file
 	bin="$(opencode_bin || true)"
 	if [[ -z "$bin" ]]; then
 		return 1
 	fi
 	bindir="${GPIO_COMPANION_BIN_DIR:-$BIN_DIR}"
 	dest="${bindir}/opencode"
+	version_file="$(opencode_version_file)"
 	if [[ "$bin" == "$dest" ]]; then
 		return 0
 	fi
 	if [[ ! -d "$bindir" ]]; then
 		return 1
 	fi
-	current="$(readlink -f "$dest" 2>/dev/null || true)"
-	if [[ -n "$current" && "$current" == "$(readlink -f "$bin" 2>/dev/null || true)" ]]; then
-		return 0
+	cache_opencode_version || true
+	if [[ -L "$dest" ]]; then
+		rm -f "$dest"
 	fi
-	ln -sfn "$bin" "$dest"
+	cat >"$dest" <<EOF
+#!/bin/sh
+REAL='$bin'
+VERSION_FILE='$version_file'
+case "\${1-}" in
+--version|-v|version)
+	if [ -s "\$VERSION_FILE" ]; then
+		cat "\$VERSION_FILE"
+		exit 0
+	fi
+	;;
+esac
+exec "\$REAL" "\$@"
+EOF
+	chmod 0755 "$dest"
 }
 
 update_opencode() {
@@ -361,11 +410,16 @@ t3_home() {
 }
 
 configure_t3_opencode_only() {
-	local home dest result ocbin
+	local home dest result ocbin wrapper
 	home="$(t3_home)"
 	dest="$home/userdata/settings.json"
-	ocbin="$(opencode_bin || true)"
 	link_opencode_bin || true
+	wrapper="$(opencode_wrapper_bin)"
+	if [[ -x "$wrapper" ]]; then
+		ocbin="$wrapper"
+	else
+		ocbin="$(opencode_bin || true)"
+	fi
 	install -d -m 0755 "$(dirname "$dest")"
 	result="$(GPIO_T3_SETTINGS="$dest" GPIO_OPENCODE_BIN="${ocbin:-opencode}" python3 - <<'PY'
 import json
