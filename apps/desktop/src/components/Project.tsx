@@ -29,6 +29,7 @@ import {
 	loadRunSketches,
 	openExternal,
 	type ProjectBundle,
+	pushProject,
 	startFlash,
 	startRun,
 } from "../api";
@@ -226,6 +227,8 @@ export default function Project() {
 	const [owner, setOwner] = useState("all");
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [saveHint, setSaveHint] = useState("");
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
@@ -301,8 +304,42 @@ export default function Project() {
 		}
 	}
 
+	async function saveFromBoard() {
+		if (!bundle || !activeUuid || saving) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		setSaving(true);
+		try {
+			const result = await pushProject({
+				uuid: activeUuid,
+				owner: bundle.owner,
+				name: bundle.repo,
+			});
+			const key = CACHE_KEYS.projectBundle(
+				result.bundle.owner,
+				result.bundle.repo,
+			);
+			cache.set(key, result.bundle);
+			setBundle(result.bundle);
+			setSaveHint(
+				result.board.committed
+					? "Saved and pushed from the board."
+					: "Already up to date on GitHub.",
+			);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to save project",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
 	async function openRepo(repo: GithubRepo) {
 		setError("");
+		setSaveHint("");
 		const key = CACHE_KEYS.projectBundle(repo.owner, repo.name);
 		const hit = cache.peek<ProjectBundle>(key);
 		if (hit.hit) {
@@ -626,7 +663,16 @@ export default function Project() {
 						>
 							Open on GitHub
 						</Button>
+						<Button
+							variant="contained"
+							size="small"
+							disabled={saving || !activeUuid}
+							onClick={() => void saveFromBoard()}
+						>
+							{saving ? "Saving…" : "Save to GitHub"}
+						</Button>
 					</Stack>
+					{saveHint ? <Alert severity="success">{saveHint}</Alert> : null}
 					<Box
 						sx={{
 							display: "grid",

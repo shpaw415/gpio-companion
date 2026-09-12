@@ -558,6 +558,28 @@ export function createProject(name: string) {
 	return apiRequest<GithubRepo>("PATCH", "/api/mobile/projects", { name });
 }
 
+export type ProjectPushResponse = {
+	board: {
+		committed: boolean;
+		pushed: boolean;
+		sha: string;
+		message: string;
+	};
+	bundle: ProjectBundle;
+};
+
+export function pushProject(input: {
+	uuid: string;
+	owner: string;
+	name: string;
+}) {
+	return apiRequest<ProjectPushResponse>(
+		"POST",
+		"/api/mobile/projects/push",
+		input,
+	);
+}
+
 export function getGithubApp() {
 	return apiRequest<GithubAppStatus>("GET", "/api/mobile/github-app");
 }

@@ -6,6 +6,7 @@ import {
 	POST as loadProject,
 	PUT as readFile,
 } from "@api/projects";
+import { POST as saveProject } from "@api/projects/push";
 import { GET as loadRun, POST as startRun } from "@api/run";
 import { GET as loadRunSketches } from "@api/run/sketches";
 import Alert from "@shpaw415/mui-lite/Alert";
@@ -57,6 +58,8 @@ export default function ProjectBrowser({
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [saveHint, setSaveHint] = useState("");
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
@@ -155,36 +158,70 @@ export default function ProjectBrowser({
 		}
 	}
 
+	async function applyBundle(next: ProjectBundle) {
+		setBundle(next);
+		onProject?.(next.repo);
+		setPcbJson(null);
+		setBreadboardJson(null);
+		if (next.pcbCircuitJsonUrl) {
+			const file = unwrapAction(
+				await readFile(next.owner, next.repo, "pcb/circuit.json"),
+			);
+			setPcbJson(file.text);
+		}
+		const breadboardPath = next.breadboardDiagramUrl
+			? "breadboard/diagram.json"
+			: next.breadboardCircuitJsonUrl
+				? "breadboard/circuit.json"
+				: null;
+		if (breadboardPath) {
+			const file = unwrapAction(
+				await readFile(next.owner, next.repo, breadboardPath),
+			);
+			setBreadboardJson(file.text);
+		}
+	}
+
 	async function openRepo(repo: GithubRepo) {
 		setError("");
+		setSaveHint("");
 		setPcbJson(null);
 		setBreadboardJson(null);
 		setLoadingRepo(true);
 		try {
-			const next = unwrapAction(await loadProject(repo.owner, repo.name));
-			setBundle(next);
-			onProject?.(next.repo);
-			if (next.pcbCircuitJsonUrl) {
-				const file = unwrapAction(
-					await readFile(repo.owner, repo.name, "pcb/circuit.json"),
-				);
-				setPcbJson(file.text);
-			}
-			const breadboardPath = next.breadboardDiagramUrl
-				? "breadboard/diagram.json"
-				: next.breadboardCircuitJsonUrl
-					? "breadboard/circuit.json"
-					: null;
-			if (breadboardPath) {
-				const file = unwrapAction(
-					await readFile(repo.owner, repo.name, breadboardPath),
-				);
-				setBreadboardJson(file.text);
-			}
+			await applyBundle(unwrapAction(await loadProject(repo.owner, repo.name)));
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "failed to load project");
 		} finally {
 			setLoadingRepo(false);
+		}
+	}
+
+	async function saveFromBoard() {
+		if (!bundle || !uuid || saving) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		setSaving(true);
+		try {
+			const result = unwrapAction(
+				await saveProject({
+					uuid,
+					owner: bundle.owner,
+					name: bundle.repo,
+				}),
+			);
+			await applyBundle(result.bundle);
+			setSaveHint(
+				result.board.committed
+					? "Saved and pushed from the board."
+					: "Already up to date on GitHub.",
+			);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "failed to save project");
+		} finally {
+			setSaving(false);
 		}
 	}
 
@@ -337,6 +374,33 @@ export default function ProjectBrowser({
 					</>
 				) : bundle ? (
 					<>
+						<Stack
+							direction={mobile ? "column" : "row"}
+							spacing={2}
+							sx={{
+								flexWrap: "wrap",
+								alignItems: mobile ? "stretch" : "center",
+								justifyContent: "space-between",
+							}}
+						>
+							<Typography variant="h6" className="break-all">
+								{bundle.owner}/{bundle.repo}
+							</Typography>
+							<Button
+								variant="contained"
+								disabled={saving || !uuid}
+								onClick={() => void saveFromBoard()}
+							>
+								{saving ? "Saving…" : "Save to GitHub"}
+							</Button>
+						</Stack>
+						{uuid ? null : (
+							<Typography color="secondary">
+								Select a board to save pcb/, breadboard/, and technical/ from
+								its disk.
+							</Typography>
+						)}
+						{saveHint ? <Alert severity="success">{saveHint}</Alert> : null}
 						<PcbViewer
 							circuitJsonText={pcbJson}
 							label="PCB"

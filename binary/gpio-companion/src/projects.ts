@@ -142,7 +142,10 @@ export async function defaultGitClone(
 	}
 }
 
-export async function defaultGit(args: string[], cwd: string): Promise<GitResult> {
+export async function defaultGit(
+	args: string[],
+	cwd: string,
+): Promise<GitResult> {
 	const proc = Bun.spawn(["git", ...args], {
 		cwd,
 		stdout: "pipe",

@@ -33,7 +33,7 @@ When a PCB, breadboard, or technical-sheet task is done, the agent must **push**
 | `host/<name>/` | gpio-host C (`.c` / `.ino`) run on this board's header |
 | `firmware/<name>/` | USB Arduino C flashed over USB |
 
-Dashboard `/project` reads visual paths from GitHub (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`) and lists host/firmware sketches that are present on the selected board. Launch uses the board copy, not a typed Pi path.
+Dashboard `/project` reads visual paths from GitHub (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`) and lists host/firmware sketches that are present on the selected board. Launch uses the board copy, not a typed Pi path. Project **Save to GitHub** commits and pushes the board clone `~/projects/<name>` then reloads PCB / Breadboard / Technical.
 
 ## Change WiFi later
 

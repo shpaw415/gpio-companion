@@ -30,6 +30,7 @@ import {
 	loadRun,
 	loadRunSketches,
 	type ProjectBundle,
+	pushProject,
 	startFlash,
 	startRun,
 } from "../lib/api.ts";
@@ -188,6 +189,8 @@ export default function Project() {
 	const [owner, setOwner] = useState("all");
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const [saveHint, setSaveHint] = useState("");
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
@@ -317,11 +320,45 @@ export default function Project() {
 		}
 	}
 
+	async function saveFromBoard() {
+		if (!bundle || !token || !activeUuid || saving) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		setSaving(true);
+		try {
+			const result = await pushProject(token, {
+				uuid: activeUuid,
+				owner: bundle.owner,
+				name: bundle.repo,
+			});
+			const key = CACHE_KEYS.projectBundle(
+				result.bundle.owner,
+				result.bundle.repo,
+			);
+			cache.set(key, result.bundle);
+			setBundle(result.bundle);
+			setSaveHint(
+				result.board.committed
+					? "Saved and pushed from the board."
+					: "Already up to date on GitHub.",
+			);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to save project",
+			);
+		} finally {
+			setSaving(false);
+		}
+	}
+
 	async function openRepo(repo: GithubRepo) {
 		if (!token) {
 			return;
 		}
 		setError("");
+		setSaveHint("");
 		const key = CACHE_KEYS.projectBundle(repo.owner, repo.name);
 		const hit = cache.peek<ProjectBundle>(key);
 		if (hit.hit) {
@@ -559,6 +596,12 @@ export default function Project() {
 							)
 						}
 					/>
+					<PrimaryButton
+						label={saving ? "Saving…" : "Save to GitHub"}
+						disabled={saving || !activeUuid}
+						onPress={() => void saveFromBoard()}
+					/>
+					{saveHint ? <Muted>{saveHint}</Muted> : null}
 					<PreviewCard
 						title="PCB"
 						hint="No pcb/preview.svg yet. Ask the agent to design a PCB."

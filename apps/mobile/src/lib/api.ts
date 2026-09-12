@@ -441,6 +441,26 @@ export function createProject(token: string, name: string) {
 	});
 }
 
+export type ProjectPushResponse = {
+	board: {
+		committed: boolean;
+		pushed: boolean;
+		sha: string;
+		message: string;
+	};
+	bundle: ProjectBundle;
+};
+
+export function pushProject(
+	token: string,
+	input: { uuid: string; owner: string; name: string },
+) {
+	return request<ProjectPushResponse>(token, "/api/mobile/projects/push", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
 export function getGithubApp(token: string) {
 	return request<GithubAppStatus>(token, "/api/mobile/github-app");
 }

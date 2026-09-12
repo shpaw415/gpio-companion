@@ -2,16 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { BREADBOARD_DIAGRAM_JSON } from "./breadboard.ts";
 import {
 	githubCloneUrl,
+	githubOriginMatches,
 	isProjectFileDir,
 	PCB_CIRCUIT_JSON,
 	PROJECT_FILE_DIRS,
+	PROJECT_PUSH_MESSAGE,
 	PROJECT_REPO_DESCRIPTION,
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_PUSH_PATH,
 	PROJECTS_SYNC_PATH,
-	PROJECT_PUSH_MESSAGE,
-	githubOriginMatches,
 	parseGithubRepoName,
 	parseProjectPushPut,
 	parseProjectSyncPut,

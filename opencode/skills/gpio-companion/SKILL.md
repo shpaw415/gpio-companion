@@ -31,7 +31,7 @@ Drive this board's header with Arduino-style C. Direct GPIO PUT is not the defau
 
 Do **not** `PUT /v1/gpio` for blinks, PWM, tone, loops, or any lasting drive. Do not shell `gcc`, `gpioset`, or `gpio-pwm`.
 
-You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls to the user. Actions they must take go through the dashboard (or desktop/mobile): **Project → Run on board** (Start/Stop), **Project → Flash Arduino**, **Project → Live GPIO**, **Profile → Credits**, **Devices → WiFi**.
+You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls to the user. Actions they must take go through the dashboard (or desktop/mobile): **Project → Run on board** (Start/Stop), **Project → Flash Arduino**, **Project → Live GPIO**, **Project → Save to GitHub**, **Profile → Credits**, **Devices → WiFi**.
 
 ## Do
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { projectsRoot, syncProjects } from "./projects.ts";
+import { PROJECT_PUSH_MESSAGE } from "gpio-companion";
+import { projectsRoot, pushProject, syncProjects } from "./projects.ts";
 
 describe("projectsRoot", () => {
 	test("uses GPIO_COMPANION_PROJECTS_DIR", () => {
@@ -145,6 +146,111 @@ describe("syncProjects", () => {
 		expect(cloned).toEqual([
 			"https://github.com/ada/new-board.git /home/companion/projects/new-board",
 		]);
+	});
+});
+
+describe("pushProject", () => {
+	test("commits when dirty then pushes", async () => {
+		const calls: string[] = [];
+		const result = await pushProject(
+			{
+				destRoot: "/home/companion/projects",
+				exists: (path) => path === "/home/companion/projects/blink",
+				git: async (args) => {
+					calls.push(args.join(" "));
+					if (args[0] === "remote") {
+						return {
+							stdout: "https://github.com/ada/blink.git\n",
+							stderr: "",
+							code: 0,
+						};
+					}
+					if (args[0] === "status") {
+						return {
+							stdout: "M breadboard/diagram.json\n",
+							stderr: "",
+							code: 0,
+						};
+					}
+					if (args[0] === "rev-parse") {
+						return { stdout: "abc123\n", stderr: "", code: 0 };
+					}
+					return { stdout: "", stderr: "", code: 0 };
+				},
+			},
+			{ owner: "ada", name: "blink", message: PROJECT_PUSH_MESSAGE },
+		);
+		expect(calls[0]).toBe("remote get-url origin");
+		expect(calls).toContain("add -A");
+		expect(calls.some((item) => item.includes("commit -m"))).toBe(true);
+		expect(calls).toContain("push");
+		expect(result).toEqual({
+			committed: true,
+			pushed: true,
+			sha: "abc123",
+			message: PROJECT_PUSH_MESSAGE,
+		});
+	});
+
+	test("pushes without commit when clean", async () => {
+		const calls: string[] = [];
+		const result = await pushProject(
+			{
+				destRoot: "/home/companion/projects",
+				exists: (path) => path === "/home/companion/projects/blink",
+				git: async (args) => {
+					calls.push(args.join(" "));
+					if (args[0] === "remote") {
+						return {
+							stdout: "git@github.com:ada/blink.git\n",
+							stderr: "",
+							code: 0,
+						};
+					}
+					if (args[0] === "rev-parse") {
+						return { stdout: "def456\n", stderr: "", code: 0 };
+					}
+					return { stdout: "", stderr: "", code: 0 };
+				},
+			},
+			{ owner: "ada", name: "blink", message: PROJECT_PUSH_MESSAGE },
+		);
+		expect(calls.some((item) => item.includes("commit"))).toBe(false);
+		expect(result.committed).toBe(false);
+		expect(result.pushed).toBe(true);
+		expect(result.sha).toBe("def456");
+	});
+
+	test("rejects a missing clone", async () => {
+		await expect(
+			pushProject(
+				{
+					destRoot: "/home/companion/projects",
+					exists: () => false,
+					git: async () => {
+						throw new Error("unused");
+					},
+				},
+				{ owner: "ada", name: "blink", message: PROJECT_PUSH_MESSAGE },
+			),
+		).rejects.toThrow("project is not on this board");
+	});
+
+	test("rejects a mismatched origin", async () => {
+		await expect(
+			pushProject(
+				{
+					destRoot: "/home/companion/projects",
+					exists: () => true,
+					git: async () => ({
+						stdout: "https://github.com/ada/other.git\n",
+						stderr: "",
+						code: 0,
+					}),
+				},
+				{ owner: "ada", name: "blink", message: PROJECT_PUSH_MESSAGE },
+			),
+		).rejects.toThrow("project origin does not match GitHub");
 	});
 });
 
