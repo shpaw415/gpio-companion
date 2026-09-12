@@ -2,6 +2,7 @@
 #include "Arduino.h"
 #include "gpio-host.h"
 
+#include <errno.h>
 #include <gpiod.h>
 #include <pthread.h>
 #include <stdarg.h>
