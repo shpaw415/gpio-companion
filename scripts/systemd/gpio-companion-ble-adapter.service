@@ -1,13 +1,14 @@
 [Unit]
 Description=gpio-companion BLE adapter LE-only
 After=bluetooth.service
+Wants=bluetooth.service
 Before=gpio-companion.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 TimeoutStartSec=15
-ExecStart=/bin/sh -c '/usr/bin/btmgmt -i hci0 power off; /usr/bin/btmgmt -i hci0 bredr off; /usr/bin/btmgmt -i hci0 le on; /usr/bin/btmgmt -i hci0 connectable on; /usr/bin/btmgmt -i hci0 power on; /usr/bin/btmgmt -i hci0 discov on'
+ExecStart=/usr/local/lib/gpio-companion/ble-adapter.sh
 
 [Install]
 WantedBy=gpio-companion.service

@@ -1,6 +1,7 @@
 import { POST as signFlash } from "@api/device/flash";
 import { POST as signGpio } from "@api/device/gpio";
 import { POST as signDeviceInfo } from "@api/device/info";
+import { POST as signRun } from "@api/device/run";
 import { POST as signWifi } from "@api/wifi";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
@@ -264,6 +265,8 @@ async function signCheck(
 			return unwrapAction(await signFlash({ uuid }));
 		case "get-flash-ports":
 			return unwrapAction(await signFlash({ uuid, ports: true }));
+		case "get-run":
+			return unwrapAction(await signRun({ uuid }));
 		case "put-wifi":
 			return unwrapAction(
 				await signWifi({

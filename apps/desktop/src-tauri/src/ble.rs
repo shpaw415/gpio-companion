@@ -521,7 +521,10 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 			match tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await {
 				Ok(Ok(())) => {
 					crate::log::line("bluetooth le link ready");
-					return Ok(());
+					if peripheral.is_connected().await.unwrap_or(false) {
+						return Ok(());
+					}
+					crate::log::line("bluetooth le link ready but gatt not attached");
 				}
 				Ok(Err(err)) => {
 					crate::log::line(&err);

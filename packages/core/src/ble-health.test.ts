@@ -102,6 +102,21 @@ describe("ble-health", () => {
 		expect(result.detail).toContain("unexpectedly connected");
 	});
 
+	test("passes host run status over GATT", () => {
+		const result = evaluateBleHealthCheck("get-run", {
+			body: { running: false, log: "", last: null },
+		});
+		expect(result.pass).toBe(true);
+	});
+
+	test("explains a missing run signer", () => {
+		const result = evaluateBleHealthCheck("get-run", {
+			error: "no signer for get-run",
+		});
+		expect(result.pass).toBe(false);
+		expect(result.detail).toContain("Dashboard could not sign GET /v1/run");
+	});
+
 	test("explains a bluetooth timeout", () => {
 		const result = evaluateBleHealthCheck("get-info", {
 			error: "bluetooth timed out",

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { ActivityIndicator, Clipboard, Text, View } from "react-native";
-import { signDeviceInfo, signFlash, signGpio, signWifi } from "../lib/api.ts";
+import {
+	signDeviceInfo,
+	signFlash,
+	signGpio,
+	signRun,
+	signWifi,
+} from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import {
@@ -227,6 +233,8 @@ async function signCheck(token: string, uuid: string, id: BleHealthCheckId) {
 			return signFlash(token, { uuid });
 		case "get-flash-ports":
 			return signFlash(token, { uuid, ports: true });
+		case "get-run":
+			return signRun(token, { uuid });
 		case "put-wifi":
 			return signWifi(token, {
 				uuid,

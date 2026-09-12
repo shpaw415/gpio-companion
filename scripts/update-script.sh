@@ -87,6 +87,22 @@ server_needs_build() {
 }
 
 install_ble_gatt_script
+adapter_script_before=""
+adapter_unit_before=""
+if [[ -f "$LIB_DIR/ble-adapter.sh" ]]; then
+	adapter_script_before="$(cat "$LIB_DIR/ble-adapter.sh")"
+fi
+if [[ -f /etc/systemd/system/gpio-companion-ble-adapter.service ]]; then
+	adapter_unit_before="$(cat /etc/systemd/system/gpio-companion-ble-adapter.service)"
+fi
+install_ble_adapter
+adapter_changed=0
+if [[ "$adapter_script_before" != "$(cat "$LIB_DIR/ble-adapter.sh")" ]]; then
+	adapter_changed=1
+fi
+if [[ "$adapter_unit_before" != "$(cat /etc/systemd/system/gpio-companion-ble-adapter.service)" ]]; then
+	adapter_changed=1
+fi
 install_gpio_host
 install_gpiochip_udev
 add_user_groups
@@ -118,10 +134,18 @@ if server_needs_build; then
 	fi
 	printf '%s\n' "$after" >"$BIN_REV_FILE"
 	systemctl daemon-reload
+	if [[ "$adapter_changed" -eq 1 ]]; then
+		systemctl try-restart bluetooth.service || true
+		systemctl restart gpio-companion-ble-adapter.service || true
+	fi
 	systemctl restart gpio-companion.service
-elif [[ "$unit_changed" -eq 1 ]]; then
+elif [[ "$unit_changed" -eq 1 || "$adapter_changed" -eq 1 ]]; then
 	echo "gpio-companion update: gpio-companion.service user/unit changed, restarting"
 	systemctl daemon-reload
+	if [[ "$adapter_changed" -eq 1 ]]; then
+		systemctl try-restart bluetooth.service || true
+		systemctl restart gpio-companion-ble-adapter.service || true
+	fi
 	systemctl restart gpio-companion.service
 elif paths_changed '^scripts/ble-gatt-server\.py$'; then
 	echo "gpio-companion update: BLE GATT script changed, restarting"

@@ -241,14 +241,27 @@ fn gatt_objects_present(conn: &Connection, path: &str) -> bool {
 	})
 }
 
+fn device_services_resolved(conn: &Connection, path: &str) -> bool {
+	let proxy = conn.with_proxy(BLUEZ, path, Duration::from_secs(3));
+	proxy
+		.get::<bool>(DEVICE, "ServicesResolved")
+		.unwrap_or(false)
+}
+
+fn gatt_ready(conn: &Connection, path: &str) -> bool {
+	device_connected(conn, path).unwrap_or(false)
+		&& device_services_resolved(conn, path)
+		&& gatt_objects_present(conn, path)
+}
+
 fn wait_gatt(conn: &Connection, path: &str) -> bool {
 	for _ in 0..40 {
-		if device_connected(conn, path).unwrap_or(false) && gatt_objects_present(conn, path) {
+		if gatt_ready(conn, path) {
 			return true;
 		}
 		std::thread::sleep(Duration::from_millis(150));
 	}
-	device_connected(conn, path).unwrap_or(false) && gatt_objects_present(conn, path)
+	gatt_ready(conn, path)
 }
 
 pub fn le_link_ready(addr: &str) -> bool {
@@ -258,10 +271,20 @@ pub fn le_link_ready(addr: &str) -> bool {
 	let Ok(path) = resolve_device_path(&conn, addr) else {
 		return false;
 	};
-	device_connected(&conn, &path).unwrap_or(false) && gatt_objects_present(&conn, &path)
+	gatt_ready(&conn, &path)
+}
+
+fn is_dead_gatt_err(err: &dbus::Error) -> bool {
+	let message = err.message().unwrap_or_default().to_ascii_lowercase();
+	message.contains("no matching connection") || message.contains("not connected")
 }
 
 fn gatt_up_after(conn: &Connection, path: &str, result: Result<(), dbus::Error>) -> Result<(), String> {
+	if let Err(err) = &result {
+		if is_dead_gatt_err(err) {
+			return Err(connect_error(err));
+		}
+	}
 	if wait_gatt(conn, path) {
 		if let Err(err) = &result {
 			crate::log::line(&format!(

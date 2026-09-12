@@ -1571,6 +1571,27 @@ install_ble_gatt_script() {
 	install -m 0755 "$REPO_ROOT/scripts/ble-gatt-server.py" "$LIB_DIR/ble-gatt-server.py"
 }
 
+install_bluetooth_controller_mode() {
+	local conf="${GPIO_COMPANION_BLUETOOTH_CONF:-/etc/bluetooth/main.conf}"
+	if [[ ! -f "$conf" ]]; then
+		return 0
+	fi
+	if grep -qE '^ControllerMode[[:space:]]*=' "$conf"; then
+		sed -i 's/^ControllerMode[[:space:]]*=.*/ControllerMode = le/' "$conf"
+	elif grep -qE '^#ControllerMode[[:space:]]*=' "$conf"; then
+		sed -i 's/^#ControllerMode[[:space:]]*=.*/ControllerMode = le/' "$conf"
+	else
+		printf '\nControllerMode = le\n' >>"$conf"
+	fi
+}
+
+install_ble_adapter() {
+	install -d -m 0755 "$LIB_DIR"
+	install -m 0755 "$REPO_ROOT/scripts/ble-adapter.sh" "$LIB_DIR/ble-adapter.sh"
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-ble-adapter.service" /etc/systemd/system/gpio-companion-ble-adapter.service
+	install_bluetooth_controller_mode
+}
+
 install_github_git_helper() {
 	cat >/etc/gitconfig <<EOF
 [credential "https://github.com"]
@@ -1672,7 +1693,7 @@ write_gpio_companion_service() {
 install_systemd_units() {
 	local hardware="$1"
 	write_gpio_companion_service "$hardware"
-	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-ble-adapter.service" /etc/systemd/system/gpio-companion-ble-adapter.service
+	install_ble_adapter
 	install -m 0644 "$SCRIPT_DIR/systemd/cloudflared-gpio.service" /etc/systemd/system/cloudflared-gpio.service
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.service" /etc/systemd/system/gpio-companion-update.service
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
