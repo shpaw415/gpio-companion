@@ -35,6 +35,7 @@ import { useBoardSelection } from "../hooks/useBoardSelection";
 import DebugLog from "./DebugLog";
 import FlashPanel from "./FlashPanel";
 import GpioPanel from "./GpioPanel";
+import RunPanel from "./RunPanel";
 import { ListSkeleton, PreviewSkeleton } from "./skeletons";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
@@ -348,6 +349,8 @@ export default function Project() {
 						/>
 						<Typography variant="subtitle1">Flash Arduino</Typography>
 						<FlashPanel uuid={activeUuid} />
+						<Typography variant="subtitle1">Run on board</Typography>
+						<RunPanel uuid={activeUuid} />
 					</Stack>
 				</Paper>
 			) : null}

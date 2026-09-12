@@ -80,13 +80,14 @@ server_needs_build() {
 		return 0
 	fi
 	if [[ "$bin_rev" != "$after" ]]; then
-		paths_changed '^(binary/gpio-companion/|packages/core/|native/gpio-pwm/|scripts/systemd/gpio-companion\.service|package\.json|bun\.lock)' "$bin_rev"
+		paths_changed '^(binary/gpio-companion/|packages/core/|native/gpio-pwm/|native/gpio-host/|scripts/systemd/gpio-companion\.service|package\.json|bun\.lock)' "$bin_rev"
 		return
 	fi
 	return 1
 }
 
 install_ble_gatt_script
+install_gpio_host
 install_gpiochip_udev
 add_user_groups
 install_storage_link

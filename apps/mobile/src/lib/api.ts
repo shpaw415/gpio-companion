@@ -648,6 +648,56 @@ export function startFlash(
 	});
 }
 
+export type RunStatus = {
+	running: boolean;
+	log: string;
+	last: {
+		ok: boolean;
+		dir: string;
+		log: string;
+	} | null;
+};
+
+export function loadRun(token: string, uuid: string) {
+	return request<RunStatus>(
+		token,
+		`/api/mobile/run?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function startRun(token: string, input: { uuid: string; dir: string }) {
+	return request<{ started: boolean }>(token, "/api/mobile/run", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
+export function stopRun(token: string, uuid: string) {
+	return request<{ stopped: boolean }>(token, "/api/mobile/run", {
+		method: "POST",
+		body: JSON.stringify({ uuid, stop: true }),
+	});
+}
+
+export function signRun(
+	token: string,
+	input: {
+		uuid: string;
+		dir?: string;
+		stop?: boolean;
+		sign?: boolean;
+	},
+) {
+	const start = Boolean(input.dir);
+	const stop = Boolean(input.stop);
+	return signOnlineOrOffline(token, "/api/mobile/run", input, {
+		uuid: input.uuid,
+		method: stop || start ? "POST" : "GET",
+		path: stop ? "/v1/run/stop" : "/v1/run",
+		body: stop ? "{}" : start ? JSON.stringify({ dir: input.dir }) : "",
+	});
+}
+
 export function signFlash(
 	token: string,
 	input: {

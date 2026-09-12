@@ -1534,6 +1534,7 @@ install_gpio_companion_bin() {
 	install -m 0755 "$src" "$BIN_DIR/gpio-companion"
 	install_ble_gatt_script
 	install_gpio_pwm
+	install_gpio_host
 	install_github_git_helper
 }
 
@@ -1550,6 +1551,19 @@ install_gpio_pwm() {
 	make -C "$src" clean all
 	install -d -m 0755 "$LIB_DIR"
 	install -m 0755 "$src/gpio-pwm" "$LIB_DIR/gpio-pwm"
+}
+
+install_gpio_host() {
+	local src="$REPO_ROOT/native/gpio-host"
+	if [[ ! -f "$src/arduino.c" ]]; then
+		return 0
+	fi
+	echo "gpio-companion update: installing gpio-host"
+	install -d -m 0755 "$LIB_DIR/gpio-host"
+	install -m 0644 "$src/Arduino.h" "$LIB_DIR/gpio-host/Arduino.h"
+	install -m 0644 "$src/gpio-host.h" "$LIB_DIR/gpio-host/gpio-host.h"
+	install -m 0644 "$src/arduino.c" "$LIB_DIR/gpio-host/arduino.c"
+	install -m 0644 "$src/main.c" "$LIB_DIR/gpio-host/main.c"
 }
 
 install_ble_gatt_script() {

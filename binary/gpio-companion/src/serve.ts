@@ -19,6 +19,8 @@ import {
 	INFO_PATH,
 	isAllowedDebugOrigin,
 	isFlashPath,
+	isGpioWsRefresh,
+	isRunPath,
 	LOGS_PATH,
 	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
@@ -27,7 +29,6 @@ import {
 	pairingCredentials,
 	parseDebugEventInput,
 	parseDeviceSecrets,
-	isGpioWsRefresh,
 	parseGpioWsCommand,
 	parsePairingClaim,
 	parsePairingUnpair,
@@ -38,6 +39,9 @@ import {
 	publicPairing,
 	publicWifiFailure,
 	publicWifiStatus,
+	RUN_PATH,
+	RUN_STOP_PATH,
+	RunError,
 	redactDeviceConfig,
 	redactLogText,
 	secretsStatus,
@@ -66,6 +70,7 @@ import {
 } from "./pairing.ts";
 import { privileged } from "./priv.ts";
 import type { ApplyProjects } from "./projects.ts";
+import { createHostRun, type RunController } from "./run.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { T3Controller } from "./t3.ts";
@@ -110,6 +115,7 @@ export type ServeOptions = {
 	readInfo?: () => Promise<Record<string, unknown>>;
 	gpio?: GpioController;
 	flash?: FlashController;
+	run?: RunController;
 };
 
 export type DeviceRequestExtras = {
@@ -119,6 +125,7 @@ export type DeviceRequestExtras = {
 	readInfo?: () => Promise<Record<string, unknown>>;
 	gpio?: GpioController;
 	flash?: FlashController;
+	run?: RunController;
 	applyUpdate?: ApplyUpdate;
 	applyProjects?: ApplyProjects;
 	dashboardUrl?: string;
@@ -152,6 +159,12 @@ export function startDeviceApi(options: ServeOptions) {
 		gpio,
 		gpioStream,
 		flash: options.flash ?? createArduinoFlash(),
+		run:
+			options.run ??
+			createHostRun({
+				hardware: async () => (await options.store.read()).hardware,
+				gpio,
+			}),
 		applyUpdate: options.applyUpdate,
 		applyProjects: options.applyProjects,
 		dashboardUrl:
@@ -234,7 +247,7 @@ export function startDeviceApi(options: ServeOptions) {
 						{ error: error.message },
 						{ status: error.status },
 					);
-				} else if (error instanceof FlashError) {
+				} else if (error instanceof FlashError || error instanceof RunError) {
 					response = Response.json(
 						{ error: error.message },
 						{ status: error.status },
@@ -355,7 +368,7 @@ export async function handleDeviceRequest(
 	}
 
 	if (
-		(path === GPIO_PATH || isFlashPath(path)) &&
+		(path === GPIO_PATH || isFlashPath(path) || isRunPath(path)) &&
 		isLoopback(url) &&
 		!hasDeviceSignature(request.headers)
 	) {
@@ -367,6 +380,9 @@ export async function handleDeviceRequest(
 				extras?.gpio,
 				extras?.gpioStream,
 			);
+		}
+		if (isRunPath(path)) {
+			return handleRun(method, path, bodyText, extras?.run);
 		}
 		return handleFlash(method, path, bodyText, extras?.flash);
 	}
@@ -612,6 +628,10 @@ export async function handleDeviceRequest(
 
 	if (isFlashPath(path)) {
 		return handleFlash(method, path, bodyText, extras?.flash);
+	}
+
+	if (isRunPath(path)) {
+		return handleRun(method, path, bodyText, extras?.run);
 	}
 
 	if (method === "GET" && path === "/v1/status") {
@@ -938,6 +958,27 @@ async function handleFlash(
 	}
 	if (method === "POST" && path === FLASH_PATH) {
 		return json(flash.start(parseJson(bodyText)));
+	}
+	return json({ error: "method not allowed" }, 405);
+}
+
+function handleRun(
+	method: string,
+	path: string,
+	bodyText: string,
+	run: RunController | undefined,
+): Response {
+	if (!run) {
+		return json({ error: "run is unavailable" }, 503);
+	}
+	if (method === "GET" && path === RUN_PATH) {
+		return json(run.status());
+	}
+	if (method === "POST" && path === RUN_PATH) {
+		return json(run.start(parseJson(bodyText)));
+	}
+	if (method === "POST" && path === RUN_STOP_PATH) {
+		return json(run.stop());
 	}
 	return json({ error: "method not allowed" }, 405);
 }

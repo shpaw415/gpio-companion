@@ -408,24 +408,6 @@ function PwmDutyControl({
 	return (
 		<Stack direction="row" spacing={1} className="flex-wrap items-center">
 			<input
-				type="range"
-				min={0}
-				max={255}
-				step={1}
-				value={analog}
-				disabled={disabled}
-				aria-label={`Pin ${physical} PWM`}
-				className="min-w-0 flex-1"
-				onChange={(event) => {
-					const next = parsePwmAnalog(event.target.value);
-					if (next === undefined) {
-						return;
-					}
-					setDraft(null);
-					onPwm(physical, next);
-				}}
-			/>
-			<input
 				type="number"
 				min={0}
 				max={255}
@@ -433,8 +415,8 @@ function PwmDutyControl({
 				inputMode="numeric"
 				value={draft ?? analog}
 				disabled={disabled}
-				aria-label={`Pin ${physical} PWM value`}
-				className="w-16"
+				aria-label={`Pin ${physical} PWM`}
+				className="w-20"
 				onChange={(event) => {
 					const raw = event.target.value;
 					setDraft(raw);

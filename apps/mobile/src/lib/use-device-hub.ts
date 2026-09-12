@@ -10,6 +10,7 @@ export function useDeviceHub(
 ): void {
 	const onGpio = handlers.onGpio;
 	const onFlash = handlers.onFlash;
+	const onRun = handlers.onRun;
 	const onT3 = handlers.onT3;
 
 	useEffect(() => {
@@ -29,7 +30,7 @@ export function useDeviceHub(
 			client = startHubClient({
 				uuid: trimmed,
 				mintTicket: () => mintHubTicket(authToken, trimmed),
-				handlers: { onGpio, onFlash, onT3 },
+				handlers: { onGpio, onFlash, onRun, onT3 },
 			});
 		}
 
@@ -51,5 +52,5 @@ export function useDeviceHub(
 			sub.remove();
 			client?.stop();
 		};
-	}, [uuid, token, onGpio, onFlash, onT3]);
+	}, [uuid, token, onGpio, onFlash, onRun, onT3]);
 }

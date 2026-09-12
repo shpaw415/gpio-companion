@@ -6,6 +6,7 @@ import { GPIO_PATH } from "./gpio.ts";
 import { LOGS_PATH, UPDATE_PATH } from "./maintenance.ts";
 import { isOfflineGrantScope, WIFI_PATH } from "./offline-grant.ts";
 import { PROJECTS_SYNC_PATH } from "./project-files.ts";
+import { RUN_PATH, RUN_STOP_PATH } from "./run.ts";
 
 export type DeviceEndpointAuth = "none" | "master" | "offline" | "offline-deny";
 export type DeviceEndpointVia = "any" | "http" | "ble";
@@ -288,6 +289,34 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			expect: { kind: "error", includes: ["invalid json"] },
 		}),
 		probe({
+			id: "get-run",
+			name: "GET /v1/run",
+			method: "GET",
+			path: RUN_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["running"] },
+		}),
+		probe({
+			id: "post-run",
+			name: "POST /v1/run",
+			method: "POST",
+			path: RUN_PATH,
+			auth: "master",
+			via: "any",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
+		}),
+		probe({
+			id: "post-run-stop",
+			name: "POST /v1/run/stop",
+			method: "POST",
+			path: RUN_STOP_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["stopped"] },
+		}),
+		probe({
 			id: "get-debug-http",
 			name: "GET /v1/debug",
 			method: "GET",
@@ -344,7 +373,10 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 		if (item.path === DEBUG_PATH) {
 			continue;
 		}
-		if (item.method === "POST" && item.path === FLASH_PATH) {
+		if (
+			item.method === "POST" &&
+			(item.path === FLASH_PATH || item.path === RUN_PATH)
+		) {
 			offline.push({
 				...item,
 				id: `offline-${item.id}`,

@@ -1,5 +1,6 @@
 import type { FlashStatus } from "./flash.ts";
 import type { GpioSnapshot } from "./gpio.ts";
+import type { RunStatus } from "./run.ts";
 
 export const HUB_PATH = "/api/hub";
 export const HUB_TOKEN_PREFIX = "gpiohub.v1.";
@@ -7,12 +8,13 @@ export const HUB_TOKEN_TTL_MS = 60 * 60 * 1000;
 export const HUB_PING_MS = 60_000;
 export const HUB_GPIO_MS = 1_000;
 export const HUB_FLASH_MS = 1_500;
+export const HUB_RUN_MS = 1_000;
 export const HUB_T3_MS = 3_000;
 export const HUB_LIVE_TTL_SEC = 120;
 
 export type HubRole = "pi" | "dashboard";
 
-export type HubChannel = "gpio" | "flash" | "t3";
+export type HubChannel = "gpio" | "flash" | "run" | "t3";
 
 export type HubMessageType = HubChannel | "hello" | "ping";
 
@@ -30,10 +32,11 @@ export type HubMessage = {
 	payload?: unknown;
 };
 
-const CHANNELS = new Set<HubChannel>(["gpio", "flash", "t3"]);
+const CHANNELS = new Set<HubChannel>(["gpio", "flash", "run", "t3"]);
 const MESSAGE_TYPES = new Set<HubMessageType>([
 	"gpio",
 	"flash",
+	"run",
 	"t3",
 	"hello",
 	"ping",
@@ -122,6 +125,27 @@ export function asFlashStatus(payload: unknown): FlashStatus | null {
 	}
 	const record = payload as FlashStatus;
 	if (typeof record.running !== "boolean") {
+		return null;
+	}
+	if (
+		record.last !== null &&
+		record.last !== undefined &&
+		typeof record.last !== "object"
+	) {
+		return null;
+	}
+	return record;
+}
+
+export function asRunStatus(payload: unknown): RunStatus | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as RunStatus;
+	if (typeof record.running !== "boolean") {
+		return null;
+	}
+	if (typeof record.log !== "string") {
 		return null;
 	}
 	if (

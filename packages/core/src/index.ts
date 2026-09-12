@@ -294,12 +294,14 @@ export {
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
+	asRunStatus,
 	encodeHubMessage,
 	HUB_FLASH_MS,
 	HUB_GPIO_MS,
 	HUB_LIVE_TTL_SEC,
 	HUB_PATH,
 	HUB_PING_MS,
+	HUB_RUN_MS,
 	HUB_T3_MS,
 	HUB_TOKEN_PREFIX,
 	HUB_TOKEN_TTL_MS,
@@ -396,6 +398,18 @@ export {
 	parseProjectSyncPut,
 	pickProjectWatermarkCandidates,
 } from "./project-files.ts";
+export {
+	capRunLog,
+	isRunPath,
+	parseRunPut,
+	RUN_LOG_MAX,
+	RUN_PATH,
+	RUN_STOP_PATH,
+	RunError,
+	type RunPut,
+	type RunResult,
+	type RunStatus,
+} from "./run.ts";
 export {
 	DEFAULT_GITHUB_URL,
 	type DeviceSecrets,

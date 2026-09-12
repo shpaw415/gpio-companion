@@ -86,6 +86,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Breadboard agent skill: `opencode/skills/gpio-breadboard`
 - GPIO (locked 2026-09-06): digital `GET`/`PUT` `/v1/gpio` using physical pins 1–40. On-device agent may call unsigned on loopback when Ed25519 headers are absent. Dashboard web API and BLE use signed envelopes (`X-Gpio-Signature` required on GATT forward). Refuse power/GND, Raspberry Pi physical 27–28, and unresolved Orange Pi SoC lines. Dashboard GET is owner or admin; PUT is owner-only. `/project` polls live pin state onto the breadboard header.
 - Arduino flash (locked 2026-09-06): async `POST /v1/flash` `{ fqbn, dir, port? }` → `{ started: true }`; `GET /v1/flash` status; `GET /v1/flash/ports`. C `.c`/`.ino` in an absolute Pi directory. Same auth as GPIO (unsigned loopback without headers; signed web + BLE). Dashboard GET owner or admin; POST owner-only. UI on Devices Debug. Skill `gpio-arduino`.
+- Host run (locked 2026-09-12): async `POST /v1/run` `{ dir }` compiles Arduino-style C on the Pi and runs `setup`/`loop` on companion GPIO (physical pins, libgpiod). `GET /v1/run` is `{ running, log, last }`; `POST /v1/run/stop` kills the process. Same auth as flash. Project UI **Run on board**. Skill `gpio-host`. Not a drop-in USB Arduino sketch.
 
 **Open / not locked**
 

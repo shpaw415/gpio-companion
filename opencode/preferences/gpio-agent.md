@@ -12,6 +12,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Push finished designs to the gpio-companion web app (future gpio-companion.com dashboard)
 - Bun.js only for serving web content and automation scripts
 - Arduino firmware must be C, delivered over USB via `POST http://127.0.0.1:4150/v1/flash` `{ fqbn, dir }` (skill `gpio-arduino`). Do not shell avrdude.
+- To run C on this companion GPIO header for testing, use `POST http://127.0.0.1:4150/v1/run` `{ dir }` (skill `gpio-host`). Physical pins. Do not shell gcc.
 - Install with `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
 - cloudflared replica is the per-Pi T3 Code tunnel created at first-setup; token + hostnames can still be set through the device API
 - T3 Code service is installed at first-setup (`t3 service install`) in the GPIO user's systemd session (`loginctl enable-linger` + `user@UID`) from that user's home; `gpio-companion.service` (device API) runs as that same GPIO user (not root) so T3 pairing/status share one HOME/`~/.t3`; first-setup still needs sudo for packages and units; T3 Code providers are locked to OpenCode only; pairing is dashboard-managed after claim (`t3 pair`, pair code/QR on the board URL)

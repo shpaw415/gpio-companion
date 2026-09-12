@@ -2,17 +2,20 @@ import {
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
+	asRunStatus,
 	type FlashStatus,
 	type GpioSnapshot,
 	HUB_PATH,
 	type HubT3Status,
 	parseHubMessage,
+	type RunStatus,
 } from "gpio-companion";
 import { useEffect } from "react";
 
 export type DeviceHubHandlers = {
 	onGpio?: (snapshot: GpioSnapshot) => void;
 	onFlash?: (status: FlashStatus) => void;
+	onRun?: (status: RunStatus) => void;
 	onT3?: (status: HubT3Status) => void;
 };
 
@@ -24,6 +27,7 @@ export function hubBrowserUrl(uuid: string, location: Location): string {
 export function useDeviceHub(uuid: string, handlers: DeviceHubHandlers): void {
 	const onGpio = handlers.onGpio;
 	const onFlash = handlers.onFlash;
+	const onRun = handlers.onRun;
 	const onT3 = handlers.onT3;
 
 	useEffect(() => {
@@ -63,6 +67,13 @@ export function useDeviceHub(uuid: string, handlers: DeviceHubHandlers): void {
 					}
 					return;
 				}
+				if (message.type === "run") {
+					const status = asRunStatus(message.payload);
+					if (status) {
+						onRun?.(status);
+					}
+					return;
+				}
 				if (message.type === "t3") {
 					const status = asHubT3Status(message.payload);
 					if (status) {
@@ -87,5 +98,5 @@ export function useDeviceHub(uuid: string, handlers: DeviceHubHandlers): void {
 			window.clearTimeout(timer);
 			socket?.close();
 		};
-	}, [uuid, onGpio, onFlash, onT3]);
+	}, [uuid, onGpio, onFlash, onRun, onT3]);
 }

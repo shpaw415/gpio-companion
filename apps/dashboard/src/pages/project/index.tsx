@@ -4,6 +4,7 @@ import DeviceSelect from "@components/DeviceSelect";
 import FlashPanel from "@components/FlashPanel";
 import GpioPanel from "@components/GpioPanel";
 import ProjectBrowser from "@components/ProjectBrowser";
+import RunPanel from "@components/RunPanel";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -221,6 +222,11 @@ export default function ProjectPage() {
 							Compile C firmware on the board and upload it over USB.
 						</Typography>
 						<FlashPanel uuid={activeUuid} />
+						<Typography variant="h6">Run on board</Typography>
+						<Typography color="secondary">
+							Compile C on the board and run it on this header for GPIO tests.
+						</Typography>
+						<RunPanel uuid={activeUuid} />
 					</Stack>
 				</Paper>
 			) : null}

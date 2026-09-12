@@ -5,12 +5,14 @@ import {
 	HUB_GPIO_MS,
 	HUB_PATH,
 	HUB_PING_MS,
+	HUB_RUN_MS,
 	HUB_T3_MS,
 	type HubTicket,
 	hubOrigin,
 } from "gpio-companion";
 import type { FlashController } from "./flash.ts";
 import type { GpioController } from "./gpio.ts";
+import type { RunController } from "./run.ts";
 import type { T3Controller } from "./t3.ts";
 
 export type FetchLike = (
@@ -24,12 +26,14 @@ export type HubClientOptions = {
 	hardware: HardwareId;
 	gpio: GpioController;
 	flash: FlashController;
+	run: RunController;
 	t3?: T3Controller;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
 	webSocket?: typeof WebSocket;
 	gpioMs?: number;
 	flashMs?: number;
+	runMs?: number;
 	t3Ms?: number;
 	pingMs?: number;
 };
@@ -92,13 +96,14 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 	let delay = 500;
 	let lastGpio = "";
 	let lastFlash = "";
+	let lastRun = "";
 	let lastT3 = "";
 	let gpioBusy = false;
 	let t3Busy = false;
 	const Socket = options.webSocket ?? WebSocket;
 
 	function send(
-		type: "gpio" | "flash" | "t3" | "ping" | "hello",
+		type: "gpio" | "flash" | "run" | "t3" | "ping" | "hello",
 		payload?: unknown,
 	) {
 		if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -137,6 +142,18 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 			if (flash !== lastFlash) {
 				lastFlash = flash;
 				send("flash", JSON.parse(flash));
+			}
+		} catch {
+			undefined;
+		}
+	}
+
+	function publishRun() {
+		try {
+			const run = JSON.stringify(options.run.status());
+			if (run !== lastRun) {
+				lastRun = run;
+				send("run", JSON.parse(run));
 			}
 		} catch {
 			undefined;
@@ -202,16 +219,19 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 				delay = 500;
 				lastGpio = "";
 				lastFlash = "";
+				lastRun = "";
 				lastT3 = "";
 				send("hello");
 				void publishGpio();
 				publishFlash();
+				publishRun();
 				void publishT3();
 				watchTimers.push(
 					setInterval(() => {
 						void publishGpio();
 					}, options.gpioMs ?? HUB_GPIO_MS),
 					setInterval(publishFlash, options.flashMs ?? HUB_FLASH_MS),
+					setInterval(publishRun, options.runMs ?? HUB_RUN_MS),
 					setInterval(() => {
 						void publishT3();
 					}, options.t3Ms ?? HUB_T3_MS),

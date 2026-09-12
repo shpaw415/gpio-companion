@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, Linking, Pressable, Text, View } from "react-native";
 import FlashPanel from "../components/FlashPanel.tsx";
 import GpioPanel from "../components/GpioPanel.tsx";
+import RunPanel from "../components/RunPanel.tsx";
 import {
 	Body,
 	Chip,
@@ -322,6 +323,8 @@ export default function Project() {
 					/>
 					<Body>Flash Arduino</Body>
 					<FlashPanel uuid={activeUuid} />
+					<Body>Run on board</Body>
+					<RunPanel uuid={activeUuid} />
 				</Paper>
 			) : null}
 			<ErrorText>{error || githubQuery.error || projectsQuery.error}</ErrorText>

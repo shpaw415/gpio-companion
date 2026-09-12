@@ -584,6 +584,50 @@ async fn ble_flash(
 }
 
 #[tauri::command]
+async fn ble_run(
+	app: AppHandle,
+	uuid: String,
+	id: String,
+	dir: String,
+	stop: bool,
+) -> Result<Value, String> {
+	let _ble = ble::acquire().await;
+	emit_status(&app, "Connecting…");
+	let (peripheral, info) = ble::connected_board_info(&id).await?;
+	if !uuid.is_empty() && !info.uuid.is_empty() && info.uuid != uuid {
+		ble::disconnect(&peripheral).await;
+		return Err("this board is not the selected paired device".to_string());
+	}
+	emit_status(&app, "Signing run…");
+	let mut body = json!({ "uuid": uuid });
+	if stop {
+		body["stop"] = json!(true);
+		body["sign"] = json!(true);
+	} else if !dir.is_empty() {
+		body["dir"] = json!(dir);
+		body["sign"] = json!(true);
+	}
+	let envelope =
+		match request_value(Method::POST, "/api/mobile/run", Some(&body)).await {
+			Ok(envelope) => envelope,
+			Err(err) => {
+				ble::disconnect(&peripheral).await;
+				return Err(err);
+			}
+		};
+	emit_status(&app, "Writing…");
+	let raw = ble::send_envelope(&peripheral, &envelope).await;
+	ble::disconnect(&peripheral).await;
+	let raw = raw?;
+	let parsed: Value = serde_json::from_str(&raw)
+		.map_err(|_| "board did not return run".to_string())?;
+	if let Some(error) = parsed.get("error").and_then(Value::as_str) {
+		return Err(error.to_string());
+	}
+	Ok(parsed)
+}
+
+#[tauri::command]
 async fn wifi_known_networks() -> Vec<wifi::KnownNetwork> {
 	tokio::task::spawn_blocking(wifi::known_networks)
 		.await
@@ -669,6 +713,7 @@ pub fn run() {
 			ble_info,
 			ble_gpio,
 			ble_flash,
+			ble_run,
 			wifi_known_networks,
 			wifi_network_psk,
 			wifi_remember_network,

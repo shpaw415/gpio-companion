@@ -4,6 +4,7 @@ import {
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
+	asRunStatus,
 	encodeHubMessage,
 	HUB_PATH,
 	HUB_TOKEN_PREFIX,
@@ -41,6 +42,10 @@ describe("hub protocol", () => {
 		expect(asGpioSnapshot({ hardware: "x86", pins: [] })).toBeNull();
 		expect(asFlashStatus({ running: true, last: null })?.running).toBe(true);
 		expect(asFlashStatus({ running: "yes" })).toBeNull();
+		expect(asRunStatus({ running: true, log: "", last: null })?.running).toBe(
+			true,
+		);
+		expect(asRunStatus({ running: true, last: null })).toBeNull();
 		expect(
 			asHubT3Status({ paired: true, pairingUrl: "https://t3" })?.paired,
 		).toBe(true);

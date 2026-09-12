@@ -10,6 +10,7 @@ export type BleHealthCheckId =
 	| "put-gpio-power"
 	| "get-flash"
 	| "get-flash-ports"
+	| "get-run"
 	| "put-wifi";
 
 export type BleHealthCheck = {
@@ -36,6 +37,7 @@ export const BLE_HEALTH_CHECKS: BleHealthCheck[] = [
 		method: "GET",
 		path: "/v1/flash/ports",
 	},
+	{ id: "get-run", name: "GET /v1/run", method: "GET", path: "/v1/run" },
 	{
 		id: "put-wifi",
 		name: "PUT /v1/config/wifi",
@@ -252,6 +254,25 @@ function evaluateBody(
 				};
 			}
 			return { pass: true, detail: "Flash status received over GATT." };
+		}
+		case "get-run": {
+			if (error) {
+				return {
+					pass: false,
+					detail: `GET /v1/run failed after BLE forward: ${error}`,
+				};
+			}
+			if (
+				!body ||
+				typeof body !== "object" ||
+				typeof (body as { running?: unknown }).running !== "boolean"
+			) {
+				return {
+					pass: false,
+					detail: `GET /v1/run JSON is missing running. Body: ${JSON.stringify(body)}`,
+				};
+			}
+			return { pass: true, detail: "Host run status received over GATT." };
 		}
 		case "get-flash-ports": {
 			if (error) {

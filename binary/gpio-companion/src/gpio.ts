@@ -78,6 +78,7 @@ function gpioCmd(cmd: string[]): string[] {
 export type GpioController = {
 	snapshot(hardware: HardwareId): Promise<GpioSnapshot>;
 	apply(hardware: HardwareId, put: GpioApply): Promise<GpioSnapshot>;
+	releaseAll?(): Promise<void>;
 };
 
 export type GpioControllerOptions = {
@@ -288,7 +289,7 @@ export function createLibgpiodGpio(): GpioController {
 		);
 		return next;
 	}
-	return createGpioController(
+	const controller = createGpioController(
 		{
 			gpioinfo: () => spawnText(["gpioinfo"]),
 			readall: () => spawnText(["gpio", "readall"]).catch(() => ""),
@@ -355,6 +356,23 @@ export function createLibgpiodGpio(): GpioController {
 		},
 		{ model: () => readBoardModel() },
 	);
+	return {
+		snapshot: controller.snapshot,
+		apply: controller.apply,
+		async releaseAll() {
+			await serial(async () => {
+				for (const [key, current] of [...held.entries()]) {
+					held.delete(key);
+					await killTree(current.proc);
+				}
+				for (const [key, current] of [...pwmHeld.entries()]) {
+					pwmHeld.delete(key);
+					writeHeldStdin(current.proc, "stop\n");
+					await killTree(current.proc);
+				}
+			});
+		},
+	};
 }
 
 export function memoryGpioBackend(

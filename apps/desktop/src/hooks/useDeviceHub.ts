@@ -5,6 +5,7 @@ import { type HubHandlers, startHubClient } from "../hub";
 export function useDeviceHub(uuid: string, handlers: HubHandlers): void {
 	const onGpio = handlers.onGpio;
 	const onFlash = handlers.onFlash;
+	const onRun = handlers.onRun;
 	const onT3 = handlers.onT3;
 
 	useEffect(() => {
@@ -15,10 +16,10 @@ export function useDeviceHub(uuid: string, handlers: HubHandlers): void {
 		const client = startHubClient({
 			uuid: trimmed,
 			mintTicket: () => mintHubTicket(trimmed),
-			handlers: { onGpio, onFlash, onT3 },
+			handlers: { onGpio, onFlash, onRun, onT3 },
 		});
 		return () => {
 			client.stop();
 		};
-	}, [uuid, onGpio, onFlash, onT3]);
+	}, [uuid, onGpio, onFlash, onRun, onT3]);
 }

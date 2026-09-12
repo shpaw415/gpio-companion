@@ -1,4 +1,4 @@
-import type { FlashStatus, GpioSnapshot, T3Status } from "./api.ts";
+import type { FlashStatus, GpioSnapshot, RunStatus, T3Status } from "./api.ts";
 
 const START_MS = 500;
 const MAX_MS = 10_000;
@@ -6,6 +6,7 @@ const MAX_MS = 10_000;
 export type HubHandlers = {
 	onGpio?: (snapshot: GpioSnapshot) => void;
 	onFlash?: (status: FlashStatus) => void;
+	onRun?: (status: RunStatus) => void;
 	onT3?: (status: T3Status) => void;
 };
 
@@ -34,6 +35,7 @@ export function parseHubMessage(input: unknown): HubMessage | null {
 	if (
 		record.type !== "gpio" &&
 		record.type !== "flash" &&
+		record.type !== "run" &&
 		record.type !== "t3" &&
 		record.type !== "hello" &&
 		record.type !== "ping"
@@ -108,6 +110,20 @@ export function asFlashStatus(payload: unknown): FlashStatus | null {
 	}
 	const record = payload as FlashStatus;
 	if (typeof record.running !== "boolean") {
+		return null;
+	}
+	return record;
+}
+
+export function asRunStatus(payload: unknown): RunStatus | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as RunStatus;
+	if (typeof record.running !== "boolean") {
+		return null;
+	}
+	if (typeof record.log !== "string") {
 		return null;
 	}
 	return record;
@@ -308,6 +324,13 @@ export function startHubClient(options: {
 				const status = asFlashStatus(message.payload);
 				if (status) {
 					options.handlers.onFlash?.(status);
+				}
+				return;
+			}
+			if (message.type === "run") {
+				const status = asRunStatus(message.payload);
+				if (status) {
+					options.handlers.onRun?.(status);
 				}
 				return;
 			}

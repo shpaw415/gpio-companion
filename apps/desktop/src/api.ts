@@ -691,6 +691,63 @@ export function startFlash(input: {
 	return apiRequest<{ started: boolean }>("POST", "/api/mobile/flash", input);
 }
 
+export type RunStatus = {
+	running: boolean;
+	log: string;
+	last: {
+		ok: boolean;
+		dir: string;
+		log: string;
+	} | null;
+};
+
+export function loadRun(uuid: string) {
+	return apiRequest<RunStatus>(
+		"GET",
+		`/api/mobile/run?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function startRun(input: { uuid: string; dir: string }) {
+	return apiRequest<{ started: boolean }>("POST", "/api/mobile/run", input);
+}
+
+export function stopRun(uuid: string) {
+	return apiRequest<{ stopped: boolean }>("POST", "/api/mobile/run", {
+		uuid,
+		stop: true,
+	});
+}
+
+export function bleRun(input: {
+	uuid: string;
+	id?: string;
+	dir?: string;
+	stop?: boolean;
+}) {
+	const start = Boolean(input.dir);
+	const stop = Boolean(input.stop);
+	return withSavedBle(input.uuid, input.id ?? "", (id) =>
+		withOfflineBle(
+			input.uuid,
+			id,
+			() =>
+				call<unknown>("ble_run", {
+					uuid: input.uuid,
+					id,
+					dir: input.dir ?? "",
+					stop: input.stop ?? false,
+				}),
+			{
+				method: stop || start ? "POST" : "GET",
+				path: stop ? "/v1/run/stop" : "/v1/run",
+				body: stop ? "{}" : start ? JSON.stringify({ dir: input.dir }) : "",
+			},
+			(raw) => parseBoardJson(raw, "board did not return run"),
+		),
+	);
+}
+
 export function bleFlash(input: {
 	uuid: string;
 	id?: string;

@@ -20,6 +20,7 @@ import { createLibgpiodGpio } from "./gpio.ts";
 import { startHubClient } from "./hub-client.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
 import { projectsRoot, syncProjects } from "./projects.ts";
+import { createHostRun } from "./run.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
 import {
@@ -91,6 +92,7 @@ const deviceAuth = loadDeviceAuth();
 const t3 = liveT3Controller();
 const gpio = createLibgpiodGpio();
 const flash = createArduinoFlash();
+const run = createHostRun({ hardware, gpio });
 const githubCredentials = async () => {
 	const state = await pairing.read();
 	const creds = await fetchGithubCredentials({
@@ -133,6 +135,7 @@ const server = startDeviceApi({
 	t3,
 	gpio,
 	flash,
+	run,
 	revokeT3: () => t3.revoke(),
 	deviceAuth,
 	githubCredentials,
@@ -169,6 +172,7 @@ startHubClient({
 	hardware,
 	gpio,
 	flash,
+	run,
 	t3,
 });
 

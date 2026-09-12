@@ -33,6 +33,7 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 - Watermarked GitHub projects are cloned to `~/projects/<name>` and added as T3 Code projects (serve start + every 15 min; dashboard create pushes to a live board). Prefer those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
 - Generate Arduino firmware in C and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). Sketch dir must be absolute and contain `.c` or `.ino`.
+- To test C on this board's GPIO header (not USB Arduino), use `POST http://127.0.0.1:4150/v1/run` `{ dir }` (skill `gpio-host`). Physical pins. Do not shell gcc.
 - Load the pinout skill for the current hardware before wiring GPIO
 - Drive GPIO through `http://127.0.0.1:4150/v1/gpio` (unsigned loopback). `GET` snapshots physical pins with live dir/value (and PWM/tone when set). Digital: `PUT` `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone: skill `gpio-pwm`. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Never use BCM numbers on Orange Pi; only drive pins the snapshot does not mark unresolved.
 
