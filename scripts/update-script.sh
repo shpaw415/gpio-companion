@@ -87,6 +87,8 @@ server_needs_build() {
 }
 
 install_ble_gatt_script
+install_gpiochip_udev
+add_user_groups
 install_storage_link
 install_cleanup_units
 install_update_wrapper

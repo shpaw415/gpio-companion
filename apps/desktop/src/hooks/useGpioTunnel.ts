@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { connectGpioLive, type GpioSnapshot } from "../api";
-import { asGpioSnapshot, startReconnectSocket } from "../hub";
+import {
+	applyGpioMessage,
+	gpioSnapshotStatusKey,
+	startReconnectSocket,
+} from "../hub";
 
 export type GpioPut = {
 	physical: number;
@@ -11,9 +15,12 @@ export type GpioPut = {
 	hz?: number;
 };
 
+export type GpioTunnelStatus = "idle" | "connecting" | "live" | "reconnecting";
+
 export type GpioTunnel = {
 	drive: (put: GpioPut) => boolean;
 	refresh: () => boolean;
+	status: GpioTunnelStatus;
 };
 
 function asGpioWsError(payload: unknown): string | null {
@@ -47,14 +54,21 @@ export function useGpioTunnel(
 	);
 	const onSnapshotRef = useRef(onSnapshot);
 	const onErrorRef = useRef(onError);
+	const snapshotRef = useRef<GpioSnapshot | null>(null);
+	const [status, setStatus] = useState<GpioTunnelStatus>(
+		uuid.trim() ? "connecting" : "idle",
+	);
 	onSnapshotRef.current = onSnapshot;
 	onErrorRef.current = onError;
 
 	useEffect(() => {
 		const trimmed = uuid.trim();
+		snapshotRef.current = null;
 		if (!trimmed) {
+			setStatus("idle");
 			return;
 		}
+		setStatus("connecting");
 		const client = startReconnectSocket({
 			open: async () => {
 				const next = await connectGpioLive(trimmed);
@@ -64,6 +78,12 @@ export function useGpioTunnel(
 				}
 				return wsUrl;
 			},
+			onOpen() {
+				setStatus("live");
+			},
+			onClose() {
+				setStatus("reconnecting");
+			},
 			onMessage(data) {
 				try {
 					const parsed = JSON.parse(data);
@@ -72,10 +92,19 @@ export function useGpioTunnel(
 						onErrorRef.current?.(error);
 						return;
 					}
-					const snapshot = asGpioSnapshot(parsed);
-					if (snapshot) {
-						onSnapshotRef.current(snapshot);
+					const snapshot = applyGpioMessage(snapshotRef.current, parsed);
+					if (!snapshot) {
+						return;
 					}
+					const prev = snapshotRef.current;
+					if (
+						prev &&
+						gpioSnapshotStatusKey(prev) === gpioSnapshotStatusKey(snapshot)
+					) {
+						return;
+					}
+					snapshotRef.current = snapshot;
+					onSnapshotRef.current(snapshot);
 				} catch {
 					undefined;
 				}
@@ -95,5 +124,6 @@ export function useGpioTunnel(
 	return {
 		drive: (put) => send(put),
 		refresh: () => send({ op: "refresh" }),
+		status,
 	};
 }

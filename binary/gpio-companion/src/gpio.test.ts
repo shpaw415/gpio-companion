@@ -10,8 +10,10 @@ import {
 } from "gpio-companion";
 import {
 	createGpioController,
+	isGpioPermissionDenied,
 	memoryGpioBackend,
 	parseGpioGet,
+	parseGpioGetMany,
 	parseGpioinfo,
 	parseWiringOpReadall,
 	resolveHeaderLines,
@@ -55,12 +57,41 @@ gpiochip0 - 256 lines:
 gpiochip1 - 64 lines:
 `;
 
+describe("gpio permission", () => {
+	test("detects chip open failures that need sudo fallback", () => {
+		expect(
+			isGpioPermissionDenied(
+				"gpioget: unable to open chip /dev/gpiochip0: Permission denied",
+			),
+		).toBe(true);
+		expect(isGpioPermissionDenied("Operation not permitted")).toBe(true);
+		expect(isGpioPermissionDenied("invalid option -- 'c'")).toBe(false);
+	});
+});
+
 describe("gpioget parse", () => {
 	test("reads libgpiod v2 active/inactive and numeric", () => {
 		expect(parseGpioGet('"118"=active')).toEqual({ value: 1 });
 		expect(parseGpioGet('"118"=inactive')).toEqual({ value: 0 });
 		expect(parseGpioGet("1")).toEqual({ value: 1 });
 		expect(parseGpioGet("0")).toEqual({ value: 0 });
+	});
+
+	test("parses batched numeric and named values", () => {
+		expect(parseGpioGetMany("1 0 1")).toEqual([
+			{ value: 1 },
+			{ value: 0 },
+			{ value: 1 },
+		]);
+		expect(parseGpioGetMany("1\n0\n1")).toEqual([
+			{ value: 1 },
+			{ value: 0 },
+			{ value: 1 },
+		]);
+		expect(parseGpioGetMany('"118"=active\n"122"=inactive')).toEqual([
+			{ value: 1 },
+			{ value: 0 },
+		]);
 	});
 });
 
@@ -138,6 +169,23 @@ describe("gpio controller", () => {
 			value: 1,
 		});
 		expect(after.pins.find((pin) => pin.physical === 11)?.value).toBe(1);
+	});
+
+	test("reuses gpioinfo within the probe cache", async () => {
+		let infoCalls = 0;
+		const inner = memoryGpioBackend(GPIOINFO);
+		const gpio = createGpioController({
+			...inner,
+			async gpioinfo() {
+				infoCalls += 1;
+				return inner.gpioinfo();
+			},
+		});
+		await gpio.snapshot("raspberrypi");
+		await gpio.snapshot("raspberrypi");
+		expect(infoCalls).toBe(1);
+		await gpio.apply("raspberrypi", { physical: 11, dir: "out", value: 1 });
+		expect(infoCalls).toBe(2);
 	});
 
 	test("refuses power and reserved", async () => {
@@ -267,8 +315,10 @@ describe("gpio stream commands", () => {
 		);
 		const last = JSON.parse(sent.at(-1) ?? "{}") as {
 			pins?: { physical: number; value?: number }[];
+			patch?: { physical: number; value?: number }[];
 		};
-		expect(last.pins?.find((pin) => pin.physical === 11)?.value).toBe(1);
+		const pins = last.pins ?? last.patch;
+		expect(pins?.find((pin) => pin.physical === 11)?.value).toBe(1);
 	});
 
 	test("returns an error for power pins", async () => {
@@ -384,6 +434,7 @@ describe("gpio http", () => {
 		});
 		const snapshots: Array<{
 			pins?: { physical: number; value?: number }[];
+			patch?: { physical: number; value?: number }[];
 			error?: string;
 		}> = [];
 		const ws = new WebSocket(
@@ -393,6 +444,7 @@ describe("gpio http", () => {
 			snapshots.push(
 				JSON.parse(String(event.data)) as {
 					pins?: { physical: number; value?: number }[];
+					patch?: { physical: number; value?: number }[];
 					error?: string;
 				},
 			);
@@ -407,20 +459,17 @@ describe("gpio http", () => {
 		}
 		ws.send(JSON.stringify({ physical: 11, dir: "out", value: 1 }));
 		const after = Date.now();
-		while (
-			Date.now() - after < 1000 &&
-			!snapshots.some(
-				(snap) => snap.pins?.find((pin) => pin.physical === 11)?.value === 1,
-			)
-		) {
+		function pinHigh(snap: (typeof snapshots)[number]) {
+			return (
+				(snap.pins ?? snap.patch)?.find((pin) => pin.physical === 11)?.value ===
+				1
+			);
+		}
+		while (Date.now() - after < 1000 && !snapshots.some(pinHigh)) {
 			await Bun.sleep(10);
 		}
 		ws.close();
-		expect(
-			snapshots.some(
-				(snap) => snap.pins?.find((pin) => pin.physical === 11)?.value === 1,
-			),
-		).toBe(true);
+		expect(snapshots.some(pinHigh)).toBe(true);
 	});
 
 	test("streams gpio snapshots over the companion websocket", async () => {

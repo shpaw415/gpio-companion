@@ -4,7 +4,7 @@ import type { DeviceAuthHeaders } from "./device-auth.ts";
 import { skuPinout } from "./gpio-sku.ts";
 
 export const GPIO_PATH = "/v1/gpio";
-export const GPIO_STREAM_MS = 1_000;
+export const GPIO_STREAM_MS = 200;
 export const GPIO_MAX_SOCKETS = 8;
 export const GPIO_MAX_PWM = 8;
 export const GPIO_PWM_HZ = 490;
@@ -67,6 +67,13 @@ export type GpioSnapshot = {
 	hardware: HardwareId;
 	pins: GpioPinState[];
 };
+
+export type GpioPatch = {
+	hardware: HardwareId;
+	patch: GpioPinState[];
+};
+
+export type GpioStreamFrame = GpioSnapshot | GpioPatch;
 
 export type GpioPut = {
 	physical: number;
@@ -246,7 +253,9 @@ export function headerPinsForBoard(
 	return pins
 		.filter((pin) => pin.physical <= sku.pinCount)
 		.map((pin) => {
-			const line = sku.lines.find((skuLine) => skuLine.physical === pin.physical);
+			const line = sku.lines.find(
+				(skuLine) => skuLine.physical === pin.physical,
+			);
 			if (!line) {
 				return pin;
 			}
@@ -272,6 +281,8 @@ export function headerPinPairs(): Array<{ odd: number; even: number }> {
 	}
 	return pairs;
 }
+
+export const HEADER_PIN_PAIRS = headerPinPairs();
 
 export function pinByPhysical(
 	pins: GpioPinState[],
@@ -339,8 +350,7 @@ export function gpioPinStatusLabel(pin: GpioPinState): string {
 	if (typeof pin.pwm === "number") {
 		return `PWM ${Math.round(pin.pwm)}%`;
 	}
-	const level =
-		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
 	if (pin.dir === "in" || pin.dir === "out") {
 		return level ? `${pin.dir} · ${level}` : pin.dir;
 	}
@@ -351,6 +361,158 @@ export function gpioPinStatusLabel(pin: GpioPinState): string {
 		return `adc ${pin.adc}`;
 	}
 	return "—";
+}
+
+export function gpioPinStatusKey(pin: GpioPinState): string {
+	return [
+		pin.physical,
+		pin.dir ?? "",
+		pin.value ?? "",
+		pin.analog ?? "",
+		pin.hz ?? "",
+		pin.pwm ?? "",
+		pin.unresolved ? 1 : 0,
+		pin.reserved ? 1 : 0,
+	].join(":");
+}
+
+export function gpioSnapshotStatusKey(snapshot: GpioSnapshot): string {
+	return snapshot.pins.map(gpioPinStatusKey).join("|");
+}
+
+export function gpioLiveValues(
+	snapshot: GpioSnapshot | null,
+): Record<number, 0 | 1> {
+	const pins: Record<number, 0 | 1> = {};
+	for (const pin of snapshot?.pins ?? []) {
+		if (pin.type === "gpio" && (pin.value === 0 || pin.value === 1)) {
+			pins[pin.physical] = pin.value;
+		}
+	}
+	return pins;
+}
+
+export function asGpioPatch(payload: unknown): GpioPatch | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as GpioPatch;
+	if (record.hardware !== "raspberrypi" && record.hardware !== "orangepi") {
+		return null;
+	}
+	if (!Array.isArray(record.patch)) {
+		return null;
+	}
+	return record;
+}
+
+export function applyGpioMessage(
+	prev: GpioSnapshot | null,
+	payload: unknown,
+): GpioSnapshot | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as GpioSnapshot & GpioPatch;
+	if (record.hardware !== "raspberrypi" && record.hardware !== "orangepi") {
+		return null;
+	}
+	if (Array.isArray(record.pins)) {
+		return { hardware: record.hardware, pins: record.pins };
+	}
+	if (!Array.isArray(record.patch)) {
+		return null;
+	}
+	if (!prev || prev.hardware !== record.hardware) {
+		return { hardware: record.hardware, pins: record.patch };
+	}
+	const byPhysical = new Map(
+		prev.pins.map((pin) => [pin.physical, pin] as const),
+	);
+	for (const pin of record.patch) {
+		byPhysical.set(pin.physical, pin);
+	}
+	return {
+		hardware: record.hardware,
+		pins: [...byPhysical.values()].sort((a, b) => a.physical - b.physical),
+	};
+}
+
+export function gpioPatchFrame(
+	prev: GpioSnapshot | null,
+	next: GpioSnapshot,
+): GpioStreamFrame | null {
+	if (!prev || prev.hardware !== next.hardware) {
+		return next;
+	}
+	if (gpioSnapshotStatusKey(prev) === gpioSnapshotStatusKey(next)) {
+		return null;
+	}
+	const previous = new Map(
+		prev.pins.map((pin) => [pin.physical, gpioPinStatusKey(pin)] as const),
+	);
+	const patch = next.pins.filter(
+		(pin) => previous.get(pin.physical) !== gpioPinStatusKey(pin),
+	);
+	if (patch.length === 0 || patch.length === next.pins.length) {
+		return next;
+	}
+	return { hardware: next.hardware, patch };
+}
+
+export function applyGpioApply(
+	snapshot: GpioSnapshot,
+	command: GpioApply,
+): GpioSnapshot {
+	return {
+		...snapshot,
+		pins: snapshot.pins.map((pin) => {
+			if (pin.physical !== command.physical) {
+				return pin;
+			}
+			if (isGpioNoTone(command)) {
+				const next = { ...pin, dir: "in" as const };
+				delete next.hz;
+				delete next.analog;
+				delete next.pwm;
+				return next;
+			}
+			if (isGpioTone(command)) {
+				const next = { ...pin, dir: "out" as const, hz: command.hz };
+				delete next.analog;
+				delete next.pwm;
+				return next;
+			}
+			if (command.dir === "pwm") {
+				const analog = command.analog ?? 0;
+				const next = {
+					...pin,
+					dir: "pwm" as const,
+					analog,
+					pwm: analogToPwmPercent(analog),
+					value: analog >= 128 ? (1 as const) : (0 as const),
+				};
+				delete next.hz;
+				return next;
+			}
+			if (command.dir === "in") {
+				const next = { ...pin, dir: "in" as const };
+				delete next.analog;
+				delete next.pwm;
+				delete next.hz;
+				return next;
+			}
+			const next = {
+				...pin,
+				dir: "out" as const,
+				value: command.value ?? 0,
+			};
+			delete next.analog;
+			delete next.pwm;
+			delete next.hz;
+			return next;
+		}),
+	};
 }
 
 export function parsePhysicalPin(value: unknown): number {

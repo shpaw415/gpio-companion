@@ -43,7 +43,7 @@ Profile → GitHub (`/profile/github`) → Connect GitHub (install the gpio-comp
 
 You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pulls `main` (or `/etc/gpio-companion/branch`) on boot and every 24h, refreshes skills/preferences, and restarts the device API when the server tree changed.
 
-`gpio-companion-cleanup.timer` runs on boot and every hour. Journals stay for 24 hours then vacuum; leftover apt/tmp/cache files are pruned so 8GB eMMC boards do not fill up. Devices → Debug shows disk free and can load a redacted last-24h journal excerpt (not a full log dump).
+`gpio-companion-cleanup.timer` runs on boot and every hour. Journals stay for 24 hours then vacuum; leftover apt/tmp/cache files are pruned so 8GB eMMC boards do not fill up. Journald does not forward to rsyslog. Devices → Debug shows disk free and can load a redacted last-24h journal excerpt (not a full log dump).
 
 ## GPIO
 

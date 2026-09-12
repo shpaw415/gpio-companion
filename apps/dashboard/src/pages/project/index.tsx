@@ -10,8 +10,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Stepper, { Step, StepLabel } from "@shpaw415/mui-lite/Stepper";
 import Typography from "@shpaw415/mui-lite/Typography";
-import type { GpioSnapshot } from "gpio-companion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DeviceStatus } from "../../components/DeviceBoardCard.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import { LinesSkeleton } from "../../components/skeletons.tsx";
@@ -63,18 +62,9 @@ export default function ProjectPage() {
 	);
 	const [githubReady, setGithubReady] = useState(false);
 	const [pairingLoading, setPairingLoading] = useState(true);
-	const [gpioSnapshot, setGpioSnapshot] = useState<GpioSnapshot | null>(null);
+	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
 	const selectedUuidRef = useRef(selectedUuid);
 	selectedUuidRef.current = selectedUuid;
-	const livePins = useMemo(() => {
-		const pins: Record<number, 0 | 1> = {};
-		for (const pin of gpioSnapshot?.pins ?? []) {
-			if (pin.type === "gpio" && (pin.value === 0 || pin.value === 1)) {
-				pins[pin.physical] = pin.value;
-			}
-		}
-		return pins;
-	}, [gpioSnapshot]);
 
 	useEffect(() => {
 		const userId = session.data?.id;
@@ -212,10 +202,11 @@ export default function ProjectPage() {
 							<LinesSkeleton lines={3} />
 						) : (
 							<GpioPanel
+								key={activeUuid}
 								uuid={activeUuid}
 								poll
 								connected={Boolean(statuses[activeUuid])}
-								onSnapshot={setGpioSnapshot}
+								onLivePins={setLivePins}
 							/>
 						)}
 					</Stack>

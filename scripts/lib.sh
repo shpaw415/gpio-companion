@@ -681,6 +681,27 @@ EOF
 	udevadm control --reload-rules || true
 }
 
+ensure_gpio_group() {
+	if getent group gpio >/dev/null 2>&1; then
+		return 0
+	fi
+	groupadd --system gpio || true
+}
+
+install_gpiochip_udev() {
+	local udev_dir="${GPIO_COMPANION_UDEV_DIR:-/etc/udev/rules.d}"
+	ensure_gpio_group
+	install -d -m 0755 "$udev_dir"
+	install -m 0644 "$SCRIPT_DIR/udev/99-gpio-companion-gpiochip.rules" "$udev_dir/99-gpio-companion-gpiochip.rules"
+	if [[ "${GPIO_COMPANION_SKIP_UDEV:-}" == "1" ]]; then
+		return 0
+	fi
+	udevadm control --reload-rules || true
+	udevadm trigger --subsystem-match=gpio --action=change || true
+	chgrp gpio /dev/gpiochip* 2>/dev/null || true
+	chmod 0660 /dev/gpiochip* 2>/dev/null || true
+}
+
 install_storage_link() {
 	install -d -m 0755 "$LIB_DIR"
 	install -m 0755 "$SCRIPT_DIR/storage-link.sh" "$LIB_DIR/storage-link.sh"
@@ -1529,9 +1550,11 @@ EOF
 }
 
 install_journald_retention() {
-	local dest="/etc/systemd/journald.conf.d/gpio-companion.conf"
+	local dest_dir="${GPIO_COMPANION_JOURNALD_DIR:-/etc/systemd/journald.conf.d}"
+	local dest="$dest_dir/zz-gpio-companion.conf"
 	local previous=""
-	install -d -m 0755 /etc/systemd/journald.conf.d
+	install -d -m 0755 "$dest_dir"
+	rm -f "$dest_dir/gpio-companion.conf" "$dest_dir/99-gpio-companion.conf"
 	if [[ -f "$dest" ]]; then
 		previous="$(cat "$dest")"
 	fi
@@ -1540,7 +1563,14 @@ install_journald_retention() {
 MaxRetentionSec=1day
 SystemMaxUse=64M
 RuntimeMaxUse=32M
+ForwardToSyslog=no
+RateLimitIntervalSec=30s
+RateLimitBurst=1000
 EOF
+	chmod 0644 "$dest"
+	if [[ "$dest_dir" != "/etc/systemd/journald.conf.d" ]]; then
+		return 0
+	fi
 	if [[ "$previous" != "$(cat "$dest")" ]]; then
 		systemctl restart systemd-journald.service || true
 	fi
@@ -1598,6 +1628,7 @@ install_common() {
 	install_cloudflared
 	install_arduino_cli
 	install_arduino_udev
+	install_gpiochip_udev
 	install_storage_link
 	add_user_groups
 	grant_gpio_user_nopasswd_sudo

@@ -61,6 +61,47 @@ export function asGpioSnapshot(payload: unknown): GpioSnapshot | null {
 	return record;
 }
 
+export function gpioSnapshotStatusKey(snapshot: GpioSnapshot): string {
+	return snapshot.pins
+		.map(
+			(pin) =>
+				`${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}`,
+		)
+		.join("|");
+}
+
+export function applyGpioMessage(
+	prev: GpioSnapshot | null,
+	payload: unknown,
+): GpioSnapshot | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as GpioSnapshot & { patch?: GpioSnapshot["pins"] };
+	if (record.hardware !== "raspberrypi" && record.hardware !== "orangepi") {
+		return null;
+	}
+	if (Array.isArray(record.pins)) {
+		return { hardware: record.hardware, pins: record.pins };
+	}
+	if (!Array.isArray(record.patch)) {
+		return null;
+	}
+	if (!prev || prev.hardware !== record.hardware) {
+		return { hardware: record.hardware, pins: record.patch };
+	}
+	const byPhysical = new Map(
+		prev.pins.map((pin) => [pin.physical, pin] as const),
+	);
+	for (const pin of record.patch) {
+		byPhysical.set(pin.physical, pin);
+	}
+	return {
+		hardware: record.hardware,
+		pins: [...byPhysical.values()].sort((a, b) => a.physical - b.physical),
+	};
+}
+
 export function asFlashStatus(payload: unknown): FlashStatus | null {
 	if (!payload || typeof payload !== "object") {
 		return null;
@@ -110,6 +151,7 @@ export function startReconnectSocket(options: {
 	onMessage?: (data: string) => void;
 	onError?: (message?: string) => void;
 	onOpen?: () => void;
+	onClose?: () => void;
 	headers?: Record<string, string>;
 	webSocket?: typeof WebSocket;
 	delayMs?: number;
@@ -179,6 +221,9 @@ export function startReconnectSocket(options: {
 			next.addEventListener("close", () => {
 				if (socket === next) {
 					socket = null;
+				}
+				if (!stopped && !paused) {
+					options.onClose?.();
 				}
 				scheduleReconnect();
 			});

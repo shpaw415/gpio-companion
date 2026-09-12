@@ -2,6 +2,7 @@ import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { memo } from "react";
 import type { GpioPinState } from "../api";
 
 type GpioPinTone =
@@ -17,7 +18,7 @@ type GpioPinTone =
 
 const TONE_BG: Record<GpioPinTone, string> = {
 	power: "bg-warning",
-	gnd: "text-main",
+	gnd: "bg-main",
 	reserved: "bg-surface",
 	unresolved: "bg-warning",
 	pwm: "bg-info",
@@ -27,13 +28,10 @@ const TONE_BG: Record<GpioPinTone, string> = {
 	idle: "bg-surface",
 };
 
-function headerPinPairs(): Array<{ odd: number; even: number }> {
-	const pairs: Array<{ odd: number; even: number }> = [];
-	for (let physical = 1; physical <= 40; physical += 2) {
-		pairs.push({ odd: physical, even: physical + 1 });
-	}
-	return pairs;
-}
+const HEADER_PIN_PAIRS: Array<{ odd: number; even: number }> = Array.from(
+	{ length: 20 },
+	(_, index) => ({ odd: index * 2 + 1, even: index * 2 + 2 }),
+);
 
 function pinByPhysical(
 	pins: GpioPinState[],
@@ -90,12 +88,15 @@ function pinStatusLabel(pin: GpioPinState): string {
 	if (typeof pin.pwm === "number") {
 		return `PWM ${Math.round(pin.pwm)}%`;
 	}
-	const level =
-		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
 	if (pin.dir === "in" || pin.dir === "out") {
 		return level ? `${pin.dir} · ${level}` : pin.dir;
 	}
 	return level ?? "—";
+}
+
+function pinStatusKey(pin: GpioPinState): string {
+	return `${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}:${pin.name}:${pin.type}`;
 }
 
 function placeholderPins(): GpioPinState[] {
@@ -110,17 +111,19 @@ export default function GpioHeader({
 	pins,
 	busy = false,
 	interactive = false,
-	onToggle,
+	selected,
+	onSelect,
 }: {
 	pins: GpioPinState[];
 	busy?: boolean;
 	interactive?: boolean;
-	onToggle?: (pin: GpioPinState) => void;
+	selected?: number;
+	onSelect?: (pin: GpioPinState) => void;
 }) {
 	const source = pins.length > 0 ? pins : placeholderPins();
 	return (
 		<Stack spacing={0.5} sx={{ fontFamily: "monospace" }}>
-			{headerPinPairs().map((pair) => {
+			{HEADER_PIN_PAIRS.map((pair) => {
 				const odd = pinByPhysical(source, pair.odd);
 				const even = pinByPhysical(source, pair.even);
 				if (!odd || !even) {
@@ -138,14 +141,16 @@ export default function GpioHeader({
 							align="left"
 							busy={busy}
 							interactive={interactive}
-							onToggle={onToggle}
+							selected={selected === odd.physical}
+							onSelect={onSelect}
 						/>
 						<HeaderPin
 							pin={even}
 							align="right"
 							busy={busy}
 							interactive={interactive}
-							onToggle={onToggle}
+							selected={selected === even.physical}
+							onSelect={onSelect}
 						/>
 					</Stack>
 				);
@@ -154,20 +159,22 @@ export default function GpioHeader({
 	);
 }
 
-function HeaderPin({
+const HeaderPin = memo(function HeaderPin({
 	pin,
 	align,
 	busy,
 	interactive,
-	onToggle,
+	selected,
+	onSelect,
 }: {
 	pin: GpioPinState;
 	align: "left" | "right";
 	busy: boolean;
 	interactive: boolean;
-	onToggle?: (pin: GpioPinState) => void;
+	selected: boolean;
+	onSelect?: (pin: GpioPinState) => void;
 }) {
-	const driveable = interactive && canDriveGpio(pin);
+	const selectable = interactive && canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
 	const status = pinStatusLabel(pin);
 	const label =
@@ -195,9 +202,21 @@ function HeaderPin({
 			{align === "right" ? <PinDot tone={tone} /> : null}
 		</Stack>
 	);
-	if (!driveable) {
+	if (!selectable) {
 		return (
-			<Box sx={{ minWidth: 0, flex: 1, px: 1, py: 0.5, opacity: 0.85 }}>
+			<Box
+				sx={{
+					minWidth: 0,
+					flex: 1,
+					px: 1,
+					py: 0.5,
+					opacity: 0.85,
+					borderRadius: 1,
+					outline: selected
+						? "2px solid rgb(var(--text-primary))"
+						: "2px solid transparent",
+				}}
+			>
 				{content}
 			</Box>
 		);
@@ -209,15 +228,44 @@ function HeaderPin({
 			size="small"
 			disabled={busy}
 			aria-label={`Pin ${pin.physical} ${label} ${tone}`}
-			onClick={() => onToggle?.(pin)}
+			aria-pressed={selected}
+			onClick={() => onSelect?.(pin)}
 			sx={{
 				minWidth: 0,
 				flex: 1,
 				justifyContent: align === "left" ? "flex-start" : "flex-end",
+				outline: selected
+					? "2px solid rgb(var(--text-primary))"
+					: "2px solid transparent",
 			}}
 		>
 			{content}
 		</Button>
+	);
+}, headerPinEqual);
+
+function headerPinEqual(
+	prev: {
+		pin: GpioPinState;
+		busy: boolean;
+		interactive: boolean;
+		selected: boolean;
+		onSelect?: (pin: GpioPinState) => void;
+	},
+	next: {
+		pin: GpioPinState;
+		busy: boolean;
+		interactive: boolean;
+		selected: boolean;
+		onSelect?: (pin: GpioPinState) => void;
+	},
+) {
+	return (
+		prev.busy === next.busy &&
+		prev.interactive === next.interactive &&
+		prev.selected === next.selected &&
+		prev.onSelect === next.onSelect &&
+		pinStatusKey(prev.pin) === pinStatusKey(next.pin)
 	);
 }
 

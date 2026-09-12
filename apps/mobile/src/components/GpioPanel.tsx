@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
 import {
 	type GpioPinState,
@@ -17,6 +17,70 @@ import { Body, Chip, ErrorText, Muted, TextButton } from "./ui.tsx";
 
 function canDriveGpio(pin: GpioPinState): boolean {
 	return pin.type === "gpio" && !pin.reserved && !pin.unresolved;
+}
+
+type GpioCommand = {
+	physical: number;
+	dir?: "in" | "out" | "pwm";
+	value?: 0 | 1;
+	analog?: number;
+	op?: "tone" | "notone";
+	hz?: number;
+};
+
+function applyCommand(
+	snapshot: GpioSnapshot,
+	command: GpioCommand,
+): GpioSnapshot {
+	return {
+		...snapshot,
+		pins: snapshot.pins.map((pin) => {
+			if (pin.physical !== command.physical) {
+				return pin;
+			}
+			if (command.op === "notone") {
+				const next = { ...pin, dir: "in" as const };
+				delete next.hz;
+				delete next.analog;
+				delete next.pwm;
+				return next;
+			}
+			if (command.op === "tone") {
+				const next = { ...pin, dir: "out" as const, hz: command.hz };
+				delete next.analog;
+				delete next.pwm;
+				return next;
+			}
+			if (command.dir === "pwm") {
+				const analog = command.analog ?? 0;
+				const next = {
+					...pin,
+					dir: "pwm" as const,
+					analog,
+					pwm: Math.round((analog / 255) * 1000) / 10,
+					value: analog >= 128 ? (1 as const) : (0 as const),
+				};
+				delete next.hz;
+				return next;
+			}
+			if (command.dir === "in") {
+				const next = { ...pin, dir: "in" as const };
+				delete next.analog;
+				delete next.pwm;
+				delete next.hz;
+				return next;
+			}
+			const next = {
+				...pin,
+				dir: "out" as const,
+				value: command.value ?? 0,
+			};
+			delete next.analog;
+			delete next.pwm;
+			delete next.hz;
+			return next;
+		}),
+	};
 }
 
 function parseGpioPayload(raw: string): GpioSnapshot {
@@ -54,12 +118,15 @@ export default function GpioPanel({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
+	const [selected, setSelected] = useState<number | undefined>();
+	const snapshotRef = useRef<GpioSnapshot | null>(null);
 	const token = auth.token;
 	const offline = useOfflineBleKey(uuid);
 	const pins = snapshot?.pins ?? [];
-	const gpioPins = pins.filter((pin) => pin.type === "gpio");
+	const selectedPin = pins.find((pin) => pin.physical === selected);
 	const available = Boolean(uuid) && connected !== false;
 	const onGpio = useCallback((next: GpioSnapshot) => {
+		snapshotRef.current = next;
 		setSnapshot(next);
 	}, []);
 	const tunnel = useGpioTunnel(
@@ -69,25 +136,27 @@ export default function GpioPanel({
 		setError,
 	);
 
+	function applySnapshot(next: GpioSnapshot | null) {
+		snapshotRef.current = next;
+		setSnapshot(next);
+	}
+
 	function start(task: () => Promise<GpioSnapshot>) {
 		setBusy(true);
 		setError("");
 		void task()
-			.then(setSnapshot)
+			.then(applySnapshot)
 			.catch((caught) => {
 				setError(caught instanceof Error ? caught.message : "request failed");
 			})
 			.finally(() => setBusy(false));
 	}
 
-	function drive(command: {
-		physical: number;
-		dir?: "in" | "out" | "pwm";
-		value?: 0 | 1;
-		analog?: number;
-		op?: "tone" | "notone";
-		hz?: number;
-	}) {
+	function drive(command: GpioCommand) {
+		const current = snapshotRef.current;
+		if (current) {
+			applySnapshot(applyCommand(current, command));
+		}
 		if (poll) {
 			setError("");
 			if (!tunnel.drive(command)) {
@@ -123,17 +192,14 @@ export default function GpioPanel({
 			>
 				<Body>{poll ? "Live GPIO" : "GPIO"}</Body>
 				{poll ? (
-					<Chip
-						label={snapshot ? "Live" : "Waiting"}
-						tone={snapshot ? "success" : "muted"}
-					/>
+					<LiveChip status={tunnel.status} ready={Boolean(snapshot)} />
 				) : null}
 			</View>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
 			{poll ? (
 				<Muted>
 					{snapshot
-						? "Tap a GPIO to toggle output over the board websocket. Set In to watch a pin."
+						? "Tap a GPIO pin, then set In, high, or low."
 						: "Waiting for live pin state from the board."}
 				</Muted>
 			) : null}
@@ -155,30 +221,32 @@ export default function GpioPanel({
 						start(() => loadGpio(token, uuid));
 					}}
 				/>
-				<TextButton
-					label="Load over Bluetooth"
-					disabled={busy || !uuid || !token}
-					onPress={() => {
-						if (!token) {
-							return;
-						}
-						start(async () => {
-							const envelope = await signGpio(token, { uuid });
-							const paired = await openPairedBoard(uuid, { token });
-							try {
-								return parseGpioPayload(
-									await sendEnvelope(
-										paired.session.device,
-										envelope,
-										paired.loss,
-									),
-								);
-							} finally {
-								await paired.session.close();
+				{poll ? null : (
+					<TextButton
+						label="Load over Bluetooth"
+						disabled={busy || !uuid || !token}
+						onPress={() => {
+							if (!token) {
+								return;
 							}
-						});
-					}}
-				/>
+							start(async () => {
+								const envelope = await signGpio(token, { uuid });
+								const paired = await openPairedBoard(uuid, { token });
+								try {
+									return parseGpioPayload(
+										await sendEnvelope(
+											paired.session.device,
+											envelope,
+											paired.loss,
+										),
+									);
+								} finally {
+									await paired.session.close();
+								}
+							});
+						}}
+					/>
+				)}
 			</View>
 			{error ? <ErrorText>{error}</ErrorText> : null}
 			{poll || snapshot ? (
@@ -186,80 +254,108 @@ export default function GpioPanel({
 					pins={pins}
 					busy={busy}
 					interactive={Boolean(snapshot)}
-					onToggle={(pin) => {
-						drive({
-							physical: pin.physical,
-							dir: "out",
-							value: pin.value === 1 ? 0 : 1,
-						});
-					}}
+					selected={selected}
+					onSelect={(pin) => setSelected(pin.physical)}
 				/>
 			) : (
 				<Muted>Load GPIO to see live pin status.</Muted>
 			)}
 			{snapshot ? (
-				<View style={{ gap: 8 }}>
-					{gpioPins.map((pin) => (
-						<View
-							key={pin.physical}
-							style={{
-								flexDirection: "row",
-								alignItems: "center",
-								justifyContent: "space-between",
-								gap: 8,
-							}}
-						>
-							<View style={{ flex: 1 }}>
-								<Body>
-									{pin.physical} {pin.name}
-								</Body>
-								<Muted>{pinStatus(pin)}</Muted>
-							</View>
-							<TextButton
-								label="In"
-								disabled={busy || !canDriveGpio(pin) || !token}
-								onPress={() =>
-									drive({ physical: pin.physical, dir: "in" })
-								}
-							/>
-							<TextButton
-								label={pin.value === 1 ? "Set low" : "Set high"}
-								disabled={busy || !canDriveGpio(pin) || !token}
-								onPress={() =>
-									drive({
-										physical: pin.physical,
-										dir: "out",
-										value: pin.value === 1 ? 0 : 1,
-									})
-								}
-							/>
-							<TextButton
-								label="PWM"
-								disabled={busy || !canDriveGpio(pin) || !token}
-								onPress={() =>
-									drive({
-										physical: pin.physical,
-										dir: "pwm",
-										analog:
-											typeof pin.analog === "number" ? pin.analog : 128,
-									})
-								}
-							/>
-							<TextButton
-								label={typeof pin.hz === "number" ? "Stop" : "Tone"}
-								disabled={busy || !canDriveGpio(pin) || !token}
-								onPress={() =>
-									drive(
-										typeof pin.hz === "number"
-											? { physical: pin.physical, op: "notone" }
-											: { physical: pin.physical, op: "tone", hz: 440 },
-									)
-								}
-							/>
-						</View>
-					))}
-				</View>
+				<GpioPinActions
+					pin={selectedPin}
+					busy={busy}
+					disabled={!token}
+					onDrive={drive}
+				/>
 			) : null}
+		</View>
+	);
+}
+
+function LiveChip({
+	status,
+	ready,
+}: {
+	status: "idle" | "connecting" | "live" | "reconnecting";
+	ready: boolean;
+}) {
+	if (status === "reconnecting") {
+		return <Chip label="Reconnecting" tone="warning" />;
+	}
+	if (status === "connecting" || !ready) {
+		return (
+			<Chip
+				label={status === "connecting" ? "Connecting" : "Waiting"}
+				tone="muted"
+			/>
+		);
+	}
+	return <Chip label="Live" tone="success" />;
+}
+
+function GpioPinActions({
+	pin,
+	busy,
+	disabled,
+	onDrive,
+}: {
+	pin: GpioPinState | undefined;
+	busy: boolean;
+	disabled: boolean;
+	onDrive: (command: GpioCommand) => void;
+}) {
+	if (!pin) {
+		return <Muted>Tap a GPIO pin to drive it.</Muted>;
+	}
+	const locked = !canDriveGpio(pin) || disabled;
+	const analog = typeof pin.analog === "number" ? pin.analog : 128;
+	return (
+		<View style={{ gap: 8 }}>
+			<View>
+				<Body>
+					Pin {pin.physical} {pin.name}
+				</Body>
+				<Muted>{pinStatus(pin)}</Muted>
+			</View>
+			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+				<TextButton
+					label="In"
+					disabled={busy || locked}
+					onPress={() => onDrive({ physical: pin.physical, dir: "in" })}
+				/>
+				<TextButton
+					label="Set high"
+					disabled={busy || locked}
+					onPress={() =>
+						onDrive({ physical: pin.physical, dir: "out", value: 1 })
+					}
+				/>
+				<TextButton
+					label="Set low"
+					disabled={busy || locked}
+					onPress={() =>
+						onDrive({ physical: pin.physical, dir: "out", value: 0 })
+					}
+				/>
+				<TextButton
+					label="PWM"
+					disabled={busy || locked}
+					onPress={() =>
+						onDrive({ physical: pin.physical, dir: "pwm", analog })
+					}
+				/>
+				<TextButton
+					label={typeof pin.hz === "number" ? "Stop" : "Tone"}
+					disabled={busy || locked}
+					onPress={() =>
+						onDrive(
+							typeof pin.hz === "number"
+								? { physical: pin.physical, op: "notone" }
+								: { physical: pin.physical, op: "tone", hz: 440 },
+						)
+					}
+				/>
+			</View>
 		</View>
 	);
 }
@@ -280,8 +376,7 @@ function pinStatus(pin: GpioPinState): string {
 	if (typeof pin.pwm === "number") {
 		return `PWM ${Math.round(pin.pwm)}%`;
 	}
-	const level =
-		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
 	if (pin.dir === "in" || pin.dir === "out") {
 		return level ? `${pin.dir} · ${level}` : pin.dir;
 	}

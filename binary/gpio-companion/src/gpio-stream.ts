@@ -1,6 +1,8 @@
 import {
 	GPIO_MAX_SOCKETS,
 	GPIO_STREAM_MS,
+	type GpioSnapshot,
+	gpioPatchFrame,
 	type HardwareId,
 	isGpioWsRefresh,
 	parseGpioWsCommand,
@@ -25,29 +27,32 @@ export function createGpioStream(options: {
 	const sockets = new Set<GpioStreamSocket>();
 	const intervalMs = options.intervalMs ?? GPIO_STREAM_MS;
 	let timer: ReturnType<typeof setInterval> | null = null;
-	let last = "";
+	let lastSnapshot: GpioSnapshot | null = null;
 	let busy = false;
 
-	async function broadcast() {
+	function sendAll(payload: string) {
+		for (const ws of sockets) {
+			try {
+				ws.send(payload);
+			} catch {
+				sockets.delete(ws);
+			}
+		}
+	}
+
+	async function broadcast(forceFull = false) {
 		if (busy || sockets.size === 0) {
 			return;
 		}
 		busy = true;
 		try {
-			const snapshot = JSON.stringify(
-				await options.gpio.snapshot(await options.hardware()),
-			);
-			if (snapshot === last) {
+			const next = await options.gpio.snapshot(await options.hardware());
+			const frame = forceFull ? next : gpioPatchFrame(lastSnapshot, next);
+			lastSnapshot = next;
+			if (!frame) {
 				return;
 			}
-			last = snapshot;
-			for (const ws of sockets) {
-				try {
-					ws.send(snapshot);
-				} catch {
-					sockets.delete(ws);
-				}
-			}
+			sendAll(JSON.stringify(frame));
 		} catch {
 			undefined;
 		} finally {
@@ -56,6 +61,25 @@ export function createGpioStream(options: {
 				stopTimer();
 			}
 		}
+	}
+
+	async function pushFull(ws: GpioStreamSocket) {
+		const started = Date.now();
+		while (busy && Date.now() - started < 2_000) {
+			await new Promise((resolve) => setTimeout(resolve, 5));
+		}
+		if (!sockets.has(ws)) {
+			return;
+		}
+		if (lastSnapshot) {
+			try {
+				ws.send(JSON.stringify(lastSnapshot));
+			} catch {
+				sockets.delete(ws);
+			}
+			return;
+		}
+		await broadcast(true);
 	}
 
 	function startTimer() {
@@ -82,20 +106,18 @@ export function createGpioStream(options: {
 				return;
 			}
 			sockets.add(ws);
-			last = "";
 			startTimer();
-			void broadcast();
+			void pushFull(ws);
 		},
 		remove(ws) {
 			sockets.delete(ws);
 			if (sockets.size === 0) {
 				stopTimer();
-				last = "";
+				lastSnapshot = null;
 			}
 		},
 		publish() {
-			last = "";
-			void broadcast();
+			void broadcast(true);
 		},
 		async handle(ws, data) {
 			try {
@@ -103,8 +125,7 @@ export function createGpioStream(options: {
 				if (!isGpioWsRefresh(command)) {
 					await options.gpio.apply(await options.hardware(), command);
 				}
-				last = "";
-				await broadcast();
+				await broadcast(isGpioWsRefresh(command));
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "gpio failed";
 				try {

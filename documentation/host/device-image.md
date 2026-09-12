@@ -51,9 +51,10 @@ Device binary: compiled `gpio-companion` on PATH (`/usr/local/bin/gpio-companion
 
 Systemd:
 
-- `gpio-companion.service` — `gpio-companion serve` on port **4150**, after network + bluetooth, as the GPIO user (`User=` / `GPIO_USER`, typically `companion` when first-setup is run with sudo). T3 Code is the same user’s systemd user unit. Updater/cleanup/cloudflared stay root.
+- `gpio-companion.service` — `gpio-companion serve` on port **4150**, after network + bluetooth, as the GPIO user (`User=` / `GPIO_USER` / `SupplementaryGroups=gpio`, typically `companion` when first-setup is run with sudo). T3 Code is the same user’s systemd user unit. Updater/cleanup/cloudflared stay root.
 - `gpio-companion-update.timer` — updater OnBootSec=2min and every 24h (`Persistent=true`). Unit runs `/usr/local/sbin/gpio-companion-update` as root. The same wrapper is on PATH at `/usr/local/bin/gpio-companion-update`; if the GPIO user runs it, it re-execs with `sudo -n` (NOPASSWD, no TTY) then `scripts/update-script.sh`. `gpio-companion-force-update` is the `--force` variant.
-- `gpio-companion-cleanup.timer` — disk/log cleanup OnBootSec=1min and every hour (`Persistent=true`); journals `MaxRetentionSec=1day`
+- `gpio-companion-cleanup.timer` — disk/log cleanup OnBootSec=1min and every hour (`Persistent=true`); journals `MaxRetentionSec=1day`, `SystemMaxUse=64M`, `ForwardToSyslog=no` (drop-in `/etc/systemd/journald.conf.d/zz-gpio-companion.conf` so it sorts after Debian `syslog.conf`)
+- `gpio` group + udev `99-gpio-companion-gpiochip.rules` — `/dev/gpiochip*` is `0660` `gpio`; `gpio-companion.service` has `SupplementaryGroups=gpio` so Live GPIO does not `sudo` `gpioget`/`gpioinfo` (sudo remains fallback on EACCES)
 
 Env the unit loads:
 

@@ -1,14 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import {
+	applyGpioApply,
+	applyGpioMessage,
 	asGpioWsError,
 	assertGpioDrive,
 	canDriveGpio,
 	GpioError,
+	gpioLiveValues,
 	gpioNamedLine,
+	gpioPatchFrame,
 	gpioPinStatusLabel,
 	gpioPinTone,
 	gpioWsConnectUrl,
 	gpioWsUrl,
+	HEADER_PIN_PAIRS,
 	headerPin,
 	headerPinPairs,
 	isGpioNoTone,
@@ -83,9 +88,9 @@ describe("parseGpioPut", () => {
 			dir: "pwm",
 			analog: 0,
 		});
-		expect(() => parseGpioPut({ physical: 7, dir: "pwm", analog: 256 })).toThrow(
-			"analog",
-		);
+		expect(() =>
+			parseGpioPut({ physical: 7, dir: "pwm", analog: 256 }),
+		).toThrow("analog");
 	});
 
 	test("rejects out of range", () => {
@@ -146,6 +151,7 @@ describe("header", () => {
 		expect(pairs).toHaveLength(20);
 		expect(pairs[0]).toEqual({ odd: 1, even: 2 });
 		expect(pairs[19]).toEqual({ odd: 39, even: 40 });
+		expect(HEADER_PIN_PAIRS).toHaveLength(20);
 	});
 
 	test("looks up and classifies live pins", () => {
@@ -173,10 +179,57 @@ describe("header", () => {
 		expect(gpioPinTone({ ...gpio, pwm: 40 })).toBe("pwm");
 		expect(gpioPinStatusLabel(gpio)).toBe("out · high");
 		expect(
-			gpioPinStatusLabel({ ...gpio, analog: 128, dir: "pwm", value: undefined }),
+			gpioPinStatusLabel({
+				...gpio,
+				analog: 128,
+				dir: "pwm",
+				value: undefined,
+			}),
 		).toBe("PWM 128/255");
 		expect(gpioPinStatusLabel({ ...gpio, hz: 440, value: undefined })).toBe(
 			"tone 440 Hz",
 		);
+	});
+});
+
+describe("gpio stream frames", () => {
+	const base = {
+		hardware: "raspberrypi" as const,
+		pins: [
+			{ physical: 1, name: "3V3", type: "power" as const },
+			{
+				physical: 11,
+				name: "GPIO17",
+				type: "gpio" as const,
+				dir: "in" as const,
+				value: 0 as const,
+			},
+		],
+	};
+
+	test("merges patches and ignores unchanged frames", () => {
+		const next = applyGpioApply(base, {
+			physical: 11,
+			dir: "out",
+			value: 1,
+		});
+		expect(next.pins.find((pin) => pin.physical === 11)?.value).toBe(1);
+		expect(gpioPatchFrame(base, base)).toBeNull();
+		expect(gpioPatchFrame(null, next)).toEqual(next);
+		const changed = next.pins.find((pin) => pin.physical === 11);
+		if (!changed) {
+			throw new Error("missing pin 11");
+		}
+		expect(gpioPatchFrame(base, next)).toEqual({
+			hardware: "raspberrypi",
+			patch: [changed],
+		});
+		expect(
+			applyGpioMessage(base, {
+				hardware: "raspberrypi",
+				patch: [changed],
+			})?.pins.find((pin) => pin.physical === 11)?.value,
+		).toBe(1);
+		expect(gpioLiveValues(next)[11]).toBe(1);
 	});
 });
