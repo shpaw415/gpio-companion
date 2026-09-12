@@ -237,6 +237,7 @@ mod tests {
 		assert!(is_profile_unavailable(
 			"bluetooth connect: br-connection-profile-unavailable"
 		));
+		assert!(is_profile_unavailable("br-connection-profile-unavailable"));
 		assert!(!is_profile_unavailable("bluetooth connect: wrong PIN"));
 		assert!(is_already_connected("org.bluez.Error.AlreadyConnected"));
 		assert!(is_not_connected_error("bluetooth info read: Not connected"));

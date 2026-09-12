@@ -517,12 +517,22 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 	{
 		if let Ok(Some(props)) = peripheral.properties().await {
 			let addr = props.address.to_string();
+			let ready_addr = addr.clone();
 			match tokio::task::spawn_blocking(move || crate::bluez::connect_le(&addr)).await {
-				Ok(Ok(())) => crate::log::line("bluetooth le link ready"),
+				Ok(Ok(())) => {
+					crate::log::line("bluetooth le link ready");
+					return Ok(());
+				}
 				Ok(Err(err)) => {
 					crate::log::line(&err);
 					if frames::is_retryable_connect_error(&err) {
 						return Err(err);
+					}
+					if peripheral.is_connected().await.unwrap_or(false)
+						|| crate::bluez::le_link_ready(&ready_addr)
+					{
+						crate::log::line("bluetooth le link ready after connect error");
+						return Ok(());
 					}
 				}
 				Err(err) => crate::log::line(&format!("bluetooth le connect join: {err}")),
@@ -544,6 +554,21 @@ async fn ensure_connected(peripheral: &Peripheral) -> Result<(), String> {
 				crate::log::line(&format!("bluetooth connect attempt={attempt}: {last}"));
 				if frames::is_already_connected(&last) {
 					return Ok(());
+				}
+				if frames::is_profile_unavailable(&last) {
+					if peripheral.is_connected().await.unwrap_or(false) {
+						crate::log::line("bluetooth gatt attached despite profile-unavailable");
+						return Ok(());
+					}
+					#[cfg(target_os = "linux")]
+					if let Ok(Some(props)) = peripheral.properties().await {
+						if crate::bluez::le_link_ready(&props.address.to_string()) {
+							crate::log::line("bluetooth gatt attached despite profile-unavailable");
+							return Ok(());
+						}
+					}
+					sleep(Duration::from_millis(400 * attempt as u64)).await;
+					continue;
 				}
 				let _ = peripheral.disconnect().await;
 				sleep(Duration::from_millis(400 * attempt as u64)).await;

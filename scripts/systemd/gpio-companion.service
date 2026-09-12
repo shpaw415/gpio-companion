@@ -1,7 +1,7 @@
 [Unit]
 Description=gpio-companion device config API
-After=network-online.target bluetooth.service
-Wants=network-online.target bluetooth.service
+After=network-online.target bluetooth.service gpio-companion-ble-adapter.service
+Wants=network-online.target bluetooth.service gpio-companion-ble-adapter.service
 
 [Service]
 Type=simple

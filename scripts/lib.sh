@@ -1558,6 +1558,7 @@ write_gpio_companion_service() {
 install_systemd_units() {
 	local hardware="$1"
 	write_gpio_companion_service "$hardware"
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-ble-adapter.service" /etc/systemd/system/gpio-companion-ble-adapter.service
 	install -m 0644 "$SCRIPT_DIR/systemd/cloudflared-gpio.service" /etc/systemd/system/cloudflared-gpio.service
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.service" /etc/systemd/system/gpio-companion-update.service
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
