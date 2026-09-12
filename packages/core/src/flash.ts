@@ -1,5 +1,6 @@
 export const FLASH_PATH = "/v1/flash";
 export const FLASH_PORTS_PATH = "/v1/flash/ports";
+export const FLASH_SKETCHES_PATH = "/v1/flash/sketches";
 export const FLASH_LOG_MAX = 16 * 1024;
 
 export type FlashPort = {
@@ -41,7 +42,11 @@ export class FlashError extends Error {
 }
 
 export function isFlashPath(path: string): boolean {
-	return path === FLASH_PATH || path === FLASH_PORTS_PATH;
+	return (
+		path === FLASH_PATH ||
+		path === FLASH_PORTS_PATH ||
+		path === FLASH_SKETCHES_PATH
+	);
 }
 
 export function parseFlashPut(input: unknown): FlashPut {

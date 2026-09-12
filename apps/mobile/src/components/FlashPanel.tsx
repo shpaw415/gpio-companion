@@ -1,33 +1,87 @@
-import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import {
+	type BoardSketch,
 	type FlashStatus,
 	loadFlash,
 	loadFlashPorts,
+	loadFlashSketches,
 	signFlash,
 	startFlash,
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
+import { useColors } from "../lib/color-mode.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
 
-export default function FlashPanel({ uuid }: { uuid: string }) {
+export default function FlashPanel({
+	uuid,
+	project,
+}: {
+	uuid: string;
+	project?: string;
+}) {
 	const auth = useAuth();
 	const token = auth.token;
+	const colors = useColors();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
 	const [fqbn, setFqbn] = useState("arduino:avr:uno");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
+	const [sketches, setSketches] = useState<BoardSketch[]>([]);
+	const [legacy, setLegacy] = useState(false);
 	const offline = useOfflineBleKey(uuid);
+	const listed = useMemo(
+		() => sketches.filter((item) => !project || item.project === project),
+		[sketches, project],
+	);
+
+	useEffect(() => {
+		if (!uuid || !token) {
+			setSketches([]);
+			setLegacy(false);
+			return;
+		}
+		let cancelled = false;
+		loadFlashSketches(token, uuid)
+			.then((result) => {
+				if (cancelled) {
+					return;
+				}
+				setSketches(result.sketches);
+				setLegacy(false);
+			})
+			.catch(() => {
+				if (cancelled) {
+					return;
+				}
+				setSketches([]);
+				setLegacy(true);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid, token]);
+
+	useEffect(() => {
+		if (legacy) {
+			return;
+		}
+		if (!listed.some((item) => item.dir === dir)) {
+			setDir(listed[0]?.dir ?? "");
+		}
+	}, [listed, dir, legacy]);
 	const onFlash = useCallback((next: FlashStatus) => {
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, token, { onFlash });
+	const canFlash =
+		Boolean(fqbn.trim()) && Boolean(dir.trim()) && (legacy || Boolean(project));
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -64,16 +118,47 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 				}}
 			/>
 			<Field label="FQBN" value={fqbn} onChangeText={setFqbn} />
-			<Field
-				label="Sketch dir on the Pi"
-				value={dir}
-				onChangeText={setDir}
-				placeholder="/home/gpio/blink"
-			/>
+			{legacy ? (
+				<Field
+					label="Sketch dir on the Pi"
+					value={dir}
+					onChangeText={setDir}
+					placeholder="/home/gpio/blink"
+				/>
+			) : !project ? (
+				<Muted>Select a project to see firmware sketches on this board.</Muted>
+			) : listed.length === 0 ? (
+				<Muted>
+					No USB sketches on this board for this project. Ask Code to write them
+					under firmware/.
+				</Muted>
+			) : (
+				listed.map((item) => (
+					<Pressable
+						key={item.dir}
+						onPress={() => setDir(item.dir)}
+						style={{
+							borderWidth: 1,
+							borderColor: dir === item.dir ? colors.primary : colors.border,
+							borderRadius: 8,
+							paddingHorizontal: 10,
+							paddingVertical: 8,
+						}}
+					>
+						<Text
+							style={{
+								color: dir === item.dir ? colors.primary : colors.text,
+							}}
+						>
+							{item.name}
+						</Text>
+					</Pressable>
+				))
+			)}
 			<Field label="Port (optional)" value={port} onChangeText={setPort} />
 			<TextButton
 				label="Flash"
-				disabled={busy || !token || !fqbn.trim() || !dir.trim()}
+				disabled={busy || !token || !canFlash}
 				onPress={() => {
 					if (!token) {
 						return;
@@ -91,7 +176,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 			/>
 			<TextButton
 				label="Flash over Bluetooth"
-				disabled={busy || !token || !fqbn.trim() || !dir.trim()}
+				disabled={busy || !token || !canFlash}
 				onPress={() => {
 					if (!token) {
 						return;
@@ -106,11 +191,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 						});
 						const paired = await openPairedBoard(uuid, { token });
 						try {
-							await sendEnvelope(
-								paired.session.device,
-								envelope,
-								paired.loss,
-							);
+							await sendEnvelope(paired.session.device, envelope, paired.loss);
 						} finally {
 							await paired.session.close();
 						}

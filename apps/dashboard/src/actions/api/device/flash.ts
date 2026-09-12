@@ -1,5 +1,10 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
-import { FLASH_PATH, FLASH_PORTS_PATH, parseFlashPut } from "gpio-companion";
+import {
+	FLASH_PATH,
+	FLASH_PORTS_PATH,
+	FLASH_SKETCHES_PATH,
+	parseFlashPut,
+} from "gpio-companion";
 import { wrapAction } from "../../../lib/action.ts";
 import { signDeviceEnvelope } from "../../../lib/device-api.ts";
 import {
@@ -20,6 +25,7 @@ export const POST = wrapAction(async function POST(input: {
 	dir?: string;
 	port?: string;
 	ports?: boolean;
+	sketches?: boolean;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
@@ -42,6 +48,9 @@ export const POST = wrapAction(async function POST(input: {
 	await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
 	if (input.ports) {
 		return signDeviceEnvelope(ctx.env, "GET", FLASH_PORTS_PATH);
+	}
+	if (input.sketches) {
+		return signDeviceEnvelope(ctx.env, "GET", FLASH_SKETCHES_PATH);
 	}
 	return signDeviceEnvelope(ctx.env, "GET", FLASH_PATH);
 });

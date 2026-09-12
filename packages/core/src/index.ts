@@ -205,6 +205,7 @@ export {
 	FLASH_LOG_MAX,
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
+	FLASH_SKETCHES_PATH,
 	FlashError,
 	type FlashPort,
 	type FlashPut,
@@ -380,7 +381,9 @@ export {
 export {
 	BREADBOARD_CIRCUIT_JSON,
 	BREADBOARD_PREVIEW_SVG,
+	FIRMWARE_SKETCH_DIR,
 	githubCloneUrl,
+	HOST_SKETCH_DIR,
 	isProjectFileDir,
 	MAX_PROJECT_WATERMARK_CHECKS,
 	PCB_CIRCUIT_JSON,
@@ -390,13 +393,23 @@ export {
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_DIR_NAME,
+	PROJECTS_PUSH_PATH,
 	PROJECTS_SYNC_PATH,
+	PROJECT_PUSH_GIT_EMAIL,
+	PROJECT_PUSH_GIT_NAME,
+	PROJECT_PUSH_MESSAGE,
+	PROJECT_PUSH_MESSAGE_MAX,
 	type ProjectFileDir,
+	type ProjectPushPut,
+	type ProjectPushResult,
 	type ProjectSyncPut,
 	type ProjectWatermarkCandidate,
+	githubOriginMatches,
 	parseGithubRepoName,
+	parseProjectPushPut,
 	parseProjectSyncPut,
 	pickProjectWatermarkCandidates,
+	SKETCH_LIST_MAX,
 } from "./project-files.ts";
 export {
 	capRunLog,
@@ -404,6 +417,7 @@ export {
 	parseRunPut,
 	RUN_LOG_MAX,
 	RUN_PATH,
+	RUN_SKETCHES_PATH,
 	RUN_STOP_PATH,
 	RunError,
 	type RunPut,
@@ -418,6 +432,13 @@ export {
 	parseDeviceSecrets,
 	secretsStatus,
 } from "./secrets.ts";
+export {
+	type BoardSketch,
+	type BoardSketchKind,
+	type BoardSketchList,
+	parseBoardSketchList,
+	sketchKindDir,
+} from "./sketches.ts";
 export {
 	cloudflareTunnelName,
 	DASHBOARD_ORIGIN,

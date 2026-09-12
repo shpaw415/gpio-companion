@@ -638,6 +638,27 @@ export function loadFlashPorts(token: string, uuid: string) {
 	);
 }
 
+export type BoardSketch = {
+	project: string;
+	name: string;
+	dir: string;
+	files: string[];
+};
+
+export function loadRunSketches(token: string, uuid: string) {
+	return request<{ sketches: BoardSketch[] }>(
+		token,
+		`/api/mobile/run?uuid=${encodeURIComponent(uuid)}&sketches=1`,
+	);
+}
+
+export function loadFlashSketches(token: string, uuid: string) {
+	return request<{ sketches: BoardSketch[] }>(
+		token,
+		`/api/mobile/flash?uuid=${encodeURIComponent(uuid)}&sketches=1`,
+	);
+}
+
 export function startFlash(
 	token: string,
 	input: { uuid: string; fqbn: string; dir: string; port?: string },

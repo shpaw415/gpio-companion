@@ -1,9 +1,13 @@
+import { GET as loadFlash, POST as startFlash } from "@api/flash";
+import { GET as loadFlashSketches } from "@api/flash/sketches";
 import {
 	PATCH as createProject,
 	GET as listProjects,
 	POST as loadProject,
 	PUT as readFile,
 } from "@api/projects";
+import { GET as loadRun, POST as startRun } from "@api/run";
+import { GET as loadRunSketches } from "@api/run/sketches";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import { TablePagination } from "@shpaw415/mui-lite/Pagination";
@@ -19,6 +23,7 @@ import Table, {
 } from "@shpaw415/mui-lite/Table";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import type { BoardSketch } from "gpio-companion";
 import { useEffect, useMemo, useState } from "react";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -29,9 +34,13 @@ import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
 
 export default function ProjectBrowser({
 	onConfigured,
+	onProject,
+	uuid,
 	livePins,
 }: {
 	onConfigured?: (ready: boolean) => void;
+	onProject?: (name: string) => void;
+	uuid?: string;
 	livePins?: Record<number, 0 | 1>;
 }) {
 	const [configured, setConfigured] = useState(true);
@@ -48,6 +57,9 @@ export default function ProjectBrowser({
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
+	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
+	const [sketchBusy, setSketchBusy] = useState(false);
 	const mobile = useMobile();
 
 	useEffect(() => {
@@ -67,6 +79,33 @@ export default function ProjectBrowser({
 				setLoading(false);
 			});
 	}, [onConfigured]);
+
+	useEffect(() => {
+		if (!uuid) {
+			setHostSketches([]);
+			setFirmwareSketches([]);
+			return;
+		}
+		let cancelled = false;
+		Promise.all([loadRunSketches(uuid), loadFlashSketches(uuid)])
+			.then(([host, firmware]) => {
+				if (cancelled) {
+					return;
+				}
+				setHostSketches(unwrapAction(host).sketches);
+				setFirmwareSketches(unwrapAction(firmware).sketches);
+			})
+			.catch(() => {
+				if (cancelled) {
+					return;
+				}
+				setHostSketches([]);
+				setFirmwareSketches([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid]);
 
 	const owners = useMemo(() => {
 		return [...new Set(repos.map((repo) => repo.owner))].sort();
@@ -124,6 +163,7 @@ export default function ProjectBrowser({
 		try {
 			const next = unwrapAction(await loadProject(repo.owner, repo.name));
 			setBundle(next);
+			onProject?.(next.repo);
 			if (next.pcbCircuitJsonUrl) {
 				const file = unwrapAction(
 					await readFile(repo.owner, repo.name, "pcb/circuit.json"),
@@ -146,6 +186,16 @@ export default function ProjectBrowser({
 		} finally {
 			setLoadingRepo(false);
 		}
+	}
+
+	function launch(task: () => Promise<void>) {
+		setSketchBusy(true);
+		setError("");
+		void task()
+			.catch((caught) => {
+				setError(caught instanceof Error ? caught.message : "request failed");
+			})
+			.finally(() => setSketchBusy(false));
 	}
 
 	if (!configured) {
@@ -300,12 +350,101 @@ export default function ProjectBrowser({
 						<FileGroup title="PCB" files={bundle.pcb} />
 						<FileGroup title="Breadboard" files={bundle.breadboard} />
 						<FileGroup title="Technical" files={bundle.technical} />
+						<BoardSketchGroup
+							title="Host sketches"
+							action="Run"
+							sketches={hostSketches.filter(
+								(item) => item.project === bundle.repo,
+							)}
+							busy={sketchBusy || !uuid}
+							onLaunch={(dir) => {
+								if (!uuid) {
+									return;
+								}
+								launch(async () => {
+									unwrapAction(await startRun({ uuid, dir }));
+									unwrapAction(await loadRun(uuid));
+								});
+							}}
+						/>
+						<BoardSketchGroup
+							title="Arduino firmware"
+							action="Flash"
+							sketches={firmwareSketches.filter(
+								(item) => item.project === bundle.repo,
+							)}
+							busy={sketchBusy || !uuid}
+							onLaunch={(dir) => {
+								if (!uuid) {
+									return;
+								}
+								launch(async () => {
+									unwrapAction(
+										await startFlash({
+											uuid,
+											fqbn: "arduino:avr:uno",
+											dir,
+										}),
+									);
+									unwrapAction(await loadFlash(uuid));
+								});
+							}}
+						/>
 					</>
 				) : (
 					<Typography color="secondary">Select a project.</Typography>
 				)}
 			</Stack>
 		</Stack>
+	);
+}
+
+function BoardSketchGroup({
+	title,
+	action,
+	sketches,
+	busy,
+	onLaunch,
+}: {
+	title: string;
+	action: string;
+	sketches: BoardSketch[];
+	busy: boolean;
+	onLaunch: (dir: string) => void;
+}) {
+	return (
+		<Paper className="p-4" elevation={1}>
+			<Typography variant="h6" className="mb-2">
+				{title}
+			</Typography>
+			{sketches.length === 0 ? (
+				<Typography color="secondary" variant="body2">
+					None on this board for this project.
+				</Typography>
+			) : (
+				<Stack spacing={1}>
+					{sketches.map((item) => (
+						<Stack
+							key={item.dir}
+							direction="row"
+							spacing={1}
+							className="items-center justify-between"
+						>
+							<Typography variant="body2">{item.name}</Typography>
+							<Button
+								type="button"
+								variant="outlined"
+								size="small"
+								disabled={busy}
+								onClick={() => onLaunch(item.dir)}
+							>
+								{action}
+							</Button>
+						</Stack>
+					))}
+				</Stack>
+			)}
+		</Paper>
 	);
 }
 

@@ -14,7 +14,8 @@ skill `gpio-host` (`POST /v1/run`), not flash and not `PUT /v1/gpio`.
 Do **not** shell `avrdude` or `arduino-cli` directly. Use the loopback flash API.
 
 You call that API yourself. **Never** tell the user to `curl` `127.0.0.1:4150`.
-If the user should flash: dashboard **Project → Flash Arduino**.
+If the user should flash: dashboard **Project → Flash Arduino** (pick the sketch
+name). Do not ask them for a Pi path.
 
 ## API (agent only)
 
@@ -27,9 +28,10 @@ curl -s http://127.0.0.1:4150/v1/flash
 ```
 
 - `GET /v1/flash/ports` — USB boards (`address`, optional `fqbn`)
+- `GET /v1/flash/sketches` — USB sketches under `~/projects/<repo>/firmware/`
 - `POST /v1/flash` `{ fqbn, dir, port? }` — starts compile+upload, returns `{ started: true }`
 - `GET /v1/flash` — `{ running, last }`
 
-`dir` is an absolute path on this Pi and must contain a `.c` or `.ino`. Firmware is **C**. Unsigned loopback only without Ed25519 headers; dashboard/BLE flash is signed.
+`dir` is an absolute path on this Pi and must contain a `.c` or `.ino`. Firmware is **C**. Put each sketch in `~/projects/<repo>/firmware/<name>/` (one directory per sketch) and `git push` `firmware/`. The dashboard lists those names. Host GPIO sketches stay under `host/` and are not USB drop-ins. Unsigned loopback only without Ed25519 headers; dashboard/BLE flash is signed.
 
 Poll `GET /v1/flash` until `running` is false. Do not start a second job while one is running (409).

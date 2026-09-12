@@ -691,6 +691,27 @@ export function startFlash(input: {
 	return apiRequest<{ started: boolean }>("POST", "/api/mobile/flash", input);
 }
 
+export type BoardSketch = {
+	project: string;
+	name: string;
+	dir: string;
+	files: string[];
+};
+
+export function loadRunSketches(uuid: string) {
+	return apiRequest<{ sketches: BoardSketch[] }>(
+		"GET",
+		`/api/mobile/run?uuid=${encodeURIComponent(uuid)}&sketches=1`,
+	);
+}
+
+export function loadFlashSketches(uuid: string) {
+	return apiRequest<{ sketches: BoardSketch[] }>(
+		"GET",
+		`/api/mobile/flash?uuid=${encodeURIComponent(uuid)}&sketches=1`,
+	);
+}
+
 export type RunStatus = {
 	running: boolean;
 	log: string;

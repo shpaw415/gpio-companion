@@ -1,12 +1,12 @@
 import { BLE_HEALTH_WIFI_PSK, BLE_HEALTH_WIFI_SSID } from "./ble-health.ts";
 import { DEBUG_EVENT_PATH, DEBUG_PATH, DEBUG_UPGRADE_FAILED } from "./debug.ts";
 import { INFO_PATH } from "./device-info.ts";
-import { FLASH_PATH, FLASH_PORTS_PATH } from "./flash.ts";
+import { FLASH_PATH, FLASH_PORTS_PATH, FLASH_SKETCHES_PATH } from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";
 import { LOGS_PATH, UPDATE_PATH } from "./maintenance.ts";
 import { isOfflineGrantScope, WIFI_PATH } from "./offline-grant.ts";
-import { PROJECTS_SYNC_PATH } from "./project-files.ts";
-import { RUN_PATH, RUN_STOP_PATH } from "./run.ts";
+import { PROJECTS_PUSH_PATH, PROJECTS_SYNC_PATH } from "./project-files.ts";
+import { RUN_PATH, RUN_SKETCHES_PATH, RUN_STOP_PATH } from "./run.ts";
 
 export type DeviceEndpointAuth = "none" | "master" | "offline" | "offline-deny";
 export type DeviceEndpointVia = "any" | "http" | "ble";
@@ -279,6 +279,15 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			expect: { kind: "json-keys", keys: ["ports"] },
 		}),
 		probe({
+			id: "get-flash-sketches",
+			name: "GET /v1/flash/sketches",
+			method: "GET",
+			path: FLASH_SKETCHES_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["sketches"] },
+		}),
+		probe({
 			id: "post-flash",
 			name: "POST /v1/flash",
 			method: "POST",
@@ -296,6 +305,15 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			auth: "master",
 			via: "any",
 			expect: { kind: "json-keys", keys: ["running"] },
+		}),
+		probe({
+			id: "get-run-sketches",
+			name: "GET /v1/run/sketches",
+			method: "GET",
+			path: RUN_SKETCHES_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["sketches"] },
 		}),
 		probe({
 			id: "post-run",
@@ -340,6 +358,16 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			name: "POST /v1/projects/sync",
 			method: "POST",
 			path: PROJECTS_SYNC_PATH,
+			auth: "master",
+			via: "http",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
+		}),
+		probe({
+			id: "post-projects-push",
+			name: "POST /v1/projects/push",
+			method: "POST",
+			path: PROJECTS_PUSH_PATH,
 			auth: "master",
 			via: "http",
 			body: INVALID_JSON,

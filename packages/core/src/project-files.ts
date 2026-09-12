@@ -1,10 +1,18 @@
 export const PROJECT_FILE_DIRS = ["pcb", "breadboard", "technical"] as const;
+export const HOST_SKETCH_DIR = "host";
+export const FIRMWARE_SKETCH_DIR = "firmware";
+export const SKETCH_LIST_MAX = 50;
 
 export type ProjectFileDir = (typeof PROJECT_FILE_DIRS)[number];
 
 export const PROJECT_WATERMARK_PATH = ".gpio-companion";
 export const PROJECT_WATERMARK_BODY = "gpio-companion\n";
 export const PROJECTS_SYNC_PATH = "/v1/projects/sync";
+export const PROJECTS_PUSH_PATH = "/v1/projects/push";
+export const PROJECT_PUSH_MESSAGE = "Save project from board";
+export const PROJECT_PUSH_MESSAGE_MAX = 200;
+export const PROJECT_PUSH_GIT_NAME = "gpio-companion";
+export const PROJECT_PUSH_GIT_EMAIL = "noreply@gpio-companion.com";
 export const PROJECTS_DIR_NAME = "projects";
 export const MAX_PROJECT_WATERMARK_CHECKS = 80;
 export const PROJECT_REPO_DESCRIPTION = "gpio-companion project";
@@ -59,6 +67,20 @@ export function githubCloneUrl(owner: string, name: string): string {
 	return `https://github.com/${owner}/${name}.git`;
 }
 
+export function githubOriginMatches(
+	url: string,
+	owner: string,
+	name: string,
+): boolean {
+	const needle = `${owner}/${name}`.toLowerCase();
+	const cleaned = url
+		.trim()
+		.replace(/\.git$/i, "")
+		.replace(/\/+$/, "")
+		.toLowerCase();
+	return cleaned.endsWith(`/${needle}`) || cleaned.endsWith(`:${needle}`);
+}
+
 export function parseProjectSyncPut(input: unknown): ProjectSyncPut {
 	if (input == null) {
 		return {};
@@ -78,6 +100,47 @@ export function parseProjectSyncPut(input: unknown): ProjectSyncPut {
 	return {
 		owner: parseGithubRepoName(ownerRaw),
 		name: parseGithubRepoName(nameRaw),
+	};
+}
+
+export type ProjectPushPut = {
+	owner: string;
+	name: string;
+	message: string;
+};
+
+export type ProjectPushResult = {
+	committed: boolean;
+	pushed: boolean;
+	sha: string;
+	message: string;
+};
+
+export function parseProjectPushPut(input: unknown): ProjectPushPut {
+	if (input == null || typeof input !== "object" || Array.isArray(input)) {
+		throw new Error("body must be an object");
+	}
+	const record = input as Record<string, unknown>;
+	if (typeof record.owner !== "string" || typeof record.name !== "string") {
+		throw new Error("owner and name are required");
+	}
+	let message = PROJECT_PUSH_MESSAGE;
+	if (record.message != null) {
+		if (typeof record.message !== "string") {
+			throw new Error("message must be a string");
+		}
+		const trimmed = record.message.trim().replace(/\s+/g, " ");
+		if (trimmed.length > PROJECT_PUSH_MESSAGE_MAX) {
+			throw new Error("message is too long");
+		}
+		if (trimmed) {
+			message = trimmed;
+		}
+	}
+	return {
+		owner: parseGithubRepoName(record.owner),
+		name: parseGithubRepoName(record.name),
+		message,
 	};
 }
 

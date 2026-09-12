@@ -89,6 +89,12 @@ afterAll(() => {
 });
 
 describe("run http", () => {
+	test("loopback unsigned sketches", async () => {
+		const listed = await fetch(`${server.url}v1/run/sketches`);
+		expect(listed.status).toBe(200);
+		expect(await listed.json()).toEqual({ sketches: [] });
+	});
+
 	test("loopback unsigned start and stop", async () => {
 		const start = await fetch(`${server.url}v1/run`, {
 			method: "POST",

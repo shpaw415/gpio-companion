@@ -11,7 +11,7 @@ description: >-
 This is the **default** way to drive this board's GPIO header. Prioritize a C
 script over direct GPIO control.
 
-- Write a `.c`/`.ino` and `POST /v1/run`.
+- Write a `.c`/`.ino` under `~/projects/<repo>/host/<sketch>/` and `POST /v1/run`.
 - Do **not** `PUT /v1/gpio` or skill `gpio-pwm` unless the user asked to **probe
   a pin** or **verify Live GPIO** — one-shot, then stop.
 - Blink, PWM, tone, loops, and lasting drive always go here, even if a PUT
@@ -26,7 +26,8 @@ You call the loopback API yourself. **Never** tell the user to `curl`
 `127.0.0.1:4150` (or `/v1/run/stop`).
 
 If the user should start or stop a sketch: dashboard **Project → Run on board**
-(Start / Stop). Same panel on desktop and mobile.
+(pick the sketch name, Start / Stop). Same panel on desktop and mobile. Do not
+ask them for a Pi path.
 
 ## API (agent only)
 
@@ -40,9 +41,12 @@ curl -s -X POST http://127.0.0.1:4150/v1/run/stop
 
 - `POST /v1/run` `{ dir }` — compile+start, returns `{ started: true }`
 - `GET /v1/run` — `{ running, log, last }`
+- `GET /v1/run/sketches` — host sketches under `~/projects/<repo>/host/`
 - `POST /v1/run/stop` — `{ stopped: true }`
 
 `dir` is an absolute path on this Pi and must contain a `.c` or `.ino`.
+Put each sketch in `~/projects/<repo>/host/<name>/` (one directory per sketch)
+and `git push` `host/`. The dashboard lists those names.
 Unsigned loopback only without Ed25519 headers; dashboard/BLE run is signed.
 
 Poll `GET /v1/run` until `running` is false, or stop a looping sketch.

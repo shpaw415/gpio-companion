@@ -1,8 +1,11 @@
 "no action";
 
 import {
+	type BoardSketchList,
+	parseBoardSketchList,
 	parseRunPut,
 	RUN_PATH,
+	RUN_SKETCHES_PATH,
 	RUN_STOP_PATH,
 	type RunStatus,
 } from "gpio-companion";
@@ -35,6 +38,13 @@ export async function onRequestGet(ctx: MobileContext) {
 			identity,
 			uuid,
 		);
+		if (url.searchParams.get("sketches")) {
+			return parseBoardSketchList(
+				await readDeviceJson<BoardSketchList>(
+					await signedDeviceFetch(ctx.env, deviceUrl, "GET", RUN_SKETCHES_PATH),
+				),
+			);
+		}
 		return readDeviceJson<RunStatus>(
 			await signedDeviceFetch(ctx.env, deviceUrl, "GET", RUN_PATH),
 		);
@@ -97,6 +107,9 @@ export async function onRequestPost(ctx: MobileContext) {
 			);
 		}
 		await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
+		if (body.sketches === true) {
+			return signDeviceEnvelope(ctx.env, "GET", RUN_SKETCHES_PATH);
+		}
 		return signDeviceEnvelope(ctx.env, "GET", RUN_PATH);
 	});
 }

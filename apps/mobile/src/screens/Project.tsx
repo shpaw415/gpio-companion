@@ -18,13 +18,20 @@ import {
 	Title,
 } from "../components/ui.tsx";
 import {
+	type BoardSketch,
 	createProject,
 	type GithubContent,
 	type GithubRepo,
 	getGithubApp,
 	listProjects,
+	loadFlash,
+	loadFlashSketches,
 	loadProject,
+	loadRun,
+	loadRunSketches,
 	type ProjectBundle,
+	startFlash,
+	startRun,
 } from "../lib/api.ts";
 import {
 	CACHE_KEYS,
@@ -71,6 +78,47 @@ function PreviewCard({
 				<Muted>{hint}</Muted>
 			)}
 			<Text style={{ color: colors.muted }}>{title}</Text>
+		</Paper>
+	);
+}
+
+function BoardSketchGroup({
+	title,
+	action,
+	sketches,
+	busy,
+	onLaunch,
+}: {
+	title: string;
+	action: string;
+	sketches: BoardSketch[];
+	busy: boolean;
+	onLaunch: (dir: string) => void;
+}) {
+	return (
+		<Paper>
+			<Body>{title}</Body>
+			{sketches.length === 0 ? (
+				<Muted>None on this board for this project.</Muted>
+			) : (
+				sketches.map((item) => (
+					<View
+						key={item.dir}
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							justifyContent: "space-between",
+						}}
+					>
+						<Body>{item.name}</Body>
+						<TextButton
+							label={action}
+							disabled={busy}
+							onPress={() => onLaunch(item.dir)}
+						/>
+					</View>
+				))
+			)}
 		</Paper>
 	);
 }
@@ -140,9 +188,52 @@ export default function Project() {
 	const [owner, setOwner] = useState("all");
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
+	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
+	const [sketchBusy, setSketchBusy] = useState(false);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
+
+	useEffect(() => {
+		if (!activeUuid || !token) {
+			setHostSketches([]);
+			setFirmwareSketches([]);
+			return;
+		}
+		let cancelled = false;
+		Promise.all([
+			loadRunSketches(token, activeUuid),
+			loadFlashSketches(token, activeUuid),
+		])
+			.then(([host, firmware]) => {
+				if (cancelled) {
+					return;
+				}
+				setHostSketches(host.sketches);
+				setFirmwareSketches(firmware.sketches);
+			})
+			.catch(() => {
+				if (cancelled) {
+					return;
+				}
+				setHostSketches([]);
+				setFirmwareSketches([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [activeUuid, token]);
+
+	function launchSketch(task: () => Promise<void>) {
+		setSketchBusy(true);
+		setError("");
+		void task()
+			.catch((caught) => {
+				setError(caught instanceof Error ? caught.message : "request failed");
+			})
+			.finally(() => setSketchBusy(false));
+	}
 
 	useFocusEffect(
 		useCallback(() => {
@@ -254,6 +345,7 @@ export default function Project() {
 		}
 	}
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: open last/first repo once the list is ready
 	useEffect(() => {
 		if (loading || bundle || repos.length === 0) {
 			return;
@@ -322,9 +414,9 @@ export default function Project() {
 						poll
 					/>
 					<Body>Flash Arduino</Body>
-					<FlashPanel uuid={activeUuid} />
+					<FlashPanel uuid={activeUuid} project={bundle?.repo} />
 					<Body>Run on board</Body>
-					<RunPanel uuid={activeUuid} />
+					<RunPanel uuid={activeUuid} project={bundle?.repo} />
 				</Paper>
 			) : null}
 			<ErrorText>{error || githubQuery.error || projectsQuery.error}</ErrorText>
@@ -480,6 +572,44 @@ export default function Project() {
 					<FileGroup title="PCB" files={bundle.pcb} />
 					<FileGroup title="Breadboard" files={bundle.breadboard} />
 					<FileGroup title="Technical" files={bundle.technical} />
+					<BoardSketchGroup
+						title="Host sketches"
+						action="Run"
+						sketches={hostSketches.filter(
+							(item) => item.project === bundle.repo,
+						)}
+						busy={sketchBusy || !token || !activeUuid}
+						onLaunch={(dir) => {
+							if (!token) {
+								return;
+							}
+							launchSketch(async () => {
+								await startRun(token, { uuid: activeUuid, dir });
+								await loadRun(token, activeUuid);
+							});
+						}}
+					/>
+					<BoardSketchGroup
+						title="Arduino firmware"
+						action="Flash"
+						sketches={firmwareSketches.filter(
+							(item) => item.project === bundle.repo,
+						)}
+						busy={sketchBusy || !token || !activeUuid}
+						onLaunch={(dir) => {
+							if (!token) {
+								return;
+							}
+							launchSketch(async () => {
+								await startFlash(token, {
+									uuid: activeUuid,
+									fqbn: "arduino:avr:uno",
+									dir,
+								});
+								await loadFlash(token, activeUuid);
+							});
+						}}
+					/>
 				</>
 			) : loading || !configured ? null : (
 				<Muted>Select a project to see the PCB and breadboard.</Muted>

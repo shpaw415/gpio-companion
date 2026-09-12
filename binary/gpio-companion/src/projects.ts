@@ -4,8 +4,13 @@ import { join } from "node:path";
 import {
 	GITHUB_API,
 	githubCloneUrl,
+	githubOriginMatches,
+	PROJECT_PUSH_GIT_EMAIL,
+	PROJECT_PUSH_GIT_NAME,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_DIR_NAME,
+	type ProjectPushPut,
+	type ProjectPushResult,
 	type ProjectSyncPut,
 	pickProjectWatermarkCandidates,
 } from "gpio-companion";
@@ -16,6 +21,24 @@ export type FetchLike = (
 ) => Promise<Response>;
 
 export type ApplyProjects = (target: ProjectSyncPut) => Promise<void>;
+
+export type ApplyProjectPush = (
+	put: ProjectPushPut,
+) => Promise<ProjectPushResult>;
+
+export type GitResult = {
+	stdout: string;
+	stderr: string;
+	code: number;
+};
+
+export type GitRunner = (args: string[], cwd: string) => Promise<GitResult>;
+
+export type ProjectPushOptions = {
+	destRoot: string;
+	exists?: (path: string) => boolean;
+	git?: GitRunner;
+};
 
 export type GithubProject = {
 	owner: string;
@@ -117,6 +140,93 @@ export async function defaultGitClone(
 	if (code !== 0) {
 		throw new Error(stderr.trim() || "git clone failed");
 	}
+}
+
+export async function defaultGit(args: string[], cwd: string): Promise<GitResult> {
+	const proc = Bun.spawn(["git", ...args], {
+		cwd,
+		stdout: "pipe",
+		stderr: "pipe",
+		env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+	});
+	const [stdout, stderr, code] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited,
+	]);
+	return { stdout, stderr, code };
+}
+
+export async function pushProject(
+	options: ProjectPushOptions,
+	put: ProjectPushPut,
+): Promise<ProjectPushResult> {
+	const dest = join(options.destRoot, put.name);
+	const exists = options.exists ?? existsSync;
+	if (!exists(dest)) {
+		throw new Error("project is not on this board");
+	}
+	const git = options.git ?? defaultGit;
+	const origin = await gitOk(
+		git,
+		["remote", "get-url", "origin"],
+		dest,
+		"project origin is missing",
+	);
+	if (!githubOriginMatches(origin.stdout, put.owner, put.name)) {
+		throw new Error("project origin does not match GitHub");
+	}
+	await gitOk(git, ["add", "-A"], dest, "git add failed");
+	const status = await gitOk(
+		git,
+		["status", "--porcelain"],
+		dest,
+		"git status failed",
+	);
+	let committed = false;
+	if (status.stdout.trim()) {
+		await gitOk(
+			git,
+			[
+				"-c",
+				`user.name=${PROJECT_PUSH_GIT_NAME}`,
+				"-c",
+				`user.email=${PROJECT_PUSH_GIT_EMAIL}`,
+				"commit",
+				"-m",
+				put.message,
+			],
+			dest,
+			"git commit failed",
+		);
+		committed = true;
+	}
+	await gitOk(git, ["push"], dest, "git push failed");
+	const rev = await gitOk(
+		git,
+		["rev-parse", "HEAD"],
+		dest,
+		"git rev-parse failed",
+	);
+	return {
+		committed,
+		pushed: true,
+		sha: rev.stdout.trim(),
+		message: put.message,
+	};
+}
+
+async function gitOk(
+	git: GitRunner,
+	args: string[],
+	cwd: string,
+	fallback: string,
+): Promise<GitResult> {
+	const result = await git(args, cwd);
+	if (result.code !== 0) {
+		throw new Error(result.stderr.trim() || result.stdout.trim() || fallback);
+	}
+	return result;
 }
 
 async function listWatermarkedRepos(

@@ -1,5 +1,10 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
-import { parseRunPut, RUN_PATH, RUN_STOP_PATH } from "gpio-companion";
+import {
+	parseRunPut,
+	RUN_PATH,
+	RUN_SKETCHES_PATH,
+	RUN_STOP_PATH,
+} from "gpio-companion";
 import { wrapAction } from "../../../lib/action.ts";
 import { signDeviceEnvelope } from "../../../lib/device-api.ts";
 import {
@@ -18,6 +23,7 @@ export const POST = wrapAction(async function POST(input: {
 	uuid: string;
 	dir?: string;
 	stop?: boolean;
+	sketches?: boolean;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
@@ -37,5 +43,8 @@ export const POST = wrapAction(async function POST(input: {
 		return signDeviceEnvelope(ctx.env, "POST", RUN_PATH, parseRunPut(input));
 	}
 	await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
+	if (input.sketches) {
+		return signDeviceEnvelope(ctx.env, "GET", RUN_SKETCHES_PATH);
+	}
 	return signDeviceEnvelope(ctx.env, "GET", RUN_PATH);
 });

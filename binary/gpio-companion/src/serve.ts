@@ -11,6 +11,7 @@ import {
 	debugAuthHeadersFromRequest,
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
+	FLASH_SKETCHES_PATH,
 	FlashError,
 	GPIO_PATH,
 	GpioError,
@@ -25,6 +26,7 @@ import {
 	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
 	type NetworkStatus,
+	PROJECTS_PUSH_PATH,
 	PROJECTS_SYNC_PATH,
 	pairingCredentials,
 	parseDebugEventInput,
@@ -32,6 +34,7 @@ import {
 	parseGpioWsCommand,
 	parsePairingClaim,
 	parsePairingUnpair,
+	parseProjectPushPut,
 	parseProjectSyncPut,
 	parseTunnelConfig,
 	parseWifiConfig,
@@ -40,6 +43,7 @@ import {
 	publicWifiFailure,
 	publicWifiStatus,
 	RUN_PATH,
+	RUN_SKETCHES_PATH,
 	RUN_STOP_PATH,
 	RunError,
 	redactDeviceConfig,
@@ -69,9 +73,14 @@ import {
 	type PairingStore,
 } from "./pairing.ts";
 import { privileged } from "./priv.ts";
-import type { ApplyProjects } from "./projects.ts";
+import {
+	type ApplyProjectPush,
+	type ApplyProjects,
+	projectsRoot,
+} from "./projects.ts";
 import { createHostRun, type RunController } from "./run.ts";
 import type { SecretsStore } from "./secrets.ts";
+import { listBoardSketches } from "./sketches.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
 import type { T3Controller } from "./t3.ts";
 import type { ApplyTunnel } from "./tunnel.ts";
@@ -95,6 +104,7 @@ export type ServeOptions = {
 	applyWifi?: ApplyWifi;
 	applyUpdate?: ApplyUpdate;
 	applyProjects?: ApplyProjects;
+	applyProjectPush?: ApplyProjectPush;
 	revokeT3?: () => Promise<void>;
 	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
@@ -116,6 +126,7 @@ export type ServeOptions = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	projectsDir?: string;
 };
 
 export type DeviceRequestExtras = {
@@ -126,8 +137,10 @@ export type DeviceRequestExtras = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	projectsDir?: string;
 	applyUpdate?: ApplyUpdate;
 	applyProjects?: ApplyProjects;
+	applyProjectPush?: ApplyProjectPush;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
 	debug?: { publish(event: DebugEvent): void };
@@ -165,8 +178,10 @@ export function startDeviceApi(options: ServeOptions) {
 				hardware: async () => (await options.store.read()).hardware,
 				gpio,
 			}),
+		projectsDir: options.projectsDir,
 		applyUpdate: options.applyUpdate,
 		applyProjects: options.applyProjects,
+		applyProjectPush: options.applyProjectPush,
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
 		fetchImpl: options.fetchImpl,
@@ -382,9 +397,9 @@ export async function handleDeviceRequest(
 			);
 		}
 		if (isRunPath(path)) {
-			return handleRun(method, path, bodyText, extras?.run);
+			return handleRun(method, path, bodyText, extras);
 		}
-		return handleFlash(method, path, bodyText, extras?.flash);
+		return handleFlash(method, path, bodyText, extras);
 	}
 
 	if (!deviceAuth.publicKeyPem.trim()) {
@@ -616,6 +631,14 @@ export async function handleDeviceRequest(
 		return json({ started: true });
 	}
 
+	if (method === "POST" && path === PROJECTS_PUSH_PATH) {
+		if (!extras?.applyProjectPush) {
+			throw new Error("projects push is not configured");
+		}
+		const put = parseProjectPushPut(parseJson(bodyText));
+		return json(await extras.applyProjectPush(put));
+	}
+
 	if (path === GPIO_PATH) {
 		return handleGpio(
 			method,
@@ -627,11 +650,11 @@ export async function handleDeviceRequest(
 	}
 
 	if (isFlashPath(path)) {
-		return handleFlash(method, path, bodyText, extras?.flash);
+		return handleFlash(method, path, bodyText, extras);
 	}
 
 	if (isRunPath(path)) {
-		return handleRun(method, path, bodyText, extras?.run);
+		return handleRun(method, path, bodyText, extras);
 	}
 
 	if (method === "GET" && path === "/v1/status") {
@@ -945,8 +968,17 @@ async function handleFlash(
 	method: string,
 	path: string,
 	bodyText: string,
-	flash: FlashController | undefined,
+	extras: DeviceRequestExtras | undefined,
 ): Promise<Response> {
+	if (method === "GET" && path === FLASH_SKETCHES_PATH) {
+		return json({
+			sketches: listBoardSketches(
+				extras?.projectsDir ?? projectsRoot(),
+				"firmware",
+			),
+		});
+	}
+	const flash = extras?.flash;
 	if (!flash) {
 		return json({ error: "flash is unavailable" }, 503);
 	}
@@ -966,8 +998,17 @@ function handleRun(
 	method: string,
 	path: string,
 	bodyText: string,
-	run: RunController | undefined,
+	extras: DeviceRequestExtras | undefined,
 ): Response {
+	if (method === "GET" && path === RUN_SKETCHES_PATH) {
+		return json({
+			sketches: listBoardSketches(
+				extras?.projectsDir ?? projectsRoot(),
+				"host",
+			),
+		});
+	}
+	const run = extras?.run;
 	if (!run) {
 		return json({ error: "run is unavailable" }, 503);
 	}

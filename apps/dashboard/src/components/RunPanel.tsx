@@ -1,21 +1,24 @@
 import { POST as signRun } from "@api/device/run";
 import { GET as loadRun, POST as startRun } from "@api/run";
+import { GET as loadRunSketches } from "@api/run/sketches";
 import { POST as stopRun } from "@api/run/stop";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
+import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
+	type BoardSketch,
 	envelopeToPasteText,
 	parseRunPut,
 	RUN_PATH,
 	RUN_STOP_PATH,
 	type RunStatus,
 } from "gpio-companion";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -27,14 +30,62 @@ import {
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
 
-export default function RunPanel({ uuid }: { uuid: string }) {
+export default function RunPanel({
+	uuid,
+	project,
+}: {
+	uuid: string;
+	project?: string;
+}) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<RunStatus | null>(null);
 	const [dir, setDir] = useState("");
+	const [sketches, setSketches] = useState<BoardSketch[]>([]);
+	const [legacy, setLegacy] = useState(false);
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
 	const offline = useOfflineBleKey(uuid);
+	const listed = useMemo(
+		() => sketches.filter((item) => !project || item.project === project),
+		[sketches, project],
+	);
+
+	useEffect(() => {
+		if (!uuid) {
+			setSketches([]);
+			setLegacy(false);
+			return;
+		}
+		let cancelled = false;
+		loadRunSketches(uuid)
+			.then((result) => {
+				if (cancelled) {
+					return;
+				}
+				setSketches(unwrapAction(result).sketches);
+				setLegacy(false);
+			})
+			.catch(() => {
+				if (cancelled) {
+					return;
+				}
+				setSketches([]);
+				setLegacy(true);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid]);
+
+	useEffect(() => {
+		if (legacy) {
+			return;
+		}
+		if (!listed.some((item) => item.dir === dir)) {
+			setDir(listed[0]?.dir ?? "");
+		}
+	}, [listed, dir, legacy]);
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -57,6 +108,7 @@ export default function RunPanel({ uuid }: { uuid: string }) {
 
 	const last = status?.last;
 	const log = status?.log || last?.log || "";
+	const canStart = Boolean(dir.trim()) && (legacy || Boolean(project));
 
 	return (
 		<Stack spacing={1}>
@@ -66,18 +118,43 @@ export default function RunPanel({ uuid }: { uuid: string }) {
 					{offline.label}
 				</Typography>
 			) : null}
-			<TextField
-				label="Sketch dir on the Pi"
-				placeholder="/home/gpio/blink"
-				value={dir}
-				onChange={(event) => setDir(event.target.value)}
-			/>
+			{legacy ? (
+				<TextField
+					label="Sketch dir on the Pi"
+					placeholder="/home/gpio/blink"
+					value={dir}
+					onChange={(event) => setDir(event.target.value)}
+				/>
+			) : !project ? (
+				<Typography color="secondary" variant="body2">
+					Select a project to see host sketches on this board.
+				</Typography>
+			) : listed.length === 0 ? (
+				<Typography color="secondary" variant="body2">
+					No host sketches on this board for this project. Ask Code to write
+					them under host/.
+				</Typography>
+			) : (
+				<Select
+					name="host-sketch"
+					label="Sketch"
+					value={dir}
+					onSelect={setDir}
+					className="w-full"
+				>
+					{listed.map((item) => (
+						<option key={item.dir} value={item.dir}>
+							{item.name}
+						</option>
+					))}
+				</Select>
+			)}
 			<Stack direction="row" spacing={1} className="flex-wrap">
 				<Button
 					type="button"
 					variant="contained"
 					size="small"
-					disabled={busy || !uuid || !dir.trim()}
+					disabled={busy || !uuid || !canStart}
 					onClick={() => {
 						start(async () => {
 							unwrapAction(await startRun({ uuid, dir: dir.trim() }));
@@ -105,7 +182,7 @@ export default function RunPanel({ uuid }: { uuid: string }) {
 					type="button"
 					variant="outlined"
 					size="small"
-					disabled={busy || !uuid || !dir.trim()}
+					disabled={busy || !uuid || !canStart}
 					onClick={() => {
 						start(async () => {
 							await runEnvelope(

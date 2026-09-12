@@ -8,8 +8,12 @@ import {
 	PROJECT_REPO_DESCRIPTION,
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
+	PROJECTS_PUSH_PATH,
 	PROJECTS_SYNC_PATH,
+	PROJECT_PUSH_MESSAGE,
+	githubOriginMatches,
 	parseGithubRepoName,
+	parseProjectPushPut,
 	parseProjectSyncPut,
 	pickProjectWatermarkCandidates,
 } from "./project-files.ts";
@@ -24,6 +28,7 @@ describe("project files", () => {
 		expect(PROJECT_WATERMARK_PATH).toBe(".gpio-companion");
 		expect(PROJECT_WATERMARK_BODY.trim()).toBe("gpio-companion");
 		expect(PROJECTS_SYNC_PATH).toBe("/v1/projects/sync");
+		expect(PROJECTS_PUSH_PATH).toBe("/v1/projects/push");
 	});
 
 	test("parses github repo names", () => {
@@ -34,6 +39,15 @@ describe("project files", () => {
 		expect(githubCloneUrl("ada", "blink")).toBe(
 			"https://github.com/ada/blink.git",
 		);
+		expect(
+			githubOriginMatches("https://github.com/ada/blink.git", "ada", "blink"),
+		).toBe(true);
+		expect(
+			githubOriginMatches("git@github.com:ada/blink.git", "ada", "blink"),
+		).toBe(true);
+		expect(
+			githubOriginMatches("https://github.com/ada/other.git", "ada", "blink"),
+		).toBe(false);
 	});
 
 	test("parses project sync bodies", () => {
@@ -47,6 +61,36 @@ describe("project files", () => {
 			"owner and name are required",
 		);
 		expect(() => parseProjectSyncPut([])).toThrow("body must be an object");
+	});
+
+	test("parses project push bodies", () => {
+		expect(parseProjectPushPut({ owner: "ada", name: "blink-led" })).toEqual({
+			owner: "ada",
+			name: "blink-led",
+			message: PROJECT_PUSH_MESSAGE,
+		});
+		expect(
+			parseProjectPushPut({
+				owner: "ada",
+				name: "blink-led",
+				message: "  wire LED  ",
+			}),
+		).toEqual({
+			owner: "ada",
+			name: "blink-led",
+			message: "wire LED",
+		});
+		expect(() => parseProjectPushPut({ owner: "ada" })).toThrow(
+			"owner and name are required",
+		);
+		expect(() => parseProjectPushPut(null)).toThrow("body must be an object");
+		expect(() =>
+			parseProjectPushPut({
+				owner: "ada",
+				name: "blink",
+				message: "x".repeat(201),
+			}),
+		).toThrow("message is too long");
 	});
 
 	test("prefers gpio-companion descriptions past the watermark cap", () => {

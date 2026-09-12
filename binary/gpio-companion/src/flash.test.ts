@@ -76,6 +76,12 @@ afterAll(() => {
 });
 
 describe("flash http", () => {
+	test("loopback unsigned sketches", async () => {
+		const listed = await fetch(`${server.url}v1/flash/sketches`);
+		expect(listed.status).toBe(200);
+		expect(await listed.json()).toEqual({ sketches: [] });
+	});
+
 	test("loopback unsigned ports and start", async () => {
 		const ports = await fetch(`${server.url}v1/flash/ports`);
 		expect(ports.status).toBe(200);

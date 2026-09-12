@@ -1,10 +1,13 @@
 "no action";
 
 import {
+	type BoardSketchList,
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
+	FLASH_SKETCHES_PATH,
 	type FlashPort,
 	type FlashStatus,
+	parseBoardSketchList,
 	parseFlashPut,
 } from "gpio-companion";
 import { resolveAccessibleDeviceUrl } from "../../../lib/debug-live.ts";
@@ -39,6 +42,18 @@ export async function onRequestGet(ctx: MobileContext) {
 		if (url.searchParams.get("ports")) {
 			return readDeviceJson<{ ports: FlashPort[] }>(
 				await signedDeviceFetch(ctx.env, deviceUrl, "GET", FLASH_PORTS_PATH),
+			);
+		}
+		if (url.searchParams.get("sketches")) {
+			return parseBoardSketchList(
+				await readDeviceJson<BoardSketchList>(
+					await signedDeviceFetch(
+						ctx.env,
+						deviceUrl,
+						"GET",
+						FLASH_SKETCHES_PATH,
+					),
+				),
 			);
 		}
 		return readDeviceJson<FlashStatus>(
@@ -82,6 +97,9 @@ export async function onRequestPost(ctx: MobileContext) {
 		await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
 		if (body.ports === true) {
 			return signDeviceEnvelope(ctx.env, "GET", FLASH_PORTS_PATH);
+		}
+		if (body.sketches === true) {
+			return signDeviceEnvelope(ctx.env, "GET", FLASH_SKETCHES_PATH);
 		}
 		return signDeviceEnvelope(ctx.env, "GET", FLASH_PATH);
 	});

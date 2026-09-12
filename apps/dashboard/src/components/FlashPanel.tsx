@@ -1,14 +1,17 @@
 import { POST as signFlash } from "@api/device/flash";
 import { GET as loadFlash, POST as startFlash } from "@api/flash";
 import { GET as loadFlashPorts } from "@api/flash/ports";
+import { GET as loadFlashSketches } from "@api/flash/sketches";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
+import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
+	type BoardSketch,
 	envelopeToPasteText,
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
@@ -16,7 +19,7 @@ import {
 	type FlashStatus,
 	parseFlashPut,
 } from "gpio-companion";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -28,7 +31,13 @@ import {
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
 
-export default function FlashPanel({ uuid }: { uuid: string }) {
+export default function FlashPanel({
+	uuid,
+	project,
+}: {
+	uuid: string;
+	project?: string;
+}) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
@@ -36,9 +45,51 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	const [fqbn, setFqbn] = useState("arduino:avr:uno");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
+	const [sketches, setSketches] = useState<BoardSketch[]>([]);
+	const [legacy, setLegacy] = useState(false);
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
 	const offline = useOfflineBleKey(uuid);
+	const listed = useMemo(
+		() => sketches.filter((item) => !project || item.project === project),
+		[sketches, project],
+	);
+
+	useEffect(() => {
+		if (!uuid) {
+			setSketches([]);
+			setLegacy(false);
+			return;
+		}
+		let cancelled = false;
+		loadFlashSketches(uuid)
+			.then((result) => {
+				if (cancelled) {
+					return;
+				}
+				setSketches(unwrapAction(result).sketches);
+				setLegacy(false);
+			})
+			.catch(() => {
+				if (cancelled) {
+					return;
+				}
+				setSketches([]);
+				setLegacy(true);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid]);
+
+	useEffect(() => {
+		if (legacy) {
+			return;
+		}
+		if (!listed.some((item) => item.dir === dir)) {
+			setDir(listed[0]?.dir ?? "");
+		}
+	}, [listed, dir, legacy]);
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -60,6 +111,8 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 	useDeviceHub(uuid, { onFlash });
 
 	const last = status?.last;
+	const canFlash =
+		Boolean(fqbn.trim()) && Boolean(dir.trim()) && (legacy || Boolean(project));
 
 	return (
 		<Stack spacing={1}>
@@ -130,12 +183,37 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 				value={fqbn}
 				onChange={(event) => setFqbn(event.target.value)}
 			/>
-			<TextField
-				label="Sketch dir on the Pi"
-				placeholder="/home/gpio/blink"
-				value={dir}
-				onChange={(event) => setDir(event.target.value)}
-			/>
+			{legacy ? (
+				<TextField
+					label="Sketch dir on the Pi"
+					placeholder="/home/gpio/blink"
+					value={dir}
+					onChange={(event) => setDir(event.target.value)}
+				/>
+			) : !project ? (
+				<Typography color="secondary" variant="body2">
+					Select a project to see firmware sketches on this board.
+				</Typography>
+			) : listed.length === 0 ? (
+				<Typography color="secondary" variant="body2">
+					No USB sketches on this board for this project. Ask Code to write them
+					under firmware/.
+				</Typography>
+			) : (
+				<Select
+					name="firmware-sketch"
+					label="Sketch"
+					value={dir}
+					onSelect={setDir}
+					className="w-full"
+				>
+					{listed.map((item) => (
+						<option key={item.dir} value={item.dir}>
+							{item.name}
+						</option>
+					))}
+				</Select>
+			)}
 			<TextField
 				label="Port (optional)"
 				placeholder="/dev/ttyUSB0"
@@ -147,7 +225,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 					type="button"
 					variant="contained"
 					size="small"
-					disabled={busy || !uuid || !fqbn.trim() || !dir.trim()}
+					disabled={busy || !uuid || !canFlash}
 					onClick={() => {
 						start(async () => {
 							unwrapAction(
@@ -168,7 +246,7 @@ export default function FlashPanel({ uuid }: { uuid: string }) {
 					type="button"
 					variant="outlined"
 					size="small"
-					disabled={busy || !uuid || !fqbn.trim() || !dir.trim()}
+					disabled={busy || !uuid || !canFlash}
 					onClick={() => {
 						start(async () => {
 							await runFlashEnvelope(

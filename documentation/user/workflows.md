@@ -15,7 +15,7 @@ Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home
 
 Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth.
 
-The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** (not by curling the Pi).
+The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path).
 
 ## Projects live in GitHub
 
@@ -30,8 +30,10 @@ When a PCB, breadboard, or technical-sheet task is done, the agent must **push**
 | `pcb/` | `circuit.json`, `preview.svg` when possible |
 | `breadboard/` | `diagram.json` (Wokwi plug map), optional `preview.svg` |
 | `technical/` | sheets |
+| `host/<name>/` | gpio-host C (`.c` / `.ino`) run on this board's header |
+| `firmware/<name>/` | USB Arduino C flashed over USB |
 
-Dashboard `/projects` reads those paths (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`). If the agent only left files on the Pi disk, the dashboard will look empty.
+Dashboard `/project` reads visual paths from GitHub (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`) and lists host/firmware sketches that are present on the selected board. Launch uses the board copy, not a typed Pi path.
 
 ## Change WiFi later
 
@@ -51,9 +53,9 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 
 The on-device agent drives this board's header with C sketches (`POST /v1/run`, skill `gpio-host`). Direct `PUT /v1/gpio` is for one-shot tests only. The dashboard Project page Live GPIO header can still drive the same map. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
 
-Flash USB Arduino with `POST /v1/flash` then poll `GET /v1/flash`. A second flash while one is running returns 409.
+Flash USB Arduino from Project **Flash Arduino** (sketch name from `firmware/` on the board). A second flash while one is running returns 409.
 
-Run C on the companion GPIO with `POST /v1/run` then poll `GET /v1/run` or `POST /v1/run/stop`. A second run while one is running returns 409.
+Run C on the companion GPIO from Project **Run on board** (sketch name from `host/` on the board). A second run while one is running returns 409.
 
 ## Safety
 

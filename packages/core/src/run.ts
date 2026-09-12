@@ -1,5 +1,6 @@
 export const RUN_PATH = "/v1/run";
 export const RUN_STOP_PATH = "/v1/run/stop";
+export const RUN_SKETCHES_PATH = "/v1/run/sketches";
 export const RUN_LOG_MAX = 16 * 1024;
 
 export type RunPut = {
@@ -31,7 +32,9 @@ export class RunError extends Error {
 }
 
 export function isRunPath(path: string): boolean {
-	return path === RUN_PATH || path === RUN_STOP_PATH;
+	return (
+		path === RUN_PATH || path === RUN_STOP_PATH || path === RUN_SKETCHES_PATH
+	);
 }
 
 export function parseRunPut(input: unknown): RunPut {

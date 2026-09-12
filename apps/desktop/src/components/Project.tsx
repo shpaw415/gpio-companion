@@ -16,14 +16,21 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import {
+	type BoardSketch,
 	createProject,
 	type GithubContent,
 	type GithubRepo,
 	getGithubApp,
 	listProjects,
+	loadFlash,
+	loadFlashSketches,
 	loadProject,
+	loadRun,
+	loadRunSketches,
 	openExternal,
 	type ProjectBundle,
+	startFlash,
+	startRun,
 } from "../api";
 import {
 	CACHE_KEYS,
@@ -84,6 +91,54 @@ function PreviewCard({
 			<Typography color="secondary" sx={{ px: 2, py: 1.5 }}>
 				{title}
 			</Typography>
+		</Paper>
+	);
+}
+
+function BoardSketchGroup({
+	title,
+	action,
+	sketches,
+	busy,
+	onLaunch,
+}: {
+	title: string;
+	action: string;
+	sketches: BoardSketch[];
+	busy: boolean;
+	onLaunch: (dir: string) => void;
+}) {
+	return (
+		<Paper sx={{ p: 2 }} elevation={1}>
+			<Typography variant="subtitle1" sx={{ mb: 1 }}>
+				{title}
+			</Typography>
+			{sketches.length === 0 ? (
+				<Typography color="secondary" variant="body2">
+					None on this board for this project.
+				</Typography>
+			) : (
+				<Stack spacing={0.5}>
+					{sketches.map((item) => (
+						<Stack
+							key={item.dir}
+							direction="row"
+							spacing={1}
+							sx={{ alignItems: "center", justifyContent: "space-between" }}
+						>
+							<Typography variant="body2">{item.name}</Typography>
+							<Button
+								variant="outlined"
+								size="small"
+								disabled={busy}
+								onClick={() => onLaunch(item.dir)}
+							>
+								{action}
+							</Button>
+						</Stack>
+					))}
+				</Stack>
+			)}
 		</Paper>
 	);
 }
@@ -171,6 +226,9 @@ export default function Project() {
 	const [owner, setOwner] = useState("all");
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
+	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
+	const [sketchBusy, setSketchBusy] = useState(false);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
@@ -276,6 +334,7 @@ export default function Project() {
 		}
 	}
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: open last/first repo once the list is ready
 	useEffect(() => {
 		if (loading || bundle || repos.length === 0) {
 			return;
@@ -296,6 +355,43 @@ export default function Project() {
 	}, [loading, repos]);
 
 	const selectedKey = bundle ? `${bundle.owner}/${bundle.repo}` : "";
+
+	useEffect(() => {
+		if (!activeUuid) {
+			setHostSketches([]);
+			setFirmwareSketches([]);
+			return;
+		}
+		let cancelled = false;
+		Promise.all([loadRunSketches(activeUuid), loadFlashSketches(activeUuid)])
+			.then(([host, firmware]) => {
+				if (cancelled) {
+					return;
+				}
+				setHostSketches(host.sketches);
+				setFirmwareSketches(firmware.sketches);
+			})
+			.catch(() => {
+				if (cancelled) {
+					return;
+				}
+				setHostSketches([]);
+				setFirmwareSketches([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [activeUuid]);
+
+	function launchSketch(task: () => Promise<void>) {
+		setSketchBusy(true);
+		setError("");
+		void task()
+			.catch((caught) => {
+				setError(caught instanceof Error ? caught.message : "request failed");
+			})
+			.finally(() => setSketchBusy(false));
+	}
 
 	return (
 		<Stack spacing={3}>
@@ -348,9 +444,9 @@ export default function Project() {
 							poll
 						/>
 						<Typography variant="subtitle1">Flash Arduino</Typography>
-						<FlashPanel uuid={activeUuid} />
+						<FlashPanel uuid={activeUuid} project={bundle?.repo} />
 						<Typography variant="subtitle1">Run on board</Typography>
-						<RunPanel uuid={activeUuid} />
+						<RunPanel uuid={activeUuid} project={bundle?.repo} />
 					</Stack>
 				</Paper>
 			) : null}
@@ -559,6 +655,38 @@ export default function Project() {
 						<FileGroup title="PCB" files={bundle.pcb} />
 						<FileGroup title="Breadboard" files={bundle.breadboard} />
 						<FileGroup title="Technical" files={bundle.technical} />
+						<BoardSketchGroup
+							title="Host sketches"
+							action="Run"
+							sketches={hostSketches.filter(
+								(item) => item.project === bundle.repo,
+							)}
+							busy={sketchBusy || !activeUuid}
+							onLaunch={(dir) => {
+								launchSketch(async () => {
+									await startRun({ uuid: activeUuid, dir });
+									await loadRun(activeUuid);
+								});
+							}}
+						/>
+						<BoardSketchGroup
+							title="Arduino firmware"
+							action="Flash"
+							sketches={firmwareSketches.filter(
+								(item) => item.project === bundle.repo,
+							)}
+							busy={sketchBusy || !activeUuid}
+							onLaunch={(dir) => {
+								launchSketch(async () => {
+									await startFlash({
+										uuid: activeUuid,
+										fqbn: "arduino:avr:uno",
+										dir,
+									});
+									await loadFlash(activeUuid);
+								});
+							}}
+						/>
 					</Box>
 				</Stack>
 			) : loading || !configured ? null : (

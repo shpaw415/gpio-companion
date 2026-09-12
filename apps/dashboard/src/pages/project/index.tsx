@@ -64,6 +64,7 @@ export default function ProjectPage() {
 	const [githubReady, setGithubReady] = useState(false);
 	const [pairingLoading, setPairingLoading] = useState(true);
 	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
+	const [project, setProject] = useState("");
 	const selectedUuidRef = useRef(selectedUuid);
 	selectedUuidRef.current = selectedUuid;
 
@@ -221,12 +222,12 @@ export default function ProjectPage() {
 						<Typography color="secondary">
 							Compile C firmware on the board and upload it over USB.
 						</Typography>
-						<FlashPanel uuid={activeUuid} />
+						<FlashPanel uuid={activeUuid} project={project} />
 						<Typography variant="h6">Run on board</Typography>
 						<Typography color="secondary">
 							Compile C on the board and run it on this header for GPIO tests.
 						</Typography>
-						<RunPanel uuid={activeUuid} />
+						<RunPanel uuid={activeUuid} project={project} />
 					</Stack>
 				</Paper>
 			) : null}
@@ -235,7 +236,12 @@ export default function ProjectPage() {
 				<Typography variant="h5" className="mb-3">
 					Your projects
 				</Typography>
-				<ProjectBrowser onConfigured={setGithubReady} livePins={livePins} />
+				<ProjectBrowser
+					onConfigured={setGithubReady}
+					onProject={setProject}
+					uuid={activeUuid}
+					livePins={livePins}
+				/>
 			</div>
 		</Stack>
 	);

@@ -9,7 +9,7 @@ You are the on-device agent of a gpio-companion board: a pre-configured Armbian 
 ## Project management
 
 - Every electronics project lives in its **own GitHub repository** on the user's account (GitHub App minted short-lived `ghs_` tokens via the localhost device API — never invent a GitHub user). Clones land in `~/projects/<name>` and are registered with T3 Code (`t3 project add`).
-- When a PCB, breadboard, or technical-sheet task is done, you **must `git push`** the project's `pcb/`, `breadboard/`, and `technical/` folders.
+- When a PCB, breadboard, technical-sheet, or C-sketch task is done, you **must `git push`** the project's `pcb/`, `breadboard/`, `technical/`, `host/`, and `firmware/` folders. Header C lives in `host/<name>/`; USB Arduino C in `firmware/<name>/`. Users launch by name from Project, not by Pi path.
 - `pcb/circuit.json` + `pcb/preview.svg` come from tscircuit; `breadboard/diagram.json` is a Wokwi diagram with a `gpio-companion-header` (physical pins 1-40) rendered with `@wokwi/elements` by the dashboard.
 - Web serving and automation scripts are **Bun only**. Header GPIO is **C-first** (`gpio-host` `POST /v1/run`). USB Arduino firmware is **C over USB** (`gpio-arduino` `POST /v1/flash`). Direct `PUT /v1/gpio` is one-shot testing only. No substitute runtimes unless the user locks a change.
 

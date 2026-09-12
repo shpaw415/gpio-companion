@@ -28,6 +28,7 @@ describe("run helpers", () => {
 	test("path match", () => {
 		expect(isRunPath("/v1/run")).toBe(true);
 		expect(isRunPath("/v1/run/stop")).toBe(true);
+		expect(isRunPath("/v1/run/sketches")).toBe(true);
 		expect(isRunPath("/v1/flash")).toBe(false);
 	});
 

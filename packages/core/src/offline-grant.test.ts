@@ -75,6 +75,7 @@ describe("offline-grant", () => {
 		expect(isOfflineGrantScope("POST", "/v1/t3/pair")).toBe(false);
 		expect(isOfflineGrantScope("POST", "/v1/update")).toBe(false);
 		expect(isOfflineGrantScope("POST", "/v1/projects/sync")).toBe(false);
+		expect(isOfflineGrantScope("POST", "/v1/projects/push")).toBe(false);
 		expect(isOfflineGrantScope("PUT", GPIO_PATH)).toBe(true);
 		const master = await generateDeviceKeyPair();
 		const bundle = await mintOfflineGrant({

@@ -78,6 +78,7 @@ describe("flash helpers", () => {
 	test("path match", () => {
 		expect(isFlashPath("/v1/flash")).toBe(true);
 		expect(isFlashPath("/v1/flash/ports")).toBe(true);
+		expect(isFlashPath("/v1/flash/sketches")).toBe(true);
 		expect(isFlashPath("/v1/gpio")).toBe(false);
 	});
 
