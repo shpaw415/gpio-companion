@@ -15,7 +15,7 @@ Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home
 
 Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth.
 
-To test C on the companion header itself (no USB Arduino), use `POST /v1/run` with an absolute sketch dir. Pins are physical header numbers. Project **Run on board** starts and stops that job.
+The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** (not by curling the Pi).
 
 ## Projects live in GitHub
 

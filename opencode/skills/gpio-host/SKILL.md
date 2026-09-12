@@ -20,7 +20,15 @@ script over direct GPIO control.
 Do **not** shell `gcc`. Use the loopback run API. Pins are **physical** header
 numbers (not Arduino Uno D-numbers). This is not a drop-in `/v1/flash` sketch.
 
-## API
+## User vs you
+
+You call the loopback API yourself. **Never** tell the user to `curl`
+`127.0.0.1:4150` (or `/v1/run/stop`).
+
+If the user should start or stop a sketch: dashboard **Project → Run on board**
+(Start / Stop). Same panel on desktop and mobile.
+
+## API (agent only)
 
 ```sh
 curl -s -X POST http://127.0.0.1:4150/v1/run \

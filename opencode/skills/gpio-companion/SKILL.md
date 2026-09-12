@@ -31,6 +31,8 @@ Drive this board's header with Arduino-style C. Direct GPIO PUT is not the defau
 
 Do **not** `PUT /v1/gpio` for blinks, PWM, tone, loops, or any lasting drive. Do not shell `gcc`, `gpioset`, or `gpio-pwm`.
 
+You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls to the user. Actions they must take go through the dashboard (or desktop/mobile): **Project → Run on board** (Start/Stop), **Project → Flash Arduino**, **Project → Live GPIO**, **Profile → Credits**, **Devices → WiFi**.
+
 ## Do
 
 - Vibe-code breadboards and PCBs with tscircuit
@@ -56,3 +58,4 @@ Do **not** `PUT /v1/gpio` for blinks, PWM, tone, loops, or any lasting drive. Do
 - Use a non-Bun runtime for web or scripts
 - Generate Arduino firmware in anything but C
 - Drive header GPIO with `PUT /v1/gpio` when a C sketch (`gpio-host`) would do — that PUT path is testing-only
+- Tell the user to `curl` `127.0.0.1:4150` (e.g. `/v1/run/stop`) — send them to the dashboard instead

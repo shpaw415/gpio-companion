@@ -2,8 +2,9 @@
 name: gpio-pinout-raspberrypi
 description: >-
   Raspberry Pi 40-pin GPIO header for gpio-companion. Use when hardware is
-  raspberrypi, wiring a breadboard/PCB, or driving GPIO. Talk physical pins
-  1–40 (companion API). 3.3V logic. Avoid pins 27–28.
+  raspberrypi, wiring a breadboard/PCB, or driving GPIO. Drive with C
+  (gpio-host); PUT /v1/gpio is one-shot testing only. Talk physical pins 1–40.
+  3.3V logic. Avoid pins 27–28.
 ---
 
 # Raspberry Pi GPIO pinout
@@ -100,6 +101,6 @@ On Project, Live GPIO shows this header. Tap a pin there to drive it.
 Load when `/etc/gpio-companion/config.json` has `"hardware": "raspberrypi"`, or `/proc/device-tree/model` contains Raspberry Pi.
 
 1. `GET http://127.0.0.1:4150/v1/gpio` first — that snapshot is the live map (physical, name, dir, value, PWM).
-  2. Drive header GPIO with a C sketch (skill `gpio-host`, **physical** pins). Never BCM in the body. `PUT /v1/gpio` only for a one-shot test: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone in C, or skill `gpio-pwm` for a test. Breadboard: `gpio-breadboard`.
+2. **C-first:** drive header GPIO with a C sketch (skill `gpio-host`, **physical** pins). Never BCM in the body. Blink/PWM/tone/loops go to `POST /v1/run`. `PUT /v1/gpio` only for a one-shot test the user asked for: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone in C, or skill `gpio-pwm` for a test. Breadboard: `gpio-breadboard`.
 3. Technical sheets: **physical pin + name** so the user can see the header. Push `technical/` and `breadboard/diagram.json`.
 4. Refuse power, GND, and physical 27–28. Do not `gpioset`.

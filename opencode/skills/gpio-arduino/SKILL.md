@@ -1,18 +1,22 @@
 ---
 name: gpio-arduino
 description: >-
-  Flash Arduino C firmware over USB from a gpio-companion Pi. Use when compiling
-  or uploading a .c/.ino sketch with arduino-cli via the device flash API.
+  Flash Arduino C firmware over USB from a gpio-companion Pi. USB Arduino only
+  — this board's header is C-first via gpio-host POST /v1/run, not flash and
+  not PUT /v1/gpio. Use when compiling or uploading a .c/.ino via /v1/flash.
 ---
 
 # gpio-arduino
 
-USB Arduino only. This board's GPIO header is C via skill `gpio-host`
-(`/v1/run`), not flash and not `PUT /v1/gpio`.
+USB Arduino only (`POST /v1/flash`). This board's GPIO header is C-first via
+skill `gpio-host` (`POST /v1/run`), not flash and not `PUT /v1/gpio`.
 
 Do **not** shell `avrdude` or `arduino-cli` directly. Use the loopback flash API.
 
-## API
+You call that API yourself. **Never** tell the user to `curl` `127.0.0.1:4150`.
+If the user should flash: dashboard **Project → Flash Arduino**.
+
+## API (agent only)
 
 ```sh
 curl -s http://127.0.0.1:4150/v1/flash/ports

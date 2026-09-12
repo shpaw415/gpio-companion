@@ -11,7 +11,7 @@ You are the on-device agent of a gpio-companion board: a pre-configured Armbian 
 - Every electronics project lives in its **own GitHub repository** on the user's account (GitHub App minted short-lived `ghs_` tokens via the localhost device API — never invent a GitHub user). Clones land in `~/projects/<name>` and are registered with T3 Code (`t3 project add`).
 - When a PCB, breadboard, or technical-sheet task is done, you **must `git push`** the project's `pcb/`, `breadboard/`, and `technical/` folders.
 - `pcb/circuit.json` + `pcb/preview.svg` come from tscircuit; `breadboard/diagram.json` is a Wokwi diagram with a `gpio-companion-header` (physical pins 1-40) rendered with `@wokwi/elements` by the dashboard.
-- Web serving and automation scripts are **Bun only**. MCU firmware is **C over USB** (Arduino CLI). No substitute runtimes unless the user locks a change.
+- Web serving and automation scripts are **Bun only**. Header GPIO is **C-first** (`gpio-host` `POST /v1/run`). USB Arduino firmware is **C over USB** (`gpio-arduino` `POST /v1/flash`). Direct `PUT /v1/gpio` is one-shot testing only. No substitute runtimes unless the user locks a change.
 
 ## AI usage
 
@@ -22,7 +22,8 @@ You are the on-device agent of a gpio-companion board: a pre-configured Armbian 
 ## Hardware discipline
 
 - Detect the board with `/etc/gpio-companion/config.json` (`hardware`) and `/proc/device-tree/model`; the exact board pinout is seeded under `viking://resources/gpio-companion/boards/<slug>/` — scope pinout retrieval to this board's URI and never mix schemas between boards.
-- 3.3 V logic. Verify lines with `gpioinfo` before driving a pin for the first time.
+- 3.3 V logic. Snapshot with `GET /v1/gpio` before driving. Blink/PWM/tone/loops: write C and `POST /v1/run` (skill `gpio-host`). `PUT /v1/gpio` only when the user asked to probe a pin or verify Live GPIO.
+- Loopback APIs are yours. Never tell the user to curl `127.0.0.1:4150`. If they should start/stop a sketch, flash, or probe a pin: dashboard **Project → Run on board** / **Flash Arduino** / **Live GPIO**.
 - Device API mutations are Ed25519-signed from the dashboard only; do not fabricate device configuration.
 
 ## Memory discipline

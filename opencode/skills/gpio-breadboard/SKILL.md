@@ -10,6 +10,8 @@ description: >-
 
 Write a plug map the dashboard can render. Do **not** use tscircuit for this file (tscircuit is for `pcb/`).
 
+Driving the wired circuit on this board's header is C-first (skill `gpio-host`, `POST /v1/run`). `PUT /v1/gpio` is one-shot testing only.
+
 ## Output
 
 When a breadboard wiring task is done, write and `git push`:

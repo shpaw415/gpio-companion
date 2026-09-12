@@ -1,18 +1,22 @@
 ---
 name: gpio-pwm
 description: >-
-  Testing-only analogWrite, tone, and analogRead via PUT /v1/gpio. Prefer
-  analogWrite/tone in a C sketch (gpio-host). Use this path only for a one-shot
-  pin test (fade an LED, probe a buzzer) on Orange Pi or Raspberry Pi.
+  Testing-only analogWrite, tone, and analogRead via PUT /v1/gpio. Do not use
+  for lasting PWM/tone — write C (gpio-host POST /v1/run) instead. One-shot pin
+  test only when the user asked to probe a pin or verify Live GPIO.
 ---
 
 # gpio-pwm
 
-Prefer `analogWrite` / `tone` in a C sketch (skill `gpio-host`). Use this PUT
-API only for a one-shot test the user asked for.
+**Testing only.** Prefer `analogWrite` / `tone` in a C sketch (skill `gpio-host`,
+`POST /v1/run`). Use this PUT API only when the user asked to probe a pin or
+verify Live GPIO — one-shot, then stop. Not for blinks, fades that should keep
+running, or tone sequences.
 
-When testing, drive PWM and tone through `http://127.0.0.1:4150/v1/gpio`. Do
-**not** shell `gpio-pwm`, pyA20, orangepwm.py, or `gpioset` for analogWrite.
+When testing, you drive PWM and tone through `http://127.0.0.1:4150/v1/gpio`.
+Do **not** shell `gpio-pwm`, pyA20, orangepwm.py, or `gpioset` for analogWrite.
+**Never** tell the user to curl that URL — if they should probe a pin, send them
+to dashboard **Project → Live GPIO**.
 
 Load the pinout skill first (`gpio-pinout-orangepi` or `gpio-pinout-raspberrypi`).
 Use **physical** pins 1–40. Refuse power, GND, Raspberry Pi 27–28, and unresolved

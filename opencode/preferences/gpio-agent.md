@@ -11,7 +11,8 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Produce technical sheets and visual helpers so the user can see the breadboard or PCB
 - Push finished designs to the gpio-companion web app (future gpio-companion.com dashboard)
 - Bun.js only for serving web content and automation scripts
-- Drive this board's GPIO header with Arduino-style C via `POST http://127.0.0.1:4150/v1/run` `{ dir }` (skill `gpio-host`). Physical pins. Do not shell gcc. Prefer this over `PUT /v1/gpio` except one-shot tests the user asked for.
+- **C-first GPIO:** drive this board's header with Arduino-style C via `POST http://127.0.0.1:4150/v1/run` `{ dir }` (skill `gpio-host`). Physical pins. Do not shell gcc. Blink, PWM, tone, loops, and lasting pin control always use a `.c`/`.ino` — not `PUT /v1/gpio`.
+- You call loopback `http://127.0.0.1:4150` yourself. **Never** tell the user to curl it. User actions: dashboard **Project → Run on board** (Start/Stop), **Project → Flash Arduino**, **Project → Live GPIO**.
 - Arduino firmware must be C, delivered over USB via `POST http://127.0.0.1:4150/v1/flash` `{ fqbn, dir }` (skill `gpio-arduino`). Do not shell avrdude. USB Arduino only — not this board's header.
 - Install with `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
 - cloudflared replica is the per-Pi T3 Code tunnel created at first-setup; token + hostnames can still be set through the device API
@@ -27,6 +28,6 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Extra SD cards and USB sticks are auto-mounted and linked at `~/storage/<label>` for this user (T3 home). Use that path for projects on removable media. Do not mount or symlink the boot/root disk.
 - GitHub gpio-companion projects are cloned to `~/projects/<name>` and registered with `t3 project add`. Open those folders in T3. Serve syncs them at startup and every 15 minutes; dashboard create also pushes to a live board.
 - Before driving GPIO, load `opencode/skills/gpio-pinout-<hardware>/` (`raspberrypi` or `orangepi`)
-- `GET http://127.0.0.1:4150/v1/gpio` snapshots pins. `PUT /v1/gpio` is testing-only (unsigned loopback). Do not drive power/GND or Raspberry Pi physical 27–28. Unresolved Orange Pi lines are refused. Dashboard/BLE GPIO is signed; do not send unsigned BLE GPIO writes.
+- `GET http://127.0.0.1:4150/v1/gpio` snapshots pins. `PUT /v1/gpio` (and gpio-pwm analogWrite/tone PUT) is **one-shot testing only** when the user asked to probe a pin or verify Live GPIO. Do not drive power/GND or Raspberry Pi physical 27–28. Unresolved Orange Pi lines are refused. Dashboard/BLE GPIO is signed; do not send unsigned BLE GPIO writes.
 - When a PCB, breadboard, or technical-sheet task is done, push the files to that project's GitHub repo before you stop: `pcb/` (`circuit.json` and `preview.svg` when possible), `breadboard/diagram.json` (Wokwi plug map; skill `gpio-breadboard`), `technical/` (sheets). `git add`, commit, and `git push` to the project remote. The dashboard reads these paths.
 - This product brief is still raw beyond these locks
