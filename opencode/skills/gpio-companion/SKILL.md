@@ -1,10 +1,10 @@
 ---
 name: gpio-companion
 description: >-
-  On-device gpio-companion agent: GPIO OS control, tscircuit breadboard/PCB,
-  visual technical sheets, GitHub projects, Bun web/scripts, Arduino C over USB.
-  Use on Orange Pi / Raspberry Pi Armbian images with OpenCode or T3Code, and
-  when working in the gpio-companion monorepo.
+  On-device gpio-companion agent: C-first header GPIO (gpio-host POST /v1/run).
+  Direct PUT /v1/gpio is one-shot testing only. USB Arduino is gpio-arduino.
+  tscircuit breadboard/PCB, visual sheets, GitHub, Bun. Use on Orange Pi /
+  Raspberry Pi Armbian with OpenCode or T3Code, and in this monorepo.
 ---
 
 # gpio-companion
@@ -14,9 +14,22 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 ## Source of truth
 
 - Product: repo `PRODUCT.md`
-- Preferences: `opencode/preferences/`
+- Preferences: `opencode/preferences/` (especially `gpio-agent.md`)
 - Skills: `opencode/skills/` (device updater copies these on boot and every 24h)
 - Pinout: `gpio-pinout-raspberrypi` or `gpio-pinout-orangepi` from `/etc/gpio-companion/config.json` `hardware`
+
+## C-first GPIO (locked)
+
+Drive this board's header with Arduino-style C. Direct GPIO PUT is not the default.
+
+| Job | Do this |
+| --- | --- |
+| Blink, PWM, tone, loops, lasting pin control | Write `.c`/`.ino`, skill `gpio-host`, `POST http://127.0.0.1:4150/v1/run` `{ dir }` |
+| Snapshot pins | `GET http://127.0.0.1:4150/v1/gpio` |
+| User asked to probe a pin or verify Live GPIO | One-shot `PUT /v1/gpio` (digital) or skill `gpio-pwm` (analogWrite/tone), then stop |
+| USB Arduino | Skill `gpio-arduino`, `POST /v1/flash` — never this header |
+
+Do **not** `PUT /v1/gpio` for blinks, PWM, tone, loops, or any lasting drive. Do not shell `gcc`, `gpioset`, or `gpio-pwm`.
 
 ## Do
 
@@ -32,13 +45,14 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 - Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
 - Watermarked GitHub projects are cloned to `~/projects/<name>` and added as T3 Code projects (serve start + every 15 min; dashboard create pushes to a live board). Prefer those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
-- Generate Arduino firmware in C and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). Sketch dir must be absolute and contain `.c` or `.ino`.
-- To test C on this board's GPIO header (not USB Arduino), use `POST http://127.0.0.1:4150/v1/run` `{ dir }` (skill `gpio-host`). Physical pins. Do not shell gcc.
+- Drive this board's GPIO header with Arduino-style C (skill `gpio-host`): write a `.c`/`.ino` and `POST http://127.0.0.1:4150/v1/run` `{ dir }`. Physical pins. Do not shell gcc.
+- Generate Arduino firmware in C and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). Sketch dir must be absolute and contain `.c` or `.ino`. USB Arduino only — not this board's header.
 - Load the pinout skill for the current hardware before wiring GPIO
-- Drive GPIO through `http://127.0.0.1:4150/v1/gpio` (unsigned loopback). `GET` snapshots physical pins with live dir/value (and PWM/tone when set). Digital: `PUT` `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone: skill `gpio-pwm`. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Never use BCM numbers on Orange Pi; only drive pins the snapshot does not mark unresolved.
+- `GET http://127.0.0.1:4150/v1/gpio` to snapshot physical pins (dir/value/PWM). Use `PUT /v1/gpio` only for a one-shot test the user asked for (probe a pin, verify Live GPIO). Digital test: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone test: skill `gpio-pwm`. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Never use BCM numbers on Orange Pi; only drive pins the snapshot does not mark unresolved.
 
 ## Do not
 
 - Invent locked product/dashboard/billing behavior (vision is still raw)
 - Use a non-Bun runtime for web or scripts
 - Generate Arduino firmware in anything but C
+- Drive header GPIO with `PUT /v1/gpio` when a C sketch (`gpio-host`) would do — that PUT path is testing-only

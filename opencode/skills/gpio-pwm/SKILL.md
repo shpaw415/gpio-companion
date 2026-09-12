@@ -1,15 +1,18 @@
 ---
 name: gpio-pwm
 description: >-
-  Arduino-like analogWrite, tone, and analogRead on gpio-companion header GPIO
-  via the companion API. Use when setting a pin as PWM, fading an LED, driving
-  a buzzer with tone(), or reading analog values on Orange Pi or Raspberry Pi.
+  Testing-only analogWrite, tone, and analogRead via PUT /v1/gpio. Prefer
+  analogWrite/tone in a C sketch (gpio-host). Use this path only for a one-shot
+  pin test (fade an LED, probe a buzzer) on Orange Pi or Raspberry Pi.
 ---
 
 # gpio-pwm
 
-Drive PWM and tone through `http://127.0.0.1:4150/v1/gpio`. Do **not** shell
-`gpio-pwm`, pyA20, orangepwm.py, or `gpioset` for analogWrite.
+Prefer `analogWrite` / `tone` in a C sketch (skill `gpio-host`). Use this PUT
+API only for a one-shot test the user asked for.
+
+When testing, drive PWM and tone through `http://127.0.0.1:4150/v1/gpio`. Do
+**not** shell `gpio-pwm`, pyA20, orangepwm.py, or `gpioset` for analogWrite.
 
 Load the pinout skill first (`gpio-pinout-orangepi` or `gpio-pinout-raspberrypi`).
 Use **physical** pins 1–40. Refuse power, GND, Raspberry Pi 27–28, and unresolved
@@ -59,6 +62,7 @@ SoC lines (PD22, …). Do not assume Raspberry Pi BCM or sysfs PWM0/PWM1 seats.
 
 ## Do not
 
+- Use this PUT path for lasting PWM/tone — write C and `POST /v1/run` instead
 - Spawn `/usr/local/lib/gpio-companion/gpio-pwm` yourself
 - Use Python orangepwm / pyA20
 - Treat header pin 7 as hardware PWM unless the snapshot shows `analog` or `pwm`

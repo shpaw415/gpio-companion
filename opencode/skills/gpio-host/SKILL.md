@@ -1,11 +1,21 @@
 ---
 name: gpio-host
 description: >-
-  Run Arduino-style C on the gpio-companion board GPIO header. Use when compiling
-  or running a .c/.ino sketch on the Pi itself via the device run API, not USB flash.
+  Default (C-first) way to drive gpio-companion header GPIO: compile/run
+  Arduino-style C (.c/.ino) via POST /v1/run. Use for blinks, PWM, tone, loops,
+  and any lasting pin control. PUT /v1/gpio is testing-only. Not USB flash.
 ---
 
 # gpio-host
+
+This is the **default** way to drive this board's GPIO header. Prioritize a C
+script over direct GPIO control.
+
+- Write a `.c`/`.ino` and `POST /v1/run`.
+- Do **not** `PUT /v1/gpio` or skill `gpio-pwm` unless the user asked to **probe
+  a pin** or **verify Live GPIO** — one-shot, then stop.
+- Blink, PWM, tone, loops, and lasting drive always go here, even if a PUT
+  would work.
 
 Do **not** shell `gcc`. Use the loopback run API. Pins are **physical** header
 numbers (not Arduino Uno D-numbers). This is not a drop-in `/v1/flash` sketch.

@@ -100,6 +100,6 @@ On Project, Live GPIO shows this header. Tap a pin there to drive it.
 Load when `/etc/gpio-companion/config.json` has `"hardware": "raspberrypi"`, or `/proc/device-tree/model` contains Raspberry Pi.
 
 1. `GET http://127.0.0.1:4150/v1/gpio` first — that snapshot is the live map (physical, name, dir, value, PWM).
-2. Drive with `PUT` **physical** pins only. Never BCM in the body. Digital: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone: skill `gpio-pwm`. Breadboard: `gpio-breadboard`.
+  2. Drive header GPIO with a C sketch (skill `gpio-host`, **physical** pins). Never BCM in the body. `PUT /v1/gpio` only for a one-shot test: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone in C, or skill `gpio-pwm` for a test. Breadboard: `gpio-breadboard`.
 3. Technical sheets: **physical pin + name** so the user can see the header. Push `technical/` and `breadboard/diagram.json`.
 4. Refuse power, GND, and physical 27–28. Do not `gpioset`.

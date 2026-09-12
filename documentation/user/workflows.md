@@ -49,9 +49,9 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 
 ## GPIO
 
-The on-device agent drives pins through `http://127.0.0.1:4150/v1/gpio` (physical pins). The dashboard Project page Live GPIO header can drive the same map. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
+The on-device agent drives this board's header with C sketches (`POST /v1/run`, skill `gpio-host`). Direct `PUT /v1/gpio` is for one-shot tests only. The dashboard Project page Live GPIO header can still drive the same map. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
 
-Flash Arduino with `POST /v1/flash` then poll `GET /v1/flash`. A second flash while one is running returns 409.
+Flash USB Arduino with `POST /v1/flash` then poll `GET /v1/flash`. A second flash while one is running returns 409.
 
 Run C on the companion GPIO with `POST /v1/run` then poll `GET /v1/run` or `POST /v1/run/stop`. A second run while one is running returns 409.
 

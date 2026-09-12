@@ -7,6 +7,9 @@ description: >-
 
 # gpio-arduino
 
+USB Arduino only. This board's GPIO header is C via skill `gpio-host`
+(`/v1/run`), not flash and not `PUT /v1/gpio`.
+
 Do **not** shell `avrdude` or `arduino-cli` directly. Use the loopback flash API.
 
 ## API
