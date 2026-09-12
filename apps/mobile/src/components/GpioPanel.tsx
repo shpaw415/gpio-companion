@@ -80,16 +80,17 @@ export default function GpioPanel({
 			.finally(() => setBusy(false));
 	}
 
-	function drive(pin: GpioPinState, dir: "in" | "out", value?: 0 | 1) {
+	function drive(command: {
+		physical: number;
+		dir?: "in" | "out" | "pwm";
+		value?: 0 | 1;
+		analog?: number;
+		op?: "tone" | "notone";
+		hz?: number;
+	}) {
 		if (poll) {
 			setError("");
-			if (
-				!tunnel.drive({
-					physical: pin.physical,
-					dir,
-					value,
-				})
-			) {
+			if (!tunnel.drive(command)) {
 				setError("live gpio websocket is not connected");
 			}
 			return;
@@ -97,14 +98,7 @@ export default function GpioPanel({
 		if (!token) {
 			return;
 		}
-		start(() =>
-			putGpio(token, {
-				uuid,
-				physical: pin.physical,
-				dir,
-				value,
-			}),
-		);
+		start(() => putGpio(token, { uuid, ...command }));
 	}
 
 	if (!available) {
@@ -193,7 +187,11 @@ export default function GpioPanel({
 					busy={busy}
 					interactive={Boolean(snapshot)}
 					onToggle={(pin) => {
-						drive(pin, "out", pin.value === 1 ? 0 : 1);
+						drive({
+							physical: pin.physical,
+							dir: "out",
+							value: pin.value === 1 ? 0 : 1,
+						});
 					}}
 				/>
 			) : (
@@ -220,12 +218,43 @@ export default function GpioPanel({
 							<TextButton
 								label="In"
 								disabled={busy || !canDriveGpio(pin) || !token}
-								onPress={() => drive(pin, "in")}
+								onPress={() =>
+									drive({ physical: pin.physical, dir: "in" })
+								}
 							/>
 							<TextButton
 								label={pin.value === 1 ? "Set low" : "Set high"}
 								disabled={busy || !canDriveGpio(pin) || !token}
-								onPress={() => drive(pin, "out", pin.value === 1 ? 0 : 1)}
+								onPress={() =>
+									drive({
+										physical: pin.physical,
+										dir: "out",
+										value: pin.value === 1 ? 0 : 1,
+									})
+								}
+							/>
+							<TextButton
+								label="PWM"
+								disabled={busy || !canDriveGpio(pin) || !token}
+								onPress={() =>
+									drive({
+										physical: pin.physical,
+										dir: "pwm",
+										analog:
+											typeof pin.analog === "number" ? pin.analog : 128,
+									})
+								}
+							/>
+							<TextButton
+								label={typeof pin.hz === "number" ? "Stop" : "Tone"}
+								disabled={busy || !canDriveGpio(pin) || !token}
+								onPress={() =>
+									drive(
+										typeof pin.hz === "number"
+											? { physical: pin.physical, op: "notone" }
+											: { physical: pin.physical, op: "tone", hz: 440 },
+									)
+								}
 							/>
 						</View>
 					))}
@@ -242,14 +271,19 @@ function pinStatus(pin: GpioPinState): string {
 	if (pin.unresolved) {
 		return "Unresolved";
 	}
+	if (typeof pin.hz === "number") {
+		return `tone ${Math.round(pin.hz)} Hz`;
+	}
+	if (typeof pin.analog === "number") {
+		return `PWM ${Math.round(pin.analog)}/255`;
+	}
 	if (typeof pin.pwm === "number") {
 		return `PWM ${Math.round(pin.pwm)}%`;
 	}
-	if (pin.value === 1) {
-		return "High";
+	const level =
+		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	if (pin.dir === "in" || pin.dir === "out") {
+		return level ? `${pin.dir} · ${level}` : pin.dir;
 	}
-	if (pin.value === 0) {
-		return "Low";
-	}
-	return "—";
+	return level ?? "—";
 }

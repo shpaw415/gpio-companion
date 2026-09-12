@@ -1,5 +1,10 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
-import { GPIO_PATH, type GpioSnapshot, parseGpioPut } from "gpio-companion";
+import {
+	GPIO_PATH,
+	type GpioSnapshot,
+	isGpioWsRefresh,
+	parseGpioWsCommand,
+} from "gpio-companion";
 import { wrapAction } from "../../lib/action.ts";
 import { resolveAccessibleDeviceUrl } from "../../lib/debug-live.ts";
 import { readDeviceJson, signedDeviceFetch } from "../../lib/device-api.ts";
@@ -37,6 +42,9 @@ export const PUT = wrapAction(async function PUT(input: {
 	physical: number;
 	dir?: string;
 	value?: number;
+	analog?: number;
+	op?: string;
+	hz?: number;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
@@ -55,8 +63,17 @@ export const PUT = wrapAction(async function PUT(input: {
 	if (!device.deviceUrl) {
 		throw new Error("device URL is missing");
 	}
-	const put = parseGpioPut(input);
+	const command = parseGpioWsCommand(input);
+	if (isGpioWsRefresh(command)) {
+		throw new Error("refresh is websocket-only");
+	}
 	return readDeviceJson<GpioSnapshot>(
-		await signedDeviceFetch(ctx.env, device.deviceUrl, "PUT", GPIO_PATH, put),
+		await signedDeviceFetch(
+			ctx.env,
+			device.deviceUrl,
+			"PUT",
+			GPIO_PATH,
+			command,
+		),
 	);
 });

@@ -8,6 +8,7 @@ export type SkuGpioLine = {
 	line: number;
 	name: string;
 	soc?: string;
+	alt?: string[];
 };
 
 export type GpioChipSize = {

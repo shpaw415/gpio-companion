@@ -10,6 +10,7 @@ type GpioPinTone =
 	| "reserved"
 	| "unresolved"
 	| "pwm"
+	| "tone"
 	| "high"
 	| "low"
 	| "idle";
@@ -20,6 +21,7 @@ const TONE_BG: Record<GpioPinTone, string> = {
 	reserved: "bg-surface",
 	unresolved: "bg-warning",
 	pwm: "bg-info",
+	tone: "bg-info",
 	high: "bg-success",
 	low: "bg-secondary",
 	idle: "bg-surface",
@@ -57,7 +59,10 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
-	if (typeof pin.pwm === "number") {
+	if (typeof pin.hz === "number") {
+		return "tone";
+	}
+	if (typeof pin.analog === "number" || typeof pin.pwm === "number") {
 		return "pwm";
 	}
 	if (pin.value === 1) {
@@ -67,6 +72,30 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 		return "low";
 	}
 	return "idle";
+}
+
+function pinStatusLabel(pin: GpioPinState): string {
+	if (pin.reserved) {
+		return "Reserved";
+	}
+	if (pin.unresolved) {
+		return "Unresolved";
+	}
+	if (typeof pin.hz === "number") {
+		return `tone ${Math.round(pin.hz)} Hz`;
+	}
+	if (typeof pin.analog === "number") {
+		return `PWM ${Math.round(pin.analog)}/255`;
+	}
+	if (typeof pin.pwm === "number") {
+		return `PWM ${Math.round(pin.pwm)}%`;
+	}
+	const level =
+		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	if (pin.dir === "in" || pin.dir === "out") {
+		return level ? `${pin.dir} · ${level}` : pin.dir;
+	}
+	return level ?? "—";
 }
 
 function placeholderPins(): GpioPinState[] {
@@ -140,7 +169,11 @@ function HeaderPin({
 }) {
 	const driveable = interactive && canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
-	const label = pin.name || "—";
+	const status = pinStatusLabel(pin);
+	const label =
+		pin.type === "gpio" && status !== "—"
+			? `${pin.name || "GPIO"}  ${status}`
+			: pin.name || "—";
 	const content = (
 		<Stack
 			direction="row"

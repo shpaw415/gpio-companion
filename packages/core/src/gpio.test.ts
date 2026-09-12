@@ -5,11 +5,14 @@ import {
 	canDriveGpio,
 	GpioError,
 	gpioNamedLine,
+	gpioPinStatusLabel,
 	gpioPinTone,
 	gpioWsConnectUrl,
 	gpioWsUrl,
 	headerPin,
 	headerPinPairs,
+	isGpioNoTone,
+	isGpioTone,
 	isGpioWsRefresh,
 	parseGpioPut,
 	parseGpioWsCommand,
@@ -69,6 +72,22 @@ describe("parseGpioPut", () => {
 		expect(() => parseGpioPut({ physical: 11, dir: "out" })).toThrow("value");
 	});
 
+	test("pwm analogWrite 0-255", () => {
+		expect(parseGpioPut({ physical: 7, dir: "pwm", analog: 128 })).toEqual({
+			physical: 7,
+			dir: "pwm",
+			analog: 128,
+		});
+		expect(parseGpioPut({ physical: 7, analog: 0 })).toEqual({
+			physical: 7,
+			dir: "pwm",
+			analog: 0,
+		});
+		expect(() => parseGpioPut({ physical: 7, dir: "pwm", analog: 256 })).toThrow(
+			"analog",
+		);
+	});
+
 	test("rejects out of range", () => {
 		expect(() => parsePhysicalPin(0)).toThrow("1-40");
 		expect(() => parsePhysicalPin(41)).toThrow("1-40");
@@ -84,6 +103,12 @@ describe("gpio websocket command", () => {
 		});
 		expect(isGpioWsRefresh(parseGpioWsCommand({ op: "refresh" }))).toBe(true);
 		expect(isGpioWsRefresh(parseGpioWsCommand({ refresh: true }))).toBe(true);
+		expect(
+			isGpioTone(parseGpioWsCommand({ physical: 7, op: "tone", hz: 440 })),
+		).toBe(true);
+		expect(
+			isGpioNoTone(parseGpioWsCommand({ physical: 7, op: "notone" })),
+		).toBe(true);
 	});
 
 	test("ignores snapshot-shaped errors", () => {
@@ -146,5 +171,12 @@ describe("header", () => {
 		expect(gpioPinTone(gpio)).toBe("high");
 		expect(gpioPinTone(reserved)).toBe("reserved");
 		expect(gpioPinTone({ ...gpio, pwm: 40 })).toBe("pwm");
+		expect(gpioPinStatusLabel(gpio)).toBe("out · high");
+		expect(
+			gpioPinStatusLabel({ ...gpio, analog: 128, dir: "pwm", value: undefined }),
+		).toBe("PWM 128/255");
+		expect(gpioPinStatusLabel({ ...gpio, hz: 440, value: undefined })).toBe(
+			"tone 440 Hz",
+		);
 	});
 });

@@ -8,6 +8,7 @@ type GpioPinTone =
 	| "reserved"
 	| "unresolved"
 	| "pwm"
+	| "tone"
 	| "high"
 	| "low"
 	| "idle";
@@ -44,7 +45,10 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
-	if (typeof pin.pwm === "number") {
+	if (typeof pin.hz === "number") {
+		return "tone";
+	}
+	if (typeof pin.analog === "number" || typeof pin.pwm === "number") {
 		return "pwm";
 	}
 	if (pin.value === 1) {
@@ -83,6 +87,7 @@ export default function GpioHeader({
 		reserved: colors.border,
 		unresolved: colors.warning,
 		pwm: colors.primary,
+		tone: colors.primary,
 		high: colors.success,
 		low: colors.muted,
 		idle: colors.border,
@@ -140,7 +145,11 @@ function HeaderPin({
 }) {
 	const colors = useColors();
 	const driveable = interactive && canDriveGpio(pin) && !busy;
-	const label = pin.name || "—";
+	const status = pinStatusLabel(pin);
+	const label =
+		pin.type === "gpio" && status !== "—"
+			? `${pin.name || "GPIO"}  ${status}`
+			: pin.name || "—";
 	const content = (
 		<View
 			style={{
@@ -180,6 +189,30 @@ function HeaderPin({
 			{content}
 		</Pressable>
 	);
+}
+
+function pinStatusLabel(pin: GpioPinState): string {
+	if (pin.reserved) {
+		return "Reserved";
+	}
+	if (pin.unresolved) {
+		return "Unresolved";
+	}
+	if (typeof pin.hz === "number") {
+		return `tone ${Math.round(pin.hz)} Hz`;
+	}
+	if (typeof pin.analog === "number") {
+		return `PWM ${Math.round(pin.analog)}/255`;
+	}
+	if (typeof pin.pwm === "number") {
+		return `PWM ${Math.round(pin.pwm)}%`;
+	}
+	const level =
+		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	if (pin.dir === "in" || pin.dir === "out") {
+		return level ? `${pin.dir} · ${level}` : pin.dir;
+	}
+	return level ?? "—";
 }
 
 function PinDot({ color }: { color: string }) {

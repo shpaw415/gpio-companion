@@ -27,7 +27,8 @@ import {
 	pairingCredentials,
 	parseDebugEventInput,
 	parseDeviceSecrets,
-	parseGpioPut,
+	isGpioWsRefresh,
+	parseGpioWsCommand,
 	parsePairingClaim,
 	parsePairingUnpair,
 	parseProjectSyncPut,
@@ -909,10 +910,11 @@ async function handleGpio(
 		return json(await gpio.snapshot(hardware));
 	}
 	if (method === "PUT") {
-		const snapshot = await gpio.apply(
-			hardware,
-			parseGpioPut(parseJson(bodyText)),
-		);
+		const command = parseGpioWsCommand(parseJson(bodyText));
+		if (isGpioWsRefresh(command)) {
+			return json({ error: "refresh is websocket-only" }, 400);
+		}
+		const snapshot = await gpio.apply(hardware, command);
 		gpioStream?.publish();
 		return json(snapshot);
 	}

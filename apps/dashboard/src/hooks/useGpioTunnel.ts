@@ -2,14 +2,14 @@ import { POST as signGpioLive } from "@api/gpio-live";
 import {
 	asGpioSnapshot,
 	asGpioWsError,
-	type GpioPut,
+	type GpioApply,
 	type GpioSnapshot,
 } from "gpio-companion";
 import { useCallback, useEffect, useRef } from "react";
 import { unwrapAction } from "../lib/action.ts";
 
 export type GpioTunnel = {
-	drive: (put: GpioPut) => boolean;
+	drive: (put: GpioApply) => boolean;
 	refresh: () => boolean;
 };
 

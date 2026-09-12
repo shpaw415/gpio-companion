@@ -6,6 +6,9 @@ import { skuPinout } from "./gpio-sku.ts";
 export const GPIO_PATH = "/v1/gpio";
 export const GPIO_STREAM_MS = 1_000;
 export const GPIO_MAX_SOCKETS = 8;
+export const GPIO_MAX_PWM = 8;
+export const GPIO_PWM_HZ = 490;
+export const GPIO_ANALOG_MAX = 255;
 
 export function gpioWsUrl(deviceUrl: string): string {
 	const origin = deviceUrl.replace(/\/+$/, "");
@@ -30,7 +33,7 @@ export const GPIO_RESERVED_PHYSICAL: Record<HardwareId, number[]> = {
 	orangepi: [],
 };
 
-export type GpioDir = "in" | "out";
+export type GpioDir = "in" | "out" | "pwm";
 
 export type HeaderPinType = "power" | "gnd" | "gpio";
 
@@ -52,6 +55,10 @@ export type GpioPinState = {
 	dir?: GpioDir;
 	value?: 0 | 1;
 	pwm?: number;
+	analog?: number;
+	hz?: number;
+	alt?: string[];
+	adc?: number;
 	reserved?: boolean;
 	unresolved?: boolean;
 };
@@ -65,13 +72,27 @@ export type GpioPut = {
 	physical: number;
 	dir: GpioDir;
 	value?: 0 | 1;
+	analog?: number;
 };
 
 export type GpioWsRefresh = {
 	op: "refresh";
 };
 
-export type GpioWsCommand = GpioPut | GpioWsRefresh;
+export type GpioTone = {
+	physical: number;
+	op: "tone";
+	hz: number;
+};
+
+export type GpioNoTone = {
+	physical: number;
+	op: "notone";
+};
+
+export type GpioWsCommand = GpioPut | GpioWsRefresh | GpioTone | GpioNoTone;
+
+export type GpioApply = Exclude<GpioWsCommand, GpioWsRefresh>;
 
 export class GpioError extends Error {
 	readonly status = 400;
@@ -222,7 +243,19 @@ export function headerPinsForBoard(
 	if (!sku) {
 		return pins;
 	}
-	return pins.filter((pin) => pin.physical <= sku.pinCount);
+	return pins
+		.filter((pin) => pin.physical <= sku.pinCount)
+		.map((pin) => {
+			const line = sku.lines.find((skuLine) => skuLine.physical === pin.physical);
+			if (!line) {
+				return pin;
+			}
+			return {
+				...pin,
+				name: line.soc ?? line.name ?? pin.name,
+				alt: line.alt ?? pin.alt,
+			};
+		});
 }
 
 export function headerPin(
@@ -257,6 +290,7 @@ export type GpioPinTone =
 	| "reserved"
 	| "unresolved"
 	| "pwm"
+	| "tone"
 	| "high"
 	| "low"
 	| "idle";
@@ -274,7 +308,10 @@ export function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
-	if (typeof pin.pwm === "number") {
+	if (typeof pin.hz === "number") {
+		return "tone";
+	}
+	if (typeof pin.analog === "number" || typeof pin.pwm === "number") {
 		return "pwm";
 	}
 	if (pin.value === 1) {
@@ -284,6 +321,36 @@ export function gpioPinTone(pin: GpioPinState): GpioPinTone {
 		return "low";
 	}
 	return "idle";
+}
+
+export function gpioPinStatusLabel(pin: GpioPinState): string {
+	if (pin.reserved) {
+		return "Reserved";
+	}
+	if (pin.unresolved) {
+		return "Unresolved";
+	}
+	if (typeof pin.hz === "number") {
+		return `tone ${Math.round(pin.hz)} Hz`;
+	}
+	if (typeof pin.analog === "number") {
+		return `PWM ${Math.round(pin.analog)}/255`;
+	}
+	if (typeof pin.pwm === "number") {
+		return `PWM ${Math.round(pin.pwm)}%`;
+	}
+	const level =
+		pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
+	if (pin.dir === "in" || pin.dir === "out") {
+		return level ? `${pin.dir} · ${level}` : pin.dir;
+	}
+	if (level) {
+		return level;
+	}
+	if (typeof pin.adc === "number") {
+		return `adc ${pin.adc}`;
+	}
+	return "—";
 }
 
 export function parsePhysicalPin(value: unknown): number {
@@ -320,6 +387,13 @@ export function parseGpioPut(input: unknown): GpioPut {
 	}
 	const record = input as Record<string, unknown>;
 	const physical = parsePhysicalPin(record.physical);
+	if (record.dir === "pwm" || record.analog !== undefined) {
+		return {
+			physical,
+			dir: "pwm",
+			analog: parseAnalog(record.analog ?? record.value),
+		};
+	}
 	const dir = parseDir(record.dir, record.value);
 	const put: GpioPut = { physical, dir };
 	if (record.value !== undefined) {
@@ -338,6 +412,16 @@ export function parseGpioWsCommand(input: unknown): GpioWsCommand {
 	if (record.op === "refresh" || record.refresh === true) {
 		return { op: "refresh" };
 	}
+	if (record.op === "tone") {
+		return {
+			physical: parsePhysicalPin(record.physical),
+			op: "tone",
+			hz: parseToneHz(record.hz ?? record.frequency),
+		};
+	}
+	if (record.op === "notone") {
+		return { physical: parsePhysicalPin(record.physical), op: "notone" };
+	}
 	return parseGpioPut(input);
 }
 
@@ -345,6 +429,18 @@ export function isGpioWsRefresh(
 	command: GpioWsCommand,
 ): command is GpioWsRefresh {
 	return "op" in command && command.op === "refresh";
+}
+
+export function isGpioTone(command: GpioWsCommand): command is GpioTone {
+	return "op" in command && command.op === "tone";
+}
+
+export function isGpioNoTone(command: GpioWsCommand): command is GpioNoTone {
+	return "op" in command && command.op === "notone";
+}
+
+export function analogToPwmPercent(analog: number): number {
+	return Math.round((analog / GPIO_ANALOG_MAX) * 1000) / 10;
 }
 
 export function asGpioWsError(payload: unknown): string | null {
@@ -376,10 +472,10 @@ function parseDir(dir: unknown, value: unknown): GpioDir {
 	if (dir === undefined || dir === "") {
 		return value === undefined ? "in" : "out";
 	}
-	if (dir === "in" || dir === "out") {
+	if (dir === "in" || dir === "out" || dir === "pwm") {
 		return dir;
 	}
-	throw new GpioError("dir must be in or out");
+	throw new GpioError("dir must be in, out, or pwm");
 }
 
 function parseValue(value: unknown): 0 | 1 {
@@ -390,4 +486,26 @@ function parseValue(value: unknown): 0 | 1 {
 		return 1;
 	}
 	throw new GpioError("value must be 0 or 1");
+}
+
+function parseAnalog(value: unknown): number {
+	const analog =
+		typeof value === "number"
+			? value
+			: Number.parseInt(String(value ?? ""), 10);
+	if (!Number.isInteger(analog) || analog < 0 || analog > GPIO_ANALOG_MAX) {
+		throw new GpioError(`analog must be 0-${GPIO_ANALOG_MAX}`);
+	}
+	return analog;
+}
+
+function parseToneHz(value: unknown): number {
+	const hz =
+		typeof value === "number"
+			? value
+			: Number.parseInt(String(value ?? ""), 10);
+	if (!Number.isInteger(hz) || hz < 31 || hz > 65535) {
+		throw new GpioError("tone hz must be 31-65535");
+	}
+	return hz;
 }

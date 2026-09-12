@@ -1458,7 +1458,23 @@ install_gpio_companion_bin() {
 	fi
 	install -m 0755 "$src" "$BIN_DIR/gpio-companion"
 	install_ble_gatt_script
+	install_gpio_pwm
 	install_github_git_helper
+}
+
+install_gpio_pwm() {
+	local src="$REPO_ROOT/native/gpio-pwm"
+	if [[ ! -f "$src/gpio-pwm.c" ]]; then
+		return 0
+	fi
+	if ! command -v gcc >/dev/null 2>&1; then
+		echo "gpio-companion update: gcc missing, skipping gpio-pwm" >&2
+		return 0
+	fi
+	echo "gpio-companion update: compiling gpio-pwm"
+	make -C "$src" clean all
+	install -d -m 0755 "$LIB_DIR"
+	install -m 0755 "$src/gpio-pwm" "$LIB_DIR/gpio-pwm"
 }
 
 install_ble_gatt_script() {

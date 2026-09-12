@@ -18,6 +18,7 @@ describe("sku pinout", () => {
 		const pins = headerPinsForBoard("orangepi", "Orange Pi 3 LTS");
 		expect(pins).toHaveLength(26);
 		expect(pins.at(-1)?.physical).toBe(26);
+		expect(pins.find((pin) => pin.physical === 7)?.name).toBe("PD22");
 	});
 
 	test("maps pio to the larger chip and rpio to the smaller", () => {

@@ -1,6 +1,11 @@
 "no action";
 
-import { GPIO_PATH, type GpioSnapshot, parseGpioPut } from "gpio-companion";
+import {
+	GPIO_PATH,
+	type GpioSnapshot,
+	isGpioWsRefresh,
+	parseGpioWsCommand,
+} from "gpio-companion";
 import { resolveAccessibleDeviceUrl } from "../../../lib/debug-live.ts";
 import {
 	readDeviceJson,
@@ -52,9 +57,18 @@ export async function onRequestPut(ctx: MobileContext) {
 		if (!device.deviceUrl) {
 			throw new Error("device URL is missing");
 		}
-		const put = parseGpioPut(body);
+		const command = parseGpioWsCommand(body);
+		if (isGpioWsRefresh(command)) {
+			throw new Error("refresh is websocket-only");
+		}
 		return readDeviceJson<GpioSnapshot>(
-			await signedDeviceFetch(ctx.env, device.deviceUrl, "PUT", GPIO_PATH, put),
+			await signedDeviceFetch(
+				ctx.env,
+				device.deviceUrl,
+				"PUT",
+				GPIO_PATH,
+				command,
+			),
 		);
 	});
 }
@@ -68,7 +82,11 @@ export async function onRequestPost(ctx: MobileContext) {
 		}
 		if (body.physical !== undefined) {
 			await requireOwnedDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, uuid);
-			return signDeviceEnvelope(ctx.env, "PUT", GPIO_PATH, parseGpioPut(body));
+			const command = parseGpioWsCommand(body);
+			if (isGpioWsRefresh(command)) {
+				throw new Error("refresh is websocket-only");
+			}
+			return signDeviceEnvelope(ctx.env, "PUT", GPIO_PATH, command);
 		}
 		await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
 		return signDeviceEnvelope(ctx.env, "GET", GPIO_PATH);

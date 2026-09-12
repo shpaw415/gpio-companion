@@ -6,6 +6,7 @@ import {
 	canDriveGpio,
 	type GpioPinState,
 	type GpioPinTone,
+	gpioPinStatusLabel,
 	gpioPinTone,
 	headerPinPairs,
 	pinByPhysical,
@@ -17,6 +18,7 @@ const TONE_BG: Record<GpioPinTone, string> = {
 	reserved: "bg-surface",
 	unresolved: "bg-warning",
 	pwm: "bg-info",
+	tone: "bg-info",
 	high: "bg-success",
 	low: "bg-secondary",
 	idle: "bg-surface",
@@ -93,7 +95,11 @@ function HeaderPin({
 }) {
 	const driveable = interactive && canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
-	const label = pin.name || "—";
+	const status = gpioPinStatusLabel(pin);
+	const label =
+		pin.type === "gpio" && status !== "—"
+			? `${pin.name || "GPIO"}  ${status}`
+			: pin.name || "—";
 	const content = (
 		<Stack
 			direction="row"

@@ -4,8 +4,11 @@ import { asGpioSnapshot, startReconnectSocket } from "../hub";
 
 export type GpioPut = {
 	physical: number;
-	dir: "in" | "out";
+	dir?: "in" | "out" | "pwm";
 	value?: 0 | 1;
+	analog?: number;
+	op?: "refresh" | "tone" | "notone";
+	hz?: number;
 };
 
 export type GpioTunnel = {

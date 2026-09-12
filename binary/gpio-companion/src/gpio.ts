@@ -1,19 +1,25 @@
 import {
+	analogToPwmPercent,
 	assertGpioDrive,
+	GPIO_MAX_PWM,
+	GPIO_PWM_HZ,
 	GPIO_RESERVED_PHYSICAL,
+	type GpioApply,
 	type GpioDir,
 	GpioError,
 	type GpioPinState,
-	type GpioPut,
 	type GpioSnapshot,
 	gpioNamedLine,
 	type HardwareId,
 	type HeaderPinDef,
 	headerPinsForBoard,
+	isGpioNoTone,
+	isGpioTone,
 	parseGpioChips,
 	resolveSkuChip,
 	skuPinout,
 } from "gpio-companion";
+import { existsSync } from "node:fs";
 import { readBoardModel } from "./board-model.ts";
 import { privileged } from "./priv.ts";
 
@@ -30,17 +36,27 @@ export type GpioLineRef = {
 	name: string;
 };
 
+export type GpioLive = {
+	dir?: GpioDir;
+	value?: 0 | 1;
+	analog?: number;
+	hz?: number;
+};
+
 export type GpioBackend = {
 	gpioinfo(): Promise<string>;
 	readall(): Promise<string>;
-	get(ref: GpioLineRef): Promise<{ dir: GpioDir; value: 0 | 1 }>;
+	get(ref: GpioLineRef): Promise<GpioLive>;
 	set(ref: GpioLineRef, dir: GpioDir, value?: 0 | 1): Promise<void>;
 	pwm?(): Promise<Map<number, number>>;
+	analogWrite?(ref: GpioLineRef, analog: number): Promise<void>;
+	tone?(ref: GpioLineRef, hz: number): Promise<void>;
+	noTone?(ref: GpioLineRef): Promise<void>;
 };
 
 export type GpioController = {
 	snapshot(hardware: HardwareId): Promise<GpioSnapshot>;
-	apply(hardware: HardwareId, put: GpioPut): Promise<GpioSnapshot>;
+	apply(hardware: HardwareId, put: GpioApply): Promise<GpioSnapshot>;
 };
 
 export type GpioControllerOptions = {
@@ -68,10 +84,15 @@ export function parseGpioinfo(text: string): GpioInfoLine[] {
 			: rest.includes("input")
 				? "in"
 				: undefined;
-		if (!Number.isInteger(offset) || !name || name === "unnamed") {
+		if (!Number.isInteger(offset)) {
 			continue;
 		}
-		lines.push({ chip, line: offset, name, dir });
+		lines.push({
+			chip,
+			line: offset,
+			name: !name || name === "unnamed" ? "" : name,
+			dir,
+		});
 	}
 	return lines;
 }
@@ -111,6 +132,9 @@ export function resolveHeaderLines(
 	const info = parseGpioinfo(gpioinfoText);
 	const byName = new Map<string, GpioInfoLine>();
 	for (const line of info) {
+		if (!line.name) {
+			continue;
+		}
 		byName.set(normalizeLineName(line.name), line);
 	}
 	const wiringNames = parseWiringOpReadall(readallText);
@@ -154,25 +178,47 @@ export function createGpioController(
 		async apply(hardware, put) {
 			const board = model();
 			const sku = skuPinout(board);
-			if (sku && put.physical > sku.pinCount) {
-				throw new GpioError(`pin ${put.physical} is not on this header`);
+			const physical = put.physical;
+			if (sku && physical > sku.pinCount) {
+				throw new GpioError(`pin ${physical} is not on this header`);
 			}
-			const pin = assertGpioDrive(hardware, put.physical);
+			const pin = assertGpioDrive(hardware, physical);
 			const { gpioinfoText, readallText } = await probe(backend);
 			const ref = resolveHeaderLines(
 				hardware,
 				gpioinfoText,
 				readallText,
 				board,
-			).get(put.physical);
+			).get(physical);
 			if (!ref) {
 				throw new GpioError(
 					pin.resolve === "live"
-						? `pin ${put.physical} is unresolved`
-						: `pin ${put.physical} line not found`,
+						? `pin ${physical} is unresolved`
+						: `pin ${physical} line not found`,
 				);
 			}
-			await backend.set(ref, put.dir, put.value);
+			if (isGpioTone(put)) {
+				if (!backend.tone) {
+					throw new GpioError("tone is unavailable");
+				}
+				await backend.tone(ref, put.hz);
+			} else if (isGpioNoTone(put)) {
+				if (backend.noTone) {
+					await backend.noTone(ref);
+				} else {
+					await backend.set(ref, "in");
+				}
+			} else if (put.dir === "pwm") {
+				if (!backend.analogWrite) {
+					throw new GpioError("pwm is unavailable");
+				}
+				await backend.analogWrite(ref, put.analog ?? 0);
+			} else {
+				if (backend.noTone) {
+					await backend.noTone(ref);
+				}
+				await backend.set(ref, put.dir, put.value);
+			}
 			return readSnapshot(hardware, backend, gpioinfoText, readallText, board);
 		},
 	};
@@ -183,12 +229,22 @@ export function createLibgpiodGpio(): GpioController {
 		string,
 		{ proc: ReturnType<typeof Bun.spawn>; value: 0 | 1 }
 	>();
+	const pwmHeld = new Map<string, PwmHold>();
 	return createGpioController(
 		{
 			gpioinfo: () => spawnText(["gpioinfo"]),
 			readall: () => spawnText(["gpio", "readall"]).catch(() => ""),
 			pwm: readSysfsPwm,
 			async get(ref) {
+				const pwm = pwmHeld.get(lineKey(ref));
+				if (pwm) {
+					return {
+						dir: pwm.hz ? "out" : "pwm",
+						value: pwm.analog >= 128 ? 1 : 0,
+						analog: pwm.hz ? undefined : pwm.analog,
+						hz: pwm.hz,
+					};
+				}
 				const current = held.get(lineKey(ref));
 				if (current) {
 					return { dir: "out", value: current.value };
@@ -197,9 +253,10 @@ export function createLibgpiodGpio(): GpioController {
 				return parseGpioGet(text);
 			},
 			async set(ref, dir, value) {
+				await releasePwm(pwmHeld, ref);
 				await releaseHeld(held, ref);
 				if (dir === "in") {
-					await spawnGpioGet(ref);
+					await spawnGpioGet(ref, false);
 					return;
 				}
 				if (value !== 0 && value !== 1) {
@@ -209,6 +266,17 @@ export function createLibgpiodGpio(): GpioController {
 				if (proc) {
 					held.set(lineKey(ref), { proc, value });
 				}
+			},
+			async analogWrite(ref, analog) {
+				await releaseHeld(held, ref);
+				await startPwm(pwmHeld, ref, analog, undefined);
+			},
+			async tone(ref, hz) {
+				await releaseHeld(held, ref);
+				await startPwm(pwmHeld, ref, 128, hz);
+			},
+			async noTone(ref) {
+				await releasePwm(pwmHeld, ref);
 			},
 		},
 		{ model: () => readBoardModel() },
@@ -221,7 +289,7 @@ export function memoryGpioBackend(
 	values: Record<string, 0 | 1> = {},
 	pwm: Record<number, number> = {},
 ): GpioBackend {
-	const state = new Map<string, { dir: GpioDir; value: 0 | 1 }>();
+	const state = new Map<string, GpioLive>();
 	for (const line of parseGpioinfo(infoText)) {
 		const key = lineKey(line);
 		state.set(key, { dir: line.dir ?? "in", value: values[key] ?? 0 });
@@ -241,6 +309,20 @@ export function memoryGpioBackend(
 				dir,
 				value: dir === "out" ? (value ?? 0) : 0,
 			});
+		},
+		async analogWrite(ref, analog) {
+			state.set(lineKey(ref), {
+				dir: "pwm",
+				analog,
+				value: analog >= 128 ? 1 : 0,
+			});
+		},
+		async tone(ref, hz) {
+			state.set(lineKey(ref), { dir: "out", hz, analog: 128, value: 1 });
+		},
+		async noTone(ref) {
+			const current = state.get(lineKey(ref)) ?? { dir: "in", value: 0 };
+			state.set(lineKey(ref), { dir: "in", value: current.value ?? 0 });
 		},
 		async pwm() {
 			return new Map(
@@ -267,6 +349,7 @@ async function readSnapshot(
 		? await backend.pwm().catch(() => new Map<number, number>())
 		: new Map<number, number>();
 	const resolved = resolveHeaderLines(hardware, infoText, wiringText, model);
+	const infoDirs = gpioinfoDirs(infoText);
 	const pins: GpioPinState[] = [];
 	for (const def of headerPinsForBoard(hardware, model)) {
 		const reserved = GPIO_RESERVED_PHYSICAL[hardware].includes(def.physical);
@@ -287,6 +370,9 @@ async function readSnapshot(
 				reserved,
 				unresolved: !reserved,
 			};
+			if (def.alt?.length) {
+				pin.alt = def.alt;
+			}
 			const pwm = pwmForPin(def, pwmDuties);
 			if (pwm !== undefined) {
 				pin.pwm = pwm;
@@ -294,12 +380,13 @@ async function readSnapshot(
 			pins.push(pin);
 			continue;
 		}
-		let live: { dir: GpioDir; value: 0 | 1 } | undefined;
+		let live: GpioLive | undefined;
 		try {
 			live = await backend.get(ref);
 		} catch {
 			live = undefined;
 		}
+		const infoDir = infoDirs.get(lineKey(ref));
 		const pwm = pwmForPin(def, pwmDuties);
 		const pin: GpioPinState = {
 			physical: def.physical,
@@ -307,12 +394,23 @@ async function readSnapshot(
 			type: "gpio",
 			chip: ref.chip,
 			line: ref.line,
-			dir: live?.dir,
+			dir: live?.dir ?? infoDir,
 			value: live?.value,
 			reserved,
 		};
-		if (pwm !== undefined) {
+		if (def.alt?.length) {
+			pin.alt = def.alt;
+		}
+		if (live?.analog !== undefined) {
+			pin.analog = live.analog;
+			pin.pwm = analogToPwmPercent(live.analog);
+			pin.dir = "pwm";
+		} else if (pwm !== undefined) {
 			pin.pwm = pwm;
+		}
+		if (live?.hz !== undefined) {
+			pin.hz = live.hz;
+			pin.dir = "out";
 		}
 		pins.push(pin);
 	}
@@ -416,19 +514,35 @@ function lineKey(ref: { chip: string; line: number }): string {
 	return `${ref.chip}:${ref.line}`;
 }
 
-export function parseGpioGet(text: string): { dir: GpioDir; value: 0 | 1 } {
+export function parseGpioGet(text: string): GpioLive {
 	const trimmed = text.trim();
 	if (/\binactive\b/i.test(trimmed)) {
-		return { dir: "in", value: 0 };
+		return { value: 0 };
 	}
 	if (/\bactive\b/i.test(trimmed)) {
-		return { dir: "in", value: 1 };
+		return { value: 1 };
 	}
 	const match = /\b([01])\b/.exec(trimmed);
 	if (!match) {
 		throw new GpioError("gpioget returned no value");
 	}
-	return { dir: "in", value: match[1] === "1" ? 1 : 0 };
+	return { value: match[1] === "1" ? 1 : 0 };
+}
+
+type PwmHold = {
+	proc: ReturnType<typeof Bun.spawn>;
+	analog: number;
+	hz?: number;
+};
+
+function gpioinfoDirs(text: string): Map<string, GpioDir> {
+	const dirs = new Map<string, GpioDir>();
+	for (const line of parseGpioinfo(text)) {
+		if (line.dir) {
+			dirs.set(lineKey(line), line.dir);
+		}
+	}
+	return dirs;
 }
 
 function pwmForPin(
@@ -552,10 +666,96 @@ async function spawnDetached(
 	return undefined;
 }
 
-async function spawnGpioGet(ref: GpioLineRef): Promise<string> {
+async function startPwm(
+	held: Map<string, PwmHold>,
+	ref: GpioLineRef,
+	analog: number,
+	hz?: number,
+): Promise<void> {
+	await releasePwm(held, ref);
+	if (held.size >= GPIO_MAX_PWM) {
+		throw new GpioError("too many pwm pins");
+	}
+	const bin = resolvePwmBin();
+	if (!bin) {
+		throw new GpioError("gpio-pwm helper is not installed");
+	}
+	const cmd = [
+		bin,
+		"--chip",
+		ref.chip,
+		"--line",
+		String(ref.line),
+		"--mode",
+		hz ? "tone" : "pwm",
+		"--duty",
+		String(analog),
+		"--hz",
+		String(hz ?? GPIO_PWM_HZ),
+	];
+	const proc = Bun.spawn(privileged(cmd), {
+		stdout: "ignore",
+		stderr: "pipe",
+		stdin: "pipe",
+	});
+	const exited = await Promise.race([
+		proc.exited,
+		Bun.sleep(80).then(() => null),
+	]);
+	if (exited !== null) {
+		const stderr = await readPipe(proc.stderr);
+		throw new GpioError(stderr.trim() || "gpio-pwm failed");
+	}
+	held.set(lineKey(ref), { proc, analog, hz });
+}
+
+async function releasePwm(
+	held: Map<string, PwmHold>,
+	ref: GpioLineRef,
+): Promise<void> {
+	const current = held.get(lineKey(ref));
+	if (!current) {
+		return;
+	}
+	held.delete(lineKey(ref));
+	try {
+		const stdin = current.proc.stdin;
+		if (stdin && typeof stdin !== "number") {
+			stdin.write("stop\n");
+		}
+	} catch {
+		undefined;
+	}
+	try {
+		current.proc.kill();
+	} catch {
+		undefined;
+	}
+	await current.proc.exited.catch(() => undefined);
+}
+
+function resolvePwmBin(): string | undefined {
+	const env = process.env.GPIO_COMPANION_PWM?.trim();
+	if (env && existsSync(env)) {
+		return env;
+	}
+	const installed = "/usr/local/lib/gpio-companion/gpio-pwm";
+	const source = new URL("../../../native/gpio-pwm/gpio-pwm", import.meta.url)
+		.pathname;
+	for (const path of [installed, source]) {
+		if (existsSync(path)) {
+			return path;
+		}
+	}
+	return undefined;
+}
+
+async function spawnGpioGet(ref: GpioLineRef, asIs = true): Promise<string> {
+	const extra = asIs ? ["-a"] : [];
 	try {
 		return await spawnText([
 			"gpioget",
+			...extra,
 			"--numeric",
 			"-c",
 			ref.chip,

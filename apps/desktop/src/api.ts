@@ -743,9 +743,11 @@ export type GpioPinState = {
 	physical: number;
 	name: string;
 	type: string;
-	dir?: "in" | "out";
+	dir?: "in" | "out" | "pwm";
 	value?: 0 | 1;
 	pwm?: number;
+	analog?: number;
+	hz?: number;
 	reserved?: boolean;
 	unresolved?: boolean;
 };
@@ -767,6 +769,9 @@ export function putGpio(input: {
 	physical: number;
 	dir?: string;
 	value?: number;
+	analog?: number;
+	op?: string;
+	hz?: number;
 }) {
 	return apiRequest<GpioSnapshot>("PUT", "/api/mobile/gpio", input);
 }

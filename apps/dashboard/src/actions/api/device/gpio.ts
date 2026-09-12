@@ -1,5 +1,5 @@
 import { getContext } from "frame-master-plugin-cloudflare-pages-functions-action/context";
-import { GPIO_PATH, parseGpioPut } from "gpio-companion";
+import { GPIO_PATH, isGpioWsRefresh, parseGpioWsCommand } from "gpio-companion";
 import { wrapAction } from "../../../lib/action.ts";
 import { signDeviceEnvelope } from "../../../lib/device-api.ts";
 import {
@@ -19,6 +19,9 @@ export const POST = wrapAction(async function POST(input: {
 	physical?: number;
 	dir?: string;
 	value?: number;
+	analog?: number;
+	op?: string;
+	hz?: number;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
@@ -31,8 +34,11 @@ export const POST = wrapAction(async function POST(input: {
 	}
 	if (input.physical !== undefined) {
 		await requireOwnedDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, uuid);
-		const put = parseGpioPut(input);
-		return signDeviceEnvelope(ctx.env, "PUT", GPIO_PATH, put);
+		const command = parseGpioWsCommand(input);
+		if (isGpioWsRefresh(command)) {
+			throw new Error("refresh is websocket-only");
+		}
+		return signDeviceEnvelope(ctx.env, "PUT", GPIO_PATH, command);
 	}
 	await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
 	return signDeviceEnvelope(ctx.env, "GET", GPIO_PATH);

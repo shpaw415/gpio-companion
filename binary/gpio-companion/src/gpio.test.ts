@@ -57,10 +57,10 @@ gpiochip1 - 64 lines:
 
 describe("gpioget parse", () => {
 	test("reads libgpiod v2 active/inactive and numeric", () => {
-		expect(parseGpioGet('"118"=active')).toEqual({ dir: "in", value: 1 });
-		expect(parseGpioGet('"118"=inactive')).toEqual({ dir: "in", value: 0 });
-		expect(parseGpioGet("1")).toEqual({ dir: "in", value: 1 });
-		expect(parseGpioGet("0")).toEqual({ dir: "in", value: 0 });
+		expect(parseGpioGet('"118"=active')).toEqual({ value: 1 });
+		expect(parseGpioGet('"118"=inactive')).toEqual({ value: 0 });
+		expect(parseGpioGet("1")).toEqual({ value: 1 });
+		expect(parseGpioGet("0")).toEqual({ value: 0 });
 	});
 });
 
@@ -83,6 +83,14 @@ describe("gpioinfo parse", () => {
 			}),
 		);
 		expect(lines.some((line) => line.name === "unnamed")).toBe(false);
+		expect(lines).toContainEqual(
+			expect.objectContaining({
+				chip: "gpiochip0",
+				line: 0,
+				name: "",
+				dir: "in",
+			}),
+		);
 	});
 });
 
@@ -207,6 +215,28 @@ describe("gpio controller", () => {
 		const snap = await gpio.snapshot("raspberrypi");
 		expect(snap.pins.find((pin) => pin.physical === 12)?.pwm).toBe(42.5);
 		expect(snap.pins.find((pin) => pin.physical === 11)?.pwm).toBeUndefined();
+	});
+
+	test("analogWrite and tone land on the snapshot", async () => {
+		const gpio = createGpioController(memoryGpioBackend(GPIOINFO));
+		const pwm = await gpio.apply("raspberrypi", {
+			physical: 11,
+			dir: "pwm",
+			analog: 128,
+		});
+		expect(pwm.pins.find((pin) => pin.physical === 11)?.analog).toBe(128);
+		expect(pwm.pins.find((pin) => pin.physical === 11)?.dir).toBe("pwm");
+		const tone = await gpio.apply("raspberrypi", {
+			physical: 11,
+			op: "tone",
+			hz: 440,
+		});
+		expect(tone.pins.find((pin) => pin.physical === 11)?.hz).toBe(440);
+		const silent = await gpio.apply("raspberrypi", {
+			physical: 11,
+			op: "notone",
+		});
+		expect(silent.pins.find((pin) => pin.physical === 11)?.hz).toBeUndefined();
 	});
 });
 
