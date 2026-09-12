@@ -148,7 +148,7 @@ export const DOCS: DocEntry[] = [
 		id: "pinout-raspberrypi",
 		title: "Raspberry Pi GPIO pinout",
 		description:
-			"40-pin header map (BCM), power and ground seats, I2C/SPI/UART roles, and safety notes.",
+			"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
 		group: "hardware",
 		hardware: "raspberrypi",
 		raw: pinoutRaspberryContent,
@@ -157,7 +157,7 @@ export const DOCS: DocEntry[] = [
 		id: "pinout-orangepi",
 		title: "Orange Pi GPIO pinout",
 		description:
-			"40-pin power/GND seats that match the Pi layout, live SoC line resolution with gpioinfo / WiringOP.",
+			"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
 		group: "hardware",
 		hardware: "orangepi",
 		raw: pinoutOrangeContent,

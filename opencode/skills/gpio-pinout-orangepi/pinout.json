@@ -5,6 +5,7 @@
 	"bcmCompatible": false,
 	"physicalPowerGndMatchesRaspberryPi40Pin": true,
 	"gpioLines": "resolve-live",
+	"note": "Orange Pi 3 LTS is 26-pin; companion GET /v1/gpio is the live map. See SKILL.md.",
 	"pins": [
 		{ "physical": 1, "name": "3V3", "type": "power" },
 		{ "physical": 2, "name": "5V", "type": "power" },

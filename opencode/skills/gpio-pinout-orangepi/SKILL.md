@@ -2,33 +2,29 @@
 name: gpio-pinout-orangepi
 description: >-
   Orange Pi GPIO header mapping for gpio-companion. Use when hardware is
-  orangepi. Power/GND on 40-pin boards match Raspberry Pi physical positions;
-  SoC GPIO lines are NOT BCM numbers — resolve live with gpioinfo / WiringOP.
+  orangepi, wiring a breadboard/PCB, or driving GPIO. Orange Pi 3 LTS is a
+  26-pin header (not 40). Power/GND seats match Pi positions; SoC lines are
+  NOT BCM. Talk physical pin numbers. 3.3V logic.
 ---
 
 # Orange Pi GPIO pinout
 
-Load this skill when `/etc/gpio-companion/config.json` has `"hardware": "orangepi"`, or `/proc/device-tree/model` contains Orange Pi.
-
-Board SKUs are not locked. **Do not use Raspberry Pi BCM numbers** on Orange Pi.
-
-## Detect this board
-
-```sh
-tr -d '\0' < /proc/device-tree/model
-gpioinfo
-command -v gpio && gpio readall
-```
-
-`gpioinfo` (libgpiod) is the source of truth for linux line names (`gpiochipN` + line). WiringOP `gpio readall` maps physical header pins when installed.
-
-Machine-readable power/GND skeleton: `pinout.json` next to this file. Every `"resolve": "live"` pin must be filled from `gpioinfo` / `gpio readall` for the model you are on. Drive pins via `http://127.0.0.1:4150/v1/gpio`; unresolved lines are refused.
-
 Logic is **3.3V**. Do not feed 5V into a GPIO. Do not short 3V3 to 5V.
 
-## 40-pin header — power and ground
+Pin numbers are **physical** (the header seats you can see). They are **not** Raspberry Pi BCM numbers.
 
-On Orange Pi boards that use a Raspberry Pi-style 2×20 header, **physical power and ground seats match the Pi**. GPIO functions on those seats do not.
+gpio-companion **Orange Pi 3 LTS** boards use a **26-pin** header. That map is below. Other Orange Pi models: see [Other Orange Pi boards](#other-orange-pi-boards).
+
+## Safety
+
+- Start an LED on physical **7** with a series resistor to GND (pin 6 or 9).
+- Do not use pins **8** and **10** for projects — they are often the serial console.
+- This 26-pin header has **no analog input**. analogRead is not available.
+- PWM and tone (fade an LED, drive a buzzer) work on any GPIO through gpio-companion.
+
+## Orange Pi 3 LTS — 26-pin header
+
+Orient the board with the header on the board edge. Pin 1 (3V3) is top-left. There are **no pins 27–40**.
 
 ```
  3V3  (1)  (2)  5V
@@ -42,31 +38,59 @@ GPIO (15) (16) GPIO
  3V3 (17) (18) GPIO
 MOSI (19) (20) GND
 MISO (21) (22) GPIO
-SCLK (23) (24) CE0
- GND (25) (26) CE1
-GPIO (27) (28) GPIO
-GPIO (29) (30) GND
-GPIO (31) (32) GPIO
-GPIO (33) (34) GND
-GPIO (35) (36) GPIO
-GPIO (37) (38) GPIO
- GND (39) (40) GPIO
+SCLK (23) (24) CS
+ GND (25) (26) GPIO
 ```
 
-| Physical | Role on 40-pin OPi |
-| ---: | --- |
-| 1, 17 | 3V3 |
-| 2, 4 | 5V |
-| 6, 9, 14, 20, 25, 30, 34, 39 | GND |
-| 3, 5 | typically I2C SDA/SCL — confirm with `gpioinfo` |
-| 8, 10 | typically UART TX/RX — confirm |
-| 19, 21, 23, 24, 26 | typically SPI — confirm |
-| others | GPIO — resolve live |
+| Physical | Name | Notes |
+| ---: | --- | --- |
+| 1 | 3V3 | Power |
+| 2 | 5V | Power — never into a GPIO |
+| 3 | PD26 | I2C SDA (TWI0) |
+| 4 | 5V | Power — never into a GPIO |
+| 5 | PD25 | I2C SCL (TWI0) |
+| 6 | GND | Ground |
+| 7 | PD22 | GPIO — good first LED / jumper |
+| 8 | PL2 | UART TX — often the serial console; avoid |
+| 9 | GND | Ground |
+| 10 | PL3 | UART RX — often the serial console; avoid |
+| 11 | PD24 | I2C SDA (TWI2) |
+| 12 | PD18 | GPIO |
+| 13 | PD23 | I2C SCL (TWI2) |
+| 14 | GND | Ground |
+| 15 | PL10 | GPIO |
+| 16 | PD15 | GPIO |
+| 17 | 3V3 | Power |
+| 18 | PD16 | GPIO |
+| 19 | PH5 | SPI MOSI (shared with TWI1 SCL) |
+| 20 | GND | Ground |
+| 21 | PH6 | SPI MISO (shared with TWI1 SDA) |
+| 22 | PD21 | GPIO |
+| 23 | PH4 | SPI CLK |
+| 24 | PH3 | SPI CS |
+| 25 | GND | Ground |
+| 26 | PL8 | GPIO |
 
-Some Orange Pi models use a **26-pin** header (or 26+13). If `gpio readall` or the silkscreen is 26-pin, ignore physical 27–40.
+GND: 6, 9, 14, 20, 25. 3V3: 1, 17. 5V: 2, 4.
 
-## Technical sheets
+I2C: pins 3/5 and 11/13. SPI: 19/21/23/24. Good jumpers: **7, 12, 16, 18, 22**.
 
-Label wires by **physical pin** plus the **linux line** you resolved (`gpiochip0 line 12`), never a Pi BCM number.
+On Project, Live GPIO shows these names on the header. Tap a pin there to drive it.
 
-If WiringOP is missing, install is optional (`wiringpi` / `wiringop` packages in `scripts/install-orangepi.sh`).
+## Other Orange Pi boards
+
+On Pi-style 2×20 headers, **physical power and ground seats match the Raspberry Pi**. GPIO functions do not — never use BCM numbers.
+
+Some models are **26-pin** (or 26+13). If the silkscreen stops at 26, ignore physical 27–40.
+
+Use Live GPIO on Project (or ask the on-device agent) for the map of *this* board. Pins the companion cannot resolve cannot be driven.
+
+## For the on-device agent
+
+Load when `/etc/gpio-companion/config.json` has `"hardware": "orangepi"`, or `/proc/device-tree/model` contains Orange Pi.
+
+1. `GET http://127.0.0.1:4150/v1/gpio` first — that snapshot is the live map (physical, name, dir, value, PWM). Do not rediscover with WiringOP or `gpioset`.
+2. Drive with `PUT` **physical** pins only. Never BCM. Digital: `{ "physical": 7, "dir": "out", "value": 1 }`. analogWrite/tone: skill `gpio-pwm`. Breadboard: `gpio-breadboard`.
+3. Technical sheets: **physical pin + name** (pin 7 / PD22), never a Pi BCM number. Push `technical/` and `breadboard/diagram.json`.
+4. Refuse power, GND, and `unresolved` pins. On 3 LTS ignore 27–40. analogRead only if the snapshot has `adc` (3 LTS header has none).
+5. Family boards without a SKU map: only drive pins the snapshot does not mark unresolved.

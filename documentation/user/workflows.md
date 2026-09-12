@@ -7,9 +7,9 @@ Open T3 Code (tunneled) or OpenCode on the Pi. The agent loads:
 - `opencode/preferences` — it controls this GPIO OS
 - `opencode/skills` — including `gpio-pinout-raspberrypi` or `gpio-pinout-orangepi` from `/etc/gpio-companion/config.json`
 
-On Raspberry Pi use **BCM** in code and **physical** pin numbers on sheets. 3.3V logic only. Confirm lines with `gpioinfo` before driving pins. Avoid ID EEPROM pins 27–28 for general GPIO.
+On Raspberry Pi use **physical** pin numbers (the seats on the header). gpio-companion drives those numbers; BCM is only a label. 3.3V logic only. Avoid ID EEPROM pins 27–28 for general GPIO.
 
-On Orange Pi, power/GND seats match the 40-pin Pi layout; **SoC GPIO numbers are not BCM**. Resolve with `gpioinfo` / WiringOP.
+On Orange Pi, **SoC GPIO numbers are not BCM**. Orange Pi 3 LTS is a **26-pin** header (ignore 27–40). Talk physical pin numbers.
 
 Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home. Open that folder for projects on the stick; see [storage.md](./storage.md).
 
@@ -47,7 +47,7 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 
 ## GPIO
 
-The on-device agent drives pins through `http://127.0.0.1:4150/v1/gpio` (physical 1–40, digital only). The dashboard Project page and Devices cards can load the same map over the web API or Bluetooth. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi SoC lines must resolve live.
+The on-device agent drives pins through `http://127.0.0.1:4150/v1/gpio` (physical pins). The dashboard Project page Live GPIO header can drive the same map. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
 
 Flash Arduino with `POST /v1/flash` then poll `GET /v1/flash`. A second job while one is running returns 409.
 
