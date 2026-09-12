@@ -5,6 +5,7 @@ import {
 	publicWifiFailure,
 	WifiConnectError,
 	wifiConnectMessage,
+	wifiDevicesToClaim,
 } from "./wifi.ts";
 
 describe("wifi", () => {
@@ -68,11 +69,26 @@ describe("classifyWifiConnectError", () => {
 		expect(
 			classifyWifiConnectError("Scanning not allowed while unavailable."),
 		).toBe("no-device");
+		expect(
+			classifyWifiConnectError(
+				"Error: Device 'wlan0' is not available because it is unmanaged.",
+			),
+		).toBe("no-device");
 	});
 
 	test("failed fallback", () => {
 		expect(classifyWifiConnectError("Error: Timeout")).toBe("failed");
 		expect(classifyWifiConnectError("")).toBe("failed");
+	});
+});
+
+describe("wifiDevicesToClaim", () => {
+	test("claims unmanaged and unavailable wifi only", () => {
+		expect(
+			wifiDevicesToClaim(
+				"eth0:ethernet:connected\nwlan0:wifi:unmanaged\np2p-dev-wlan0:wifi-p2p:unmanaged\nwlan1:wifi:unavailable\nwlan2:wifi:disconnected\n",
+			),
+		).toEqual(["wlan0", "wlan1"]);
 	});
 });
 

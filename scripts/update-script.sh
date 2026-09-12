@@ -48,6 +48,7 @@ source "$SCRIPT_DIR/lib.sh"
 
 resolve_gpio_runtime_user
 grant_gpio_user_nopasswd_sudo
+ensure_networkmanager_wifi
 sync_opencode_agent
 
 key_changed=0

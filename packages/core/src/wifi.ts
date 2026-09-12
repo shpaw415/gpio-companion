@@ -53,11 +53,42 @@ export function classifyWifiConnectError(output: string): WifiConnectReason {
 		text.includes("no suitable device") ||
 		/device [^\n]* not found/.test(text) ||
 		text.includes("wifi is disabled") ||
-		text.includes("scanning not allowed")
+		text.includes("scanning not allowed") ||
+		text.includes("unmanaged")
 	) {
 		return "no-device";
 	}
 	return "failed";
+}
+
+export function wifiDevicesToClaim(statusText: string): string[] {
+	const devices: string[] = [];
+	for (const line of statusText.replace(/\r\n/g, "\n").split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed) {
+			continue;
+		}
+		const first = trimmed.indexOf(":");
+		if (first < 0) {
+			continue;
+		}
+		const device = trimmed.slice(0, first);
+		const rest = trimmed.slice(first + 1);
+		const second = rest.indexOf(":");
+		if (second < 0) {
+			continue;
+		}
+		const type = rest.slice(0, second);
+		const state = rest.slice(second + 1).split(":", 1)[0] ?? "";
+		if (
+			device &&
+			type === "wifi" &&
+			(state === "unmanaged" || state === "unavailable")
+		) {
+			devices.push(device);
+		}
+	}
+	return devices;
 }
 
 export function parseWifiConfig(input: unknown): WifiConfig {

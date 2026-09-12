@@ -2,6 +2,7 @@ import {
 	classifyWifiConnectError,
 	type WifiConfig,
 	WifiConnectError,
+	wifiDevicesToClaim,
 } from "gpio-companion";
 import { privileged } from "./priv.ts";
 
@@ -16,24 +17,50 @@ async function readPipe(
 	return new Response(stream).text();
 }
 
+async function runPrivileged(
+	cmd: string[],
+): Promise<{ stdout: string; stderr: string; code: number }> {
+	const proc = Bun.spawn(privileged(cmd), { stdout: "pipe", stderr: "pipe" });
+	const [stdout, stderr, code] = await Promise.all([
+		readPipe(proc.stdout),
+		readPipe(proc.stderr),
+		proc.exited,
+	]);
+	return { stdout, stderr, code };
+}
+
+async function claimUnmanagedWifi(): Promise<void> {
+	await runPrivileged(["rfkill", "unblock", "wifi"]);
+	await runPrivileged(["nmcli", "networking", "on"]);
+	await runPrivileged(["nmcli", "radio", "wifi", "on"]);
+	const status = await runPrivileged([
+		"nmcli",
+		"-t",
+		"-f",
+		"DEVICE,TYPE,STATE",
+		"device",
+		"status",
+	]);
+	for (const device of wifiDevicesToClaim(
+		`${status.stdout}\n${status.stderr}`,
+	)) {
+		await runPrivileged(["nmcli", "device", "set", device, "managed", "yes"]);
+		await runPrivileged(["ip", "link", "set", device, "down"]);
+		await runPrivileged(["ip", "link", "set", device, "up"]);
+	}
+}
+
 export function applyNetworkManagerWifi(): ApplyWifi {
 	return async (config) => {
-		const proc = Bun.spawn(
-			privileged([
-				"nmcli",
-				"device",
-				"wifi",
-				"connect",
-				config.ssid,
-				"password",
-				config.psk,
-			]),
-			{ stdout: "pipe", stderr: "pipe" },
-		);
-		const [stdout, stderr, code] = await Promise.all([
-			readPipe(proc.stdout),
-			readPipe(proc.stderr),
-			proc.exited,
+		await claimUnmanagedWifi();
+		const { stdout, stderr, code } = await runPrivileged([
+			"nmcli",
+			"device",
+			"wifi",
+			"connect",
+			config.ssid,
+			"password",
+			config.psk,
 		]);
 		if (code !== 0) {
 			throw new WifiConnectError(

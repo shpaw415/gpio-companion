@@ -116,6 +116,8 @@ function t3Env(
 	return {
 		GPIO_COMPANION_T3_HOME: join(dir, ".t3"),
 		GPIO_COMPANION_T3_SKIP_RESTART: "1",
+		GPIO_COMPANION_HOME: dir,
+		GPIO_COMPANION_BIN_DIR: join(dir, "usr-local-bin"),
 		...extra,
 	};
 }
@@ -412,6 +414,7 @@ install_t3_service
 		);
 		const result = await bash(
 			`
+PATH="/usr/bin:/bin"
 source "${libSh}"
 GPIO_USER=root
 configure_t3_opencode_only
@@ -422,12 +425,20 @@ configure_t3_opencode_only
 		expect(result.stdout).toContain("T3 Code providers locked to OpenCode");
 		const saved = JSON.parse(await Bun.file(settings).text()) as {
 			providers: Record<string, { enabled: boolean }>;
-			providerInstances: Record<string, { driver: string; enabled: boolean }>;
+			providerInstances: Record<
+				string,
+				{
+					driver: string;
+					enabled: boolean;
+					config?: { binaryPath?: string };
+				}
+			>;
 		};
 		expect(saved.providers.opencode.enabled).toBe(true);
 		expect(saved.providers.cursor.enabled).toBe(false);
 		expect(saved.providers.grok.enabled).toBe(false);
 		expect(saved.providerInstances.opencode.enabled).toBe(true);
+		expect(saved.providerInstances.opencode.config.binaryPath).toBe("opencode");
 		expect(saved.providerInstances.claudeAgent.enabled).toBe(false);
 		expect(saved.providerInstances.codex.enabled).toBe(false);
 	});
@@ -436,6 +447,7 @@ configure_t3_opencode_only
 		const dir = await tempDir();
 		const result = await bash(
 			`
+PATH="/usr/bin:/bin"
 source "${libSh}"
 GPIO_USER=root
 configure_t3_opencode_only
@@ -446,9 +458,66 @@ configure_t3_opencode_only
 		const saved = JSON.parse(
 			await Bun.file(join(dir, ".t3", "userdata", "settings.json")).text(),
 		) as {
-			providerInstances: { opencode: { enabled: boolean; driver: string } };
+			providerInstances: {
+				opencode: {
+					enabled: boolean;
+					driver: string;
+					config: { binaryPath: string };
+				};
+			};
 		};
 		expect(saved.providerInstances.opencode.driver).toBe("opencode");
 		expect(saved.providerInstances.opencode.enabled).toBe(true);
+		expect(saved.providerInstances.opencode.config.binaryPath).toBe("opencode");
+	});
+
+	test("locks OpenCode binaryPath to the resolved install", async () => {
+		const dir = await tempDir();
+		const ocbin = join(dir, ".opencode", "bin");
+		const bindir = join(dir, "usr-local-bin");
+		const settings = join(dir, ".t3", "userdata", "settings.json");
+		await mkdir(ocbin, { recursive: true });
+		await mkdir(bindir, { recursive: true });
+		await mkdir(join(dir, ".t3", "userdata"), { recursive: true });
+		await writeFile(join(ocbin, "opencode"), "#!/usr/bin/env bash\nexit 0\n");
+		await chmod(join(ocbin, "opencode"), 0o755);
+		await writeFile(
+			settings,
+			JSON.stringify({
+				providerInstances: {
+					opencode: {
+						driver: "opencode",
+						enabled: true,
+						config: { binaryPath: "opencode" },
+					},
+				},
+			}),
+		);
+		const result = await bash(
+			`
+source "${libSh}"
+GPIO_USER=root
+configure_t3_opencode_only
+`,
+			t3Env(dir),
+		);
+		expect(result.exit).toBe(0);
+		const saved = JSON.parse(await Bun.file(settings).text()) as {
+			providers: { opencode: { enabled: boolean } };
+			providerInstances: {
+				opencode: { config: { binaryPath: string } };
+			};
+		};
+		expect(saved.providers.opencode.enabled).toBe(true);
+		expect(saved.providerInstances.opencode.config.binaryPath).toBe(
+			join(ocbin, "opencode"),
+		);
+		const proc = Bun.spawn(["readlink", "-f", join(bindir, "opencode")], {
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		expect((await new Response(proc.stdout).text()).trim()).toBe(
+			join(ocbin, "opencode"),
+		);
 	});
 });

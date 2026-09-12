@@ -98,6 +98,7 @@ fi
 
 echo "installing $hardware..."
 "/bin/bash" "$SCRIPT_DIR/install-${hardware}.sh"
+ensure_networkmanager_wifi
 
 write_pairing_env
 # shellcheck disable=SC1091

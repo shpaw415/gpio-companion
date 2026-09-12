@@ -413,4 +413,5 @@ export {
 	WifiConnectError,
 	type WifiConnectReason,
 	wifiConnectMessage,
+	wifiDevicesToClaim,
 } from "./wifi.ts";

@@ -58,7 +58,11 @@ source "${libSh}"
 GPIO_USER=root
 update_opencode
 `,
-			{ GPIO_OC_LOG: log },
+			{
+				GPIO_OC_LOG: log,
+				GPIO_COMPANION_HOME: dir,
+				GPIO_COMPANION_BIN_DIR: bin,
+			},
 		);
 		expect(result.exit).toBe(0);
 		expect(result.stdout).toContain("opencode upgrade");
@@ -86,10 +90,49 @@ source "${libSh}"
 GPIO_USER=root
 update_opencode
 `,
-			{ GPIO_OC_LOG: log, GPIO_COMPANION_HOME: dir },
+			{
+				GPIO_OC_LOG: log,
+				GPIO_COMPANION_HOME: dir,
+				GPIO_COMPANION_BIN_DIR: join(dir, "usr-local-bin"),
+			},
 		);
 		expect(result.exit).toBe(0);
 		expect(await Bun.file(log).text()).toContain("upgrade");
+	});
+
+	test("links ~/.opencode/bin onto BIN_DIR", async () => {
+		const dir = await tempDir();
+		const ocbin = join(dir, ".opencode", "bin");
+		const bindir = join(dir, "usr-local-bin");
+		await mkdir(ocbin, { recursive: true });
+		await mkdir(bindir, { recursive: true });
+		await writeFile(
+			join(ocbin, "opencode"),
+			`#!/usr/bin/env bash
+exit 0
+`,
+		);
+		await chmod(join(ocbin, "opencode"), 0o755);
+		const result = await bash(
+			`
+PATH="/usr/bin:/bin"
+source "${libSh}"
+GPIO_USER=root
+link_opencode_bin
+`,
+			{
+				GPIO_COMPANION_HOME: dir,
+				GPIO_COMPANION_BIN_DIR: bindir,
+			},
+		);
+		expect(result.exit).toBe(0);
+		const proc = Bun.spawn(["readlink", "-f", join(bindir, "opencode")], {
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		expect((await new Response(proc.stdout).text()).trim()).toBe(
+			join(ocbin, "opencode"),
+		);
 	});
 
 	test("skips when opencode is missing", async () => {

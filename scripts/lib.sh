@@ -155,7 +155,87 @@ install_apt_base() {
 		python3-gi \
 		network-manager
 	systemctl enable --now NetworkManager.service || true
+	ensure_networkmanager_wifi
 	apt_install_optional exfatprogs exfat-fuse ntfs-3g libpam-systemd dbus-user-session
+}
+
+ensure_networkmanager_wifi() {
+	local conf_dir="${GPIO_COMPANION_NM_CONF_D:-/etc/NetworkManager/conf.d}"
+	local drop_in="${conf_dir}/90-gpio-companion-wifi.conf"
+	local netplan_dir="${GPIO_COMPANION_NETPLAN_DIR:-/etc/netplan}"
+	local netplan_bak="${GPIO_COMPANION_NETPLAN_BAK:-/etc/gpio-companion/netplan.bak}"
+	local line dev type state rest file base moved=0
+
+	mkdir -p "$conf_dir"
+	cat >"$drop_in" <<'EOF'
+[ifupdown]
+managed=true
+
+[device]
+wifi.scan-rand-mac-address=no
+EOF
+	chmod 0644 "$drop_in"
+
+	if [[ -d "$netplan_dir" && -w "$netplan_dir" ]]; then
+		mkdir -p "$netplan_bak"
+		shopt -s nullglob
+		for file in "$netplan_dir"/*.yaml "$netplan_dir"/*.yml; do
+			base="$(basename "$file")"
+			[[ "$base" == 90-gpio-companion-wifi.yaml ]] && continue
+			if grep -qE '^[[:space:]]*wifis:' "$file" && ! grep -qE '^[[:space:]]*ethernets:' "$file"; then
+				mv "$file" "$netplan_bak/$base"
+				moved=1
+			fi
+		done
+		shopt -u nullglob
+		cat >"$netplan_dir/90-gpio-companion-wifi.yaml" <<'EOF'
+network:
+  version: 2
+  wifis:
+    renderer: NetworkManager
+EOF
+		chmod 0600 "$netplan_dir/90-gpio-companion-wifi.yaml"
+		netplan generate >/dev/null 2>&1 || true
+		netplan apply >/dev/null 2>&1 || true
+	fi
+	systemctl stop 'netplan-wpa-wlan0.service' >/dev/null 2>&1 || true
+	systemctl disable 'netplan-wpa-wlan0.service' >/dev/null 2>&1 || true
+
+	systemctl enable --now NetworkManager.service 2>/dev/null || true
+	if command -v rfkill >/dev/null 2>&1; then
+		rfkill unblock wifi 2>/dev/null || true
+		rfkill unblock wlan 2>/dev/null || true
+	fi
+	if ! command -v nmcli >/dev/null 2>&1; then
+		echo "gpio-companion: nmcli missing, wifi unmanaged fix skipped"
+		return 0
+	fi
+	nmcli networking on >/dev/null 2>&1 || true
+	nmcli radio wifi on >/dev/null 2>&1 || true
+	nmcli general reload >/dev/null 2>&1 || true
+	claim_nm_wifi_devices
+	if [[ "$moved" -eq 1 ]] || nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null | grep -q ':wifi:un\(managed\|available\)'; then
+		systemctl restart NetworkManager.service >/dev/null 2>&1 || true
+		nmcli networking on >/dev/null 2>&1 || true
+		nmcli radio wifi on >/dev/null 2>&1 || true
+		claim_nm_wifi_devices
+	fi
+	echo "gpio-companion: NetworkManager wifi managed"
+}
+
+claim_nm_wifi_devices() {
+	local line dev type state rest
+	while IFS= read -r line; do
+		[[ -n "$line" ]] || continue
+		dev="${line%%:*}"
+		rest="${line#*:}"
+		type="${rest%%:*}"
+		state="${rest#*:}"
+		state="${state%%:*}"
+		if [[ "$type" == "wifi" && ( "$state" == "unmanaged" || "$state" == "unavailable" ) ]]; then
+			nmcli device set "$dev" managed yes >/dev/null 2>&1 || true
+		fi
+	done < <(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
 }
 
 install_node() {
@@ -206,9 +286,10 @@ install_arduino_cli() {
 install_opencode() {
 	if [[ "$GPIO_USER" == "root" ]]; then
 		curl -fsSL https://opencode.ai/install | bash
-		return
+	else
+		sudo -u "$GPIO_USER" bash -lc 'curl -fsSL https://opencode.ai/install | bash'
 	fi
-	sudo -u "$GPIO_USER" bash -lc 'curl -fsSL https://opencode.ai/install | bash'
+	link_opencode_bin || true
 }
 
 opencode_bin() {
@@ -222,6 +303,27 @@ opencode_bin() {
 	command -v opencode 2>/dev/null
 }
 
+link_opencode_bin() {
+	local bin dest current bindir
+	bin="$(opencode_bin || true)"
+	if [[ -z "$bin" ]]; then
+		return 1
+	fi
+	bindir="${GPIO_COMPANION_BIN_DIR:-$BIN_DIR}"
+	dest="${bindir}/opencode"
+	if [[ "$bin" == "$dest" ]]; then
+		return 0
+	fi
+	if [[ ! -d "$bindir" ]]; then
+		return 1
+	fi
+	current="$(readlink -f "$dest" 2>/dev/null || true)"
+	if [[ -n "$current" && "$current" == "$(readlink -f "$bin" 2>/dev/null || true)" ]]; then
+		return 0
+	fi
+	ln -sfn "$bin" "$dest"
+}
+
 update_opencode() {
 	local bin
 	echo "gpio-companion update: opencode upgrade"
@@ -232,9 +334,10 @@ update_opencode() {
 	fi
 	if [[ "$GPIO_USER" == "root" || "$(id -u)" -eq "$(gpio_user_uid)" ]]; then
 		"$bin" upgrade
-		return
+	else
+		sudo -u "$GPIO_USER" -H "$bin" upgrade
 	fi
-	sudo -u "$GPIO_USER" -H "$bin" upgrade
+	link_opencode_bin || true
 }
 
 gpio_user_home() {
@@ -258,16 +361,19 @@ t3_home() {
 }
 
 configure_t3_opencode_only() {
-	local home dest result
+	local home dest result ocbin
 	home="$(t3_home)"
 	dest="$home/userdata/settings.json"
+	ocbin="$(opencode_bin || true)"
+	link_opencode_bin || true
 	install -d -m 0755 "$(dirname "$dest")"
-	result="$(GPIO_T3_SETTINGS="$dest" python3 - <<'PY'
+	result="$(GPIO_T3_SETTINGS="$dest" GPIO_OPENCODE_BIN="${ocbin:-opencode}" python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
 path = Path(os.environ["GPIO_T3_SETTINGS"])
+bin_path = os.environ.get("GPIO_OPENCODE_BIN") or "opencode"
 data = {}
 if path.exists():
     try:
@@ -309,6 +415,11 @@ for key, inst in list(instances.items()):
     if driver == "opencode" or key == "opencode":
         inst["driver"] = "opencode"
         inst["enabled"] = True
+        cfg = inst.get("config")
+        if not isinstance(cfg, dict):
+            cfg = {}
+            inst["config"] = cfg
+        cfg["binaryPath"] = bin_path
         has_opencode = True
     else:
         inst["enabled"] = False
@@ -317,7 +428,7 @@ if not has_opencode:
         "driver": "opencode",
         "enabled": True,
         "config": {
-            "binaryPath": "opencode",
+            "binaryPath": bin_path,
             "serverUrl": "",
             "serverPassword": "",
             "customModels": [],
