@@ -381,25 +381,84 @@ function GpioPinActions({
 				</Button>
 			</Stack>
 			{typeof pin.analog === "number" ? (
-				<input
-					type="range"
-					min={0}
-					max={255}
-					step={1}
-					value={pin.analog}
+				<PwmDutyControl
+					key={pin.physical}
+					physical={pin.physical}
+					analog={pin.analog}
 					disabled={busy || disabled || locked}
-					aria-label={`Pin ${pin.physical} PWM`}
-					onChange={(event) => {
-						const next = Number(event.target.value);
-						if (!Number.isInteger(next) || next < 0 || next > 255) {
-							return;
-						}
-						onPwm(pin.physical, next);
-					}}
+					onPwm={onPwm}
 				/>
 			) : null}
 		</Stack>
 	);
+}
+
+function PwmDutyControl({
+	physical,
+	analog,
+	disabled,
+	onPwm,
+}: {
+	physical: number;
+	analog: number;
+	disabled: boolean;
+	onPwm: (physical: number, analog: number) => void;
+}) {
+	const [draft, setDraft] = useState<string | null>(null);
+	return (
+		<Stack direction="row" spacing={1} className="flex-wrap items-center">
+			<input
+				type="range"
+				min={0}
+				max={255}
+				step={1}
+				value={analog}
+				disabled={disabled}
+				aria-label={`Pin ${physical} PWM`}
+				className="min-w-0 flex-1"
+				onChange={(event) => {
+					const next = parsePwmAnalog(event.target.value);
+					if (next === undefined) {
+						return;
+					}
+					setDraft(null);
+					onPwm(physical, next);
+				}}
+			/>
+			<input
+				type="number"
+				min={0}
+				max={255}
+				step={1}
+				inputMode="numeric"
+				value={draft ?? analog}
+				disabled={disabled}
+				aria-label={`Pin ${physical} PWM value`}
+				className="w-16"
+				onChange={(event) => {
+					const raw = event.target.value;
+					setDraft(raw);
+					const next = parsePwmAnalog(raw);
+					if (next === undefined) {
+						return;
+					}
+					onPwm(physical, next);
+				}}
+				onBlur={() => setDraft(null)}
+			/>
+		</Stack>
+	);
+}
+
+function parsePwmAnalog(raw: string): number | undefined {
+	if (!/^\d+$/.test(raw)) {
+		return undefined;
+	}
+	const next = Number(raw);
+	if (next < 0 || next > 255) {
+		return undefined;
+	}
+	return next;
 }
 
 function PinStatusChip({ pin }: { pin: GpioPinState }) {
