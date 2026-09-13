@@ -1,13 +1,13 @@
 import { createReadStream, type ReadStream } from "node:fs";
 import {
-	capConsoleLog,
 	CONSOLE_DEFAULT_BAUD,
 	CONSOLE_FLUSH_MS,
 	CONSOLE_MAX_SOCKETS,
 	CONSOLE_USB_REOPEN_MS,
+	ConsoleError,
 	type ConsoleSnapshot,
 	type ConsoleSource,
-	ConsoleError,
+	capConsoleLog,
 	emptyConsoleSnapshot,
 	parseConsoleUsbPut,
 	parseConsoleWsCommand,
@@ -45,9 +45,9 @@ export function createConsoleHub(options?: {
 	reopenMs?: number;
 }): ConsoleHub {
 	const sockets = new Set<ConsoleSocket>();
-	const flushMs = options.flushMs ?? CONSOLE_FLUSH_MS;
-	const reopenMs = options.reopenMs ?? CONSOLE_USB_REOPEN_MS;
-	const openUsb = options.openUsb ?? liveOpenUsb;
+	const flushMs = options?.flushMs ?? CONSOLE_FLUSH_MS;
+	const reopenMs = options?.reopenMs ?? CONSOLE_USB_REOPEN_MS;
+	const openUsb = options?.openUsb ?? liveOpenUsb;
 	let state = emptyConsoleSnapshot();
 	let usb: UsbHandle | null = null;
 	let reopenTimer: ReturnType<typeof setTimeout> | null = null;
@@ -93,10 +93,7 @@ export function createConsoleHub(options?: {
 			return;
 		}
 		pending[source] += chunk;
-		if (
-			pending[source].includes("\n") ||
-			pending[source].length >= 1024
-		) {
+		if (pending[source].includes("\n") || pending[source].length >= 1024) {
 			flush();
 			return;
 		}

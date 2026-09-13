@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Clipboard, Text, View } from "react-native";
 import {
+	signConsole,
 	signDeviceInfo,
 	signFlash,
 	signGpio,
@@ -235,6 +236,8 @@ async function signCheck(token: string, uuid: string, id: BleHealthCheckId) {
 			return signFlash(token, { uuid, ports: true });
 		case "get-run":
 			return signRun(token, { uuid });
+		case "get-console":
+			return signConsole(token, { uuid, sign: true });
 		case "put-wifi":
 			return signWifi(token, {
 				uuid,

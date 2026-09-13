@@ -1,8 +1,3 @@
-import FitScreenIcon from "@material-design-icons/svg/filled/fit_screen.svg";
-import FullscreenIcon from "@material-design-icons/svg/filled/fullscreen.svg";
-import FullscreenExitIcon from "@material-design-icons/svg/filled/fullscreen_exit.svg";
-import ZoomInIcon from "@material-design-icons/svg/filled/zoom_in.svg";
-import ZoomOutIcon from "@material-design-icons/svg/filled/zoom_out.svg";
 import IconButton from "@shpaw415/mui-lite/IconButton";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
@@ -50,13 +45,68 @@ import {
 	panBy,
 	type Viewport,
 	zoomAt,
-} from "../lib/viewport-zoom.ts";
+} from "../lib/viewport-zoom";
 
 type Props = {
 	diagramText?: string | null;
 	previewUrl?: string | null;
 	livePins?: Record<number, 0 | 1>;
 };
+
+function ZoomOutIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+			<path
+				d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79L20 21.5 21.5 20zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14M7 9h5v1H7z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function ZoomInIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+			<path
+				d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79L20 21.5 21.5 20zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14M10 7v2H8v1h2v2h1V10h2V9h-2V7z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function FitScreenIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+			<path
+				d="M6 16h2v2H6zm0-4h2v2H6zm0-4h2v2H6zm4 8h8v2h-8zm0-8h8v2h-8zm0 4h8v2h-8zM4 4h16v16H4z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function FullscreenIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+			<path
+				d="M7 14H5v5h5v-2H7zm12-9h-5v2h3v3h2zM7 7h3V5H5v5h2zm12 12h-5v-2h3v-3h2z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function FullscreenExitIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+			<path
+				d="M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
 
 type PinInfo = PartPinInfo;
 
@@ -95,16 +145,16 @@ export default function BreadboardViewer({
 
 	if (diagramText) {
 		return (
-			<Paper className="p-4" elevation={1}>
-				<Typography variant="subtitle1" className="mb-2">
+			<Paper elevation={1} sx={{ p: 2 }}>
+				<Typography variant="subtitle1" sx={{ mb: 1 }}>
 					Breadboard
 				</Typography>
 				{parsed.error ? (
-					<Typography color="error" className="mb-2">
+					<Typography color="error" sx={{ mb: 1 }}>
 						{parsed.error}
 					</Typography>
 				) : null}
-				<pre className="max-h-[32rem] overflow-auto text-xs">
+				<pre style={{ maxHeight: "32rem", overflow: "auto", fontSize: 12 }}>
 					{diagramText.slice(0, 8000)}
 				</pre>
 			</Paper>
@@ -112,7 +162,7 @@ export default function BreadboardViewer({
 	}
 
 	return (
-		<Paper className="p-4 min-[900px]:p-6" elevation={1}>
+		<Paper elevation={1} sx={{ p: 2 }}>
 			<Typography color="secondary">
 				No breadboard/diagram.json on GitHub yet.
 			</Typography>
@@ -190,8 +240,11 @@ function DiagramBoard({
 		>
 			<ZoomSurface camera={camera} expanded={expanded}>
 				<div
-					className="relative"
-					style={{ width: bounds.width, height: bounds.height }}
+					style={{
+						position: "relative",
+						width: bounds.width,
+						height: bounds.height,
+					}}
 				>
 					{diagram.parts.map((part) =>
 						part.hide
@@ -214,7 +267,7 @@ function DiagramBoard({
 					)}
 					<svg
 						aria-label="Breadboard wiring"
-						className="pointer-events-none absolute inset-0"
+						style={{ pointerEvents: "none", position: "absolute", inset: 0 }}
 						height={bounds.height}
 						key={elementsReady}
 						role="img"
@@ -270,17 +323,26 @@ function DiagramBoard({
 			{diagram.steps?.length ? (
 				<Stack
 					spacing={1}
-					className={expanded ? "mt-3 max-h-40 overflow-auto" : "mt-3"}
+					sx={
+						expanded
+							? { mt: 1.5, maxHeight: 160, overflow: "auto" }
+							: { mt: 1.5 }
+					}
 				>
 					{diagram.steps.map((step, index) => (
 						<button
 							key={step.text}
-							className={`rounded px-3 py-2 text-left text-sm ${
-								index === activeStep
-									? "bg-slate-800 text-white"
-									: "text-slate-300"
-							}`}
 							onClick={() => selectStep(index)}
+							style={{
+								border: 0,
+								borderRadius: 8,
+								padding: "8px 12px",
+								textAlign: "left",
+								fontSize: 14,
+								cursor: "pointer",
+								background: index === activeStep ? "#1e293b" : "transparent",
+								color: index === activeStep ? "#fff" : "#cbd5e1",
+							}}
 							type="button"
 						>
 							{index + 1}. {step.text}
@@ -350,23 +412,27 @@ function BoardShell({
 }) {
 	return (
 		<Paper
-			className={
-				expanded
-					? "fixed inset-0 z-[1300] flex h-full flex-col overflow-hidden rounded-none p-4"
-					: "overflow-hidden p-4"
-			}
 			elevation={expanded ? 8 : 1}
 			sx={
 				expanded
 					? {
+							position: "fixed",
+							inset: 0,
+							zIndex: 1300,
+							display: "flex",
+							flexDirection: "column",
+							height: "100%",
+							overflow: "hidden",
+							borderRadius: 0,
+							p: 2,
 							paddingTop: "max(1rem, env(safe-area-inset-top))",
 							paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
 						}
-					: undefined
+					: { overflow: "hidden", p: 2 }
 			}
 		>
-			<Stack direction="row" spacing={0.5} className="mb-2 items-center">
-				<Typography variant="subtitle1" className="min-w-0 flex-1">
+			<Stack direction="row" spacing={0.5} sx={{ mb: 1, alignItems: "center" }}>
+				<Typography variant="subtitle1" sx={{ minWidth: 0, flex: 1 }}>
 					Breadboard
 				</Typography>
 				<Typography color="secondary" variant="caption">
@@ -378,7 +444,7 @@ function BoardShell({
 					onClick={() => camera.zoomBy(1 / 1.25)}
 					size="small"
 				>
-					<ZoomOutIcon fill="currentColor" />
+					<ZoomOutIcon />
 				</IconButton>
 				<IconButton
 					aria-label="Zoom in"
@@ -386,7 +452,7 @@ function BoardShell({
 					onClick={() => camera.zoomBy(1.25)}
 					size="small"
 				>
-					<ZoomInIcon fill="currentColor" />
+					<ZoomInIcon />
 				</IconButton>
 				<IconButton
 					aria-label="Fit to view"
@@ -394,7 +460,7 @@ function BoardShell({
 					onClick={() => camera.fit()}
 					size="small"
 				>
-					<FitScreenIcon fill="currentColor" />
+					<FitScreenIcon />
 				</IconButton>
 				<IconButton
 					aria-label={expanded ? "Exit full screen" : "Full screen"}
@@ -402,11 +468,7 @@ function BoardShell({
 					onClick={onToggleExpand}
 					size="small"
 				>
-					{expanded ? (
-						<FullscreenExitIcon fill="currentColor" />
-					) : (
-						<FullscreenIcon fill="currentColor" />
-					)}
+					{expanded ? <FullscreenExitIcon /> : <FullscreenIcon />}
 				</IconButton>
 			</Stack>
 			{children}
@@ -450,9 +512,6 @@ function ZoomSurface({
 	return (
 		<div
 			aria-label="Breadboard canvas"
-			className={`relative min-h-0 touch-none overflow-hidden bg-slate-950 ${
-				expanded ? "flex-1" : "h-[320px] min-[900px]:h-[520px]"
-			}`}
 			onDoubleClick={() => camera.fit()}
 			onPointerDown={camera.onPointerDown}
 			onPointerMove={camera.onPointerMove}
@@ -460,7 +519,16 @@ function ZoomSurface({
 			onPointerCancel={camera.onPointerUp}
 			ref={camera.viewportRef}
 			role="application"
-			style={{ cursor: "grab" }}
+			style={{
+				position: "relative",
+				overflow: "hidden",
+				background: "#020617",
+				minHeight: 0,
+				touchAction: "none",
+				cursor: "grab",
+				height: expanded ? undefined : 420,
+				flex: expanded ? 1 : undefined,
+			}}
 		>
 			<div
 				style={{

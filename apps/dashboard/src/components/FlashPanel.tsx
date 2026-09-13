@@ -13,13 +13,13 @@ import {
 	BLE_CMD_UUID,
 	BLE_DEVICE_NAME,
 	type BoardSketch,
+	CONSOLE_BAUDS,
+	CONSOLE_DEFAULT_BAUD,
 	envelopeToPasteText,
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
 	type FlashPort,
 	type FlashStatus,
-	CONSOLE_BAUDS,
-	CONSOLE_DEFAULT_BAUD,
 	parseFlashPut,
 } from "gpio-companion";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -227,6 +227,53 @@ export default function FlashPanel({
 				value={port}
 				onChange={(event) => setPort(event.target.value)}
 			/>
+			<Select
+				name="usb-baud"
+				label="Serial baud"
+				value={baud}
+				onSelect={setBaud}
+				className="w-full"
+			>
+				{CONSOLE_BAUDS.map((item) => (
+					<option key={item} value={String(item)}>
+						{item}
+					</option>
+				))}
+			</Select>
+			<Stack direction="row" spacing={1} className="flex-wrap">
+				<Button
+					type="button"
+					variant="outlined"
+					size="small"
+					disabled={busy || !uuid || !port.trim() || Boolean(status?.running)}
+					onClick={() => {
+						start(async () => {
+							unwrapAction(
+								await startUsbConsole({
+									uuid,
+									port: port.trim(),
+									baud: Number(baud),
+								}),
+							);
+						});
+					}}
+				>
+					Open serial
+				</Button>
+				<Button
+					type="button"
+					variant="outlined"
+					size="small"
+					disabled={busy || !uuid}
+					onClick={() => {
+						start(async () => {
+							unwrapAction(await startUsbConsole({ uuid, stop: true }));
+						});
+					}}
+				>
+					Close serial
+				</Button>
+			</Stack>
 			<Stack direction="row" spacing={1} className="flex-wrap">
 				<Button
 					type="button"
@@ -313,6 +360,11 @@ export default function FlashPanel({
 			{last?.log ? (
 				<CopyBlock label="arduino-cli log" value={last.log} />
 			) : null}
+			<LiveConsole
+				label="Serial (USB)"
+				value={serial.snapshot.usb.log}
+				status={serial.status}
+			/>
 		</Stack>
 	);
 }

@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import {
-	capLogText,
 	CONSOLE_PATH,
 	CONSOLE_USB_PATH,
 	CONSOLE_USB_STOP_PATH,
 	ConsoleError,
+	capLogText,
 	DEBUG_EVENT_PATH,
 	DEBUG_PATH,
 	DEFAULT_DEVICE_MAX_SKEW_MS,

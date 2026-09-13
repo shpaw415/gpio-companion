@@ -232,6 +232,8 @@ async function signProbe(uuid: string, id: BleHealthCheckId) {
 			return apiRequest("POST", "/api/mobile/flash", { uuid, ports: true });
 		case "get-run":
 			return apiRequest("POST", "/api/mobile/run", { uuid });
+		case "get-console":
+			return apiRequest("POST", "/api/mobile/console", { uuid });
 		case "put-wifi":
 			return apiRequest("POST", "/api/mobile/wifi", {
 				uuid,

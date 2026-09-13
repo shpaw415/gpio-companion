@@ -15,6 +15,7 @@ import {
 	stopRun,
 } from "../api";
 import { useSavedBleId } from "../hooks/useApiCache";
+import { useConsoleTunnel } from "../hooks/useConsoleTunnel";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
@@ -41,6 +42,7 @@ export default function RunPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, { onRun });
+	const serial = useConsoleTunnel(uuid, setError);
 
 	useEffect(() => {
 		if (!uuid) {
@@ -88,7 +90,8 @@ export default function RunPanel({
 			.finally(() => setBusy(false));
 	}
 
-	const log = status?.log || status?.last?.log || "";
+	const log =
+		serial.snapshot.host.log || status?.log || status?.last?.log || "";
 	const canStart = Boolean(dir.trim()) && (legacy || Boolean(project));
 
 	return (
@@ -184,6 +187,9 @@ export default function RunPanel({
 							? "Last run exited 0"
 							: "Last run failed"
 						: "C sketch on the Pi, then run on this header."}
+			</Typography>
+			<Typography variant="caption" color="secondary">
+				Serial {serial.status}
 			</Typography>
 			{log ? (
 				<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>

@@ -607,6 +607,58 @@ export function connectGpioLive(token: string, uuid: string) {
 	});
 }
 
+export function connectConsoleLive(token: string, uuid: string) {
+	return request<{ wsUrl: string }>(token, "/api/mobile/console-live", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
+}
+
+export function startUsbConsole(
+	token: string,
+	input: { uuid: string; port: string; baud?: number },
+) {
+	return request<{ started: boolean }>(token, "/api/mobile/console", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
+export function stopUsbConsole(token: string, uuid: string) {
+	return request<{ stopped: boolean }>(token, "/api/mobile/console", {
+		method: "POST",
+		body: JSON.stringify({ uuid, stop: true }),
+	});
+}
+
+export function signConsole(
+	token: string,
+	input: {
+		uuid: string;
+		port?: string;
+		baud?: number;
+		stop?: boolean;
+		sign?: boolean;
+	},
+) {
+	const stop = Boolean(input.stop);
+	const start = Boolean(input.port);
+	return signOnlineOrOffline(token, "/api/mobile/console", input, {
+		uuid: input.uuid,
+		method: stop || start ? "POST" : "GET",
+		path: stop
+			? "/v1/console/usb/stop"
+			: start
+				? "/v1/console/usb"
+				: "/v1/console",
+		body: stop
+			? "{}"
+			: start
+				? JSON.stringify({ port: input.port, baud: input.baud })
+				: "",
+	});
+}
+
 export function signGpio(
 	token: string,
 	input: { uuid: string; physical?: number; dir?: string; value?: number },

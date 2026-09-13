@@ -151,7 +151,11 @@ export function asConsoleWsError(input: unknown): string | null {
 		return null;
 	}
 	const record = input as Record<string, unknown>;
-	if (isConsoleSnapshot(record) || record.source === "host" || record.source === "usb") {
+	if (
+		isConsoleSnapshot(record) ||
+		record.source === "host" ||
+		record.source === "usb"
+	) {
 		return null;
 	}
 	return typeof record.error === "string" && record.error.trim()
@@ -210,8 +214,7 @@ export function applyConsoleMessage(
 		};
 	}
 	if (record.source === "usb" && typeof record.open === "boolean") {
-		const port =
-			typeof record.port === "string" ? record.port : next.usb.port;
+		const port = typeof record.port === "string" ? record.port : next.usb.port;
 		const baud =
 			typeof record.baud === "number" && Number.isFinite(record.baud)
 				? record.baud
@@ -234,9 +237,7 @@ function isHostState(input: unknown): input is ConsoleHostState {
 		return false;
 	}
 	const record = input as Record<string, unknown>;
-	return (
-		typeof record.running === "boolean" && typeof record.log === "string"
-	);
+	return typeof record.running === "boolean" && typeof record.log === "string";
 }
 
 function isUsbState(input: unknown): input is ConsoleUsbState {

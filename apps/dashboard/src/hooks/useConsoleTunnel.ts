@@ -8,7 +8,11 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { unwrapAction } from "../lib/action.ts";
 
-export type ConsoleTunnelStatus = "idle" | "connecting" | "live" | "reconnecting";
+export type ConsoleTunnelStatus =
+	| "idle"
+	| "connecting"
+	| "live"
+	| "reconnecting";
 
 export type ConsoleTunnel = {
 	status: ConsoleTunnelStatus;

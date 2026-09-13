@@ -98,6 +98,20 @@ export function splitEndpoint(value: string): { partId: string; pin: string } {
 	return { partId: value.slice(0, index), pin: value.slice(index + 1) };
 }
 
+export function netPartIds(diagram: WokwiDiagram, seed: string[]): string[] {
+	const seeds = new Set(seed);
+	const ids = new Set(seed);
+	for (const [from, to] of diagram.connections) {
+		const a = splitEndpoint(from).partId;
+		const b = splitEndpoint(to).partId;
+		if (seeds.has(a) || seeds.has(b)) {
+			ids.add(a);
+			ids.add(b);
+		}
+	}
+	return [...ids];
+}
+
 function parsePart(input: unknown, index: number): WokwiPart {
 	if (!input || typeof input !== "object") {
 		throw new BreadboardError(`part ${index} must be an object`);

@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import FlashPanel from "../components/FlashPanel.tsx";
 import GpioPanel from "../components/GpioPanel.tsx";
 import RunPanel from "../components/RunPanel.tsx";
@@ -17,6 +17,7 @@ import {
 	TextButton,
 	Title,
 } from "../components/ui.tsx";
+import ZoomableImage from "../components/ZoomableImage.tsx";
 import {
 	type BoardSketch,
 	createProject,
@@ -64,20 +65,7 @@ function PreviewCard({
 	const colors = useColors();
 	return (
 		<Paper>
-			{url ? (
-				<Image
-					source={{ uri: url }}
-					style={{
-						width: "100%",
-						height: 180,
-						backgroundColor: "#fff",
-						borderRadius: 8,
-					}}
-					resizeMode="contain"
-				/>
-			) : (
-				<Muted>{hint}</Muted>
-			)}
+			{url ? <ZoomableImage title={title} uri={url} /> : <Muted>{hint}</Muted>}
 			<Text style={{ color: colors.muted }}>{title}</Text>
 		</Paper>
 	);

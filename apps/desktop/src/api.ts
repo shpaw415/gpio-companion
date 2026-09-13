@@ -443,6 +443,8 @@ export type ProjectBundle = {
 	technical: GithubContent[];
 	pcbPreviewUrl: string | null;
 	breadboardPreviewUrl: string | null;
+	breadboardDiagramUrl?: string | null;
+	breadboardCircuitJsonUrl?: string | null;
 };
 
 export type GithubAppStatus = {
@@ -551,6 +553,14 @@ export function loadProject(owner: string, repo: string) {
 	return apiRequest<ProjectBundle>("POST", "/api/mobile/projects", {
 		owner,
 		repo,
+	});
+}
+
+export function readProjectFile(owner: string, repo: string, path: string) {
+	return apiRequest<{ text: string }>("PUT", "/api/mobile/projects", {
+		owner,
+		repo,
+		path,
 	});
 }
 
@@ -879,6 +889,27 @@ export function putGpio(input: {
 export function connectGpioLive(uuid: string) {
 	return apiRequest<{ wsUrl: string }>("POST", "/api/mobile/gpio-live", {
 		uuid,
+	});
+}
+
+export function connectConsoleLive(uuid: string) {
+	return apiRequest<{ wsUrl: string }>("POST", "/api/mobile/console-live", {
+		uuid,
+	});
+}
+
+export function startUsbConsole(input: {
+	uuid: string;
+	port: string;
+	baud?: number;
+}) {
+	return apiRequest<{ started: boolean }>("POST", "/api/mobile/console", input);
+}
+
+export function stopUsbConsole(uuid: string) {
+	return apiRequest<{ stopped: boolean }>("POST", "/api/mobile/console", {
+		uuid,
+		stop: true,
 	});
 }
 

@@ -16,17 +16,22 @@ export default function LiveConsole({
 	const ref = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		const node = ref.current?.querySelector("pre");
-		if (node) {
+		if (node && value.length >= 0) {
 			node.scrollTop = node.scrollHeight;
 		}
 	}, [value]);
 	return (
-		<Stack spacing={1} ref={ref}>
-			<Stack direction="row" spacing={1} alignItems="center">
-				<LiveChip status={status} ready={Boolean(value) || status === "live"} />
+		<div ref={ref}>
+			<Stack spacing={1}>
+				<Stack direction="row" spacing={1} alignItems="center">
+					<LiveChip
+						status={status}
+						ready={Boolean(value) || status === "live"}
+					/>
+				</Stack>
+				{value ? <CopyBlock label={label} value={value} /> : null}
 			</Stack>
-			{value ? <CopyBlock label={label} value={value} /> : null}
-		</Stack>
+		</div>
 	);
 }
 

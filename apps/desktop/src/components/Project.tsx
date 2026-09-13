@@ -30,6 +30,7 @@ import {
 	openExternal,
 	type ProjectBundle,
 	pushProject,
+	readProjectFile,
 	startFlash,
 	startRun,
 } from "../api";
@@ -40,6 +41,7 @@ import {
 	useUserBoards,
 } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import BreadboardViewer from "./BreadboardViewer";
 import DebugLog from "./DebugLog";
 import FlashPanel from "./FlashPanel";
 import GpioPanel from "./GpioPanel";
@@ -229,12 +231,50 @@ export default function Project() {
 	const [creating, setCreating] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
+	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
+
+	useEffect(() => {
+		if (!bundle) {
+			setBreadboardJson(null);
+			return;
+		}
+		const hasDiagram = bundle.breadboard.some(
+			(file) =>
+				file.name === "diagram.json" || file.path.endsWith("/diagram.json"),
+		);
+		const path = bundle.breadboardDiagramUrl
+			? "breadboard/diagram.json"
+			: bundle.breadboardCircuitJsonUrl
+				? "breadboard/circuit.json"
+				: hasDiagram
+					? "breadboard/diagram.json"
+					: null;
+		if (!path) {
+			setBreadboardJson(null);
+			return;
+		}
+		let cancelled = false;
+		void readProjectFile(bundle.owner, bundle.repo, path)
+			.then((file) => {
+				if (!cancelled) {
+					setBreadboardJson(file.text);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setBreadboardJson(null);
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [bundle]);
 
 	useEffect(() => {
 		void listProjects()
@@ -685,10 +725,9 @@ export default function Project() {
 							hint="No pcb/preview.svg yet. Ask the agent to design a PCB."
 							url={bundle.pcbPreviewUrl}
 						/>
-						<PreviewCard
-							title="Breadboard"
-							hint="No breadboard/preview.svg yet. Ask the agent to wire a breadboard."
-							url={bundle.breadboardPreviewUrl}
+						<BreadboardViewer
+							diagramText={breadboardJson}
+							previewUrl={bundle.breadboardPreviewUrl}
 						/>
 					</Box>
 					<Box

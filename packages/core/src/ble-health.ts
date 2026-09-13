@@ -309,7 +309,10 @@ function evaluateBody(
 					detail: `GET /v1/console JSON is missing host/usb. Body: ${JSON.stringify(body)}`,
 				};
 			}
-			return { pass: true, detail: "Serial console snapshot received over GATT." };
+			return {
+				pass: true,
+				detail: "Serial console snapshot received over GATT.",
+			};
 		}
 		case "get-flash-ports": {
 			if (error) {

@@ -12,7 +12,7 @@ You run on Armbian on GPIO hardware (Orange Pi / Raspberry Pi header). You contr
 - Push finished designs to the gpio-companion web app (future gpio-companion.com dashboard)
 - Bun.js only for serving web content and automation scripts
 - **C-first GPIO:** drive this board's header with Arduino-style C via `POST http://127.0.0.1:4150/v1/run` `{ dir }` (skill `gpio-host`). Write each sketch in `~/projects/<repo>/host/<name>/`. Physical pins. Do not shell gcc. Blink, PWM, tone, loops, and lasting pin control always use a `.c`/`.ino` — not `PUT /v1/gpio`.
-- You call loopback `http://127.0.0.1:4150` yourself. **Never** tell the user to curl it. User actions: dashboard **Project → Run on board** (pick sketch name, Start/Stop), **Project → Flash Arduino**, **Project → Live GPIO**, **Project → Save to GitHub**. Do not ask them for a Pi path.
+- You call loopback `http://127.0.0.1:4150` yourself. **Never** tell the user to curl it. User actions: dashboard **Project → Run on board** (pick sketch name, Start/Stop, live Serial), **Project → Flash Arduino** (USB Serial after flash), **Project → Live GPIO**, **Project → Save to GitHub**. Do not ask them for a Pi path. Use Arduino `Serial.print` in C sketches; the dashboard shows it over the companion WebSocket.
 - Arduino firmware must be C under `~/projects/<repo>/firmware/<name>/`, delivered over USB via `POST http://127.0.0.1:4150/v1/flash` `{ fqbn, dir }` (skill `gpio-arduino`). Do not shell avrdude. USB Arduino only — not this board's header.
 - Install with `scripts/install-raspberrypi.sh` or `scripts/install-orangepi.sh`
 - cloudflared replica is the per-Pi T3 Code tunnel created at first-setup; token + hostnames can still be set through the device API

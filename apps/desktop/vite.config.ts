@@ -9,6 +9,11 @@ const repoRoot = path.resolve(here, "../..");
 
 export default defineConfig({
 	plugins: [react()],
+	resolve: {
+		alias: {
+			"gpio-companion": path.resolve(repoRoot, "packages/core/src/breadboard.ts"),
+		},
+	},
 	clearScreen: false,
 	server: {
 		port: 1420,

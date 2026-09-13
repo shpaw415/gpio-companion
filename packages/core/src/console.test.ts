@@ -2,16 +2,16 @@ import { describe, expect, test } from "bun:test";
 import {
 	applyConsoleMessage,
 	asConsoleWsError,
-	capConsoleLog,
 	CONSOLE_LOG_MAX,
 	CONSOLE_PATH,
+	ConsoleError,
+	capConsoleLog,
 	consoleWsConnectUrl,
 	consoleWsUrl,
 	emptyConsoleSnapshot,
 	isConsolePath,
 	parseConsoleUsbPut,
 	parseConsoleWsCommand,
-	ConsoleError,
 } from "./console.ts";
 
 describe("console paths", () => {
@@ -54,9 +54,9 @@ describe("parseConsoleUsbPut", () => {
 			ConsoleError,
 		);
 		expect(() => parseConsoleUsbPut({ port: "/tmp/x" })).toThrow("tty");
-		expect(() => parseConsoleUsbPut({ port: "/dev/ttyACM0", baud: 1200 })).toThrow(
-			"baud",
-		);
+		expect(() =>
+			parseConsoleUsbPut({ port: "/dev/ttyACM0", baud: 1200 }),
+		).toThrow("baud");
 	});
 });
 

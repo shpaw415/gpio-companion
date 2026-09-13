@@ -4,6 +4,11 @@ import {
 	type SignedDeviceEnvelope,
 } from "./ble.ts";
 import {
+	CONSOLE_PATH,
+	CONSOLE_USB_PATH,
+	CONSOLE_USB_STOP_PATH,
+} from "./console.ts";
+import {
 	DEVICE_AUTH_HEADERS,
 	DeviceAuthError,
 	generateDeviceKeyPair,
@@ -11,11 +16,6 @@ import {
 	verifyDeviceRequest,
 	verifyEd25519Message,
 } from "./device-auth.ts";
-import {
-	CONSOLE_PATH,
-	CONSOLE_USB_PATH,
-	CONSOLE_USB_STOP_PATH,
-} from "./console.ts";
 import { INFO_PATH } from "./device-info.ts";
 import { FLASH_PATH, FLASH_PORTS_PATH, FLASH_SKETCHES_PATH } from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";

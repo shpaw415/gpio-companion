@@ -73,4 +73,4 @@ void loop() {
 
 `setup` / `loop`, `pinMode`, `digitalWrite` / `digitalRead`, `analogWrite`,
 `tone` / `noTone`, `delay` / `millis`. `analogRead` is honest when the header
-has no ADC. `Serial.print` goes to the run log.
+has no ADC. `Serial.print` / `println` / `printf` go to Project **Run on board** live Serial over the companion WebSocket. Do not tell the user to curl `/v1/console`.

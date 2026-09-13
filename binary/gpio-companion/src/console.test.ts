@@ -154,7 +154,9 @@ describe("console http", () => {
 		const after = Date.now();
 		while (
 			Date.now() - after < 1000 &&
-			!messages.some((item) => item.chunk === "live\n" || item.host?.log?.includes("live"))
+			!messages.some(
+				(item) => item.chunk === "live\n" || item.host?.log?.includes("live"),
+			)
 		) {
 			await Bun.sleep(10);
 		}

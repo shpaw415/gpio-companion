@@ -1,6 +1,7 @@
 "no action";
 
 import {
+	CONSOLE_PATH,
 	CONSOLE_USB_PATH,
 	CONSOLE_USB_STOP_PATH,
 	parseConsoleUsbPut,
@@ -16,7 +17,10 @@ import {
 	readJsonBody,
 	runMobile,
 } from "../../../lib/mobile-http.ts";
-import { requireOwnedDevice } from "../../../lib/pairing-store.ts";
+import {
+	requireAccessibleDevice,
+	requireOwnedDevice,
+} from "../../../lib/pairing-store.ts";
 
 export async function onRequestPost(ctx: MobileContext) {
 	return runMobile(ctx, async (identity) => {
@@ -49,27 +53,31 @@ export async function onRequestPost(ctx: MobileContext) {
 				),
 			);
 		}
-		await requireOwnedDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, uuid);
-		const put = parseConsoleUsbPut(body);
-		if (sign) {
-			return signDeviceEnvelope(ctx.env, "POST", CONSOLE_USB_PATH, put);
+		if (typeof body.port === "string" && body.port.trim()) {
+			await requireOwnedDevice(ctx.env.DYNAMIC_PAGE_KV, identity.id, uuid);
+			const put = parseConsoleUsbPut(body);
+			if (sign) {
+				return signDeviceEnvelope(ctx.env, "POST", CONSOLE_USB_PATH, put);
+			}
+			const device = await requireOwnedDevice(
+				ctx.env.DYNAMIC_PAGE_KV,
+				identity.id,
+				uuid,
+			);
+			if (!device.deviceUrl) {
+				throw new Error("device URL is missing");
+			}
+			return readDeviceJson<{ started: boolean }>(
+				await signedDeviceFetch(
+					ctx.env,
+					device.deviceUrl,
+					"POST",
+					CONSOLE_USB_PATH,
+					put,
+				),
+			);
 		}
-		const device = await requireOwnedDevice(
-			ctx.env.DYNAMIC_PAGE_KV,
-			identity.id,
-			uuid,
-		);
-		if (!device.deviceUrl) {
-			throw new Error("device URL is missing");
-		}
-		return readDeviceJson<{ started: boolean }>(
-			await signedDeviceFetch(
-				ctx.env,
-				device.deviceUrl,
-				"POST",
-				CONSOLE_USB_PATH,
-				put,
-			),
-		);
+		await requireAccessibleDevice(ctx.env.DYNAMIC_PAGE_KV, identity, uuid);
+		return signDeviceEnvelope(ctx.env, "GET", CONSOLE_PATH);
 	});
 }

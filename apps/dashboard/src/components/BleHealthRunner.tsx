@@ -1,3 +1,4 @@
+import { POST as signConsole } from "@api/device/console";
 import { POST as signFlash } from "@api/device/flash";
 import { POST as signGpio } from "@api/device/gpio";
 import { POST as signDeviceInfo } from "@api/device/info";
@@ -267,6 +268,8 @@ async function signCheck(
 			return unwrapAction(await signFlash({ uuid, ports: true }));
 		case "get-run":
 			return unwrapAction(await signRun({ uuid }));
+		case "get-console":
+			return unwrapAction(await signConsole({ uuid }));
 		case "put-wifi":
 			return unwrapAction(
 				await signWifi({

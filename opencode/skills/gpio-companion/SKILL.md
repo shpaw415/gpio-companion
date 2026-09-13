@@ -43,7 +43,7 @@ You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls t
 - Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
 - Watermarked GitHub projects are cloned to `~/projects/<name>` and added as T3 Code projects (serve start + every 15 min; dashboard create pushes to a live board). Prefer those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
-- Drive this board's GPIO header with Arduino-style C (skill `gpio-host`): write `~/projects/<repo>/host/<sketch>/*.c` and `POST http://127.0.0.1:4150/v1/run` `{ dir }`. Physical pins. Do not shell gcc. Users launch by name from Project → Run on board.
+- Drive this board's GPIO header with Arduino-style C (skill `gpio-host`): write `~/projects/<repo>/host/<sketch>/*.c` and `POST http://127.0.0.1:4150/v1/run` `{ dir }`. Physical pins. Do not shell gcc. Users launch by name from Project → Run on board. `Serial.print` shows live there.
 - Generate Arduino firmware in C under `~/projects/<repo>/firmware/<sketch>/` and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). USB Arduino only — not this board's header. Users flash by name from Project → Flash Arduino.
 - Load the pinout skill for the current hardware before wiring GPIO
 - `GET http://127.0.0.1:4150/v1/gpio` to snapshot physical pins (dir/value/PWM). Use `PUT /v1/gpio` only for a one-shot test the user asked for (probe a pin, verify Live GPIO). Digital test: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone test: skill `gpio-pwm`. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Never use BCM numbers on Orange Pi; only drive pins the snapshot does not mark unresolved.

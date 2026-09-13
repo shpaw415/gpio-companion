@@ -3,6 +3,7 @@ import {
 	BreadboardError,
 	breadboardHasRails,
 	breadboardPinOffset,
+	netPartIds,
 	parseWokwiDiagram,
 	rotatePoint,
 	snapPartPlacement,
@@ -61,6 +62,12 @@ describe("wokwi diagram", () => {
 	test("parses JSON text", () => {
 		const diagram = parseWokwiDiagram(JSON.stringify(sample));
 		expect(diagram.version).toBe(1);
+	});
+
+	test("collects one-hop net parts", () => {
+		const diagram = parseWokwiDiagram(sample);
+		expect(netPartIds(diagram, ["led1"]).sort()).toEqual(["bb1", "led1"]);
+		expect(netPartIds(diagram, ["header"]).sort()).toEqual(["bb1", "header"]);
 	});
 
 	test("rejects missing breadboard", () => {

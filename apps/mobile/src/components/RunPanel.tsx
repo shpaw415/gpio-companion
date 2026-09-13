@@ -13,6 +13,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
+import { useConsoleTunnel } from "../lib/use-console-tunnel.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
@@ -42,6 +43,7 @@ export default function RunPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, token, { onRun });
+	const serial = useConsoleTunnel(uuid, token, setError);
 
 	useEffect(() => {
 		if (!uuid || !token) {
@@ -89,7 +91,8 @@ export default function RunPanel({
 			.finally(() => setBusy(false));
 	}
 
-	const log = status?.log || status?.last?.log || "";
+	const log =
+		serial.snapshot.host.log || status?.log || status?.last?.log || "";
 	const canStart = Boolean(dir.trim()) && (legacy || Boolean(project));
 
 	return (
@@ -213,6 +216,7 @@ export default function RunPanel({
 							: "Last run failed"
 						: "C sketch on the Pi, then run on this header."}
 			</Muted>
+			<Muted>Serial {serial.status}</Muted>
 			{log ? <Muted>{log}</Muted> : null}
 		</View>
 	);

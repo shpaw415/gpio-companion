@@ -15,7 +15,7 @@ Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home
 
 Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth.
 
-The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path).
+The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path). `Serial.print` from that sketch shows live on the same panel. After **Flash Arduino**, USB `Serial` shows on that panel (Open serial if you need to attach without flashing).
 
 ## Projects live in GitHub
 

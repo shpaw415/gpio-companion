@@ -35,3 +35,5 @@ curl -s http://127.0.0.1:4150/v1/flash
 `dir` is an absolute path on this Pi and must contain a `.c` or `.ino`. Firmware is **C**. Put each sketch in `~/projects/<repo>/firmware/<name>/` (one directory per sketch) and `git push` `firmware/` on a **feature branch**. Ask to save; merge `main` only when the user says yes (skill `gpio-companion` **Project git**). The dashboard lists those names from the board copy. Host GPIO sketches stay under `host/` and are not USB drop-ins. Unsigned loopback only without Ed25519 headers; dashboard/BLE flash is signed.
 
 Poll `GET /v1/flash` until `running` is false. Do not start a second job while one is running (409).
+
+After a successful flash with `port` set, the board opens that USB serial and streams `Serial.print` to Project **Flash Arduino**. Users can also Open/Close serial there. Do not tell the user to curl `/v1/console`.

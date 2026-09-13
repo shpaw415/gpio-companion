@@ -8,11 +8,14 @@ import {
 	loadFlashSketches,
 	signFlash,
 	startFlash,
+	startUsbConsole,
+	stopUsbConsole,
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
+import { useConsoleTunnel } from "../lib/use-console-tunnel.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
@@ -80,6 +83,7 @@ export default function FlashPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, token, { onFlash });
+	const serial = useConsoleTunnel(uuid, token, setError);
 	const canFlash =
 		Boolean(fqbn.trim()) && Boolean(dir.trim()) && (legacy || Boolean(project));
 
@@ -157,6 +161,30 @@ export default function FlashPanel({
 			)}
 			<Field label="Port (optional)" value={port} onChangeText={setPort} />
 			<TextButton
+				label="Open serial"
+				disabled={busy || !token || !port.trim() || Boolean(status?.running)}
+				onPress={() => {
+					if (!token) {
+						return;
+					}
+					start(async () => {
+						await startUsbConsole(token, { uuid, port: port.trim() });
+					});
+				}}
+			/>
+			<TextButton
+				label="Close serial"
+				disabled={busy || !token}
+				onPress={() => {
+					if (!token) {
+						return;
+					}
+					start(async () => {
+						await stopUsbConsole(token, uuid);
+					});
+				}}
+			/>
+			<TextButton
 				label="Flash"
 				disabled={busy || !token || !canFlash}
 				onPress={() => {
@@ -208,6 +236,10 @@ export default function FlashPanel({
 							: `Last flash failed · ${status.last.fqbn}`
 						: "C sketch on the Pi, then flash."}
 			</Muted>
+			<Muted>Serial {serial.status}</Muted>
+			{serial.snapshot.usb.log ? (
+				<Muted>{serial.snapshot.usb.log}</Muted>
+			) : null}
 		</View>
 	);
 }

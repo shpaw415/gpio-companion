@@ -13,8 +13,11 @@ import {
 	loadFlashPorts,
 	loadFlashSketches,
 	startFlash,
+	startUsbConsole,
+	stopUsbConsole,
 } from "../api";
 import { useSavedBleId } from "../hooks/useApiCache";
+import { useConsoleTunnel } from "../hooks/useConsoleTunnel";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 
@@ -79,6 +82,7 @@ export default function FlashPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, { onFlash });
+	const serial = useConsoleTunnel(uuid, setError);
 	const canFlash =
 		Boolean(fqbn.trim()) && Boolean(dir.trim()) && (legacy || Boolean(project));
 
@@ -161,6 +165,32 @@ export default function FlashPanel({
 			/>
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
+					variant="outlined"
+					size="small"
+					disabled={busy || !port.trim() || Boolean(status?.running)}
+					onClick={() => {
+						start(async () => {
+							await startUsbConsole({ uuid, port: port.trim() });
+						});
+					}}
+				>
+					Open serial
+				</Button>
+				<Button
+					variant="outlined"
+					size="small"
+					disabled={busy}
+					onClick={() => {
+						start(async () => {
+							await stopUsbConsole(uuid);
+						});
+					}}
+				>
+					Close serial
+				</Button>
+			</Stack>
+			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+				<Button
 					variant="contained"
 					size="small"
 					disabled={busy || !canFlash}
@@ -207,6 +237,14 @@ export default function FlashPanel({
 							: `Last flash failed · ${status.last.fqbn}`
 						: "C sketch on the Pi, then flash."}
 			</Typography>
+			<Typography variant="caption" color="secondary">
+				Serial {serial.status}
+			</Typography>
+			{serial.snapshot.usb.log ? (
+				<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+					{serial.snapshot.usb.log}
+				</Typography>
+			) : null}
 		</Stack>
 	);
 }

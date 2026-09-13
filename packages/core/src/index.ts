@@ -111,6 +111,7 @@ export {
 	headerPinOffset,
 	headerSize,
 	isBreadboardType,
+	netPartIds,
 	type PartPinInfo,
 	type PartPlacement,
 	type Point,
@@ -127,9 +128,20 @@ export {
 	wirePath,
 } from "./breadboard.ts";
 export {
+	type DeviceConfig,
+	emptyDeviceConfig,
+	emptyTunnelConfig,
+	HARDWARE_IDS,
+	type HardwareId,
+	isHardwareId,
+	parseDeviceConfig,
+	parseTunnelConfig,
+	redactDeviceConfig,
+	type TunnelConfig,
+} from "./config.ts";
+export {
 	applyConsoleMessage,
 	asConsoleWsError,
-	capConsoleLog,
 	CONSOLE_BAUDS,
 	CONSOLE_DEFAULT_BAUD,
 	CONSOLE_FLUSH_MS,
@@ -152,6 +164,7 @@ export {
 	type ConsoleUsbState,
 	type ConsoleWsError,
 	type ConsoleWsRefresh,
+	capConsoleLog,
 	consoleWsConnectUrl,
 	consoleWsUrl,
 	emptyConsoleSnapshot,
@@ -159,18 +172,6 @@ export {
 	parseConsoleUsbPut,
 	parseConsoleWsCommand,
 } from "./console.ts";
-export {
-	type DeviceConfig,
-	emptyDeviceConfig,
-	emptyTunnelConfig,
-	HARDWARE_IDS,
-	type HardwareId,
-	isHardwareId,
-	parseDeviceConfig,
-	parseTunnelConfig,
-	redactDeviceConfig,
-	type TunnelConfig,
-} from "./config.ts";
 export {
 	DEBUG_EVENT_PATH,
 	DEBUG_LIVE_TTL_SEC,
