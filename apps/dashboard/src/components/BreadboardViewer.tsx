@@ -2,6 +2,12 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
+	BREADBOARD_LEFT_COLS,
+	BREADBOARD_PITCH,
+	BREADBOARD_RAILS,
+	BREADBOARD_RIGHT_COLS,
+	breadboardHasRails,
+	breadboardPinNames,
 	breadboardPinOffset,
 	breadboardRows,
 	breadboardSize,
@@ -9,10 +15,12 @@ import {
 	headerPinOffset,
 	headerSize,
 	isBreadboardType,
+	type PartPinInfo,
 	type Point,
 	parseWokwiDiagram,
-	partOrigin,
+	partPinsFor,
 	rotatePoint,
+	snapPartPlacement,
 	splitEndpoint,
 	type WokwiDiagram,
 	type WokwiPart,
@@ -33,7 +41,7 @@ type Props = {
 	livePins?: Record<number, 0 | 1>;
 };
 
-type PinInfo = { name: string; x: number; y: number };
+type PinInfo = PartPinInfo;
 
 export default function BreadboardViewer({
 	diagramText,
@@ -55,7 +63,7 @@ export default function BreadboardViewer({
 	if (diagram) {
 		const highlight = diagram.steps?.[activeStep]?.highlight ?? [];
 		const pins = collectPins(diagram, partRefs.current);
-		const bounds = canvasBounds(diagram);
+		const bounds = canvasBounds(diagram, partRefs.current);
 		return (
 			<Paper className="overflow-hidden p-4" elevation={1}>
 				<Typography variant="subtitle1" className="mb-2">
@@ -73,9 +81,11 @@ export default function BreadboardViewer({
 							part.hide
 								? null
 								: renderPart(
+										diagram,
 										part,
 										highlight.includes(part.id),
 										livePins,
+										partRefs.current.get(part.id),
 										(el) => {
 											if (el) {
 												partRefs.current.set(part.id, el);
@@ -99,6 +109,12 @@ export default function BreadboardViewer({
 								const start = endpointPoint(diagram, from, pins);
 								const end = endpointPoint(diagram, to, pins);
 								if (!start || !end) {
+									return null;
+								}
+								if (
+									Math.hypot(end.x - start.x, end.y - start.y) < 2 &&
+									instructions.length === 0
+								) {
 									return null;
 								}
 								const points = wirePath(start, end, instructions)
@@ -203,18 +219,26 @@ function parseDiagram(text?: string | null): {
 	}
 }
 
+function elementPins(el?: HTMLElement): PartPinInfo[] | undefined {
+	const pins = (el as (HTMLElement & { pinInfo?: PinInfo[] }) | undefined)
+		?.pinInfo;
+	return pins?.length ? pins : undefined;
+}
+
 function renderPart(
+	diagram: WokwiDiagram,
 	part: WokwiPart,
 	hot: boolean,
 	livePins: Record<number, 0 | 1> | undefined,
+	el: HTMLElement | undefined,
 	ref: (el: HTMLElement | null) => void,
 ) {
-	const origin = partOrigin(part);
+	const placement = snapPartPlacement(part, diagram, elementPins(el));
 	const style: CSSProperties = {
 		position: "absolute",
-		left: origin.x,
-		top: origin.y,
-		transform: part.rotate ? `rotate(${part.rotate}deg)` : undefined,
+		left: placement.origin.x,
+		top: placement.origin.y,
+		transform: placement.rotate ? `rotate(${placement.rotate}deg)` : undefined,
 		transformOrigin: "top left",
 		opacity: hot ? 1 : 0.9,
 	};
@@ -248,22 +272,20 @@ function BreadboardSvg({ type }: { type: string }) {
 	const { width, height } = breadboardSize(type);
 	const rows = breadboardRows(type);
 	const holes: Point[] = [];
-	for (let row = 1; row <= rows; row += 1) {
-		for (const col of "abcdefghij") {
-			const point = breadboardPinOffset(type, `${row}${col}`);
-			if (point) {
-				holes.push(point);
-			}
+	for (const pin of breadboardPinNames(type)) {
+		const point = breadboardPinOffset(type, pin);
+		if (point) {
+			holes.push(point);
 		}
 	}
-	for (const rail of ["tp", "tn", "bp", "bn"]) {
-		for (let index = 1; index <= 20; index += 1) {
-			const point = breadboardPinOffset(type, `${rail}.${index}`);
-			if (point) {
-				holes.push(point);
-			}
-		}
-	}
+	const first = breadboardPinOffset(type, "1a");
+	const last = breadboardPinOffset(type, `${rows}e`);
+	const colF = breadboardPinOffset(type, "1f");
+	const grooveLeft = last ? last.x + BREADBOARD_PITCH * 0.6 : 0;
+	const grooveRight = colF ? colF.x - BREADBOARD_PITCH * 0.6 : 0;
+	const grooveTop = first ? first.y - BREADBOARD_PITCH * 0.6 : 0;
+	const grooveBottom = last ? last.y + BREADBOARD_PITCH * 0.6 : 0;
+	const labelY = BREADBOARD_PITCH * 1.15;
 	return (
 		<svg
 			aria-label="Breadboard"
@@ -274,6 +296,37 @@ function BreadboardSvg({ type }: { type: string }) {
 		>
 			<title>Breadboard</title>
 			<rect width={width} height={height} fill="#d6c7a1" rx={6} />
+			{grooveRight > grooveLeft ? (
+				<rect
+					x={grooveLeft}
+					y={grooveTop}
+					width={grooveRight - grooveLeft}
+					height={grooveBottom - grooveTop}
+					fill="#c4b48e"
+					rx={2}
+				/>
+			) : null}
+			{breadboardHasRails(type)
+				? BREADBOARD_RAILS.map((rail) => {
+						const top = breadboardPinOffset(type, `${rail}.1`);
+						const bottom = breadboardPinOffset(type, `${rail}.${rows}`);
+						if (!top || !bottom) {
+							return null;
+						}
+						const positive = rail.endsWith("p");
+						return (
+							<line
+								key={`${rail}-line`}
+								x1={top.x}
+								y1={top.y - 4}
+								x2={bottom.x}
+								y2={bottom.y + 4}
+								stroke={positive ? "#c24141" : "#3b6ea5"}
+								strokeWidth={1.2}
+							/>
+						);
+					})
+				: null}
 			{holes.map((hole) => (
 				<circle
 					key={`${hole.x}-${hole.y}`}
@@ -283,6 +336,72 @@ function BreadboardSvg({ type }: { type: string }) {
 					fill="#1e293b"
 				/>
 			))}
+			{[...BREADBOARD_LEFT_COLS, ...BREADBOARD_RIGHT_COLS].map((col) => {
+				const point = breadboardPinOffset(type, `1${col}`);
+				if (!point) {
+					return null;
+				}
+				return (
+					<text
+						key={`col-${col}`}
+						x={point.x}
+						y={labelY}
+						fill="#5b4f3a"
+						fontSize={7}
+						textAnchor="middle"
+					>
+						{col}
+					</text>
+				);
+			})}
+			{Array.from({ length: rows }, (_, index) => index + 1)
+				.filter((row) => row === 1 || row === rows || row % 5 === 0)
+				.map((row) => {
+					const point = breadboardPinOffset(type, `${row}a`);
+					if (!point) {
+						return null;
+					}
+					return (
+						<text
+							key={`row-${row}`}
+							x={(grooveLeft + grooveRight) / 2}
+							y={point.y + 2.5}
+							fill="#5b4f3a"
+							fontSize={7}
+							textAnchor="middle"
+						>
+							{row}
+						</text>
+					);
+				})}
+			{breadboardHasRails(type)
+				? (
+						[
+							["tp", "+", "#c24141"],
+							["tn", "−", "#3b6ea5"],
+							["bn", "−", "#3b6ea5"],
+							["bp", "+", "#c24141"],
+						] as const
+					).map(([rail, mark, fill]) => {
+						const point = breadboardPinOffset(type, `${rail}.1`);
+						if (!point) {
+							return null;
+						}
+						return (
+							<text
+								key={`${rail}-mark`}
+								x={point.x}
+								y={labelY}
+								fill={fill}
+								fontSize={8}
+								fontWeight={700}
+								textAnchor="middle"
+							>
+								{mark}
+							</text>
+						);
+					})
+				: null}
 		</svg>
 	);
 }
@@ -344,23 +463,18 @@ function collectPins(
 ): Map<string, Point> {
 	const pins = new Map<string, Point>();
 	for (const part of diagram.parts) {
-		const origin = partOrigin(part);
-		const rotate = part.rotate ?? 0;
+		const placement = snapPartPlacement(
+			part,
+			diagram,
+			elementPins(refs.get(part.id)),
+		);
+		const origin = placement.origin;
+		const rotate = placement.rotate;
 		if (isBreadboardType(part.type)) {
-			const rows = breadboardRows(part.type);
-			for (let row = 1; row <= rows; row += 1) {
-				for (const col of "abcdefghij") {
-					addOffsetPin(pins, part, `${row}${col}`, origin, rotate, (pin) =>
-						breadboardPinOffset(part.type, pin),
-					);
-				}
-			}
-			for (const rail of ["tp", "tn", "bp", "bn"]) {
-				for (let index = 1; index <= 20; index += 1) {
-					addOffsetPin(pins, part, `${rail}.${index}`, origin, rotate, (pin) =>
-						breadboardPinOffset(part.type, pin),
-					);
-				}
+			for (const pin of breadboardPinNames(part.type)) {
+				addOffsetPin(pins, part, pin, origin, rotate, (name) =>
+					breadboardPinOffset(part.type, name),
+				);
 			}
 			continue;
 		}
@@ -370,10 +484,7 @@ function collectPins(
 			}
 			continue;
 		}
-		const el = refs.get(part.id) as
-			| (HTMLElement & { pinInfo?: PinInfo[] })
-			| undefined;
-		for (const info of el?.pinInfo ?? []) {
+		for (const info of partPinsFor(part.type, elementPins(refs.get(part.id)))) {
 			const offset = rotatePoint({ x: info.x, y: info.y }, rotate);
 			pins.set(`${part.id}:${info.name}`, {
 				x: origin.x + offset.x,
@@ -414,17 +525,28 @@ function endpointPoint(
 	}
 	const { partId } = splitEndpoint(endpoint);
 	const part = diagram.parts.find((item) => item.id === partId);
-	return part ? partOrigin(part) : null;
+	if (!part) {
+		return null;
+	}
+	return snapPartPlacement(part, diagram).origin;
 }
 
-function canvasBounds(diagram: WokwiDiagram): {
+function canvasBounds(
+	diagram: WokwiDiagram,
+	refs: Map<string, HTMLElement>,
+): {
 	width: number;
 	height: number;
 } {
 	let width = 320;
 	let height = 240;
 	for (const part of diagram.parts) {
-		const origin = partOrigin(part);
+		const placement = snapPartPlacement(
+			part,
+			diagram,
+			elementPins(refs.get(part.id)),
+		);
+		const origin = placement.origin;
 		const size = isBreadboardType(part.type)
 			? breadboardSize(part.type)
 			: part.type === GPIO_COMPANION_HEADER_TYPE

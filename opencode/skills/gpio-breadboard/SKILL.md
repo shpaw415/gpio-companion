@@ -37,8 +37,6 @@ When a breadboard wiring task is done, write these files on a **feature branch**
     {
       "id": "led1",
       "type": "wokwi-led",
-      "left": 200,
-      "top": 140,
       "attrs": { "color": "red" }
     }
   ],
@@ -59,7 +57,9 @@ When a breadboard wiring task is done, write these files on a **feature branch**
 - Load `gpio-pinout-raspberrypi` or `gpio-pinout-orangepi` from `/etc/gpio-companion/config.json` `hardware` before placing jumpers.
 - `gpio-companion-header` pins are **physical** 1–40. `attrs.hardware` must be `raspberrypi` or `orangepi`.
 - Always include one `wokwi-breadboard-half` (30 rows), `wokwi-breadboard` (63), or `wokwi-breadboard-mini`.
+- Portrait plug map: columns `a`–`e` then `f`–`j` on X, rows `1`–`30` down Y. Power rails are vertical on both long sides. Left: `tp.*` (+) then `tn.*` (−). Right: `bn.*` (−) then `bp.*` (+). Rail index matches the row (`tn.10` is beside `10a`). Mini has no rails.
 - Breadboard holes: `{row}{column}` such as `10a` … `10e` / `10f` … `10j`. Rails: `tp.1`, `tn.1`, `bp.1`, `bn.1`.
+- Plug components into holes (`led1:A` → `bb1:10e`). Do not park LEDs/resistors in empty canvas; the dashboard snaps them onto the connected holes.
 - Part types for components: `wokwi-led`, `wokwi-resistor`, `wokwi-pushbutton`, and other `@wokwi/elements` names.
 - Connections are `[from, to, color, wires]`. Endpoints are `partId:pin`.
 - 3.3V logic only. Never wire header 5V (physical 2, 4 on Pi-layout boards) into a GPIO pin.

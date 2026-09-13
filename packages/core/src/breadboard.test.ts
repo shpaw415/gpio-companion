@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	BreadboardError,
+	breadboardHasRails,
 	breadboardPinOffset,
 	parseWokwiDiagram,
+	rotatePoint,
+	snapPartPlacement,
 	splitEndpoint,
 	wirePath,
 } from "./breadboard.ts";
@@ -126,6 +129,68 @@ describe("wokwi diagram", () => {
 		expect(breadboardPinOffset("wokwi-breadboard-half", "10e")).not.toBeNull();
 		expect(breadboardPinOffset("wokwi-breadboard-half", "tn.1")).not.toBeNull();
 		expect(breadboardPinOffset("wokwi-breadboard-half", "99z")).toBeNull();
+	});
+
+	test("portrait rails sit left and right of a-e / f-j", () => {
+		const a = breadboardPinOffset("wokwi-breadboard-half", "1a");
+		const e = breadboardPinOffset("wokwi-breadboard-half", "1e");
+		const f = breadboardPinOffset("wokwi-breadboard-half", "1f");
+		const j = breadboardPinOffset("wokwi-breadboard-half", "1j");
+		const row2 = breadboardPinOffset("wokwi-breadboard-half", "2a");
+		const tp = breadboardPinOffset("wokwi-breadboard-half", "tp.1");
+		const tn = breadboardPinOffset("wokwi-breadboard-half", "tn.1");
+		const bn = breadboardPinOffset("wokwi-breadboard-half", "bn.1");
+		const bp = breadboardPinOffset("wokwi-breadboard-half", "bp.1");
+		const tn10 = breadboardPinOffset("wokwi-breadboard-half", "tn.10");
+		const a10 = breadboardPinOffset("wokwi-breadboard-half", "10a");
+		expect(
+			a && e && f && j && row2 && tp && tn && bn && bp && tn10 && a10,
+		).toBeTruthy();
+		if (
+			!a ||
+			!e ||
+			!f ||
+			!j ||
+			!row2 ||
+			!tp ||
+			!tn ||
+			!bn ||
+			!bp ||
+			!tn10 ||
+			!a10
+		) {
+			return;
+		}
+		expect(tp.x).toBeLessThan(tn.x);
+		expect(tn.x).toBeLessThan(a.x);
+		expect(a.x).toBeLessThan(e.x);
+		expect(e.x).toBeLessThan(f.x);
+		expect(f.x).toBeLessThan(j.x);
+		expect(j.x).toBeLessThan(bn.x);
+		expect(bn.x).toBeLessThan(bp.x);
+		expect(a.y).toBeLessThan(row2.y);
+		expect(tn10.y).toBe(a10.y);
+		expect(tp.y).toBe(a.y);
+	});
+
+	test("mini breadboard has no power rails", () => {
+		expect(breadboardHasRails("wokwi-breadboard-mini")).toBe(false);
+		expect(breadboardPinOffset("wokwi-breadboard-mini", "tn.1")).toBeNull();
+		expect(breadboardPinOffset("wokwi-breadboard-mini", "1a")).not.toBeNull();
+	});
+
+	test("snaps a led onto connected holes", () => {
+		const diagram = parseWokwiDiagram(sample);
+		const led = diagram.parts.find((part) => part.id === "led1");
+		const hole = breadboardPinOffset("wokwi-breadboard-half", "10e");
+		expect(led && hole).toBeTruthy();
+		if (!led || !hole) {
+			return;
+		}
+		const placement = snapPartPlacement(led, diagram);
+		const anode = rotatePoint({ x: 25, y: 42 }, placement.rotate);
+		expect(placement.origin.x + anode.x).toBeCloseTo(80 + hole.x);
+		expect(placement.origin.y + anode.y).toBeCloseTo(hole.y);
 	});
 
 	test("builds a wire path", () => {

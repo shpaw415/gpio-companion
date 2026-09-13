@@ -217,11 +217,35 @@ function optionalNumber(value: unknown): number | undefined {
 
 export const BREADBOARD_PITCH = 10;
 export const HEADER_PIN_COUNT = 40;
+export const BREADBOARD_LEFT_COLS = ["a", "b", "c", "d", "e"] as const;
+export const BREADBOARD_RIGHT_COLS = ["f", "g", "h", "i", "j"] as const;
+export const BREADBOARD_RAILS = ["tp", "tn", "bn", "bp"] as const;
 
 export type Point = { x: number; y: number };
 
-const LEFT_COLS = ["a", "b", "c", "d", "e"] as const;
-const RIGHT_COLS = ["f", "g", "h", "i", "j"] as const;
+export type PartPlacement = {
+	origin: Point;
+	rotate: number;
+};
+
+export type PartPinInfo = { name: string; x: number; y: number };
+
+const FALLBACK_PIN_INFO: Record<string, PartPinInfo[]> = {
+	"wokwi-led": [
+		{ name: "A", x: 25, y: 42 },
+		{ name: "C", x: 15, y: 42 },
+	],
+	"wokwi-resistor": [
+		{ name: "1", x: 0, y: 5.65 },
+		{ name: "2", x: 58.8, y: 5.65 },
+	],
+	"wokwi-pushbutton": [
+		{ name: "1.l", x: 0, y: 13 },
+		{ name: "2.l", x: 0, y: 32 },
+		{ name: "1.r", x: 67, y: 13 },
+		{ name: "2.r", x: 67, y: 32 },
+	],
+};
 
 export function breadboardRows(type: string): number {
 	if (type === "wokwi-breadboard") {
@@ -233,14 +257,63 @@ export function breadboardRows(type: string): number {
 	return 30;
 }
 
+export function breadboardHasRails(type: string): boolean {
+	return type !== "wokwi-breadboard-mini";
+}
+
+function colX(type: string, col: string): number | null {
+	const rails = breadboardHasRails(type);
+	const left0 = rails ? 4.5 : 1.5;
+	const right0 = rails ? 11.5 : 8.5;
+	const leftIndex = (BREADBOARD_LEFT_COLS as readonly string[]).indexOf(col);
+	if (leftIndex >= 0) {
+		return BREADBOARD_PITCH * (left0 + leftIndex);
+	}
+	const rightIndex = (BREADBOARD_RIGHT_COLS as readonly string[]).indexOf(col);
+	if (rightIndex >= 0) {
+		return BREADBOARD_PITCH * (right0 + rightIndex);
+	}
+	return null;
+}
+
+function rowY(row: number): number {
+	return BREADBOARD_PITCH * (2.5 + (row - 1));
+}
+
+function railX(side: string, polarity: string): number {
+	if (side === "t") {
+		return BREADBOARD_PITCH * (polarity === "p" ? 1.5 : 2.5);
+	}
+	return BREADBOARD_PITCH * (polarity === "p" ? 18.5 : 17.5);
+}
+
 export function breadboardSize(type: string): {
 	width: number;
 	height: number;
 } {
 	const rows = breadboardRows(type);
-	const width = BREADBOARD_PITCH * 18;
-	const height = BREADBOARD_PITCH * (rows + 10);
-	return { width, height };
+	return {
+		width: BREADBOARD_PITCH * (breadboardHasRails(type) ? 20 : 14.5),
+		height: BREADBOARD_PITCH * (rows + 4),
+	};
+}
+
+export function breadboardPinNames(type: string): string[] {
+	const rows = breadboardRows(type);
+	const names: string[] = [];
+	for (let row = 1; row <= rows; row += 1) {
+		for (const col of "abcdefghij") {
+			names.push(`${row}${col}`);
+		}
+	}
+	if (breadboardHasRails(type)) {
+		for (const rail of BREADBOARD_RAILS) {
+			for (let index = 1; index <= rows; index += 1) {
+				names.push(`${rail}.${index}`);
+			}
+		}
+	}
+	return names;
 }
 
 export function headerSize(): { width: number; height: number } {
@@ -259,33 +332,27 @@ export function breadboardPinOffset(type: string, pin: string): Point | null {
 		if (row < 1 || row > rows) {
 			return null;
 		}
-		const leftIndex = (LEFT_COLS as readonly string[]).indexOf(col);
-		const rightIndex = (RIGHT_COLS as readonly string[]).indexOf(col);
-		const originY = BREADBOARD_PITCH * 6 + (row - 1) * BREADBOARD_PITCH;
-		if (leftIndex >= 0) {
-			return { x: BREADBOARD_PITCH * (3 + leftIndex), y: originY };
+		const x = colX(type, col);
+		if (x === null) {
+			return null;
 		}
-		if (rightIndex >= 0) {
-			return { x: BREADBOARD_PITCH * (10 + rightIndex), y: originY };
-		}
+		return { x, y: rowY(row) };
+	}
+	if (!breadboardHasRails(type)) {
 		return null;
 	}
 	const rail = pin.match(/^([tb])([pn])\.(\d+)$/i);
 	if (!rail) {
 		return null;
 	}
-	const side = rail[1]?.toLowerCase();
-	const polarity = rail[2]?.toLowerCase();
+	const side = rail[1]?.toLowerCase() ?? "";
+	const polarity = rail[2]?.toLowerCase() ?? "";
 	const index = Number(rail[3]);
 	const rows = breadboardRows(type);
-	const x = BREADBOARD_PITCH * (2 + Math.max(0, index - 1));
-	const top =
-		polarity === "p" ? BREADBOARD_PITCH * 1.5 : BREADBOARD_PITCH * 2.5;
-	const bottom =
-		polarity === "p"
-			? BREADBOARD_PITCH * (rows + 7.5)
-			: BREADBOARD_PITCH * (rows + 8.5);
-	return { x, y: side === "t" ? top : bottom };
+	if (index < 1 || index > rows) {
+		return null;
+	}
+	return { x: railX(side, polarity), y: rowY(index) };
 }
 
 export function headerPinOffset(pin: string): Point | null {
@@ -316,6 +383,112 @@ export function rotatePoint(point: Point, degrees: number): Point {
 
 export function partOrigin(part: WokwiPart): Point {
 	return { x: part.left ?? 0, y: part.top ?? 0 };
+}
+
+export function partPinsFor(
+	type: string,
+	pinInfo?: PartPinInfo[],
+): PartPinInfo[] {
+	return pinInfo?.length ? pinInfo : (FALLBACK_PIN_INFO[type] ?? []);
+}
+
+export function boardPinAbsolute(board: WokwiPart, pin: string): Point | null {
+	const offset = breadboardPinOffset(board.type, pin);
+	if (!offset) {
+		return null;
+	}
+	const origin = partOrigin(board);
+	const rotated = rotatePoint(offset, board.rotate ?? 0);
+	return { x: origin.x + rotated.x, y: origin.y + rotated.y };
+}
+
+export function snapPartPlacement(
+	part: WokwiPart,
+	diagram: WokwiDiagram,
+	pinInfo?: PartPinInfo[],
+): PartPlacement {
+	if (isBreadboardType(part.type) || part.type === GPIO_COMPANION_HEADER_TYPE) {
+		return { origin: partOrigin(part), rotate: part.rotate ?? 0 };
+	}
+	const anchors = breadboardAnchors(part, diagram);
+	if (!anchors.length) {
+		return { origin: partOrigin(part), rotate: part.rotate ?? 0 };
+	}
+	const pins = partPinsFor(part.type, pinInfo);
+	const first = anchors[0];
+	if (!first) {
+		return { origin: partOrigin(part), rotate: part.rotate ?? 0 };
+	}
+	const firstLocal = pins.find((item) => item.name === first.pin) ?? {
+		name: first.pin,
+		x: 0,
+		y: 0,
+	};
+	let rotate = part.rotate ?? 0;
+	const second = anchors.find((item) => item.pin !== first.pin);
+	const secondLocal = second
+		? pins.find((item) => item.name === second.pin)
+		: undefined;
+	if (second && secondLocal) {
+		const pinAngle = Math.atan2(
+			secondLocal.y - firstLocal.y,
+			secondLocal.x - firstLocal.x,
+		);
+		const holeAngle = Math.atan2(
+			second.hole.y - first.hole.y,
+			second.hole.x - first.hole.x,
+		);
+		rotate = ((holeAngle - pinAngle) * 180) / Math.PI;
+	}
+	const rotated = rotatePoint({ x: firstLocal.x, y: firstLocal.y }, rotate);
+	return {
+		origin: {
+			x: first.hole.x - rotated.x,
+			y: first.hole.y - rotated.y,
+		},
+		rotate,
+	};
+}
+
+function breadboardAnchors(
+	part: WokwiPart,
+	diagram: WokwiDiagram,
+): { pin: string; hole: Point }[] {
+	const boards = new Map(
+		diagram.parts
+			.filter((item) => isBreadboardType(item.type))
+			.map((item) => [item.id, item] as const),
+	);
+	const seen = new Set<string>();
+	const anchors: { pin: string; hole: Point }[] = [];
+	for (const connection of diagram.connections) {
+		const [from, to] = connection;
+		if (typeof from !== "string" || typeof to !== "string") {
+			continue;
+		}
+		const start = splitEndpoint(from);
+		const end = splitEndpoint(to);
+		const hit =
+			start.partId === part.id && boards.has(end.partId)
+				? { pin: start.pin, board: boards.get(end.partId), holePin: end.pin }
+				: end.partId === part.id && boards.has(start.partId)
+					? {
+							pin: end.pin,
+							board: boards.get(start.partId),
+							holePin: start.pin,
+						}
+					: null;
+		if (!hit?.board || seen.has(hit.pin)) {
+			continue;
+		}
+		const hole = boardPinAbsolute(hit.board, hit.holePin);
+		if (!hole) {
+			continue;
+		}
+		seen.add(hit.pin);
+		anchors.push({ pin: hit.pin, hole });
+	}
+	return anchors;
 }
 
 export function wirePath(
