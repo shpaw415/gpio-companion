@@ -38,14 +38,8 @@ You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls t
 - Vibe-code breadboards and PCBs with tscircuit
 - Show the user visual technical sheets and helpers
 - Keep each electronics project on GitHub. The user connects the gpio-companion GitHub App on dashboard Profile → GitHub. `git push` uses `/usr/local/bin/gpio-companion git-credential` (fresh installation token). For API calls run `gpio-companion github-token`. `GITHUB_USERNAME` in `/etc/gpio-companion/secrets.env` is the account login.
-- Every project repo MUST have a `.gpio-companion` watermark file at the repository root (contents: `gpio-companion` plus a newline). The dashboard only lists repos with that file. When you create a new project: create the GitHub repo, write `.gpio-companion` at root, commit, and `git push`. If an existing electronics repo is missing it, add the file, commit, and push.
-- When a PCB, breadboard, technical-sheet, or C-sketch task is finished, push to GitHub immediately:
-  - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
-  - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`
-  - `technical/` sheets
-  - `host/<name>/` gpio-host C
-  - `firmware/<name>/` USB Arduino C
-  Then `git add`, commit, `git push` on the project remote (`https://github.com/<user>/<project>.git`). The dashboard viewer reads visual paths; Run/Flash lists sketches from the board.
+- Every project repo MUST have a `.gpio-companion` watermark file at the repository root (contents: `gpio-companion` plus a newline). The dashboard only lists repos with that file. When you create a new project: create the GitHub repo, write `.gpio-companion` at root, commit, and `git push` **to `main`** (bootstrap only). If an existing electronics repo is missing it, add the file on a feature branch (or `main` if that is the only change), then follow **Project git**.
+- Feature work (PCB, breadboard, sheets, C sketches) uses **Project git**: branch, push the branch, ask to save, merge `main` only when the user says yes. Do not push feature commits to `main`.
 - Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
 - Watermarked GitHub projects are cloned to `~/projects/<name>` and added as T3 Code projects (serve start + every 15 min; dashboard create pushes to a live board). Prefer those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
@@ -54,6 +48,24 @@ You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls t
 - Load the pinout skill for the current hardware before wiring GPIO
 - `GET http://127.0.0.1:4150/v1/gpio` to snapshot physical pins (dir/value/PWM). Use `PUT /v1/gpio` only for a one-shot test the user asked for (probe a pin, verify Live GPIO). Digital test: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone test: skill `gpio-pwm`. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Never use BCM numbers on Orange Pi; only drive pins the snapshot does not mark unresolved.
 
+## Project git
+
+Electronics clones live in `~/projects/<name>` (`https://github.com/<user>/<project>.git`). Default branch is `main`. Never commit feature work on `main`. Never force-push `main`. No GitHub PRs — merge locally.
+
+1. New feature: `git checkout -b feat/<kebab>` (reuse that branch if you are already on it for this work).
+2. Write the usual folders:
+   - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
+   - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`
+   - `technical/` sheets
+   - `host/<name>/` gpio-host C
+   - `firmware/<name>/` USB Arduino C
+3. `git add`, commit, `git push -u origin feat/<kebab>`. Board clones are `--depth 1`; branch from HEAD. Do not unshallow unless a merge fails.
+4. When the slice is done, ask: **Want to save these changes to main?**
+5. Yes (save / keep / merge / yes): `git checkout main`, merge the feature branch, `git push origin main`, stay on `main`.
+6. No: leave the feature branch; do not merge.
+
+Dashboard **Save to GitHub** commits and pushes the current checkout. It is **not** the merge-to-main gate. You merge when the **user asks you** to save. Dashboard PCB/breadboard viewers read GitHub `main`; they update after that merge. Run/Flash lists sketches from the board copy.
+
 ## Do not
 
 - Invent locked product/dashboard/billing behavior (vision is still raw)
@@ -61,3 +73,4 @@ You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls t
 - Generate Arduino firmware in anything but C
 - Drive header GPIO with `PUT /v1/gpio` when a C sketch (`gpio-host`) would do — that PUT path is testing-only
 - Tell the user to `curl` `127.0.0.1:4150` (e.g. `/v1/run/stop`) — send them to the dashboard instead
+- Commit feature work on `main`, merge to `main` without the user asking to save, or force-push `main`

@@ -32,6 +32,6 @@ curl -s http://127.0.0.1:4150/v1/flash
 - `POST /v1/flash` `{ fqbn, dir, port? }` — starts compile+upload, returns `{ started: true }`
 - `GET /v1/flash` — `{ running, last }`
 
-`dir` is an absolute path on this Pi and must contain a `.c` or `.ino`. Firmware is **C**. Put each sketch in `~/projects/<repo>/firmware/<name>/` (one directory per sketch) and `git push` `firmware/`. The dashboard lists those names. Host GPIO sketches stay under `host/` and are not USB drop-ins. Unsigned loopback only without Ed25519 headers; dashboard/BLE flash is signed.
+`dir` is an absolute path on this Pi and must contain a `.c` or `.ino`. Firmware is **C**. Put each sketch in `~/projects/<repo>/firmware/<name>/` (one directory per sketch) and `git push` `firmware/` on a **feature branch**. Ask to save; merge `main` only when the user says yes (skill `gpio-companion` **Project git**). The dashboard lists those names from the board copy. Host GPIO sketches stay under `host/` and are not USB drop-ins. Unsigned loopback only without Ed25519 headers; dashboard/BLE flash is signed.
 
 Poll `GET /v1/flash` until `running` is false. Do not start a second job while one is running (409).

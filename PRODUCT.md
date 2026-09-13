@@ -80,7 +80,7 @@ Not a generic SBC image. The board is a GPIO-capable coworker: the agent owns th
 - Generate the dashboard Ed25519 pair with `bun run keys:device` (optional `--wrangler`); private key is never committed; Pis fetch the matching public key from the dashboard, not from git
 - Pi `gpio-companion serve` accepts unsigned `GET /health` only; all other device API routes require a valid dashboard Ed25519 signature
 - `PUT /v1/config/wifi` applies SSID/PSK only when the signed body UUID matches the Pi pairing UUID; BLE GATT (`scripts/ble-gatt-server.py`) forwards signed envelopes to localhost
-- When a PCB, breadboard, or technical-sheet task is done, the agent must `git push` those folders to the project GitHub repo
+- When a PCB, breadboard, technical-sheet, or C-sketch task is in progress, the on-device agent commits and `git push`es a **feature branch** (`feat/<kebab>`), then asks if the user wants to save. Merge to `main` (local merge + `git push origin main`) only when the user asks to save. Never commit feature work on `main`. Dashboard **Save to GitHub** still pushes the current checkout and is not that merge gate.
 - Breadboard plug maps are Wokwi `diagram.json` (`breadboard/diagram.json`) with a `gpio-companion-header` (physical pins 1–40); the dashboard renders the board, header, `@wokwi/elements` parts, and jumper wires
 - Per-hardware GPIO pinout skills: `opencode/skills/gpio-pinout-raspberrypi`, `opencode/skills/gpio-pinout-orangepi`
 - Breadboard agent skill: `opencode/skills/gpio-breadboard`

@@ -23,7 +23,7 @@ One git repo per electronics project. The dashboard only lists repos with a `.gp
 
 The board clones those repos to `~/projects/<name>` and adds them to T3 Code. If the board is online when you create a project, it happens immediately. If it is offline, nothing is queued — the clone runs the next time gpio-companion starts (and every 15 minutes while it is up). Existing folders are left alone.
 
-When a PCB, breadboard, or technical-sheet task is done, the agent must **push**:
+While a PCB, breadboard, technical-sheet, or C-sketch feature is in progress, the agent **pushes a feature branch** (`feat/<kebab>`), then asks if you want to **save** (merge to `main`). It merges `main` only when you say yes:
 
 | Directory | Expected files |
 | --- | --- |
@@ -33,7 +33,7 @@ When a PCB, breadboard, or technical-sheet task is done, the agent must **push**
 | `host/<name>/` | gpio-host C (`.c` / `.ino`) run on this board's header |
 | `firmware/<name>/` | USB Arduino C flashed over USB |
 
-Dashboard `/project` reads visual paths from GitHub (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`) and lists host/firmware sketches that are present on the selected board. Launch uses the board copy, not a typed Pi path. Project **Save to GitHub** commits and pushes the board clone `~/projects/<name>` then reloads PCB / Breadboard / Technical.
+Dashboard `/project` reads visual paths from GitHub **`main`** (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`) and lists host/firmware sketches that are present on the selected board. Launch uses the board copy, not a typed Pi path. Project **Save to GitHub** commits and pushes the board clone `~/projects/<name>` on whatever branch is checked out (not a merge to `main`). Ask the on-device agent to save when you want the feature branch merged to `main`; viewers update after that merge.
 
 ## Change WiFi later
 

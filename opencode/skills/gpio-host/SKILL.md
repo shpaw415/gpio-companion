@@ -46,7 +46,9 @@ curl -s -X POST http://127.0.0.1:4150/v1/run/stop
 
 `dir` is an absolute path on this Pi and must contain a `.c` or `.ino`.
 Put each sketch in `~/projects/<repo>/host/<name>/` (one directory per sketch)
-and `git push` `host/`. The dashboard lists those names.
+and `git push` `host/` on a **feature branch**. Ask to save; merge `main` only
+when the user says yes (skill `gpio-companion` **Project git**). The dashboard
+lists those names from the board copy.
 Unsigned loopback only without Ed25519 headers; dashboard/BLE run is signed.
 
 Poll `GET /v1/run` until `running` is false, or stop a looping sketch.

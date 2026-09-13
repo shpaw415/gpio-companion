@@ -14,7 +14,7 @@ Driving the wired circuit on this board's header is C-first (skill `gpio-host`, 
 
 ## Output
 
-When a breadboard wiring task is done, write and `git push`:
+When a breadboard wiring task is done, write these files on a **feature branch** (`feat/<kebab>`), `git push` that branch, then ask if the user wants to save to `main` (skill `gpio-companion` **Project git**). Merge `main` only when they say yes:
 
 - `breadboard/diagram.json` (required) — Wokwi [diagram.json](https://docs.wokwi.com/diagram-format) plus gpio-companion header
 - `breadboard/preview.svg` (optional)
@@ -66,4 +66,4 @@ When a breadboard wiring task is done, write and `git push`:
 - On Orange Pi, SoC line numbers are not BCM — confirm with `gpioinfo`.
 - `steps` are plug instructions the dashboard highlights.
 
-Then `git add breadboard/`, commit, `git push`.
+Then `git add breadboard/`, commit, `git push` the feature branch. Do not merge `main` until the user asks to save.
