@@ -330,10 +330,30 @@ export function breadboardPinNames(type: string): string[] {
 	return names;
 }
 
-export function headerSize(): { width: number; height: number } {
+export const HEADER_ODD_X = BREADBOARD_PITCH * 4.8;
+export const HEADER_EVEN_X = BREADBOARD_PITCH * 6;
+export const HEADER_ORIGIN_Y = BREADBOARD_PITCH * 1.8;
+
+export function headerPinCount(count?: number): number {
+	if (
+		typeof count === "number" &&
+		count >= 2 &&
+		count <= HEADER_PIN_COUNT &&
+		count % 2 === 0
+	) {
+		return count;
+	}
+	return HEADER_PIN_COUNT;
+}
+
+export function headerSize(pinCount?: number): {
+	width: number;
+	height: number;
+} {
+	const rows = headerPinCount(pinCount) / 2;
 	return {
-		width: BREADBOARD_PITCH * 4,
-		height: BREADBOARD_PITCH * 22,
+		width: BREADBOARD_PITCH * 11,
+		height: HEADER_ORIGIN_Y + BREADBOARD_PITCH * (rows + 0.8),
 	};
 }
 
@@ -369,16 +389,16 @@ export function breadboardPinOffset(type: string, pin: string): Point | null {
 	return { x: railX(side, polarity), y: rowY(index) };
 }
 
-export function headerPinOffset(pin: string): Point | null {
+export function headerPinOffset(pin: string, pinCount?: number): Point | null {
 	const number = Number(pin);
-	if (!Number.isInteger(number) || number < 1 || number > HEADER_PIN_COUNT) {
+	const count = headerPinCount(pinCount);
+	if (!Number.isInteger(number) || number < 1 || number > count) {
 		return null;
 	}
 	const row = Math.ceil(number / 2);
-	const col = number % 2 === 1 ? 0 : 1;
 	return {
-		x: BREADBOARD_PITCH * (1 + col),
-		y: BREADBOARD_PITCH * (1 + row),
+		x: number % 2 === 1 ? HEADER_ODD_X : HEADER_EVEN_X,
+		y: HEADER_ORIGIN_Y + (row - 1) * BREADBOARD_PITCH,
 	};
 }
 

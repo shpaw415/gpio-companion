@@ -728,6 +728,7 @@ export default function Project() {
 						<BreadboardViewer
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
+							boardModel={activeBoard?.status?.model}
 						/>
 					</Box>
 					<Box

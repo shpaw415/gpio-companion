@@ -3,6 +3,8 @@ import {
 	BreadboardError,
 	breadboardHasRails,
 	breadboardPinOffset,
+	headerPinOffset,
+	headerSize,
 	netPartIds,
 	parseWokwiDiagram,
 	rotatePoint,
@@ -198,6 +200,28 @@ describe("wokwi diagram", () => {
 		const anode = rotatePoint({ x: 25, y: 42 }, placement.rotate);
 		expect(placement.origin.x + anode.x).toBeCloseTo(80 + hole.x);
 		expect(placement.origin.y + anode.y).toBeCloseTo(hole.y);
+	});
+
+	test("header pads sit in two columns with room for labels", () => {
+		const odd = headerPinOffset("1");
+		const even = headerPinOffset("2");
+		const next = headerPinOffset("3");
+		expect(odd && even && next).toBeTruthy();
+		if (!odd || !even || !next) {
+			return;
+		}
+		expect(odd.x).toBeLessThan(even.x);
+		expect(odd.y).toBe(even.y);
+		expect(next.y).toBeGreaterThan(odd.y);
+		expect(headerPinOffset("1")?.x).toBeGreaterThan(20);
+		expect(headerSize().width).toBeGreaterThan(headerPinOffset("2")?.x ?? 0);
+	});
+
+	test("26-pin header is shorter and hides pin 40", () => {
+		expect(headerSize(26).height).toBeLessThan(headerSize(40).height);
+		expect(headerPinOffset("26", 26)).not.toBeNull();
+		expect(headerPinOffset("27", 26)).toBeNull();
+		expect(headerPinOffset("40", 26)).toBeNull();
 	});
 
 	test("builds a wire path", () => {

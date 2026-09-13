@@ -38,11 +38,13 @@ export default function ProjectBrowser({
 	onProject,
 	uuid,
 	livePins,
+	boardModel,
 }: {
 	onConfigured?: (ready: boolean) => void;
 	onProject?: (name: string) => void;
 	uuid?: string;
 	livePins?: Record<number, 0 | 1>;
+	boardModel?: string | null;
 }) {
 	const [configured, setConfigured] = useState(true);
 	const [repos, setRepos] = useState<GithubRepo[]>([]);
@@ -410,6 +412,7 @@ export default function ProjectBrowser({
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
 							livePins={livePins}
+							boardModel={boardModel}
 						/>
 						<FileGroup title="PCB" files={bundle.pcb} />
 						<FileGroup title="Breadboard" files={bundle.breadboard} />

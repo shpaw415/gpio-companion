@@ -241,6 +241,7 @@ export default function ProjectPage() {
 					onProject={setProject}
 					uuid={activeUuid}
 					livePins={livePins}
+					boardModel={statuses[activeUuid]?.model}
 				/>
 			</div>
 		</Stack>

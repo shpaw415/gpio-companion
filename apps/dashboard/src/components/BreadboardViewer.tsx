@@ -18,9 +18,12 @@ import {
 	breadboardRows,
 	breadboardSize,
 	GPIO_COMPANION_HEADER_TYPE,
+	type HeaderPinDef,
 	headerPinOffset,
+	headerPinsForBoard,
 	headerSize,
 	isBreadboardType,
+	isHardwareId,
 	type PartPinInfo,
 	type Point,
 	parseWokwiDiagram,
@@ -56,6 +59,7 @@ type Props = {
 	diagramText?: string | null;
 	previewUrl?: string | null;
 	livePins?: Record<number, 0 | 1>;
+	boardModel?: string | null;
 };
 
 type PinInfo = PartPinInfo;
@@ -82,11 +86,18 @@ export default function BreadboardViewer({
 	diagramText,
 	previewUrl,
 	livePins,
+	boardModel,
 }: Props) {
 	const parsed = useMemo(() => parseDiagram(diagramText), [diagramText]);
 	const diagram = parsed.diagram;
 	if (diagram) {
-		return <DiagramBoard diagram={diagram} livePins={livePins} />;
+		return (
+			<DiagramBoard
+				diagram={diagram}
+				livePins={livePins}
+				boardModel={boardModel}
+			/>
+		);
 	}
 
 	if (previewUrl) {
@@ -123,9 +134,11 @@ export default function BreadboardViewer({
 function DiagramBoard({
 	diagram,
 	livePins,
+	boardModel,
 }: {
 	diagram: WokwiDiagram;
 	livePins?: Record<number, 0 | 1>;
+	boardModel?: string | null;
 }) {
 	const [activeStep, setActiveStep] = useState(0);
 	const [expanded, setExpanded] = useState(false);
@@ -133,8 +146,8 @@ function DiagramBoard({
 	const [wireKey, setWireKey] = useState<string | null>(null);
 	const [elementsReady, setElementsReady] = useState(0);
 	const partRefs = useRef(new Map<string, HTMLElement>());
-	const pins = collectPins(diagram, partRefs.current);
-	const bounds = canvasBounds(diagram, partRefs.current);
+	const pins = collectPins(diagram, partRefs.current, boardModel);
+	const bounds = canvasBounds(diagram, partRefs.current, boardModel);
 	const camera = useZoomCamera(bounds.width, bounds.height, expanded, () => {
 		setSeed(null);
 		setWireKey(null);
@@ -176,7 +189,7 @@ function DiagramBoard({
 		setWireKey(null);
 		const ids = diagram.steps?.[index]?.highlight;
 		if (ids?.length) {
-			camera.fitTo(partsRect(diagram, ids, partRefs.current));
+			camera.fitTo(partsRect(diagram, ids, partRefs.current, boardModel));
 		} else {
 			camera.fit();
 		}
@@ -201,6 +214,7 @@ function DiagramBoard({
 									part,
 									partHot(part, highlight),
 									livePins,
+									boardModel,
 									partRefs.current.get(part.id),
 									(el) => {
 										if (el) {
@@ -680,6 +694,7 @@ function renderPart(
 	part: WokwiPart,
 	hot: boolean,
 	livePins: Record<number, 0 | 1> | undefined,
+	boardModel: string | null | undefined,
 	el: HTMLElement | undefined,
 	ref: (el: HTMLElement | null) => void,
 	onSelect: () => void,
@@ -714,6 +729,7 @@ function renderPart(
 			>
 				<HeaderSvg
 					hardware={part.attrs?.hardware ?? "raspberrypi"}
+					boardModel={boardModel}
 					livePins={livePins}
 				/>
 			</button>
@@ -876,25 +892,51 @@ function BreadboardSvg({ type }: { type: string }) {
 	);
 }
 
-function headerFill(pin: number, livePins?: Record<number, 0 | 1>): string {
-	if (livePins?.[pin] === 1) {
+function headerDefs(hardware: string, model?: string | null): HeaderPinDef[] {
+	const id = isHardwareId(hardware) ? hardware : "raspberrypi";
+	return headerPinsForBoard(id, model ?? undefined);
+}
+
+function headerFill(
+	pin: HeaderPinDef,
+	livePins?: Record<number, 0 | 1>,
+): string {
+	if (pin.type === "power") {
+		return pin.name === "5V" ? "#ef4444" : "#fbbf24";
+	}
+	if (pin.type === "gnd") {
+		return "#334155";
+	}
+	if (livePins?.[pin.physical] === 1) {
 		return "#22c55e";
 	}
-	if (livePins?.[pin] === 0) {
+	if (livePins?.[pin.physical] === 0) {
 		return "#475569";
 	}
-	return pin === 1 ? "#fbbf24" : "#e2e8f0";
+	return "#e2e8f0";
+}
+
+function headerLabelFill(pin: HeaderPinDef): string {
+	if (pin.type === "power") {
+		return pin.name === "5V" ? "#fca5a5" : "#fcd34d";
+	}
+	if (pin.type === "gnd") {
+		return "#94a3b8";
+	}
+	return "#cbd5e1";
 }
 
 function HeaderSvg({
 	hardware,
+	boardModel,
 	livePins,
 }: {
 	hardware: string;
+	boardModel?: string | null;
 	livePins?: Record<number, 0 | 1>;
 }) {
-	const { width, height } = headerSize();
-	const pins = Array.from({ length: 40 }, (_, index) => index + 1);
+	const pins = headerDefs(hardware, boardModel);
+	const { width, height } = headerSize(pins.length);
 	return (
 		<svg
 			aria-label={`${hardware} GPIO header`}
@@ -909,18 +951,33 @@ function HeaderSvg({
 				{hardware === "orangepi" ? "Orange Pi" : "Raspberry Pi"}
 			</text>
 			{pins.map((pin) => {
-				const point = headerPinOffset(String(pin));
+				const point = headerPinOffset(String(pin.physical), pins.length);
 				if (!point) {
 					return null;
 				}
+				const odd = pin.physical % 2 === 1;
 				return (
-					<circle
-						key={pin}
-						cx={point.x}
-						cy={point.y}
-						r={2.2}
-						fill={headerFill(pin, livePins)}
-					/>
+					<g key={pin.physical}>
+						<circle
+							cx={point.x}
+							cy={point.y}
+							r={2.2}
+							fill={headerFill(pin, livePins)}
+							stroke={pin.type === "gnd" ? "#94a3b8" : "none"}
+							strokeWidth={0.6}
+						/>
+						<text
+							x={odd ? point.x - 5 : point.x + 5}
+							y={point.y + 2.4}
+							fill={headerLabelFill(pin)}
+							fontSize={6}
+							textAnchor={odd ? "end" : "start"}
+						>
+							{odd
+								? `${pin.name} ${pin.physical}`
+								: `${pin.physical} ${pin.name}`}
+						</text>
+					</g>
 				);
 			})}
 		</svg>
@@ -930,6 +987,7 @@ function HeaderSvg({
 function collectPins(
 	diagram: WokwiDiagram,
 	refs: Map<string, HTMLElement>,
+	boardModel?: string | null,
 ): Map<string, Point> {
 	const pins = new Map<string, Point>();
 	for (const part of diagram.parts) {
@@ -949,8 +1007,14 @@ function collectPins(
 			continue;
 		}
 		if (part.type === GPIO_COMPANION_HEADER_TYPE) {
-			for (let pin = 1; pin <= 40; pin += 1) {
-				addOffsetPin(pins, part, String(pin), origin, rotate, headerPinOffset);
+			const count = headerDefs(
+				part.attrs?.hardware ?? "raspberrypi",
+				boardModel,
+			).length;
+			for (let pin = 1; pin <= count; pin += 1) {
+				addOffsetPin(pins, part, String(pin), origin, rotate, (name) =>
+					headerPinOffset(name, count),
+				);
 			}
 			continue;
 		}
@@ -1001,12 +1065,17 @@ function endpointPoint(
 	return snapPartPlacement(part, diagram).origin;
 }
 
-function partSize(part: WokwiPart): { width: number; height: number } {
+function partSize(
+	part: WokwiPart,
+	boardModel?: string | null,
+): { width: number; height: number } {
 	if (isBreadboardType(part.type)) {
 		return breadboardSize(part.type);
 	}
 	if (part.type === GPIO_COMPANION_HEADER_TYPE) {
-		return headerSize();
+		return headerSize(
+			headerDefs(part.attrs?.hardware ?? "raspberrypi", boardModel).length,
+		);
 	}
 	return { width: 80, height: 80 };
 }
@@ -1015,6 +1084,7 @@ function partsRect(
 	diagram: WokwiDiagram,
 	ids: string[],
 	refs: Map<string, HTMLElement>,
+	boardModel?: string | null,
 ): { x: number; y: number; width: number; height: number } {
 	let minX = Number.POSITIVE_INFINITY;
 	let minY = Number.POSITIVE_INFINITY;
@@ -1029,7 +1099,7 @@ function partsRect(
 			diagram,
 			elementPins(refs.get(part.id)),
 		).origin;
-		const size = partSize(part);
+		const size = partSize(part, boardModel);
 		minX = Math.min(minX, origin.x);
 		minY = Math.min(minY, origin.y);
 		maxX = Math.max(maxX, origin.x + size.width);
@@ -1044,6 +1114,7 @@ function partsRect(
 function canvasBounds(
 	diagram: WokwiDiagram,
 	refs: Map<string, HTMLElement>,
+	boardModel?: string | null,
 ): {
 	width: number;
 	height: number;
@@ -1057,7 +1128,7 @@ function canvasBounds(
 			elementPins(refs.get(part.id)),
 		);
 		const origin = placement.origin;
-		const size = partSize(part);
+		const size = partSize(part, boardModel);
 		width = Math.max(width, origin.x + size.width + 24);
 		height = Math.max(height, origin.y + size.height + 24);
 	}
