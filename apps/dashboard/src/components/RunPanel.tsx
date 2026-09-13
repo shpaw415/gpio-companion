@@ -19,6 +19,7 @@ import {
 	type RunStatus,
 } from "gpio-companion";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useConsoleTunnel } from "../hooks/useConsoleTunnel.ts";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -29,6 +30,7 @@ import {
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
+import LiveConsole from "./LiveConsole.tsx";
 
 export default function RunPanel({
 	uuid,
@@ -105,9 +107,10 @@ export default function RunPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, { onRun });
+	const console = useConsoleTunnel(uuid, setError);
 
 	const last = status?.last;
-	const log = status?.log || last?.log || "";
+	const log = console.snapshot.host.log || status?.log || last?.log || "";
 	const canStart = Boolean(dir.trim()) && (legacy || Boolean(project));
 
 	return (
@@ -250,7 +253,7 @@ export default function RunPanel({
 							: "Last run failed"
 						: "C sketch on the Pi, then run on this header."}
 			</Typography>
-			{log ? <CopyBlock label="run log" value={log} /> : null}
+			<LiveConsole label="Serial (host)" value={log} status={console.status} />
 		</Stack>
 	);
 }

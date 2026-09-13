@@ -102,6 +102,16 @@ describe("ble-health", () => {
 		expect(result.detail).toContain("unexpectedly connected");
 	});
 
+	test("passes serial console snapshot over GATT", () => {
+		const result = evaluateBleHealthCheck("get-console", {
+			body: {
+				host: { running: false, log: "" },
+				usb: { open: false, port: "", baud: 115200, log: "" },
+			},
+		});
+		expect(result.pass).toBe(true);
+	});
+
 	test("passes host run status over GATT", () => {
 		const result = evaluateBleHealthCheck("get-run", {
 			body: { running: false, log: "", last: null },

@@ -14,6 +14,11 @@ export type FlashBackend = {
 	listPorts(): Promise<string>;
 	compileAndUpload(job: FlashPut): Promise<{ ok: boolean; log: string }>;
 	hasSketch?: (dir: string) => boolean;
+	beforeUpload?: (job: FlashPut) => void | Promise<void>;
+	afterUpload?: (
+		job: FlashPut,
+		result: { ok: boolean; log: string },
+	) => void | Promise<void>;
 };
 
 export type FlashController = {
@@ -42,9 +47,10 @@ export function createFlashController(backend: FlashBackend): FlashController {
 			}
 			running = true;
 			const startedAt = Date.now();
-			void backend
-				.compileAndUpload(put)
-				.then((result) => {
+			void (async () => {
+				try {
+					await backend.beforeUpload?.(put);
+					const result = await backend.compileAndUpload(put);
 					last = {
 						ok: result.ok,
 						fqbn: put.fqbn,
@@ -54,8 +60,8 @@ export function createFlashController(backend: FlashBackend): FlashController {
 						startedAt,
 						finishedAt: Date.now(),
 					};
-				})
-				.catch((caught) => {
+					await backend.afterUpload?.(put, result);
+				} catch (caught) {
 					last = {
 						ok: false,
 						fqbn: put.fqbn,
@@ -67,17 +73,22 @@ export function createFlashController(backend: FlashBackend): FlashController {
 						startedAt,
 						finishedAt: Date.now(),
 					};
-				})
-				.finally(() => {
+				} finally {
 					running = false;
-				});
+				}
+			})();
 			return { started: true };
 		},
 	};
 }
 
-export function createArduinoFlash(): FlashController {
+export function createArduinoFlash(hooks?: {
+	beforeUpload?: FlashBackend["beforeUpload"];
+	afterUpload?: FlashBackend["afterUpload"];
+}): FlashController {
 	return createFlashController({
+		beforeUpload: hooks?.beforeUpload,
+		afterUpload: hooks?.afterUpload,
 		listPorts: () =>
 			spawnText(["arduino-cli", "board", "list", "--format", "json"]),
 		async compileAndUpload(job) {

@@ -30,6 +30,8 @@ export type HostRunOptions = {
 		hostDir: string;
 	}) => Promise<{ ok: boolean; log: string; proc?: RunProcess }>;
 	hasSketch?: (dir: string) => boolean;
+	onLog?: (chunk: string) => void;
+	onRunning?: (running: boolean) => void;
 };
 
 export type RunProcess = {
@@ -60,10 +62,12 @@ export function createRunController(options: HostRunOptions): RunController {
 			}
 			running = true;
 			log = "";
+			options.onRunning?.(true);
 			const startedAt = Date.now();
 			void runJob(put, options, startedAt, {
 				append(text) {
 					log = capRunLog(`${log}${text}`);
+					options.onLog?.(text);
 				},
 				setProc(proc) {
 					current = proc;
@@ -88,6 +92,7 @@ export function createRunController(options: HostRunOptions): RunController {
 				.finally(() => {
 					current = null;
 					running = false;
+					options.onRunning?.(false);
 				});
 			return { started: true };
 		},

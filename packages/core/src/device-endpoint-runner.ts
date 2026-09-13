@@ -1,4 +1,9 @@
 import { BLE_HEALTH_WIFI_PSK, BLE_HEALTH_WIFI_SSID } from "./ble-health.ts";
+import {
+	CONSOLE_PATH,
+	CONSOLE_USB_PATH,
+	CONSOLE_USB_STOP_PATH,
+} from "./console.ts";
 import { DEBUG_EVENT_PATH, DEBUG_PATH, DEBUG_UPGRADE_FAILED } from "./debug.ts";
 import { INFO_PATH } from "./device-info.ts";
 import { FLASH_PATH, FLASH_PORTS_PATH, FLASH_SKETCHES_PATH } from "./flash.ts";
@@ -335,6 +340,34 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			expect: { kind: "json-keys", keys: ["stopped"] },
 		}),
 		probe({
+			id: "get-console",
+			name: "GET /v1/console",
+			method: "GET",
+			path: CONSOLE_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["host", "usb"] },
+		}),
+		probe({
+			id: "post-console-usb",
+			name: "POST /v1/console/usb",
+			method: "POST",
+			path: CONSOLE_USB_PATH,
+			auth: "master",
+			via: "any",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
+		}),
+		probe({
+			id: "post-console-usb-stop",
+			name: "POST /v1/console/usb/stop",
+			method: "POST",
+			path: CONSOLE_USB_STOP_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["stopped"] },
+		}),
+		probe({
 			id: "get-debug-http",
 			name: "GET /v1/debug",
 			method: "GET",
@@ -403,7 +436,9 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 		}
 		if (
 			item.method === "POST" &&
-			(item.path === FLASH_PATH || item.path === RUN_PATH)
+			(item.path === FLASH_PATH ||
+				item.path === RUN_PATH ||
+				item.path === CONSOLE_USB_PATH)
 		) {
 			offline.push({
 				...item,

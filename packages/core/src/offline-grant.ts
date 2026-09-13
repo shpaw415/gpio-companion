@@ -11,6 +11,11 @@ import {
 	verifyDeviceRequest,
 	verifyEd25519Message,
 } from "./device-auth.ts";
+import {
+	CONSOLE_PATH,
+	CONSOLE_USB_PATH,
+	CONSOLE_USB_STOP_PATH,
+} from "./console.ts";
 import { INFO_PATH } from "./device-info.ts";
 import { FLASH_PATH, FLASH_PORTS_PATH, FLASH_SKETCHES_PATH } from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";
@@ -34,6 +39,9 @@ export const OFFLINE_GRANT_SCOPE = [
 	`GET ${RUN_SKETCHES_PATH}`,
 	`POST ${RUN_PATH}`,
 	`POST ${RUN_STOP_PATH}`,
+	`GET ${CONSOLE_PATH}`,
+	`POST ${CONSOLE_USB_PATH}`,
+	`POST ${CONSOLE_USB_STOP_PATH}`,
 ] as const;
 
 export type OfflineGrantScope = (typeof OFFLINE_GRANT_SCOPE)[number];

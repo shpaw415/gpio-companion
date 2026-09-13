@@ -11,6 +11,7 @@ export type BleHealthCheckId =
 	| "get-flash"
 	| "get-flash-ports"
 	| "get-run"
+	| "get-console"
 	| "put-wifi";
 
 export type BleHealthCheck = {
@@ -38,6 +39,12 @@ export const BLE_HEALTH_CHECKS: BleHealthCheck[] = [
 		path: "/v1/flash/ports",
 	},
 	{ id: "get-run", name: "GET /v1/run", method: "GET", path: "/v1/run" },
+	{
+		id: "get-console",
+		name: "GET /v1/console",
+		method: "GET",
+		path: "/v1/console",
+	},
 	{
 		id: "put-wifi",
 		name: "PUT /v1/config/wifi",
@@ -273,6 +280,36 @@ function evaluateBody(
 				};
 			}
 			return { pass: true, detail: "Host run status received over GATT." };
+		}
+		case "get-console": {
+			if (error) {
+				return {
+					pass: false,
+					detail: `GET /v1/console failed after BLE forward: ${error}`,
+				};
+			}
+			const host =
+				body && typeof body === "object"
+					? (body as { host?: unknown }).host
+					: undefined;
+			const usb =
+				body && typeof body === "object"
+					? (body as { usb?: unknown }).usb
+					: undefined;
+			if (
+				!host ||
+				typeof host !== "object" ||
+				typeof (host as { running?: unknown }).running !== "boolean" ||
+				!usb ||
+				typeof usb !== "object" ||
+				typeof (usb as { open?: unknown }).open !== "boolean"
+			) {
+				return {
+					pass: false,
+					detail: `GET /v1/console JSON is missing host/usb. Body: ${JSON.stringify(body)}`,
+				};
+			}
+			return { pass: true, detail: "Serial console snapshot received over GATT." };
 		}
 		case "get-flash-ports": {
 			if (error) {

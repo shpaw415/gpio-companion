@@ -1,3 +1,4 @@
+import { POST as startUsbConsole } from "@api/console";
 import { POST as signFlash } from "@api/device/flash";
 import { GET as loadFlash, POST as startFlash } from "@api/flash";
 import { GET as loadFlashPorts } from "@api/flash/ports";
@@ -17,9 +18,12 @@ import {
 	FLASH_PORTS_PATH,
 	type FlashPort,
 	type FlashStatus,
+	CONSOLE_BAUDS,
+	CONSOLE_DEFAULT_BAUD,
 	parseFlashPut,
 } from "gpio-companion";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useConsoleTunnel } from "../hooks/useConsoleTunnel.ts";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -30,6 +34,7 @@ import {
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
 import CopyBlock from "./CopyBlock.tsx";
+import LiveConsole from "./LiveConsole.tsx";
 
 export default function FlashPanel({
 	uuid,
@@ -45,6 +50,7 @@ export default function FlashPanel({
 	const [fqbn, setFqbn] = useState("arduino:avr:uno");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
+	const [baud, setBaud] = useState(String(CONSOLE_DEFAULT_BAUD));
 	const [sketches, setSketches] = useState<BoardSketch[]>([]);
 	const [legacy, setLegacy] = useState(false);
 	const [pasteText, setPasteText] = useState("");
@@ -109,6 +115,7 @@ export default function FlashPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, { onFlash });
+	const serial = useConsoleTunnel(uuid, setError);
 
 	const last = status?.last;
 	const canFlash =

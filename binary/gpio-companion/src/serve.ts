@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import {
 	capLogText,
+	CONSOLE_PATH,
+	CONSOLE_USB_PATH,
+	CONSOLE_USB_STOP_PATH,
+	ConsoleError,
 	DEBUG_EVENT_PATH,
 	DEBUG_PATH,
 	DEFAULT_DEVICE_MAX_SKEW_MS,
@@ -19,6 +23,7 @@ import {
 	hasDeviceSignature,
 	INFO_PATH,
 	isAllowedDebugOrigin,
+	isConsolePath,
 	isFlashPath,
 	isGpioWsRefresh,
 	isRunPath,
@@ -57,6 +62,7 @@ import {
 } from "gpio-companion";
 import { type FetchLike, proxyAiRequest } from "./ai-credentials.ts";
 import { readBoardModel } from "./board-model.ts";
+import { type ConsoleHub, createConsoleHub } from "./console.ts";
 import { createDebugHub } from "./debug.ts";
 import { readDiskStats } from "./disk.ts";
 import { createArduinoFlash, type FlashController } from "./flash.ts";
@@ -126,6 +132,7 @@ export type ServeOptions = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	console?: ConsoleHub;
 	projectsDir?: string;
 };
 
@@ -137,6 +144,7 @@ export type DeviceRequestExtras = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	console?: ConsoleHub;
 	projectsDir?: string;
 	applyUpdate?: ApplyUpdate;
 	applyProjects?: ApplyProjects;
@@ -147,7 +155,7 @@ export type DeviceRequestExtras = {
 	gpioStream?: { publish(): void };
 };
 
-type TunnelWsData = { stream: "debug" | "gpio" };
+type TunnelWsData = { stream: "debug" | "gpio" | "console" };
 
 export function startDeviceApi(options: ServeOptions) {
 	const port = options.port ?? DEFAULT_PORT;
@@ -164,6 +172,7 @@ export function startDeviceApi(options: ServeOptions) {
 		gpio,
 		hardware: async () => (await options.store.read()).hardware,
 	});
+	const consoleHub = options.console ?? createConsoleHub();
 	const extras: DeviceRequestExtras = {
 		readDisk: options.readDisk ?? readDiskStats,
 		readLogs: options.readLogs ?? readJournalLogs,
@@ -171,12 +180,26 @@ export function startDeviceApi(options: ServeOptions) {
 		readInfo: options.readInfo ?? (async () => readDeviceInfoJson()),
 		gpio,
 		gpioStream,
-		flash: options.flash ?? createArduinoFlash(),
+		console: consoleHub,
+		flash:
+			options.flash ??
+			createArduinoFlash({
+				beforeUpload: () => {
+					consoleHub.stopUsb();
+				},
+				afterUpload: (job, result) => {
+					if (result.ok && job.port) {
+						consoleHub.scheduleUsb(job.port);
+					}
+				},
+			}),
 		run:
 			options.run ??
 			createHostRun({
 				hardware: async () => (await options.store.read()).hardware,
 				gpio,
+				onLog: (chunk) => consoleHub.appendHost(chunk),
+				onRunning: (running) => consoleHub.setHostRunning(running),
 			}),
 		projectsDir: options.projectsDir,
 		applyUpdate: options.applyUpdate,
@@ -200,7 +223,8 @@ export function startDeviceApi(options: ServeOptions) {
 			if (
 				upgrade === "websocket" &&
 				path !== DEBUG_PATH &&
-				path !== GPIO_PATH
+				path !== GPIO_PATH &&
+				path !== CONSOLE_PATH
 			) {
 				console.error(`gpio-companion debug: websocket to ${path}`);
 			}
@@ -227,6 +251,23 @@ export function startDeviceApi(options: ServeOptions) {
 						path: GPIO_PATH,
 						stream: "gpio",
 						label: "gpio",
+						allowOrigin: (origin) => isAllowedDebugOrigin(origin, dashboardUrl),
+						deviceAuth: options.deviceAuth,
+						clock,
+						nonces,
+					})) ?? (undefined as never)
+				);
+			}
+			if (
+				request.method === "GET" &&
+				path === CONSOLE_PATH &&
+				upgrade === "websocket"
+			) {
+				return (
+					(await acceptSignedUpgrade(request, server, {
+						path: CONSOLE_PATH,
+						stream: "console",
+						label: "console",
 						allowOrigin: (origin) => isAllowedDebugOrigin(origin, dashboardUrl),
 						deviceAuth: options.deviceAuth,
 						clock,
@@ -262,7 +303,11 @@ export function startDeviceApi(options: ServeOptions) {
 						{ error: error.message },
 						{ status: error.status },
 					);
-				} else if (error instanceof FlashError || error instanceof RunError) {
+				} else if (
+					error instanceof FlashError ||
+					error instanceof RunError ||
+					error instanceof ConsoleError
+				) {
 					response = Response.json(
 						{ error: error.message },
 						{ status: error.status },
@@ -288,21 +333,32 @@ export function startDeviceApi(options: ServeOptions) {
 					gpioStream.add(ws);
 					return;
 				}
+				if (ws.data.stream === "console") {
+					consoleHub.add(ws);
+					return;
+				}
 				debug.add(ws);
 			},
 			message(ws, message) {
-				if (ws.data.stream !== "gpio") {
-					return;
-				}
 				const text =
 					typeof message === "string"
 						? message
 						: new TextDecoder().decode(message);
-				void gpioStream.handle(ws, text);
+				if (ws.data.stream === "gpio") {
+					void gpioStream.handle(ws, text);
+					return;
+				}
+				if (ws.data.stream === "console") {
+					consoleHub.handle(ws, text);
+				}
 			},
 			close(ws) {
 				if (ws.data.stream === "gpio") {
 					gpioStream.remove(ws);
+					return;
+				}
+				if (ws.data.stream === "console") {
+					consoleHub.remove(ws);
 					return;
 				}
 				debug.remove(ws);
@@ -383,7 +439,10 @@ export async function handleDeviceRequest(
 	}
 
 	if (
-		(path === GPIO_PATH || isFlashPath(path) || isRunPath(path)) &&
+		(path === GPIO_PATH ||
+			isFlashPath(path) ||
+			isRunPath(path) ||
+			isConsolePath(path)) &&
 		isLoopback(url) &&
 		!hasDeviceSignature(request.headers)
 	) {
@@ -398,6 +457,9 @@ export async function handleDeviceRequest(
 		}
 		if (isRunPath(path)) {
 			return handleRun(method, path, bodyText, extras);
+		}
+		if (isConsolePath(path)) {
+			return handleConsole(method, path, bodyText, extras);
 		}
 		return handleFlash(method, path, bodyText, extras);
 	}
@@ -655,6 +717,10 @@ export async function handleDeviceRequest(
 
 	if (isRunPath(path)) {
 		return handleRun(method, path, bodyText, extras);
+	}
+
+	if (isConsolePath(path)) {
+		return handleConsole(method, path, bodyText, extras);
 	}
 
 	if (method === "GET" && path === "/v1/status") {
@@ -1020,6 +1086,28 @@ function handleRun(
 	}
 	if (method === "POST" && path === RUN_STOP_PATH) {
 		return json(run.stop());
+	}
+	return json({ error: "method not allowed" }, 405);
+}
+
+function handleConsole(
+	method: string,
+	path: string,
+	bodyText: string,
+	extras: DeviceRequestExtras | undefined,
+): Response {
+	const hub = extras?.console;
+	if (!hub) {
+		return json({ error: "console is unavailable" }, 503);
+	}
+	if (method === "GET" && path === CONSOLE_PATH) {
+		return json(hub.snapshot());
+	}
+	if (method === "POST" && path === CONSOLE_USB_PATH) {
+		return json(hub.startUsb(parseJson(bodyText)));
+	}
+	if (method === "POST" && path === CONSOLE_USB_STOP_PATH) {
+		return json(hub.stopUsb());
 	}
 	return json({ error: "method not allowed" }, 405);
 }
