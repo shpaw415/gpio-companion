@@ -11,7 +11,10 @@ export default defineConfig({
 	plugins: [react()],
 	resolve: {
 		alias: {
-			"gpio-companion": path.resolve(repoRoot, "packages/core/src/breadboard.ts"),
+			"gpio-companion": path.resolve(
+				repoRoot,
+				"packages/core/src/breadboard-view.ts",
+			),
 		},
 	},
 	clearScreen: false,
