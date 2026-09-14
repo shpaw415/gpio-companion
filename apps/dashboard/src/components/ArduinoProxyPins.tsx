@@ -1,5 +1,5 @@
+import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
-import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	canDriveGpio,
@@ -36,7 +36,7 @@ export default function ArduinoProxyPins({
 		);
 	}
 	return (
-		<Stack direction="row" spacing={0.5} className="flex-wrap">
+		<Box className="grid w-full min-w-0 max-w-full grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-1">
 			{pins.map((pin) => {
 				const tone = gpioPinTone(pin);
 				const active = selected === pin.physical;
@@ -47,18 +47,27 @@ export default function ArduinoProxyPins({
 						size="small"
 						variant={active ? "contained" : "outlined"}
 						disabled={busy || !canDriveGpio(pin)}
-						className={`min-w-14 font-mono ${TONE_BG[tone] ?? ""}`}
+						className={`min-w-0 font-mono ${TONE_BG[tone] ?? ""}`}
+						sx={{
+							width: "100%",
+							minWidth: 0,
+							px: 0.5,
+							py: 0.5,
+							textTransform: "none",
+							flexDirection: "column",
+							lineHeight: 1.15,
+						}}
 						onClick={() => onSelect?.(pin)}
 					>
-						<span className="block text-xs">
+						<span className="block w-full truncate text-xs leading-tight">
 							{pin.name || `D${pin.physical}`}
 						</span>
-						<span className="block text-[10px] opacity-80">
+						<span className="block w-full truncate text-[10px] leading-tight opacity-80">
 							{gpioPinStatusLabel(pin)}
 						</span>
 					</Button>
 				);
 			})}
-		</Stack>
+		</Box>
 	);
 }

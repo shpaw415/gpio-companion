@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { connectGpioLive, type GpioSnapshot } from "../api";
+import { connectGpioLive, type GpioSnapshot, type GpioTarget } from "../api";
 import {
 	applyGpioMessage,
 	gpioSnapshotStatusKey,
@@ -13,13 +13,14 @@ export type GpioPut = {
 	analog?: number;
 	op?: "refresh" | "tone" | "notone";
 	hz?: number;
+	target?: GpioTarget;
 };
 
 export type GpioTunnelStatus = "idle" | "connecting" | "live" | "reconnecting";
 
 export type GpioTunnel = {
 	drive: (put: GpioPut) => boolean;
-	refresh: () => boolean;
+	refresh: (target?: GpioTarget) => boolean;
 	status: GpioTunnelStatus;
 };
 
@@ -123,7 +124,8 @@ export function useGpioTunnel(
 
 	return {
 		drive: (put) => send(put),
-		refresh: () => send({ op: "refresh" }),
+		refresh: (target) =>
+			send(target ? { op: "refresh", target } : { op: "refresh" }),
 		status,
 	};
 }

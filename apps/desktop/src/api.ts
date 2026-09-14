@@ -890,9 +890,12 @@ export type GpioPinState = {
 	unresolved?: boolean;
 };
 
+export type GpioTarget = "header" | "arduino-proxy";
+
 export type GpioSnapshot = {
 	hardware: string;
 	pins: GpioPinState[];
+	target?: GpioTarget;
 };
 
 export function loadGpio(uuid: string) {
@@ -910,6 +913,7 @@ export function putGpio(input: {
 	analog?: number;
 	op?: string;
 	hz?: number;
+	target?: GpioTarget;
 }) {
 	return apiRequest<GpioSnapshot>("PUT", "/api/mobile/gpio", input);
 }

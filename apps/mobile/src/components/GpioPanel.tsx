@@ -1,17 +1,20 @@
 import { useCallback, useRef, useState } from "react";
-import { View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import {
 	type GpioPinState,
 	type GpioSnapshot,
+	type GpioTarget,
 	loadGpio,
 	putGpio,
 	signGpio,
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
+import { useColors } from "../lib/color-mode.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useGpioTunnel } from "../lib/use-gpio-tunnel.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
+import ArduinoProxyPins from "./ArduinoProxyPins.tsx";
 import GpioHeader from "./GpioHeader.tsx";
 import { Body, Chip, ErrorText, Muted, TextButton } from "./ui.tsx";
 
@@ -26,6 +29,7 @@ type GpioCommand = {
 	analog?: number;
 	op?: "tone" | "notone";
 	hz?: number;
+	target?: GpioTarget;
 };
 
 function applyCommand(
@@ -119,6 +123,7 @@ export default function GpioPanel({
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const [selected, setSelected] = useState<number | undefined>();
+	const [target, setTarget] = useState<GpioTarget>("header");
 	const snapshotRef = useRef<GpioSnapshot | null>(null);
 	const token = auth.token;
 	const offline = useOfflineBleKey(uuid);
@@ -153,13 +158,15 @@ export default function GpioPanel({
 	}
 
 	function drive(command: GpioCommand) {
+		const next =
+			target === "arduino-proxy" ? { ...command, target } : command;
 		const current = snapshotRef.current;
 		if (current) {
-			applySnapshot(applyCommand(current, command));
+			applySnapshot(applyCommand(current, next));
 		}
 		if (poll) {
 			setError("");
-			if (!tunnel.drive(command)) {
+			if (!tunnel.drive(next)) {
 				setError("live gpio websocket is not connected");
 			}
 			return;
@@ -167,7 +174,7 @@ export default function GpioPanel({
 		if (!token) {
 			return;
 		}
-		start(() => putGpio(token, { uuid, ...command }));
+		start(() => putGpio(token, { uuid, ...next }));
 	}
 
 	if (!available) {
@@ -197,9 +204,33 @@ export default function GpioPanel({
 			</View>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
 			{poll ? (
+				<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+					<TargetChip
+						label="Companion"
+						active={target === "header"}
+						onPress={() => {
+							setTarget("header");
+							setSelected(undefined);
+							tunnel.refresh("header");
+						}}
+					/>
+					<TargetChip
+						label="Arduino"
+						active={target === "arduino-proxy"}
+						onPress={() => {
+							setTarget("arduino-proxy");
+							setSelected(undefined);
+							tunnel.refresh("arduino-proxy");
+						}}
+					/>
+				</View>
+			) : null}
+			{poll ? (
 				<Muted>
 					{snapshot
-						? "Tap a GPIO pin, then set In, high, or low."
+						? target === "arduino-proxy"
+							? "Arduino proxy pins. 5V AVR boards must not jumper to the 3.3V header."
+							: "Tap a GPIO pin, then set In, high, or low."
 						: "Waiting for live pin state from the board."}
 				</Muted>
 			) : null}
@@ -210,7 +241,7 @@ export default function GpioPanel({
 					onPress={() => {
 						if (poll) {
 							setError("");
-							if (!tunnel.refresh()) {
+							if (!tunnel.refresh(target)) {
 								setError("live gpio websocket is not connected");
 							}
 							return;
@@ -250,13 +281,22 @@ export default function GpioPanel({
 			</View>
 			{error ? <ErrorText>{error}</ErrorText> : null}
 			{poll || snapshot ? (
-				<GpioHeader
-					pins={pins}
-					busy={busy}
-					interactive={Boolean(snapshot)}
-					selected={selected}
-					onSelect={(pin) => setSelected(pin.physical)}
-				/>
+				target === "arduino-proxy" ? (
+					<ArduinoProxyPins
+						pins={pins}
+						busy={busy}
+						selected={selected}
+						onSelect={(pin) => setSelected(pin.physical)}
+					/>
+				) : (
+					<GpioHeader
+						pins={pins}
+						busy={busy}
+						interactive={Boolean(snapshot)}
+						selected={selected}
+						onSelect={(pin) => setSelected(pin.physical)}
+					/>
+				)
 			) : (
 				<Muted>Load GPIO to see live pin status.</Muted>
 			)}
@@ -291,6 +331,40 @@ function LiveChip({
 		);
 	}
 	return <Chip label="Live" tone="success" />;
+}
+
+function TargetChip({
+	label,
+	active,
+	onPress,
+}: {
+	label: string;
+	active: boolean;
+	onPress: () => void;
+}) {
+	const colors = useColors();
+	return (
+		<Pressable
+			onPress={onPress}
+			style={{
+				borderWidth: active ? 2 : 1,
+				borderColor: active ? colors.primary : colors.border,
+				backgroundColor: active ? colors.chipBg : colors.surface,
+				paddingHorizontal: 12,
+				paddingVertical: 6,
+				borderRadius: 999,
+			}}
+		>
+			<Text
+				style={{
+					color: active ? colors.primary : colors.text,
+					fontWeight: "600",
+				}}
+			>
+				{label}
+			</Text>
+		</Pressable>
+	);
 }
 
 function GpioPinActions({

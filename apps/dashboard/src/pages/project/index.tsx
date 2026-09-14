@@ -188,8 +188,8 @@ export default function ProjectPage() {
 			) : null}
 
 			{paired ? (
-				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
-					<Stack spacing={2}>
+				<Paper className="min-w-0 overflow-x-hidden p-4 min-[900px]:p-6" elevation={1}>
+					<Stack spacing={2} className="min-w-0">
 						<DeviceSelect
 							devices={devices}
 							value={activeUuid}

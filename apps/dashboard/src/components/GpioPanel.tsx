@@ -126,7 +126,7 @@ export default function GpioPanel({
 	}
 
 	return (
-		<Stack spacing={1}>
+		<Stack spacing={1} className="min-w-0">
 			<Stack
 				direction="row"
 				spacing={1}

@@ -8,12 +8,14 @@ import {
 	bleGpio,
 	type GpioPinState,
 	type GpioSnapshot,
+	type GpioTarget,
 	loadGpio,
 	putGpio,
 } from "../api";
 import { useSavedBleId } from "../hooks/useApiCache";
 import { useGpioTunnel } from "../hooks/useGpioTunnel";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import ArduinoProxyPins from "./ArduinoProxyPins";
 import GpioHeader from "./GpioHeader";
 
 function canDriveGpio(pin: GpioPinState): boolean {
@@ -27,6 +29,7 @@ type GpioCommand = {
 	analog?: number;
 	op?: "tone" | "notone";
 	hz?: number;
+	target?: GpioTarget;
 };
 
 function applyCommand(
@@ -97,6 +100,7 @@ export default function GpioPanel({
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const [selected, setSelected] = useState<number | undefined>();
+	const [target, setTarget] = useState<GpioTarget>("header");
 	const snapshotRef = useRef<GpioSnapshot | null>(null);
 	const pwmTimer = useRef(0);
 	const offline = useOfflineBleKey(uuid);
@@ -127,18 +131,20 @@ export default function GpioPanel({
 	}
 
 	function drive(command: GpioCommand) {
+		const next =
+			target === "arduino-proxy" ? { ...command, target } : command;
 		const current = snapshotRef.current;
 		if (current) {
-			applySnapshot(applyCommand(current, command));
+			applySnapshot(applyCommand(current, next));
 		}
 		if (poll) {
 			setError("");
-			if (!tunnel.drive(command)) {
+			if (!tunnel.drive(next)) {
 				setError("live gpio websocket is not connected");
 			}
 			return;
 		}
-		start(() => putGpio({ uuid, ...command }));
+		start(() => putGpio({ uuid, ...next }));
 	}
 
 	if (!available) {
@@ -151,7 +157,7 @@ export default function GpioPanel({
 	}
 
 	return (
-		<Stack spacing={1} sx={{ mt: 1 }}>
+		<Stack spacing={1} sx={{ mt: 1, minWidth: 0 }}>
 			<Stack
 				direction="row"
 				spacing={1}
@@ -174,9 +180,39 @@ export default function GpioPanel({
 				</Typography>
 			) : null}
 			{poll ? (
+				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+					<Button
+						type="button"
+						size="small"
+						variant={target === "header" ? "contained" : "outlined"}
+						onClick={() => {
+							setTarget("header");
+							setSelected(undefined);
+							tunnel.refresh("header");
+						}}
+					>
+						Companion
+					</Button>
+					<Button
+						type="button"
+						size="small"
+						variant={target === "arduino-proxy" ? "contained" : "outlined"}
+						onClick={() => {
+							setTarget("arduino-proxy");
+							setSelected(undefined);
+							tunnel.refresh("arduino-proxy");
+						}}
+					>
+						Arduino
+					</Button>
+				</Stack>
+			) : null}
+			{poll ? (
 				<Typography variant="body2" color="secondary">
 					{snapshot
-						? "Tap a GPIO pin, then set In, high, or low."
+						? target === "arduino-proxy"
+							? "Arduino proxy pins. 5V AVR boards must not jumper to the 3.3V header."
+							: "Tap a GPIO pin, then set In, high, or low."
 						: "Waiting for live pin state from the board."}
 				</Typography>
 			) : null}
@@ -188,7 +224,7 @@ export default function GpioPanel({
 					onClick={() => {
 						if (poll) {
 							setError("");
-							if (!tunnel.refresh()) {
+							if (!tunnel.refresh(target)) {
 								setError("live gpio websocket is not connected");
 							}
 							return;
@@ -213,13 +249,22 @@ export default function GpioPanel({
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{poll || snapshot ? (
-				<GpioHeader
-					pins={pins}
-					busy={busy}
-					interactive={Boolean(snapshot)}
-					selected={selected}
-					onSelect={(pin) => setSelected(pin.physical)}
-				/>
+				target === "arduino-proxy" ? (
+					<ArduinoProxyPins
+						pins={pins}
+						busy={busy}
+						selected={selected}
+						onSelect={(pin) => setSelected(pin.physical)}
+					/>
+				) : (
+					<GpioHeader
+						pins={pins}
+						busy={busy}
+						interactive={Boolean(snapshot)}
+						selected={selected}
+						onSelect={(pin) => setSelected(pin.physical)}
+					/>
+				)
 			) : (
 				<Typography color="secondary" variant="body2">
 					Load GPIO to see live pin status.
@@ -235,6 +280,7 @@ export default function GpioPanel({
 							physical,
 							dir: "pwm",
 							analog,
+							...(target === "arduino-proxy" ? { target } : {}),
 						};
 						const current = snapshotRef.current;
 						if (current) {

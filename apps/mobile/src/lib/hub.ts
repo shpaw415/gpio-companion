@@ -72,12 +72,12 @@ export function asGpioSnapshot(payload: unknown): GpioSnapshot | null {
 }
 
 export function gpioSnapshotStatusKey(snapshot: GpioSnapshot): string {
-	return snapshot.pins
+	return `${snapshot.target ?? "header"}|${snapshot.pins
 		.map(
 			(pin) =>
 				`${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}`,
 		)
-		.join("|");
+		.join("|")}`;
 }
 
 export function applyGpioMessage(
@@ -92,13 +92,25 @@ export function applyGpioMessage(
 		return null;
 	}
 	if (Array.isArray(record.pins)) {
-		return { hardware: record.hardware, pins: record.pins };
+		return {
+			hardware: record.hardware,
+			pins: record.pins,
+			target: record.target,
+		};
 	}
 	if (!Array.isArray(record.patch)) {
 		return null;
 	}
-	if (!prev || prev.hardware !== record.hardware) {
-		return { hardware: record.hardware, pins: record.patch };
+	if (
+		!prev ||
+		prev.hardware !== record.hardware ||
+		(record.target && record.target !== prev.target)
+	) {
+		return {
+			hardware: record.hardware,
+			pins: record.patch,
+			target: record.target,
+		};
 	}
 	const byPhysical = new Map(
 		prev.pins.map((pin) => [pin.physical, pin] as const),
@@ -109,6 +121,7 @@ export function applyGpioMessage(
 	return {
 		hardware: record.hardware,
 		pins: [...byPhysical.values()].sort((a, b) => a.physical - b.physical),
+		target: record.target ?? prev.target,
 	};
 }
 

@@ -496,8 +496,8 @@ export default function Project() {
 				) : null}
 			</Stack>
 			{paired && activeUuid ? (
-				<Paper sx={{ p: 2 }} elevation={1}>
-					<Stack spacing={2}>
+				<Paper sx={{ p: 2, minWidth: 0, overflowX: "hidden" }} elevation={1}>
+					<Stack spacing={2} sx={{ minWidth: 0 }}>
 						<Select
 							name="board"
 							label="Board"
