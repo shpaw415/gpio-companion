@@ -243,6 +243,7 @@ export default function GpioPanel({
 						pins={pins}
 						busy={busy}
 						selected={selected}
+						fqbn={snapshot?.proxy?.fqbn}
 						onSelect={(pin) => setSelected(pin.physical)}
 					/>
 				) : (

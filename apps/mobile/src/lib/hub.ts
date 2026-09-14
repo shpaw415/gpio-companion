@@ -96,6 +96,7 @@ export function applyGpioMessage(
 			hardware: record.hardware,
 			pins: record.pins,
 			target: record.target,
+			proxy: record.proxy,
 		};
 	}
 	if (!Array.isArray(record.patch)) {
@@ -110,6 +111,7 @@ export function applyGpioMessage(
 			hardware: record.hardware,
 			pins: record.patch,
 			target: record.target,
+			proxy: record.proxy,
 		};
 	}
 	const byPhysical = new Map(
@@ -122,6 +124,7 @@ export function applyGpioMessage(
 		hardware: record.hardware,
 		pins: [...byPhysical.values()].sort((a, b) => a.physical - b.physical),
 		target: record.target ?? prev.target,
+		proxy: record.proxy ?? prev.proxy,
 	};
 }
 

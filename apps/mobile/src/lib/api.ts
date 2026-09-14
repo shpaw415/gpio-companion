@@ -576,6 +576,7 @@ export type GpioSnapshot = {
 	hardware: string;
 	pins: GpioPinState[];
 	target?: GpioTarget;
+	proxy?: { fqbn?: string; name?: string };
 };
 
 export function loadGpio(token: string, uuid: string) {

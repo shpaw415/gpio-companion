@@ -283,6 +283,11 @@ export {
 	parseFlashProxyPut,
 } from "./arduino-proxy.ts";
 export {
+	arduinoProxyHeaderLayout,
+	type ArduinoHeaderLayout,
+	type ArduinoLayoutSeat,
+} from "./arduino-proxy-layout.ts";
+export {
 	createFirmataParser,
 	encodeAnalogMappingQuery,
 	encodeAnalogWrite,

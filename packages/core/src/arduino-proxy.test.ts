@@ -13,6 +13,7 @@ import {
 	parseArduinoCoreList,
 	parseFlashProxyPut,
 } from "./arduino-proxy.ts";
+import { arduinoProxyHeaderLayout } from "./arduino-proxy-layout.ts";
 import { FLASH_PROXY_PATH } from "./flash.ts";
 import {
 	encodeCapabilityQuery,
@@ -56,6 +57,20 @@ describe("arduino proxy boards", () => {
 		expect(pins.find((pin) => pin.physical === 0)?.reserved).toBe(true);
 		expect(pins.find((pin) => pin.physical === 13)?.name).toBe("D13");
 		expect(pins.find((pin) => pin.physical === 14)?.name).toBe("A0");
+	});
+
+	test("uno header layout matches the board USB-at-top", () => {
+		const uno = arduinoProxyBoard("uno");
+		if (!uno) {
+			throw new Error("missing uno");
+		}
+		const layout = arduinoProxyHeaderLayout(arduinoProxyPins(uno), "uno");
+		expect(layout.right[0]).toEqual({ kind: "gpio", physical: 0 });
+		expect(layout.right[13]).toEqual({ kind: "gpio", physical: 13 });
+		expect(layout.left.some((seat) => seat.kind === "gpio" && seat.physical === 14)).toBe(
+			true,
+		);
+		expect(layout.extra).toEqual([]);
 	});
 });
 
