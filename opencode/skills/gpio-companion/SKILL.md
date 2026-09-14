@@ -28,6 +28,7 @@ Drive this board's header with Arduino-style C. Direct GPIO PUT is not the defau
 | Snapshot pins | `GET http://127.0.0.1:4150/v1/gpio` |
 | User asked to probe a pin or verify Live GPIO | One-shot `PUT /v1/gpio` (digital) or skill `gpio-pwm` (analogWrite/tone), then stop |
 | USB Arduino | Skill `gpio-arduino`, `POST /v1/flash` — never this header |
+| USB Arduino as proxy | Skill `gpio-arduino-proxy`. `GET /v1/arduino-proxy`; if connected write `host/arduino-proxy-<name>/` and `POST /v1/run`. Flash slave firmware `POST /v1/flash/proxy` or Devices → Flash Arduino as proxy |
 
 Do **not** `PUT /v1/gpio` for blinks, PWM, tone, loops, or any lasting drive. Do not shell `gcc`, `gpioset`, or `gpio-pwm`.
 
@@ -57,8 +58,8 @@ Electronics clones live in `~/projects/<name>` (`https://github.com/<user>/<proj
    - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
    - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`
    - `technical/` sheets
-   - `host/<name>/` gpio-host C
-   - `firmware/<name>/` USB Arduino C
+    - `host/<name>/` gpio-host C (`host/arduino-proxy-<name>/` when USB proxy is live)
+    - `firmware/<name>/` USB Arduino C
 3. `git add`, commit, `git push -u origin feat/<kebab>`. Board clones are `--depth 1`; branch from HEAD. Do not unshallow unless a merge fails.
 4. When the slice is done, ask: **Want to save these changes to main?**
 5. Yes (save / keep / merge / yes): `git checkout main`, merge the feature branch, `git push origin main`, stay on `main`.

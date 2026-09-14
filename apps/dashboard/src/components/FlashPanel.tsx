@@ -124,6 +124,10 @@ export default function FlashPanel({
 	return (
 		<Stack spacing={1}>
 			<Typography variant="subtitle1">Arduino flash</Typography>
+			<Typography variant="body2" color="secondary">
+				Flashing a project sketch replaces Arduino proxy firmware until you
+				flash the proxy again from Devices.
+			</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}

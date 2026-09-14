@@ -1,3 +1,4 @@
+import type { ArduinoProxyStatus } from "./arduino-proxy.ts";
 import type { FlashStatus } from "./flash.ts";
 import type { GpioSnapshot } from "./gpio.ts";
 import type { RunStatus } from "./run.ts";
@@ -10,11 +11,12 @@ export const HUB_GPIO_MS = 1_000;
 export const HUB_FLASH_MS = 1_500;
 export const HUB_RUN_MS = 1_000;
 export const HUB_T3_MS = 3_000;
+export const HUB_PROXY_MS = 1_500;
 export const HUB_LIVE_TTL_SEC = 120;
 
 export type HubRole = "pi" | "dashboard";
 
-export type HubChannel = "gpio" | "flash" | "run" | "t3";
+export type HubChannel = "gpio" | "flash" | "run" | "t3" | "arduinoProxy";
 
 export type HubMessageType = HubChannel | "hello" | "ping";
 
@@ -32,12 +34,19 @@ export type HubMessage = {
 	payload?: unknown;
 };
 
-const CHANNELS = new Set<HubChannel>(["gpio", "flash", "run", "t3"]);
+const CHANNELS = new Set<HubChannel>([
+	"gpio",
+	"flash",
+	"run",
+	"t3",
+	"arduinoProxy",
+]);
 const MESSAGE_TYPES = new Set<HubMessageType>([
 	"gpio",
 	"flash",
 	"run",
 	"t3",
+	"arduinoProxy",
 	"hello",
 	"ping",
 ]);
@@ -153,6 +162,19 @@ export function asRunStatus(payload: unknown): RunStatus | null {
 		record.last !== undefined &&
 		typeof record.last !== "object"
 	) {
+		return null;
+	}
+	return record;
+}
+
+export function asArduinoProxyStatus(
+	payload: unknown,
+): ArduinoProxyStatus | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as ArduinoProxyStatus;
+	if (typeof record.connected !== "boolean") {
 		return null;
 	}
 	return record;

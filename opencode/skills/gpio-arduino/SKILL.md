@@ -11,6 +11,10 @@ description: >-
 USB Arduino only (`POST /v1/flash`). This board's GPIO header is C-first via
 skill `gpio-host` (`POST /v1/run`), not flash and not `PUT /v1/gpio`.
 
+To make the USB board a pin slave instead of flashing a project sketch: skill
+`gpio-arduino-proxy` (`POST /v1/flash/proxy`). A live proxy is replaced if you
+`POST /v1/flash` a project sketch.
+
 Do **not** shell `avrdude` or `arduino-cli` directly. Use the loopback flash API.
 
 You call that API yourself. **Never** tell the user to `curl` `127.0.0.1:4150`.

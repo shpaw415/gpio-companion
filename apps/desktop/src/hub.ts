@@ -37,6 +37,7 @@ export function parseHubMessage(input: unknown): HubMessage | null {
 		record.type !== "flash" &&
 		record.type !== "run" &&
 		record.type !== "t3" &&
+		record.type !== "arduinoProxy" &&
 		record.type !== "hello" &&
 		record.type !== "ping"
 	) {

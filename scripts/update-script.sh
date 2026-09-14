@@ -80,7 +80,7 @@ server_needs_build() {
 		return 0
 	fi
 	if [[ "$bin_rev" != "$after" ]]; then
-		paths_changed '^(binary/gpio-companion/|packages/core/|native/gpio-pwm/|native/gpio-host/|scripts/systemd/gpio-companion\.service|package\.json|bun\.lock)' "$bin_rev"
+		paths_changed '^(binary/gpio-companion/|packages/core/|native/gpio-pwm/|native/gpio-host/|native/arduino-proxy/|scripts/systemd/gpio-companion\.service|package\.json|bun\.lock)' "$bin_rev"
 		return
 	fi
 	return 1
@@ -104,6 +104,7 @@ if [[ "$adapter_unit_before" != "$(cat /etc/systemd/system/gpio-companion-ble-ad
 	adapter_changed=1
 fi
 install_gpio_host
+install_arduino_proxy
 install_gpiochip_udev
 add_user_groups
 install_storage_link

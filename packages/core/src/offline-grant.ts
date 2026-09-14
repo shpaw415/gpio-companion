@@ -17,7 +17,13 @@ import {
 	verifyEd25519Message,
 } from "./device-auth.ts";
 import { INFO_PATH } from "./device-info.ts";
-import { FLASH_PATH, FLASH_PORTS_PATH, FLASH_SKETCHES_PATH } from "./flash.ts";
+import { ARDUINO_PROXY_PATH } from "./arduino-proxy.ts";
+import {
+	FLASH_PATH,
+	FLASH_PORTS_PATH,
+	FLASH_PROXY_PATH,
+	FLASH_SKETCHES_PATH,
+} from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";
 import { RUN_PATH, RUN_SKETCHES_PATH, RUN_STOP_PATH } from "./run.ts";
 
@@ -35,6 +41,8 @@ export const OFFLINE_GRANT_SCOPE = [
 	`POST ${FLASH_PATH}`,
 	`GET ${FLASH_PORTS_PATH}`,
 	`GET ${FLASH_SKETCHES_PATH}`,
+	`POST ${FLASH_PROXY_PATH}`,
+	`GET ${ARDUINO_PROXY_PATH}`,
 	`GET ${RUN_PATH}`,
 	`GET ${RUN_SKETCHES_PATH}`,
 	`POST ${RUN_PATH}`,

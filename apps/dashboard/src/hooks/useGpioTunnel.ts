@@ -13,7 +13,7 @@ export type GpioTunnelStatus = "idle" | "connecting" | "live" | "reconnecting";
 
 export type GpioTunnel = {
 	drive: (put: GpioApply) => boolean;
-	refresh: () => boolean;
+	refresh: (target?: "header" | "arduino-proxy") => boolean;
 	status: GpioTunnelStatus;
 };
 
@@ -147,7 +147,8 @@ export function useGpioTunnel(
 
 	return {
 		drive: (put) => send(put),
-		refresh: () => send({ op: "refresh" }),
+		refresh: (target) =>
+			send(target ? { op: "refresh", target } : { op: "refresh" }),
 		status,
 	};
 }

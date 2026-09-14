@@ -1535,6 +1535,7 @@ install_gpio_companion_bin() {
 	install_ble_gatt_script
 	install_gpio_pwm
 	install_gpio_host
+	install_arduino_proxy
 	install_github_git_helper
 }
 
@@ -1563,7 +1564,25 @@ install_gpio_host() {
 	install -m 0644 "$src/Arduino.h" "$LIB_DIR/gpio-host/Arduino.h"
 	install -m 0644 "$src/gpio-host.h" "$LIB_DIR/gpio-host/gpio-host.h"
 	install -m 0644 "$src/arduino.c" "$LIB_DIR/gpio-host/arduino.c"
+	if [[ -f "$src/arduino-proxy.c" ]]; then
+		install -m 0644 "$src/arduino-proxy.c" "$LIB_DIR/gpio-host/arduino-proxy.c"
+	fi
 	install -m 0644 "$src/main.c" "$LIB_DIR/gpio-host/main.c"
+}
+
+install_arduino_proxy() {
+	local src="$REPO_ROOT/native/arduino-proxy"
+	if [[ ! -f "$src/arduino-proxy.ino" ]]; then
+		return 0
+	fi
+	echo "gpio-companion update: installing arduino-proxy firmware"
+	install -d -m 0755 "$LIB_DIR/arduino-proxy"
+	install -m 0644 "$src/arduino-proxy.ino" "$LIB_DIR/arduino-proxy/arduino-proxy.ino"
+	if command -v arduino-cli >/dev/null 2>&1; then
+		arduino-cli core install arduino:avr arduino:samd >/dev/null 2>&1 || true
+		arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json >/dev/null 2>&1 || true
+		arduino-cli core install esp32:esp32 >/dev/null 2>&1 || true
+	fi
 }
 
 install_ble_gatt_script() {

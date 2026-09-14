@@ -13,7 +13,7 @@ On Orange Pi, **SoC GPIO numbers are not BCM**. Orange Pi 3 LTS is a **26-pin** 
 
 Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home. Open that folder for projects on the stick; see [storage.md](./storage.md).
 
-Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth.
+Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth. Devices can **Flash Arduino as proxy** so the USB board becomes a Firmata slave: Project Live GPIO switches Companion | Arduino, and Run on board can launch `arduino-proxy-*` sketches that drive the MCU pins from the companion.
 
 The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path). `Serial.print` from that sketch shows live on the same panel. After **Flash Arduino**, USB `Serial` shows on that panel (Open serial if you need to attach without flashing).
 

@@ -1,8 +1,10 @@
 import {
+	asArduinoProxyStatus,
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
 	asRunStatus,
+	type ArduinoProxyStatus,
 	type FlashStatus,
 	type GpioSnapshot,
 	HUB_PATH,
@@ -17,6 +19,7 @@ export type DeviceHubHandlers = {
 	onFlash?: (status: FlashStatus) => void;
 	onRun?: (status: RunStatus) => void;
 	onT3?: (status: HubT3Status) => void;
+	onArduinoProxy?: (status: ArduinoProxyStatus) => void;
 };
 
 export function hubBrowserUrl(uuid: string, location: Location): string {
@@ -29,6 +32,7 @@ export function useDeviceHub(uuid: string, handlers: DeviceHubHandlers): void {
 	const onFlash = handlers.onFlash;
 	const onRun = handlers.onRun;
 	const onT3 = handlers.onT3;
+	const onArduinoProxy = handlers.onArduinoProxy;
 
 	useEffect(() => {
 		const trimmed = uuid.trim();
@@ -79,6 +83,13 @@ export function useDeviceHub(uuid: string, handlers: DeviceHubHandlers): void {
 					if (status) {
 						onT3?.(status);
 					}
+					return;
+				}
+				if (message.type === "arduinoProxy") {
+					const status = asArduinoProxyStatus(message.payload);
+					if (status) {
+						onArduinoProxy?.(status);
+					}
 				}
 			});
 			socket.addEventListener("close", () => {
@@ -98,5 +109,5 @@ export function useDeviceHub(uuid: string, handlers: DeviceHubHandlers): void {
 			window.clearTimeout(timer);
 			socket?.close();
 		};
-	}, [uuid, onGpio, onFlash, onRun, onT3]);
+	}, [uuid, onGpio, onFlash, onRun, onT3, onArduinoProxy]);
 }

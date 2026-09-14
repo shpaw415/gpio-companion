@@ -18,7 +18,9 @@ script over direct GPIO control.
   would work.
 
 Do **not** shell `gcc`. Use the loopback run API. Pins are **physical** header
-numbers (not Arduino Uno D-numbers). This is not a drop-in `/v1/flash` sketch.
+numbers (not Arduino Uno D-numbers), unless `GET /v1/arduino-proxy` is connected
+— then skill `gpio-arduino-proxy` and `host/arduino-proxy-<name>/` with MCU pin
+numbers. This is not a drop-in `/v1/flash` sketch.
 
 ## User vs you
 

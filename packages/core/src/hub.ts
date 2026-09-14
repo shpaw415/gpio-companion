@@ -13,6 +13,7 @@ import {
 } from "./hub-message.ts";
 
 export {
+	asArduinoProxyStatus,
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
@@ -23,6 +24,7 @@ export {
 	HUB_LIVE_TTL_SEC,
 	HUB_PATH,
 	HUB_PING_MS,
+	HUB_PROXY_MS,
 	HUB_RUN_MS,
 	HUB_T3_MS,
 	HUB_TOKEN_PREFIX,

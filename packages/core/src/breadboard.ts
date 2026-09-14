@@ -419,6 +419,19 @@ export function partOrigin(part: WokwiPart): Point {
 	return { x: part.left ?? 0, y: part.top ?? 0 };
 }
 
+export function breadboardLayoutShift(diagram: WokwiDiagram): number {
+	const header = diagram.parts.find(
+		(part) => part.type === GPIO_COMPANION_HEADER_TYPE,
+	);
+	const board = diagram.parts.find((part) => isBreadboardType(part.type));
+	if (!header || !board) {
+		return 0;
+	}
+	const gap = BREADBOARD_PITCH * 1.6;
+	const headerRight = (header.left ?? 0) + headerSize().width;
+	return Math.max(0, headerRight + gap - (board.left ?? 0));
+}
+
 export function partPinsFor(
 	type: string,
 	pinInfo?: PartPinInfo[],
@@ -426,14 +439,19 @@ export function partPinsFor(
 	return pinInfo?.length ? pinInfo : (FALLBACK_PIN_INFO[type] ?? []);
 }
 
-export function boardPinAbsolute(board: WokwiPart, pin: string): Point | null {
+export function boardPinAbsolute(
+	board: WokwiPart,
+	pin: string,
+	diagram?: WokwiDiagram,
+): Point | null {
 	const offset = breadboardPinOffset(board.type, pin);
 	if (!offset) {
 		return null;
 	}
 	const origin = partOrigin(board);
+	const shift = diagram ? breadboardLayoutShift(diagram) : 0;
 	const rotated = rotatePoint(offset, board.rotate ?? 0);
-	return { x: origin.x + rotated.x, y: origin.y + rotated.y };
+	return { x: origin.x + rotated.x + shift, y: origin.y + rotated.y };
 }
 
 export function snapPartPlacement(
@@ -441,8 +459,18 @@ export function snapPartPlacement(
 	diagram: WokwiDiagram,
 	pinInfo?: PartPinInfo[],
 ): PartPlacement {
-	if (isBreadboardType(part.type) || part.type === GPIO_COMPANION_HEADER_TYPE) {
+	if (part.type === GPIO_COMPANION_HEADER_TYPE) {
 		return { origin: partOrigin(part), rotate: part.rotate ?? 0 };
+	}
+	if (isBreadboardType(part.type)) {
+		const origin = partOrigin(part);
+		return {
+			origin: {
+				x: origin.x + breadboardLayoutShift(diagram),
+				y: origin.y,
+			},
+			rotate: part.rotate ?? 0,
+		};
 	}
 	const anchors = breadboardAnchors(part, diagram);
 	if (!anchors.length) {
@@ -515,7 +543,7 @@ function breadboardAnchors(
 		if (!hit?.board || seen.has(hit.pin)) {
 			continue;
 		}
-		const hole = boardPinAbsolute(hit.board, hit.holePin);
+		const hole = boardPinAbsolute(hit.board, hit.holePin, diagram);
 		if (!hole) {
 			continue;
 		}

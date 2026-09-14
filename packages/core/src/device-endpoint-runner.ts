@@ -6,7 +6,13 @@ import {
 } from "./console.ts";
 import { DEBUG_EVENT_PATH, DEBUG_PATH, DEBUG_UPGRADE_FAILED } from "./debug.ts";
 import { INFO_PATH } from "./device-info.ts";
-import { FLASH_PATH, FLASH_PORTS_PATH, FLASH_SKETCHES_PATH } from "./flash.ts";
+import { ARDUINO_PROXY_PATH } from "./arduino-proxy.ts";
+import {
+	FLASH_PATH,
+	FLASH_PORTS_PATH,
+	FLASH_PROXY_PATH,
+	FLASH_SKETCHES_PATH,
+} from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";
 import { LOGS_PATH, UPDATE_PATH } from "./maintenance.ts";
 import { isOfflineGrantScope, WIFI_PATH } from "./offline-grant.ts";
@@ -303,6 +309,25 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			expect: { kind: "error", includes: ["invalid json"] },
 		}),
 		probe({
+			id: "get-arduino-proxy",
+			name: "GET /v1/arduino-proxy",
+			method: "GET",
+			path: ARDUINO_PROXY_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["connected"] },
+		}),
+		probe({
+			id: "post-flash-proxy",
+			name: "POST /v1/flash/proxy",
+			method: "POST",
+			path: FLASH_PROXY_PATH,
+			auth: "master",
+			via: "any",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
+		}),
+		probe({
 			id: "get-run",
 			name: "GET /v1/run",
 			method: "GET",
@@ -437,6 +462,7 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 		if (
 			item.method === "POST" &&
 			(item.path === FLASH_PATH ||
+				item.path === FLASH_PROXY_PATH ||
 				item.path === RUN_PATH ||
 				item.path === CONSOLE_USB_PATH)
 		) {

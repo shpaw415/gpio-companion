@@ -48,10 +48,16 @@ export default function RunPanel({
 	const [pasteText, setPasteText] = useState("");
 	const supported = bluetoothSupported();
 	const offline = useOfflineBleKey(uuid);
-	const listed = useMemo(
-		() => sketches.filter((item) => !project || item.project === project),
-		[sketches, project],
-	);
+	const listed = useMemo(() => {
+		const scoped = sketches.filter(
+			(item) => !project || item.project === project,
+		);
+		const proxy = scoped.filter((item) => item.target === "arduino-proxy");
+		if (proxy.length) {
+			return [...proxy, ...scoped.filter((item) => item.target !== "arduino-proxy")];
+		}
+		return scoped;
+	}, [sketches, project]);
 
 	useEffect(() => {
 		if (!uuid) {
@@ -116,6 +122,12 @@ export default function RunPanel({
 	return (
 		<Stack spacing={1}>
 			<Typography variant="subtitle1">Run on board</Typography>
+			{listed.some((item) => item.target === "arduino-proxy") ? (
+				<Typography variant="body2" color="secondary">
+					arduino-proxy-* sketches drive the USB Arduino. Header sketches stay
+					on this companion.
+				</Typography>
+			) : null}
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}

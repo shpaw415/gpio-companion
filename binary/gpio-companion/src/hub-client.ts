@@ -5,11 +5,13 @@ import {
 	HUB_GPIO_MS,
 	HUB_PATH,
 	HUB_PING_MS,
+	HUB_PROXY_MS,
 	HUB_RUN_MS,
 	HUB_T3_MS,
 	type HubTicket,
 	hubOrigin,
 } from "gpio-companion";
+import type { ArduinoProxyController } from "./arduino-proxy.ts";
 import type { FlashController } from "./flash.ts";
 import type { GpioController } from "./gpio.ts";
 import type { RunController } from "./run.ts";
@@ -27,6 +29,7 @@ export type HubClientOptions = {
 	gpio: GpioController;
 	flash: FlashController;
 	run: RunController;
+	proxy?: ArduinoProxyController;
 	t3?: T3Controller;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
@@ -35,6 +38,7 @@ export type HubClientOptions = {
 	flashMs?: number;
 	runMs?: number;
 	t3Ms?: number;
+	proxyMs?: number;
 	pingMs?: number;
 };
 
@@ -98,12 +102,20 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 	let lastFlash = "";
 	let lastRun = "";
 	let lastT3 = "";
+	let lastProxy = "";
 	let gpioBusy = false;
 	let t3Busy = false;
 	const Socket = options.webSocket ?? WebSocket;
 
 	function send(
-		type: "gpio" | "flash" | "run" | "t3" | "ping" | "hello",
+		type:
+			| "gpio"
+			| "flash"
+			| "run"
+			| "t3"
+			| "arduinoProxy"
+			| "ping"
+			| "hello",
 		payload?: unknown,
 	) {
 		if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -154,6 +166,21 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 			if (run !== lastRun) {
 				lastRun = run;
 				send("run", JSON.parse(run));
+			}
+		} catch {
+			undefined;
+		}
+	}
+
+	function publishProxy() {
+		if (!options.proxy) {
+			return;
+		}
+		try {
+			const proxy = JSON.stringify(options.proxy.status());
+			if (proxy !== lastProxy) {
+				lastProxy = proxy;
+				send("arduinoProxy", JSON.parse(proxy));
 			}
 		} catch {
 			undefined;
@@ -221,10 +248,12 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 				lastFlash = "";
 				lastRun = "";
 				lastT3 = "";
+				lastProxy = "";
 				send("hello");
 				void publishGpio();
 				publishFlash();
 				publishRun();
+				publishProxy();
 				void publishT3();
 				watchTimers.push(
 					setInterval(() => {
@@ -232,6 +261,7 @@ export function startHubClient(options: HubClientOptions): { stop(): void } {
 					}, options.gpioMs ?? HUB_GPIO_MS),
 					setInterval(publishFlash, options.flashMs ?? HUB_FLASH_MS),
 					setInterval(publishRun, options.runMs ?? HUB_RUN_MS),
+					setInterval(publishProxy, options.proxyMs ?? HUB_PROXY_MS),
 					setInterval(() => {
 						void publishT3();
 					}, options.t3Ms ?? HUB_T3_MS),

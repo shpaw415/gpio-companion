@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+	BREADBOARD_PITCH,
 	BreadboardError,
 	breadboardHasRails,
+	breadboardLayoutShift,
 	breadboardPinOffset,
 	headerPinOffset,
 	headerSize,
@@ -198,8 +200,25 @@ describe("wokwi diagram", () => {
 		}
 		const placement = snapPartPlacement(led, diagram);
 		const anode = rotatePoint({ x: 25, y: 42 }, placement.rotate);
-		expect(placement.origin.x + anode.x).toBeCloseTo(80 + hole.x);
+		const shift = breadboardLayoutShift(diagram);
+		expect(placement.origin.x + anode.x).toBeCloseTo(80 + shift + hole.x);
 		expect(placement.origin.y + anode.y).toBeCloseTo(hole.y);
+	});
+
+	test("shifts the breadboard clear of the labeled header", () => {
+		const diagram = parseWokwiDiagram(sample);
+		const shift = breadboardLayoutShift(diagram);
+		expect(shift).toBeGreaterThan(0);
+		const board = diagram.parts.find((part) => part.id === "bb1");
+		expect(board).toBeTruthy();
+		if (!board) {
+			return;
+		}
+		const placed = snapPartPlacement(board, diagram);
+		expect(placed.origin.x).toBe((board.left ?? 0) + shift);
+		expect(placed.origin.x).toBeGreaterThanOrEqual(
+			headerSize().width + BREADBOARD_PITCH,
+		);
 	});
 
 	test("header pads sit in two columns with room for labels", () => {

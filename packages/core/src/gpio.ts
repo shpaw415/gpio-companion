@@ -35,6 +35,18 @@ export const GPIO_RESERVED_PHYSICAL: Record<HardwareId, number[]> = {
 
 export type GpioDir = "in" | "out" | "pwm";
 
+export type GpioTarget = "header" | "arduino-proxy";
+
+export type GpioProxyInfo = {
+	connected?: boolean;
+	protocol?: string;
+	port?: string;
+	fqbn?: string;
+	name?: string;
+	voltage?: string;
+	buses?: { i2c?: boolean; spi?: boolean; uart?: string[] };
+};
+
 export type HeaderPinType = "power" | "gnd" | "gpio";
 
 export type HeaderPinDef = {
@@ -66,11 +78,15 @@ export type GpioPinState = {
 export type GpioSnapshot = {
 	hardware: HardwareId;
 	pins: GpioPinState[];
+	target?: GpioTarget;
+	proxy?: GpioProxyInfo;
 };
 
 export type GpioPatch = {
 	hardware: HardwareId;
 	patch: GpioPinState[];
+	target?: GpioTarget;
+	proxy?: GpioProxyInfo;
 };
 
 export type GpioStreamFrame = GpioSnapshot | GpioPatch;
@@ -80,26 +96,74 @@ export type GpioPut = {
 	dir: GpioDir;
 	value?: 0 | 1;
 	analog?: number;
+	target?: GpioTarget;
 };
 
 export type GpioWsRefresh = {
 	op: "refresh";
+	target?: GpioTarget;
 };
 
 export type GpioTone = {
 	physical: number;
 	op: "tone";
 	hz: number;
+	target?: GpioTarget;
 };
 
 export type GpioNoTone = {
 	physical: number;
 	op: "notone";
+	target?: GpioTarget;
 };
 
-export type GpioWsCommand = GpioPut | GpioWsRefresh | GpioTone | GpioNoTone;
+export type GpioI2cScan = {
+	op: "i2c-scan";
+	target?: GpioTarget;
+};
 
-export type GpioApply = Exclude<GpioWsCommand, GpioWsRefresh>;
+export type GpioI2cRead = {
+	op: "i2c-read";
+	address: number;
+	length?: number;
+	target?: GpioTarget;
+};
+
+export type GpioI2cWrite = {
+	op: "i2c-write";
+	address: number;
+	data: number[];
+	target?: GpioTarget;
+};
+
+export type GpioSpiXfer = {
+	op: "spi-xfer";
+	data: number[];
+	target?: GpioTarget;
+};
+
+export type GpioUartWrite = {
+	op: "uart-write";
+	port?: string;
+	data: string;
+	target?: GpioTarget;
+};
+
+export type GpioBusCommand =
+	| GpioI2cScan
+	| GpioI2cRead
+	| GpioI2cWrite
+	| GpioSpiXfer
+	| GpioUartWrite;
+
+export type GpioWsCommand =
+	| GpioPut
+	| GpioWsRefresh
+	| GpioTone
+	| GpioNoTone
+	| GpioBusCommand;
+
+export type GpioApply = Exclude<GpioWsCommand, GpioWsRefresh | GpioBusCommand>;
 
 export class GpioError extends Error {
 	readonly status = 400;
@@ -418,13 +482,23 @@ export function applyGpioMessage(
 		return null;
 	}
 	if (Array.isArray(record.pins)) {
-		return { hardware: record.hardware, pins: record.pins };
+		return {
+			hardware: record.hardware,
+			pins: record.pins,
+			target: record.target,
+			proxy: record.proxy,
+		};
 	}
 	if (!Array.isArray(record.patch)) {
 		return null;
 	}
 	if (!prev || prev.hardware !== record.hardware) {
-		return { hardware: record.hardware, pins: record.patch };
+		return {
+			hardware: record.hardware,
+			pins: record.patch,
+			target: record.target,
+			proxy: record.proxy,
+		};
 	}
 	const byPhysical = new Map(
 		prev.pins.map((pin) => [pin.physical, pin] as const),
@@ -435,6 +509,8 @@ export function applyGpioMessage(
 	return {
 		hardware: record.hardware,
 		pins: [...byPhysical.values()].sort((a, b) => a.physical - b.physical),
+		target: record.target ?? prev.target,
+		proxy: record.proxy ?? prev.proxy,
 	};
 }
 
@@ -457,7 +533,12 @@ export function gpioPatchFrame(
 	if (patch.length === 0 || patch.length === next.pins.length) {
 		return next;
 	}
-	return { hardware: next.hardware, patch };
+	return {
+		hardware: next.hardware,
+		patch,
+		target: next.target,
+		proxy: next.proxy,
+	};
 }
 
 export function applyGpioApply(
@@ -515,13 +596,28 @@ export function applyGpioApply(
 	};
 }
 
-export function parsePhysicalPin(value: unknown): number {
+export function parseGpioTarget(value: unknown): GpioTarget | undefined {
+	if (value === undefined || value === "") {
+		return undefined;
+	}
+	if (value === "header" || value === "arduino-proxy") {
+		return value;
+	}
+	throw new GpioError("target must be header or arduino-proxy");
+}
+
+export function parsePhysicalPin(
+	value: unknown,
+	options?: { min?: number; max?: number },
+): number {
+	const min = options?.min ?? 1;
+	const max = options?.max ?? 40;
 	const physical =
 		typeof value === "number"
 			? value
 			: Number.parseInt(String(value ?? ""), 10);
-	if (!Number.isInteger(physical) || physical < 1 || physical > 40) {
-		throw new GpioError("physical pin must be 1-40");
+	if (!Number.isInteger(physical) || physical < min || physical > max) {
+		throw new GpioError(`physical pin must be ${min}-${max}`);
 	}
 	return physical;
 }
@@ -548,16 +644,27 @@ export function parseGpioPut(input: unknown): GpioPut {
 		throw new GpioError("gpio must be an object");
 	}
 	const record = input as Record<string, unknown>;
-	const physical = parsePhysicalPin(record.physical);
+	const target = parseGpioTarget(record.target);
+	const physical = parsePhysicalPin(
+		record.physical,
+		target === "arduino-proxy" ? { min: 0, max: 127 } : undefined,
+	);
 	if (record.dir === "pwm" || record.analog !== undefined) {
-		return {
+		const put: GpioPut = {
 			physical,
 			dir: "pwm",
 			analog: parseAnalog(record.analog ?? record.value),
 		};
+		if (target) {
+			put.target = target;
+		}
+		return put;
 	}
 	const dir = parseDir(record.dir, record.value);
 	const put: GpioPut = { physical, dir };
+	if (target) {
+		put.target = target;
+	}
 	if (record.value !== undefined) {
 		put.value = parseValue(record.value);
 	} else if (dir === "out") {
@@ -571,18 +678,82 @@ export function parseGpioWsCommand(input: unknown): GpioWsCommand {
 		throw new GpioError("gpio must be an object");
 	}
 	const record = input as Record<string, unknown>;
+	const target = parseGpioTarget(record.target);
+	const pinOptions =
+		target === "arduino-proxy" ? { min: 0, max: 127 } : undefined;
 	if (record.op === "refresh" || record.refresh === true) {
-		return { op: "refresh" };
+		return target ? { op: "refresh", target } : { op: "refresh" };
+	}
+	if (record.op === "i2c-scan") {
+		return target ? { op: "i2c-scan", target } : { op: "i2c-scan" };
+	}
+	if (record.op === "i2c-read") {
+		const command: GpioI2cRead = {
+			op: "i2c-read",
+			address: parseByte(record.address, "address"),
+		};
+		if (record.length !== undefined) {
+			command.length = parseByte(record.length, "length");
+		}
+		if (target) {
+			command.target = target;
+		}
+		return command;
+	}
+	if (record.op === "i2c-write") {
+		const command: GpioI2cWrite = {
+			op: "i2c-write",
+			address: parseByte(record.address, "address"),
+			data: parseByteList(record.data),
+		};
+		if (target) {
+			command.target = target;
+		}
+		return command;
+	}
+	if (record.op === "spi-xfer") {
+		const command: GpioSpiXfer = {
+			op: "spi-xfer",
+			data: parseByteList(record.data),
+		};
+		if (target) {
+			command.target = target;
+		}
+		return command;
+	}
+	if (record.op === "uart-write") {
+		const command: GpioUartWrite = {
+			op: "uart-write",
+			data: parseUartData(record.data),
+		};
+		if (typeof record.port === "string" && record.port.trim()) {
+			command.port = record.port.trim();
+		}
+		if (target) {
+			command.target = target;
+		}
+		return command;
 	}
 	if (record.op === "tone") {
-		return {
-			physical: parsePhysicalPin(record.physical),
+		const command: GpioTone = {
+			physical: parsePhysicalPin(record.physical, pinOptions),
 			op: "tone",
 			hz: parseToneHz(record.hz ?? record.frequency),
 		};
+		if (target) {
+			command.target = target;
+		}
+		return command;
 	}
 	if (record.op === "notone") {
-		return { physical: parsePhysicalPin(record.physical), op: "notone" };
+		const command: GpioNoTone = {
+			physical: parsePhysicalPin(record.physical, pinOptions),
+			op: "notone",
+		};
+		if (target) {
+			command.target = target;
+		}
+		return command;
 	}
 	return parseGpioPut(input);
 }
@@ -599,6 +770,19 @@ export function isGpioTone(command: GpioWsCommand): command is GpioTone {
 
 export function isGpioNoTone(command: GpioWsCommand): command is GpioNoTone {
 	return "op" in command && command.op === "notone";
+}
+
+export function isGpioBusCommand(
+	command: GpioWsCommand,
+): command is GpioBusCommand {
+	return (
+		"op" in command &&
+		(command.op === "i2c-scan" ||
+			command.op === "i2c-read" ||
+			command.op === "i2c-write" ||
+			command.op === "spi-xfer" ||
+			command.op === "uart-write")
+	);
 }
 
 export function analogToPwmPercent(analog: number): number {
@@ -659,6 +843,31 @@ function parseAnalog(value: unknown): number {
 		throw new GpioError(`analog must be 0-${GPIO_ANALOG_MAX}`);
 	}
 	return analog;
+}
+
+function parseByte(value: unknown, field: string): number {
+	const byte =
+		typeof value === "number"
+			? value
+			: Number.parseInt(String(value ?? ""), 10);
+	if (!Number.isInteger(byte) || byte < 0 || byte > 255) {
+		throw new GpioError(`${field} must be 0-255`);
+	}
+	return byte;
+}
+
+function parseByteList(value: unknown): number[] {
+	if (!Array.isArray(value) || value.length === 0) {
+		throw new GpioError("data is required");
+	}
+	return value.map((item, index) => parseByte(item, `data[${index}]`));
+}
+
+function parseUartData(value: unknown): string {
+	if (typeof value !== "string" || value.length === 0) {
+		throw new GpioError("data is required");
+	}
+	return value;
 }
 
 function parseToneHz(value: unknown): number {

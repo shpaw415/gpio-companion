@@ -7,6 +7,7 @@ export type BoardSketch = {
 	name: string;
 	dir: string;
 	files: string[];
+	target?: "header" | "arduino-proxy";
 };
 
 export type BoardSketchList = {
@@ -45,12 +46,18 @@ function parseBoardSketch(input: unknown, index: number): BoardSketch {
 	) {
 		throw new Error("files is required");
 	}
-	return {
+	const sketch: BoardSketch = {
 		project,
 		name,
 		dir,
 		files: filesRaw.filter((file) => file.trim().length > 0),
 	};
+	if (record.target === "header" || record.target === "arduino-proxy") {
+		sketch.target = record.target;
+	} else if (name.startsWith("arduino-proxy-")) {
+		sketch.target = "arduino-proxy";
+	}
+	return sketch;
 }
 
 function requiredName(value: unknown, field: string): string {

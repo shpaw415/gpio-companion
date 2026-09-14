@@ -8,6 +8,8 @@ import {
 	DEBUG_EVENT_PATH,
 	DEBUG_PATH,
 	DEFAULT_DEVICE_MAX_SKEW_MS,
+	ARDUINO_PROXY_PATH,
+	ArduinoProxyError,
 	type DebugEvent,
 	DeviceAuthError,
 	type DeviceConfig,
@@ -15,6 +17,7 @@ import {
 	debugAuthHeadersFromRequest,
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
+	FLASH_PROXY_PATH,
 	FLASH_SKETCHES_PATH,
 	FlashError,
 	GPIO_PATH,
@@ -24,7 +27,10 @@ import {
 	INFO_PATH,
 	isAllowedDebugOrigin,
 	isConsolePath,
+	isArduinoProxyFqbn,
+	isArduinoProxyPath,
 	isFlashPath,
+	isGpioBusCommand,
 	isGpioWsRefresh,
 	isRunPath,
 	LOGS_PATH,
@@ -36,6 +42,7 @@ import {
 	pairingCredentials,
 	parseDebugEventInput,
 	parseDeviceSecrets,
+	parseFlashProxyPut,
 	parseGpioWsCommand,
 	parsePairingClaim,
 	parsePairingUnpair,
@@ -65,6 +72,11 @@ import { readBoardModel } from "./board-model.ts";
 import { type ConsoleHub, createConsoleHub } from "./console.ts";
 import { createDebugHub } from "./debug.ts";
 import { readDiskStats } from "./disk.ts";
+import {
+	createArduinoProxy,
+	type ArduinoProxyController,
+	resolveArduinoProxyDir,
+} from "./arduino-proxy.ts";
 import { createArduinoFlash, type FlashController } from "./flash.ts";
 import type { GithubInstallationCreds } from "./github-credentials.ts";
 import { createLibgpiodGpio, type GpioController } from "./gpio.ts";
@@ -132,6 +144,7 @@ export type ServeOptions = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	proxy?: ArduinoProxyController;
 	console?: ConsoleHub;
 	projectsDir?: string;
 };
@@ -144,6 +157,7 @@ export type DeviceRequestExtras = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	proxy?: ArduinoProxyController;
 	console?: ConsoleHub;
 	projectsDir?: string;
 	applyUpdate?: ApplyUpdate;
@@ -168,8 +182,10 @@ export function startDeviceApi(options: ServeOptions) {
 		dashboardUrl,
 	});
 	const gpio = options.gpio ?? createLibgpiodGpio();
+	const proxy = options.proxy ?? createArduinoProxy();
 	const gpioStream = createGpioStream({
 		gpio,
+		proxy,
 		hardware: async () => (await options.store.read()).hardware,
 	});
 	const consoleHub = options.console ?? createConsoleHub();
@@ -180,15 +196,24 @@ export function startDeviceApi(options: ServeOptions) {
 		readInfo: options.readInfo ?? (async () => readDeviceInfoJson()),
 		gpio,
 		gpioStream,
+		proxy,
 		console: consoleHub,
 		flash:
 			options.flash ??
 			createArduinoFlash({
 				beforeUpload: () => {
 					consoleHub.stopUsb();
+					proxy.release();
 				},
 				afterUpload: (job, result) => {
-					if (result.ok && job.port) {
+					if (!result.ok) {
+						return;
+					}
+					if (job.dir === resolveArduinoProxyDir() && job.port) {
+						void proxy.attach(job.port, job.fqbn).catch(() => undefined);
+						return;
+					}
+					if (job.port) {
 						consoleHub.scheduleUsb(job.port);
 					}
 				},
@@ -198,8 +223,14 @@ export function startDeviceApi(options: ServeOptions) {
 			createHostRun({
 				hardware: async () => (await options.store.read()).hardware,
 				gpio,
+				proxy,
 				onLog: (chunk) => consoleHub.appendHost(chunk),
-				onRunning: (running) => consoleHub.setHostRunning(running),
+				onRunning: (running) => {
+					consoleHub.setHostRunning(running);
+					if (!running) {
+						void proxy.probe();
+					}
+				},
 			}),
 		projectsDir: options.projectsDir,
 		applyUpdate: options.applyUpdate,
@@ -306,7 +337,8 @@ export function startDeviceApi(options: ServeOptions) {
 				} else if (
 					error instanceof FlashError ||
 					error instanceof RunError ||
-					error instanceof ConsoleError
+					error instanceof ConsoleError ||
+					error instanceof ArduinoProxyError
 				) {
 					response = Response.json(
 						{ error: error.message },
@@ -442,7 +474,8 @@ export async function handleDeviceRequest(
 		(path === GPIO_PATH ||
 			isFlashPath(path) ||
 			isRunPath(path) ||
-			isConsolePath(path)) &&
+			isConsolePath(path) ||
+			isArduinoProxyPath(path)) &&
 		isLoopback(url) &&
 		!hasDeviceSignature(request.headers)
 	) {
@@ -453,6 +486,7 @@ export async function handleDeviceRequest(
 				store,
 				extras?.gpio,
 				extras?.gpioStream,
+				extras?.proxy,
 			);
 		}
 		if (isRunPath(path)) {
@@ -460,6 +494,9 @@ export async function handleDeviceRequest(
 		}
 		if (isConsolePath(path)) {
 			return handleConsole(method, path, bodyText, extras);
+		}
+		if (isArduinoProxyPath(path) && path === ARDUINO_PROXY_PATH) {
+			return handleArduinoProxy(method, extras);
 		}
 		return handleFlash(method, path, bodyText, extras);
 	}
@@ -708,7 +745,12 @@ export async function handleDeviceRequest(
 			store,
 			extras?.gpio,
 			extras?.gpioStream,
+			extras?.proxy,
 		);
+	}
+
+	if (path === ARDUINO_PROXY_PATH) {
+		return handleArduinoProxy(method, extras);
 	}
 
 	if (isFlashPath(path)) {
@@ -1010,6 +1052,7 @@ async function handleGpio(
 	store: ConfigStore,
 	gpio: GpioController | undefined,
 	gpioStream?: { publish(): void },
+	proxy?: ArduinoProxyController,
 ): Promise<Response> {
 	if (!gpio) {
 		return json({ error: "gpio is unavailable" }, 503);
@@ -1022,6 +1065,20 @@ async function handleGpio(
 		const command = parseGpioWsCommand(parseJson(bodyText));
 		if (isGpioWsRefresh(command)) {
 			return json({ error: "refresh is websocket-only" }, 400);
+		}
+		if (command.target === "arduino-proxy") {
+			if (!proxy) {
+				return json({ error: "arduino-proxy is unavailable" }, 503);
+			}
+			if (isGpioBusCommand(command)) {
+				return json(proxy.bus(command));
+			}
+			const snapshot = proxy.apply(hardware, command);
+			gpioStream?.publish();
+			return json(snapshot);
+		}
+		if (isGpioBusCommand(command)) {
+			throw new GpioError("bus ops need arduino-proxy");
 		}
 		const snapshot = await gpio.apply(hardware, command);
 		gpioStream?.publish();
@@ -1057,7 +1114,48 @@ async function handleFlash(
 	if (method === "POST" && path === FLASH_PATH) {
 		return json(flash.start(parseJson(bodyText)));
 	}
+	if (method === "POST" && path === FLASH_PROXY_PATH) {
+		const put = bodyText.trim()
+			? parseFlashProxyPut(parseJson(bodyText))
+			: {};
+		const listed = await flash.ports();
+		const selected =
+			listed.ports.find((port) =>
+				put.port ? port.address === put.port : true,
+			) ?? listed.ports[0];
+		const fqbn = put.fqbn || selected?.fqbn;
+		const port = put.port || selected?.address;
+		if (!fqbn || !port) {
+			throw new ArduinoProxyError("no arduino connected");
+		}
+		if (!isArduinoProxyFqbn(fqbn)) {
+			throw new ArduinoProxyError(`unsupported fqbn ${fqbn}`);
+		}
+		extras?.console?.stopUsb();
+		extras?.proxy?.release();
+		return json(
+			flash.start({
+				fqbn,
+				port,
+				dir: resolveArduinoProxyDir(),
+			}),
+		);
+	}
 	return json({ error: "method not allowed" }, 405);
+}
+
+function handleArduinoProxy(
+	method: string,
+	extras: DeviceRequestExtras | undefined,
+): Response {
+	if (method !== "GET") {
+		return json({ error: "method not allowed" }, 405);
+	}
+	const proxy = extras?.proxy;
+	if (!proxy) {
+		return json({ error: "arduino-proxy is unavailable" }, 503);
+	}
+	return json(proxy.status());
 }
 
 function handleRun(

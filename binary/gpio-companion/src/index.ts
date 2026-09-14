@@ -9,6 +9,7 @@ import {
 	VERSION,
 } from "gpio-companion";
 import { startBleBridge } from "./ble.ts";
+import { createArduinoProxy } from "./arduino-proxy.ts";
 import { createArduinoFlash } from "./flash.ts";
 import {
 	fetchGithubCredentials,
@@ -91,8 +92,18 @@ const deviceAuth = loadDeviceAuth();
 
 const t3 = liveT3Controller();
 const gpio = createLibgpiodGpio();
-const flash = createArduinoFlash();
-const run = createHostRun({ hardware, gpio });
+const proxy = createArduinoProxy();
+const flash = createArduinoFlash({
+	beforeUpload: () => {
+		proxy.release();
+	},
+	afterUpload: (job, result) => {
+		if (result.ok && job.port) {
+			void proxy.attach(job.port, job.fqbn).catch(() => undefined);
+		}
+	},
+});
+const run = createHostRun({ hardware, gpio, proxy });
 const githubCredentials = async () => {
 	const state = await pairing.read();
 	const creds = await fetchGithubCredentials({
@@ -137,6 +148,7 @@ const server = startDeviceApi({
 	gpio,
 	flash,
 	run,
+	proxy,
 	revokeT3: () => t3.revoke(),
 	deviceAuth,
 	githubCredentials,
@@ -174,8 +186,15 @@ startHubClient({
 	gpio,
 	flash,
 	run,
+	proxy,
 	t3,
 });
+void proxy.probe();
+setInterval(() => {
+	if (!proxy.status().connected) {
+		void proxy.probe();
+	}
+}, 4_000);
 
 console.log(
 	`gpio-companion device API on http://${server.hostname}:${server.port}`,

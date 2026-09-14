@@ -1,16 +1,20 @@
 import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { basename } from "node:path";
 import {
+	type ArduinoProxyStatus,
 	capRunLog,
 	type GpioSnapshot,
 	type HardwareId,
+	isArduinoProxySketchName,
 	parseRunPut,
 	RunError,
 	type RunPut,
 	type RunResult,
 	type RunStatus,
 } from "gpio-companion";
+import type { ArduinoProxyController } from "./arduino-proxy.ts";
 import type { GpioController } from "./gpio.ts";
 
 export type RunController = {
@@ -22,12 +26,14 @@ export type RunController = {
 export type HostRunOptions = {
 	hardware: HardwareId | (() => HardwareId | Promise<HardwareId>);
 	gpio?: GpioController;
+	proxy?: ArduinoProxyController;
 	hostDir?: string;
 	compileAndRun?: (job: {
 		dir: string;
 		pinmapPath: string;
 		outPath: string;
 		hostDir: string;
+		proxy?: boolean;
 	}) => Promise<{ ok: boolean; log: string; proc?: RunProcess }>;
 	hasSketch?: (dir: string) => boolean;
 	onLog?: (chunk: string) => void;
@@ -182,19 +188,27 @@ async function runJob(
 	mkdirSync(work, { recursive: true });
 	const pinmapPath = join(work, "pins.txt");
 	const outPath = join(work, "sketch");
-	if (options.gpio?.releaseAll) {
+	const proxySketch = isArduinoProxySketchName(basename(put.dir));
+	if (proxySketch) {
+		const proxy = options.proxy;
+		if (!proxy?.status().connected) {
+			throw new RunError("arduino-proxy not connected");
+		}
+		proxy.release();
+		writeFileSync(pinmapPath, formatProxyPinmap(proxy.status()));
+	} else if (options.gpio?.releaseAll) {
 		await options.gpio.releaseAll();
 	}
 	const hardware =
 		typeof options.hardware === "function"
 			? await options.hardware()
 			: options.hardware;
-	if (options.gpio) {
+	if (!proxySketch && options.gpio) {
 		writeFileSync(
 			pinmapPath,
 			formatPinmap(await options.gpio.snapshot(hardware)),
 		);
-	} else {
+	} else if (!proxySketch) {
 		writeFileSync(pinmapPath, `hardware ${hardware}\n`);
 	}
 	const compile = options.compileAndRun ?? liveCompileAndRun;
@@ -203,6 +217,7 @@ async function runJob(
 		pinmapPath,
 		outPath,
 		hostDir,
+		proxy: proxySketch,
 	});
 	if (!result.ok || !result.proc) {
 		return {
@@ -234,11 +249,13 @@ async function liveCompileAndRun(job: {
 	pinmapPath: string;
 	outPath: string;
 	hostDir: string;
+	proxy?: boolean;
 }): Promise<{ ok: boolean; log: string; proc?: RunProcess }> {
 	const sketches = sketchFiles(job.dir);
 	if (!sketches.length) {
 		return { ok: false, log: "dir needs a .c or .ino sketch" };
 	}
+	const shim = job.proxy ? "arduino-proxy.c" : "arduino.c";
 	const compile = await spawnResult(
 		[
 			"gcc",
@@ -250,12 +267,11 @@ async function liveCompileAndRun(job: {
 			"-o",
 			job.outPath,
 			join(job.hostDir, "main.c"),
-			join(job.hostDir, "arduino.c"),
+			join(job.hostDir, shim),
 			"-x",
 			"c",
 			...sketches,
-			"-lgpiod",
-			"-lpthread",
+			...(job.proxy ? ["-lpthread"] : ["-lgpiod", "-lpthread"]),
 		],
 		COMPILE_MS,
 	);
@@ -295,6 +311,28 @@ export function formatPinmap(snapshot: GpioSnapshot): string {
 		}
 		const adc = pin.adc !== undefined ? " adc" : "";
 		lines.push(`${pin.physical} gpio ${pin.chip} ${pin.line}${adc}`);
+	}
+	return `${lines.join("\n")}\n`;
+}
+
+export function formatProxyPinmap(status: ArduinoProxyStatus): string {
+	const lines = [
+		"target arduino-proxy",
+		`port ${status.port ?? ""}`,
+		`baud ${status.baud ?? 57600}`,
+	];
+	for (const pin of status.pins) {
+		if (pin.reserved) {
+			lines.push(`${pin.physical} reserved`);
+			continue;
+		}
+		const flags = [
+			pin.adc !== undefined ? "adc" : "",
+			pin.alt?.includes("PWM") ? "pwm" : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+		lines.push(`${pin.physical} gpio ${flags}`.trim());
 	}
 	return `${lines.join("\n")}\n`;
 }

@@ -33,6 +33,13 @@ describe("hub protocol", () => {
 		expect(parseHubMessage("{")).toBeNull();
 		expect(parseHubMessage({ v: 2, type: "gpio" })).toBeNull();
 		expect(parseHubMessage({ v: 1, type: "secret" })).toBeNull();
+		expect(
+			parseHubMessage({
+				v: 1,
+				type: "arduinoProxy",
+				payload: { connected: true },
+			})?.type,
+		).toBe("arduinoProxy");
 	});
 
 	test("narrows channel payloads", () => {

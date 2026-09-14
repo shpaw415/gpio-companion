@@ -45,6 +45,7 @@ export const PUT = wrapAction(async function PUT(input: {
 	analog?: number;
 	op?: string;
 	hz?: number;
+	target?: string;
 }) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);

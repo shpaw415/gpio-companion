@@ -2,11 +2,14 @@ import {
 	GPIO_MAX_SOCKETS,
 	GPIO_STREAM_MS,
 	type GpioSnapshot,
+	type GpioTarget,
 	gpioPatchFrame,
 	type HardwareId,
+	isGpioBusCommand,
 	isGpioWsRefresh,
 	parseGpioWsCommand,
 } from "gpio-companion";
+import type { ArduinoProxyController } from "./arduino-proxy.ts";
 import type { GpioController } from "./gpio.ts";
 
 export type GpioStreamSocket = {
@@ -17,6 +20,7 @@ export type GpioStreamSocket = {
 export function createGpioStream(options: {
 	gpio: GpioController;
 	hardware: () => Promise<HardwareId>;
+	proxy?: ArduinoProxyController;
 	intervalMs?: number;
 }): {
 	add(ws: GpioStreamSocket): void;
@@ -25,19 +29,21 @@ export function createGpioStream(options: {
 	handle(ws: GpioStreamSocket, data: string): Promise<void>;
 } {
 	const sockets = new Set<GpioStreamSocket>();
+	const targets = new Map<GpioStreamSocket, GpioTarget>();
 	const intervalMs = options.intervalMs ?? GPIO_STREAM_MS;
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let lastSnapshot: GpioSnapshot | null = null;
 	let busy = false;
 
-	function sendAll(payload: string) {
-		for (const ws of sockets) {
-			try {
-				ws.send(payload);
-			} catch {
-				sockets.delete(ws);
+	async function snapshotFor(target: GpioTarget): Promise<GpioSnapshot> {
+		const hardware = await options.hardware();
+		if (target === "arduino-proxy") {
+			if (!options.proxy) {
+				throw new Error("arduino-proxy is unavailable");
 			}
+			return options.proxy.snapshot(hardware);
 		}
+		return options.gpio.snapshot(hardware);
 	}
 
 	async function broadcast(forceFull = false) {
@@ -46,13 +52,23 @@ export function createGpioStream(options: {
 		}
 		busy = true;
 		try {
-			const next = await options.gpio.snapshot(await options.hardware());
-			const frame = forceFull ? next : gpioPatchFrame(lastSnapshot, next);
-			lastSnapshot = next;
-			if (!frame) {
-				return;
+			const header = await snapshotFor("header");
+			lastSnapshot = header;
+			for (const ws of sockets) {
+				const target = targets.get(ws) ?? "header";
+				const next =
+					target === "arduino-proxy" ? await snapshotFor(target) : header;
+				const frame = forceFull ? next : gpioPatchFrame(null, next);
+				if (!frame) {
+					continue;
+				}
+				try {
+					ws.send(JSON.stringify(frame));
+				} catch {
+					sockets.delete(ws);
+					targets.delete(ws);
+				}
 			}
-			sendAll(JSON.stringify(frame));
 		} catch {
 			undefined;
 		} finally {
@@ -71,11 +87,17 @@ export function createGpioStream(options: {
 		if (!sockets.has(ws)) {
 			return;
 		}
-		if (lastSnapshot) {
+		const target = targets.get(ws) ?? "header";
+		const snapshot =
+			target === "header" && lastSnapshot
+				? lastSnapshot
+				: await snapshotFor(target).catch(() => lastSnapshot);
+		if (snapshot) {
 			try {
-				ws.send(JSON.stringify(lastSnapshot));
+				ws.send(JSON.stringify(snapshot));
 			} catch {
 				sockets.delete(ws);
+				targets.delete(ws);
 			}
 			return;
 		}
@@ -106,11 +128,13 @@ export function createGpioStream(options: {
 				return;
 			}
 			sockets.add(ws);
+			targets.set(ws, "header");
 			startTimer();
 			void pushFull(ws);
 		},
 		remove(ws) {
 			sockets.delete(ws);
+			targets.delete(ws);
 			if (sockets.size === 0) {
 				stopTimer();
 				lastSnapshot = null;
@@ -122,10 +146,30 @@ export function createGpioStream(options: {
 		async handle(ws, data) {
 			try {
 				const command = parseGpioWsCommand(JSON.parse(data));
-				if (!isGpioWsRefresh(command)) {
-					await options.gpio.apply(await options.hardware(), command);
+				const target = command.target ?? targets.get(ws) ?? "header";
+				targets.set(ws, target);
+				if (isGpioWsRefresh(command)) {
+					await pushFull(ws);
+					return;
 				}
-				await broadcast(isGpioWsRefresh(command));
+				const hardware = await options.hardware();
+				if (target === "arduino-proxy") {
+					if (!options.proxy) {
+						throw new Error("arduino-proxy is unavailable");
+					}
+					if (isGpioBusCommand(command)) {
+						options.proxy.bus(command);
+					} else {
+						options.proxy.apply(hardware, command);
+					}
+					await pushFull(ws);
+					return;
+				}
+				if (isGpioBusCommand(command)) {
+					throw new Error("bus ops need arduino-proxy");
+				}
+				await options.gpio.apply(hardware, command);
+				await broadcast(false);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "gpio failed";
 				try {

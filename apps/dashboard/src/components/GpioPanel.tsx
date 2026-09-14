@@ -15,6 +15,7 @@ import {
 	type GpioApply,
 	type GpioPinState,
 	type GpioSnapshot,
+	type GpioTarget,
 	gpioLiveValues,
 	gpioPinStatusLabel,
 } from "gpio-companion";
@@ -28,6 +29,7 @@ import {
 	bluetoothSupported,
 	connectGpioCompanionBle,
 } from "../lib/web-bluetooth.ts";
+import ArduinoProxyPins from "./ArduinoProxyPins.tsx";
 import CopyBlock from "./CopyBlock.tsx";
 import GpioHeader from "./GpioHeader.tsx";
 
@@ -48,6 +50,7 @@ export default function GpioPanel({
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
 	const [selected, setSelected] = useState<number | undefined>();
+	const [target, setTarget] = useState<GpioTarget>("header");
 	const [pasteText, setPasteText] = useState("");
 	const livePinsRef = useRef("");
 	const snapshotRef = useRef<GpioSnapshot | null>(null);
@@ -95,19 +98,21 @@ export default function GpioPanel({
 	const selectedPin = pins.find((pin) => pin.physical === selected);
 
 	function drive(command: GpioApply) {
+		const next =
+			target === "arduino-proxy" ? { ...command, target } : command;
 		const current = snapshotRef.current;
 		if (current) {
-			applySnapshot(applyGpioApply(current, command));
+			applySnapshot(applyGpioApply(current, next));
 		}
 		if (poll) {
 			setError("");
-			if (!tunnel.drive(command)) {
+			if (!tunnel.drive(next)) {
 				setError("live gpio websocket is not connected");
 			}
 			return;
 		}
 		start(async () => {
-			applySnapshot(unwrapAction(await putGpio({ uuid, ...command })));
+			applySnapshot(unwrapAction(await putGpio({ uuid, ...next })));
 		});
 	}
 
@@ -140,9 +145,39 @@ export default function GpioPanel({
 				</Typography>
 			) : null}
 			{poll ? (
+				<Stack direction="row" spacing={1} className="flex-wrap">
+					<Button
+						type="button"
+						size="small"
+						variant={target === "header" ? "contained" : "outlined"}
+						onClick={() => {
+							setTarget("header");
+							setSelected(undefined);
+							tunnel.refresh("header");
+						}}
+					>
+						Companion
+					</Button>
+					<Button
+						type="button"
+						size="small"
+						variant={target === "arduino-proxy" ? "contained" : "outlined"}
+						onClick={() => {
+							setTarget("arduino-proxy");
+							setSelected(undefined);
+							tunnel.refresh("arduino-proxy");
+						}}
+					>
+						Arduino
+					</Button>
+				</Stack>
+			) : null}
+			{poll ? (
 				<Typography variant="body2" color="secondary">
 					{snapshot
-						? "Tap a GPIO pin, then set In, high, or low."
+						? target === "arduino-proxy"
+							? "Arduino proxy pins. 5V AVR boards must not jumper to the 3.3V header."
+							: "Tap a GPIO pin, then set In, high, or low."
 						: "Waiting for live pin state from the board."}
 				</Typography>
 			) : null}
@@ -155,7 +190,7 @@ export default function GpioPanel({
 					onClick={() => {
 						if (poll) {
 							setError("");
-							if (!tunnel.refresh()) {
+							if (!tunnel.refresh(target)) {
 								setError("live gpio websocket is not connected");
 							}
 							return;
@@ -203,13 +238,22 @@ export default function GpioPanel({
 				</>
 			) : null}
 			{poll || snapshot ? (
-				<GpioHeader
-					pins={pins}
-					busy={busy}
-					interactive={Boolean(snapshot)}
-					selected={selected}
-					onSelect={(pin) => setSelected(pin.physical)}
-				/>
+				target === "arduino-proxy" ? (
+					<ArduinoProxyPins
+						pins={pins}
+						busy={busy}
+						selected={selected}
+						onSelect={(pin) => setSelected(pin.physical)}
+					/>
+				) : (
+					<GpioHeader
+						pins={pins}
+						busy={busy}
+						interactive={Boolean(snapshot)}
+						selected={selected}
+						onSelect={(pin) => setSelected(pin.physical)}
+					/>
+				)
 			) : (
 				<Typography color="secondary" variant="body2">
 					Load GPIO to see live pin status.
@@ -226,6 +270,7 @@ export default function GpioPanel({
 							physical,
 							dir: "pwm",
 							analog,
+							...(target === "arduino-proxy" ? { target } : {}),
 						};
 						const current = snapshotRef.current;
 						if (current) {

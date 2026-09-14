@@ -5,6 +5,7 @@ import {
 	type BoardSketchKind,
 	FIRMWARE_SKETCH_DIR,
 	HOST_SKETCH_DIR,
+	isArduinoProxySketchName,
 	PROJECT_FILE_DIRS,
 	SKETCH_LIST_MAX,
 	sketchKindDir,
@@ -85,7 +86,11 @@ function pushIfSketch(
 	if (!files.length) {
 		return;
 	}
-	sketches.push({ project, name, dir, files });
+	const sketch: BoardSketch = { project, name, dir, files };
+	if (isArduinoProxySketchName(name)) {
+		sketch.target = "arduino-proxy";
+	}
+	sketches.push(sketch);
 }
 
 function sketchBasenames(dir: string): string[] {

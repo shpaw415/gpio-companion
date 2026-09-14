@@ -9,6 +9,7 @@ import type { ActionResult } from "../lib/action.ts";
 import { deviceDisplayName, type StoredPairing } from "../lib/pairing-store.ts";
 import DeviceCompanionInfo from "./DeviceCompanionInfo.tsx";
 import DeviceLabelField from "./DeviceLabelField.tsx";
+import FlashProxyButton from "./FlashProxyButton.tsx";
 import GpioPanel from "./GpioPanel.tsx";
 import T3PairingPanel from "./T3PairingPanel.tsx";
 
@@ -149,6 +150,7 @@ export default function DeviceBoardCard({
 						loadInfo={loadInfo}
 					/>
 				) : null}
+				<FlashProxyButton uuid={device.uuid} connected={online} />
 				{isEasy ? null : <GpioPanel uuid={device.uuid} connected={online} />}
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{isEasy ? (
