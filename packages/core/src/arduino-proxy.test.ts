@@ -65,8 +65,8 @@ describe("arduino proxy boards", () => {
 			throw new Error("missing uno");
 		}
 		const layout = arduinoProxyHeaderLayout(arduinoProxyPins(uno), "uno");
-		expect(layout.right[0]).toEqual({ kind: "gpio", physical: 0 });
-		expect(layout.right[13]).toEqual({ kind: "gpio", physical: 13 });
+		expect(layout.right[0]).toEqual({ kind: "gpio", physical: 13 });
+		expect(layout.right[13]).toEqual({ kind: "gpio", physical: 0 });
 		expect(layout.left.some((seat) => seat.kind === "gpio" && seat.physical === 14)).toBe(
 			true,
 		);

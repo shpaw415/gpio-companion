@@ -21,7 +21,8 @@ const GAP: ArduinoLayoutSeat = { kind: "gap" };
 
 function range(start: number, end: number): ArduinoLayoutSeat[] {
 	const seats: ArduinoLayoutSeat[] = [];
-	for (let pin = start; pin <= end; pin++) {
+	const step = start <= end ? 1 : -1;
+	for (let pin = start; pin !== end + step; pin += step) {
 		seats.push(gpio(pin));
 	}
 	return seats;
@@ -40,7 +41,7 @@ const LAYOUTS: Record<string, { left: ArduinoLayoutSeat[]; right: ArduinoLayoutS
 				label("VIN"),
 				...range(14, 19),
 			],
-			right: range(0, 13),
+			right: range(13, 0),
 		},
 		nano: {
 			left: [
@@ -102,7 +103,7 @@ const LAYOUTS: Record<string, { left: ArduinoLayoutSeat[]; right: ArduinoLayoutS
 		},
 		mega: {
 			left: [...range(54, 69)],
-			right: range(0, 13),
+			right: range(13, 0),
 		},
 		mkrwifi1010: {
 			left: [label("AREF"), ...range(15, 21)],
@@ -114,7 +115,7 @@ const LAYOUTS: Record<string, { left: ArduinoLayoutSeat[]; right: ArduinoLayoutS
 		},
 		mzero: {
 			left: [...range(14, 19)],
-			right: range(0, 13),
+			right: range(13, 0),
 		},
 	};
 
