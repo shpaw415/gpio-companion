@@ -17,6 +17,7 @@ import { arduinoProxyHeaderLayout } from "./arduino-proxy-layout.ts";
 import { FLASH_PROXY_PATH } from "./flash.ts";
 import {
 	encodeCapabilityQuery,
+	encodeAnalogWrite,
 	encodeDigitalPin,
 	encodeQueryFirmware,
 	encodeSetPinMode,
@@ -112,7 +113,9 @@ describe("firmata", () => {
 		expect([...encodeQueryFirmware()]).toEqual([0xf0, 0x79, 0xf7]);
 		expect([...encodeCapabilityQuery()]).toEqual([0xf0, 0x6c, 0xf7]);
 		expect([...encodeSetPinMode(13, "output")]).toEqual([0xf4, 13, 1]);
+		expect([...encodeSetPinMode(9, "pwm")]).toEqual([0xf4, 9, 3]);
 		expect([...encodeDigitalPin(13, 1)]).toEqual([0xf5, 13, 1]);
+		expect([...encodeAnalogWrite(9, 64)]).toEqual([0xe9, 64, 0]);
 	});
 
 	test("parses firmware and capability sysex", () => {

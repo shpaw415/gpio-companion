@@ -180,6 +180,9 @@ export function createArduinoProxy(
 					if (Math.floor(pin.physical / 8) !== port) {
 						return pin;
 					}
+					if (pin.dir === "pwm") {
+						return pin;
+					}
 					const bit = pin.physical % 8;
 					const value = ((bits >> bit) & 1) as 0 | 1;
 					return { ...pin, value };

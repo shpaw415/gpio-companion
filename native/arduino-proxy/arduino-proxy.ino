@@ -38,6 +38,7 @@
 #endif
 
 static uint8_t pinModeStored[128];
+static uint8_t pinAnalog[128];
 static uint8_t reportDigital[16];
 static uint8_t reportAnalog[16];
 static int analogMap[16];
@@ -92,6 +93,9 @@ static void applyMode(uint8_t pin, uint8_t mode) {
 		return;
 	}
 	pinModeStored[pin] = mode;
+	if (mode != MODE_PWM) {
+		pinAnalog[pin] = 0;
+	}
 	if (mode == MODE_OUTPUT || mode == MODE_PWM) {
 		pinMode(pin, OUTPUT);
 	} else if (mode == MODE_PULLUP) {
@@ -200,11 +204,22 @@ static void handleByte(uint8_t value) {
 		if (cmd == SET_PIN_MODE) {
 			applyMode(stored, value);
 		} else if (cmd == SET_DIGITAL_PIN) {
+			if (stored < NUM_DIGITAL_PINS) {
+				pinModeStored[stored] = MODE_OUTPUT;
+				pinAnalog[stored] = 0;
+			}
 			digitalWrite(stored, value ? HIGH : LOW);
 		} else if ((cmd & 0xF0) == ANALOG_MESSAGE) {
 			uint8_t pin = cmd & 0x0F;
 			int analog = stored | ((value & 0x7f) << 7);
-			analogWrite(pin, analog > 255 ? 255 : analog);
+			if (analog > 255) {
+				analog = 255;
+			}
+			if (pin < NUM_DIGITAL_PINS) {
+				pinModeStored[pin] = MODE_PWM;
+				pinAnalog[pin] = (uint8_t)analog;
+			}
+			analogWrite(pin, analog);
 		}
 		wait = 0;
 		return;
@@ -266,7 +281,16 @@ void loop() {
 		uint16_t bits = 0;
 		for (uint8_t bit = 0; bit < 8; bit++) {
 			uint8_t pin = port * 8 + bit;
-			if (pin < NUM_DIGITAL_PINS && digitalRead(pin)) {
+			if (pin >= NUM_DIGITAL_PINS) {
+				continue;
+			}
+			if (pinModeStored[pin] == MODE_PWM) {
+				if (pinAnalog[pin] >= 128) {
+					bits |= (1 << bit);
+				}
+				continue;
+			}
+			if (digitalRead(pin)) {
 				bits |= (1 << bit);
 			}
 		}

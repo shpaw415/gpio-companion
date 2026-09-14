@@ -70,6 +70,46 @@ describe("live handshake", () => {
 		expect(status.board).toBe("uno");
 		expect(writes).toBeGreaterThanOrEqual(2);
 	});
+
+	test("pwm analogWrite is not clobbered by digital reports", async () => {
+		let onData: (bytes: Uint8Array) => void = () => undefined;
+		const writes: number[][] = [];
+		const proxy = createArduinoProxy({
+			probeMs: 200,
+			openSerial: (_port, _baud, data) => {
+				onData = data;
+				return {
+					write(bytes) {
+						writes.push([...bytes]);
+						onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		const snapshot = proxy.apply("orangepi", {
+			physical: 9,
+			dir: "pwm",
+			analog: 64,
+		});
+		expect(snapshot.pins.find((pin) => pin.physical === 9)).toMatchObject({
+			dir: "pwm",
+			analog: 64,
+		});
+		expect(writes.some((item) => item[0] === 0xf4 && item[1] === 9 && item[2] === 3)).toBe(
+			true,
+		);
+		expect(writes.some((item) => item[0] === 0xe9 && item[1] === 64 && item[2] === 0)).toBe(
+			true,
+		);
+		onData(Uint8Array.from([0x91, 0, 0]));
+		const pin = proxy.status().pins.find((item) => item.physical === 9);
+		expect(pin?.dir).toBe("pwm");
+		expect(pin?.analog).toBe(64);
+	});
 });
 
 describe("listUsbSerialPorts", () => {
