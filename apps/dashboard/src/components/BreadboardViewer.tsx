@@ -204,7 +204,10 @@ function DiagramBoard({
 			<ZoomSurface camera={camera} expanded={expanded}>
 				<div
 					className="relative"
-					style={{ width: bounds.width, height: bounds.height }}
+					style={{
+						width: bounds.width * camera.view.scale,
+						height: bounds.height * camera.view.scale,
+					}}
 				>
 					{diagram.parts.map((part) =>
 						part.hide
@@ -224,15 +227,17 @@ function DiagramBoard({
 										}
 									},
 									() => selectPart(part.id),
+									camera.view.scale,
 								),
 					)}
 					<svg
 						aria-label="Breadboard wiring"
-						className="pointer-events-none absolute inset-0"
-						height={bounds.height}
+						className="pointer-events-none absolute left-0 top-0"
+						height={bounds.height * camera.view.scale}
 						key={elementsReady}
 						role="img"
-						width={bounds.width}
+						viewBox={`0 0 ${bounds.width} ${bounds.height}`}
+						width={bounds.width * camera.view.scale}
 					>
 						<title>Breadboard wiring</title>
 						{diagram.connections.map((connection) => {
@@ -333,7 +338,7 @@ function PreviewBoard({ previewUrl }: { previewUrl: string }) {
 			<ZoomSurface camera={camera} expanded={expanded}>
 				<img
 					alt="Breadboard preview"
-					height={natural.height}
+					height={natural.height * camera.view.scale}
 					onLoad={(event) => {
 						const image = event.currentTarget;
 						if (image.naturalWidth > 0 && image.naturalHeight > 0) {
@@ -344,7 +349,7 @@ function PreviewBoard({ previewUrl }: { previewUrl: string }) {
 						}
 					}}
 					src={previewUrl}
-					width={natural.width}
+					width={natural.width * camera.view.scale}
 				/>
 			</ZoomSurface>
 		</BoardShell>
@@ -478,7 +483,7 @@ function ZoomSurface({
 		>
 			<div
 				style={{
-					transform: `translate(${camera.view.x}px, ${camera.view.y}px) scale(${camera.view.scale})`,
+					transform: `translate(${camera.view.x}px, ${camera.view.y}px)`,
 					transformOrigin: "0 0",
 					width: "max-content",
 				}}
@@ -698,12 +703,13 @@ function renderPart(
 	el: HTMLElement | undefined,
 	ref: (el: HTMLElement | null) => void,
 	onSelect: () => void,
+	scale: number,
 ) {
 	const placement = snapPartPlacement(part, diagram, elementPins(el));
 	const style: CSSProperties = {
 		position: "absolute",
-		left: placement.origin.x,
-		top: placement.origin.y,
+		left: placement.origin.x * scale,
+		top: placement.origin.y * scale,
 		transform: placement.rotate ? `rotate(${placement.rotate}deg)` : undefined,
 		transformOrigin: "top left",
 		opacity: hot ? 1 : 0.35,
@@ -712,7 +718,7 @@ function renderPart(
 	if (isBreadboardType(part.type)) {
 		return (
 			<div key={part.id} style={style}>
-				<BreadboardSvg type={part.type} />
+				<BreadboardSvg scale={scale} type={part.type} />
 			</div>
 		);
 	}
@@ -728,33 +734,41 @@ function renderPart(
 				type="button"
 			>
 				<HeaderSvg
-					hardware={part.attrs?.hardware ?? "raspberrypi"}
 					boardModel={boardModel}
+					hardware={part.attrs?.hardware ?? "raspberrypi"}
 					livePins={livePins}
+					scale={scale}
 				/>
 			</button>
 		);
 	}
 	return (
-		<button
-			key={part.id}
-			onClick={(event) => {
-				event.stopPropagation();
-				onSelect();
-			}}
-			style={{ ...style, border: 0, background: "transparent", padding: 0 }}
-			type="button"
-		>
-			{createElement(part.type, {
-				ref,
-				id: part.id,
-				...part.attrs,
-			})}
-		</button>
+		<div key={part.id} style={style}>
+			<button
+				onClick={(event) => {
+					event.stopPropagation();
+					onSelect();
+				}}
+				style={{
+					border: 0,
+					background: "transparent",
+					padding: 0,
+					cursor: "pointer",
+					zoom: scale,
+				}}
+				type="button"
+			>
+				{createElement(part.type, {
+					ref,
+					id: part.id,
+					...part.attrs,
+				})}
+			</button>
+		</div>
 	);
 }
 
-function BreadboardSvg({ type }: { type: string }) {
+function BreadboardSvg({ type, scale = 1 }: { type: string; scale?: number }) {
 	const { width, height } = breadboardSize(type);
 	const rows = breadboardRows(type);
 	const holes: Point[] = [];
@@ -775,10 +789,10 @@ function BreadboardSvg({ type }: { type: string }) {
 	return (
 		<svg
 			aria-label="Breadboard"
-			height={height}
+			height={height * scale}
 			role="img"
 			viewBox={`0 0 ${width} ${height}`}
-			width={width}
+			width={width * scale}
 		>
 			<title>Breadboard</title>
 			<rect width={width} height={height} fill="#d6c7a1" rx={6} />
@@ -930,20 +944,22 @@ function HeaderSvg({
 	hardware,
 	boardModel,
 	livePins,
+	scale = 1,
 }: {
 	hardware: string;
 	boardModel?: string | null;
 	livePins?: Record<number, 0 | 1>;
+	scale?: number;
 }) {
 	const pins = headerDefs(hardware, boardModel);
 	const { width, height } = headerSize(pins.length);
 	return (
 		<svg
 			aria-label={`${hardware} GPIO header`}
-			height={height}
+			height={height * scale}
 			role="img"
 			viewBox={`0 0 ${width} ${height}`}
-			width={width}
+			width={width * scale}
 		>
 			<title>{hardware} GPIO header</title>
 			<rect width={width} height={height} fill="#111827" rx={4} />
