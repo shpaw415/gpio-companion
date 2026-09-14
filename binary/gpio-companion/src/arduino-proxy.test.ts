@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
-import { memoryArduinoProxy } from "./arduino-proxy.ts";
+import { listUsbSerialPorts, memoryArduinoProxy } from "./arduino-proxy.ts";
 import { memoryFlash } from "./flash.ts";
 import { filePairingStore } from "./pairing.ts";
 import { formatProxyPinmap, memoryRun } from "./run.ts";
@@ -36,6 +37,20 @@ describe("memory arduino proxy", () => {
 		expect(status.connected).toBe(true);
 		expect(status.board).toBe("mega");
 		expect(status.pins.some((pin) => pin.physical === 54)).toBe(true);
+	});
+});
+
+describe("listUsbSerialPorts", () => {
+	test("finds ttyACM and ttyUSB only", () => {
+		const root = join(tmpdir(), `usb-serial-${Date.now()}`);
+		mkdirSync(root);
+		writeFileSync(join(root, "ttyACM0"), "");
+		writeFileSync(join(root, "ttyUSB1"), "");
+		writeFileSync(join(root, "ttyS0"), "");
+		expect(listUsbSerialPorts(root)).toEqual([
+			join(root, "ttyACM0"),
+			join(root, "ttyUSB1"),
+		]);
 	});
 });
 

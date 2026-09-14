@@ -92,9 +92,9 @@ export function createArduinoFlash(hooks?: {
 	return createFlashController({
 		beforeUpload: hooks?.beforeUpload,
 		afterUpload: hooks?.afterUpload,
-		listPorts: () =>
-			spawnText(["arduino-cli", "board", "list", "--format", "json"]),
+		listPorts: () => listArduinoBoardsCached(),
 		async compileAndUpload(job) {
+			invalidateArduinoBoardCache();
 			const coreLog = await ensureArduinoCore(job.fqbn);
 			const compile = await spawnResult([
 				"arduino-cli",
@@ -165,6 +165,37 @@ function assertSketchDir(
 	}
 }
 
+const BOARD_LIST_TTL_MS = 20_000;
+const BOARD_LIST_TIMEOUT_MS = 15_000;
+let boardListCache: { at: number; json: string } | null = null;
+let boardListInflight: Promise<string> | null = null;
+
+export function invalidateArduinoBoardCache(): void {
+	boardListCache = null;
+}
+
+async function listArduinoBoardsCached(): Promise<string> {
+	if (boardListCache && Date.now() - boardListCache.at < BOARD_LIST_TTL_MS) {
+		return boardListCache.json;
+	}
+	if (boardListInflight) {
+		return boardListInflight;
+	}
+	boardListInflight = spawnText(
+		["nice", "-n", "15", "arduino-cli", "board", "list", "--format", "json"],
+		BOARD_LIST_TIMEOUT_MS,
+	)
+		.then((json) => {
+			boardListCache = { at: Date.now(), json };
+			return json;
+		})
+		.catch(() => boardListCache?.json ?? '{"detected_ports":[]}')
+		.finally(() => {
+			boardListInflight = null;
+		});
+	return boardListInflight;
+}
+
 export async function ensureArduinoCore(fqbn: string): Promise<string> {
 	const core = arduinoCoreForFqbn(fqbn);
 	if (!core) {
@@ -220,8 +251,11 @@ function joinLogs(...parts: string[]): string {
 	return parts.filter((part) => part.trim().length > 0).join("\n").trim();
 }
 
-async function spawnText(cmd: string[]): Promise<string> {
-	const result = await spawnResult(cmd);
+async function spawnText(
+	cmd: string[],
+	timeoutMs?: number,
+): Promise<string> {
+	const result = await spawnResult(cmd, timeoutMs);
 	if (result.code !== 0) {
 		throw new FlashError(result.log || `${cmd[0]} failed`);
 	}
@@ -230,8 +264,13 @@ async function spawnText(cmd: string[]): Promise<string> {
 
 async function spawnResult(
 	cmd: string[],
+	timeoutMs?: number,
 ): Promise<{ code: number; log: string }> {
-	const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+	const proc = Bun.spawn(cmd, {
+		stdout: "pipe",
+		stderr: "pipe",
+		timeout: timeoutMs,
+	});
 	const [stdout, stderr, code] = await Promise.all([
 		readPipe(proc.stdout),
 		readPipe(proc.stderr),

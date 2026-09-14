@@ -9,7 +9,7 @@ import {
 	VERSION,
 } from "gpio-companion";
 import { startBleBridge } from "./ble.ts";
-import { createArduinoProxy } from "./arduino-proxy.ts";
+import { createArduinoProxy, watchUsbSerialPorts } from "./arduino-proxy.ts";
 import { createArduinoFlash } from "./flash.ts";
 import {
 	fetchGithubCredentials,
@@ -190,11 +190,11 @@ startHubClient({
 	t3,
 });
 void proxy.probe();
-setInterval(() => {
+watchUsbSerialPorts(() => {
 	if (!proxy.status().connected) {
 		void proxy.probe();
 	}
-}, 4_000);
+});
 
 console.log(
 	`gpio-companion device API on http://${server.hostname}:${server.port}`,

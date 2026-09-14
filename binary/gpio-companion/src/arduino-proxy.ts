@@ -1,6 +1,12 @@
-import { createWriteStream, existsSync } from "node:fs";
-import { createReadStream, type ReadStream } from "node:fs";
-import type { WriteStream } from "node:fs";
+import {
+	createReadStream,
+	createWriteStream,
+	existsSync,
+	readdirSync,
+	type ReadStream,
+	watch,
+	type WriteStream,
+} from "node:fs";
 import { join } from "node:path";
 import {
 	type ArduinoProxyBoard,
@@ -59,6 +65,47 @@ export type ArduinoProxyOptions = {
 
 const PROBE_MS = 800;
 
+export function listUsbSerialPorts(devDir = "/dev"): string[] {
+	try {
+		return readdirSync(devDir)
+			.filter(
+				(name) => name.startsWith("ttyACM") || name.startsWith("ttyUSB"),
+			)
+			.map((name) => join(devDir, name))
+			.sort();
+	} catch {
+		return [];
+	}
+}
+
+export function watchUsbSerialPorts(
+	onChange: () => void,
+	options?: { intervalMs?: number; devDir?: string },
+): () => void {
+	const devDir = options?.devDir ?? "/dev";
+	const intervalMs = options?.intervalMs ?? 2_000;
+	let last = listUsbSerialPorts(devDir).join("\n");
+	function check() {
+		const next = listUsbSerialPorts(devDir).join("\n");
+		if (next === last) {
+			return;
+		}
+		last = next;
+		onChange();
+	}
+	const timer = setInterval(check, intervalMs);
+	let watcher: ReturnType<typeof watch> | null = null;
+	try {
+		watcher = watch(devDir, { persistent: false }, check);
+	} catch {
+		watcher = null;
+	}
+	return () => {
+		clearInterval(timer);
+		watcher?.close();
+	};
+}
+
 export function resolveArduinoProxyDir(): string {
 	const installed = "/usr/local/lib/gpio-companion/arduino-proxy";
 	const source = new URL(
@@ -76,6 +123,7 @@ export function createArduinoProxy(
 ): ArduinoProxyController {
 	let status = emptyArduinoProxyStatus();
 	let serial: ProxySerial | null = null;
+	let probing: Promise<ArduinoProxyStatus> | null = null;
 	const parser = createFirmataParser();
 	const listPorts =
 		options.listPorts ??
@@ -272,23 +320,35 @@ export function createArduinoProxy(
 			if (status.connected && serial) {
 				return status;
 			}
-			let ports: FlashPort[] = [];
-			try {
-				ports = parseArduinoBoardList(await listPorts());
-			} catch {
+			if (probing) {
+				return probing;
+			}
+			probing = (async () => {
+				let ports: FlashPort[] = [];
+				if (options.listPorts) {
+					try {
+						ports = parseArduinoBoardList(await listPorts());
+					} catch {
+						return status;
+					}
+				} else {
+					ports = listUsbSerialPorts().map((address) => ({ address }));
+				}
+				for (const port of ports) {
+					if (!port.address) {
+						continue;
+					}
+					try {
+						return await handshake(port.address, port.fqbn);
+					} catch {
+						continue;
+					}
+				}
 				return status;
-			}
-			for (const port of ports) {
-				if (!port.address) {
-					continue;
-				}
-				try {
-					return await handshake(port.address, port.fqbn);
-				} catch {
-					continue;
-				}
-			}
-			return status;
+			})().finally(() => {
+				probing = null;
+			});
+			return probing;
 		},
 	};
 }
