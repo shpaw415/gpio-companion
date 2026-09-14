@@ -210,7 +210,17 @@ export function startDeviceApi(options: ServeOptions) {
 						return;
 					}
 					if (job.dir === resolveArduinoProxyDir() && job.port) {
-						void proxy.attach(job.port, job.fqbn).catch(() => undefined);
+						const port = job.port;
+						const fqbn = job.fqbn;
+						void (async () => {
+							await Bun.sleep(400);
+							try {
+								await proxy.attach(port, fqbn);
+							} catch {
+								await Bun.sleep(1_500);
+								await proxy.attach(port, fqbn).catch(() => undefined);
+							}
+						})();
 						return;
 					}
 					if (job.port) {

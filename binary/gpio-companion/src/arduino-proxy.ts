@@ -18,6 +18,7 @@ import {
 	arduinoProxySnapshot,
 	createFirmataParser,
 	emptyArduinoProxyStatus,
+	encodeAnalogWrite,
 	encodeCapabilityQuery,
 	encodeDigitalPin,
 	encodeI2cRead,
@@ -39,6 +40,7 @@ import {
 export type ProxySerial = {
 	write(bytes: Uint8Array): void;
 	close(): void;
+	ready?: Promise<void>;
 };
 
 export type ArduinoProxyController = {
@@ -63,7 +65,8 @@ export type ArduinoProxyOptions = {
 	onChange?: (status: ArduinoProxyStatus) => void;
 };
 
-const PROBE_MS = 800;
+const PROBE_MS = 3_500;
+const QUERY_EVERY_MS = 250;
 
 export function listUsbSerialPorts(devDir = "/dev"): string[] {
 	try {
@@ -230,9 +233,16 @@ export function createArduinoProxy(
 				}
 			},
 		);
-		serial.write(encodeQueryFirmware());
-		serial.write(encodeCapabilityQuery());
-		await Bun.sleep(options.probeMs ?? PROBE_MS);
+		if (serial.ready) {
+			await serial.ready;
+		}
+		const probeMs = options.probeMs ?? PROBE_MS;
+		const deadline = Date.now() + probeMs;
+		while (!sawFirmware && Date.now() < deadline) {
+			serial.write(encodeQueryFirmware());
+			serial.write(encodeCapabilityQuery());
+			await Bun.sleep(Math.min(QUERY_EVERY_MS, Math.max(0, deadline - Date.now())));
+		}
 		if (!sawFirmware && !options.openSerial) {
 			disconnect();
 			throw new ArduinoProxyError("arduino-proxy not detected");
@@ -270,6 +280,9 @@ export function createArduinoProxy(
 				serial?.write(encodeDigitalPin(command.physical, 0));
 			} else if (command.dir === "pwm") {
 				serial?.write(encodeSetPinMode(command.physical, "pwm"));
+				serial?.write(
+					encodeAnalogWrite(command.physical, command.analog ?? 0),
+				);
 			} else if (command.dir === "in") {
 				serial?.write(encodeSetPinMode(command.physical, "input"));
 			} else {
@@ -476,6 +489,11 @@ function liveOpenSerial(
 	let closed = false;
 	let reader: ReadStream | null = null;
 	let writer: WriteStream | null = null;
+	const pending: Uint8Array[] = [];
+	let resolveReady: () => void = () => undefined;
+	const ready = new Promise<void>((resolve) => {
+		resolveReady = resolve;
+	});
 	void (async () => {
 		const proc = Bun.spawn(
 			[
@@ -489,12 +507,14 @@ function liveOpenSerial(
 				"raw",
 				"-echo",
 				"-icrnl",
+				"-hupcl",
 				"clocal",
 				"cread",
 			],
 			{ stdout: "pipe", stderr: "pipe" },
 		);
 		if ((await proc.exited) !== 0 || closed) {
+			resolveReady();
 			onClose();
 			return;
 		}
@@ -502,9 +522,15 @@ function liveOpenSerial(
 			reader = createReadStream(port);
 			writer = createWriteStream(port);
 		} catch {
+			resolveReady();
 			onClose();
 			return;
 		}
+		for (const bytes of pending) {
+			writer.write(Buffer.from(bytes));
+		}
+		pending.length = 0;
+		resolveReady();
 		reader.on("data", (buf: string | Buffer) => {
 			if (closed) {
 				return;
@@ -526,13 +552,19 @@ function liveOpenSerial(
 	})();
 	return {
 		write(bytes) {
-			writer?.write(Buffer.from(bytes));
+			if (writer) {
+				writer.write(Buffer.from(bytes));
+				return;
+			}
+			pending.push(bytes);
 		},
 		close() {
 			closed = true;
+			pending.length = 0;
 			reader?.destroy();
 			writer?.end();
 		},
+		ready,
 	};
 }
 

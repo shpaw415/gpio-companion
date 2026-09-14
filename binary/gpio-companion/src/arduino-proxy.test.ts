@@ -4,7 +4,11 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
-import { listUsbSerialPorts, memoryArduinoProxy } from "./arduino-proxy.ts";
+import {
+	createArduinoProxy,
+	listUsbSerialPorts,
+	memoryArduinoProxy,
+} from "./arduino-proxy.ts";
 import { memoryFlash } from "./flash.ts";
 import { filePairingStore } from "./pairing.ts";
 import { formatProxyPinmap, memoryRun } from "./run.ts";
@@ -37,6 +41,34 @@ describe("memory arduino proxy", () => {
 		expect(status.connected).toBe(true);
 		expect(status.board).toBe("mega");
 		expect(status.pins.some((pin) => pin.physical === 54)).toBe(true);
+	});
+});
+
+describe("live handshake", () => {
+	test("retries firmware query until the board answers", async () => {
+		let writes = 0;
+		let onData: (bytes: Uint8Array) => void = () => undefined;
+		const proxy = createArduinoProxy({
+			probeMs: 800,
+			openSerial: (_port, _baud, data) => {
+				onData = data;
+				return {
+					write() {
+						writes += 1;
+						if (writes >= 2) {
+							onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+						}
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		const status = await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		expect(status.connected).toBe(true);
+		expect(status.board).toBe("uno");
+		expect(writes).toBeGreaterThanOrEqual(2);
 	});
 });
 
