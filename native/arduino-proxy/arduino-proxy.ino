@@ -256,6 +256,9 @@ static void handleByte(uint8_t value) {
 void setup() {
 	Serial.begin(SERIAL_BAUD);
 	analogCount = 0;
+	for (uint8_t i = 0; i < 128; i++) {
+		pinModeStored[i] = 0xFF;
+	}
 	for (uint8_t i = 0; i < 16; i++) {
 		analogMap[i] = -1;
 	}
@@ -279,20 +282,27 @@ void loop() {
 	last = millis();
 	for (uint8_t port = 0; port < (NUM_DIGITAL_PINS + 7) / 8; port++) {
 		uint16_t bits = 0;
+		uint8_t any = 0;
 		for (uint8_t bit = 0; bit < 8; bit++) {
 			uint8_t pin = port * 8 + bit;
 			if (pin >= NUM_DIGITAL_PINS) {
 				continue;
 			}
-			if (pinModeStored[pin] == MODE_PWM) {
-				if (pinAnalog[pin] >= 128) {
-					bits |= (1 << bit);
-				}
+#if !defined(USBCON)
+			if (pin < 2) {
 				continue;
 			}
+#endif
+			if (pinModeStored[pin] != MODE_INPUT && pinModeStored[pin] != MODE_PULLUP) {
+				continue;
+			}
+			any = 1;
 			if (digitalRead(pin)) {
 				bits |= (1 << bit);
 			}
+		}
+		if (!any) {
+			continue;
 		}
 		Serial.write(DIGITAL_MESSAGE | port);
 		Serial.write(bits & 0x7f);

@@ -110,6 +110,35 @@ describe("live handshake", () => {
 		expect(pin?.dir).toBe("pwm");
 		expect(pin?.analog).toBe(64);
 	});
+
+	test("digital reports only update pins set to input", async () => {
+		let onData: (bytes: Uint8Array) => void = () => undefined;
+		const proxy = createArduinoProxy({
+			probeMs: 200,
+			openSerial: (_port, _baud, data) => {
+				onData = data;
+				return {
+					write() {
+						onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		onData(Uint8Array.from([0x90, 0x7f, 0x01]));
+		expect(proxy.status().pins.find((pin) => pin.physical === 2)?.value).toBeUndefined();
+		proxy.apply("orangepi", { physical: 2, dir: "in" });
+		onData(Uint8Array.from([0x90, 0x04, 0]));
+		expect(proxy.status().pins.find((pin) => pin.physical === 2)?.value).toBe(1);
+		expect(proxy.status().pins.find((pin) => pin.physical === 3)?.value).toBeUndefined();
+		proxy.apply("orangepi", { physical: 4, dir: "out", value: 1 });
+		onData(Uint8Array.from([0x90, 0, 0]));
+		expect(proxy.status().pins.find((pin) => pin.physical === 4)?.value).toBe(1);
+		expect(proxy.status().pins.find((pin) => pin.physical === 2)?.value).toBe(0);
+	});
 });
 
 describe("listUsbSerialPorts", () => {
