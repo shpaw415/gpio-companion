@@ -1,4 +1,10 @@
-import type { FlashStatus, GpioSnapshot, RunStatus, T3Status } from "./api";
+import type {
+	ArduinoProxyStatus,
+	FlashStatus,
+	GpioSnapshot,
+	RunStatus,
+	T3Status,
+} from "./api";
 
 const START_MS = 500;
 const MAX_MS = 10_000;
@@ -8,6 +14,7 @@ export type HubHandlers = {
 	onFlash?: (status: FlashStatus) => void;
 	onRun?: (status: RunStatus) => void;
 	onT3?: (status: T3Status) => void;
+	onArduinoProxy?: (status: ArduinoProxyStatus) => void;
 };
 
 type HubMessage = {
@@ -125,6 +132,19 @@ export function asRunStatus(payload: unknown): RunStatus | null {
 		return null;
 	}
 	if (typeof record.log !== "string") {
+		return null;
+	}
+	return record;
+}
+
+export function asArduinoProxyStatus(
+	payload: unknown,
+): ArduinoProxyStatus | null {
+	if (!payload || typeof payload !== "object") {
+		return null;
+	}
+	const record = payload as ArduinoProxyStatus;
+	if (typeof record.connected !== "boolean") {
 		return null;
 	}
 	return record;
@@ -326,6 +346,13 @@ export function startHubClient(options: {
 				const status = asHubT3Status(message.payload);
 				if (status) {
 					options.handlers.onT3?.(status);
+				}
+				return;
+			}
+			if (message.type === "arduinoProxy") {
+				const status = asArduinoProxyStatus(message.payload);
+				if (status) {
+					options.handlers.onArduinoProxy?.(status);
 				}
 			}
 		},

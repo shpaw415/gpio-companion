@@ -723,6 +723,34 @@ export function startFlash(input: {
 	return apiRequest<{ started: boolean }>("POST", "/api/mobile/flash", input);
 }
 
+export type ArduinoProxyStatus = {
+	connected: boolean;
+	protocol?: string;
+	port?: string;
+	fqbn?: string;
+	name?: string;
+	voltage?: string;
+};
+
+export function loadArduinoProxy(uuid: string) {
+	return apiRequest<ArduinoProxyStatus>(
+		"GET",
+		`/api/mobile/arduino-proxy?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function startFlashProxy(input: {
+	uuid: string;
+	fqbn?: string;
+	port?: string;
+}) {
+	return apiRequest<{ started: boolean }>(
+		"POST",
+		"/api/mobile/arduino-proxy",
+		input,
+	);
+}
+
 export type BoardSketch = {
 	project: string;
 	name: string;

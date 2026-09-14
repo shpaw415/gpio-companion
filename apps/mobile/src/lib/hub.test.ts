@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	asArduinoProxyStatus,
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
@@ -44,13 +45,18 @@ describe("hub protocol", () => {
 	test("parses gpio flash and t3 payloads", () => {
 		expect(parseHubMessage('{"v":1,"type":"gpio"}')?.type).toBe("gpio");
 		expect(parseHubMessage("{")).toBeNull();
-		expect(
-			asGpioSnapshot({ hardware: "orangepi", pins: [] })?.hardware,
-		).toBe("orangepi");
+		expect(asGpioSnapshot({ hardware: "orangepi", pins: [] })?.hardware).toBe(
+			"orangepi",
+		);
 		expect(asGpioSnapshot({ hardware: "x86", pins: [] })).toBeNull();
 		expect(asFlashStatus({ running: true, last: null })?.running).toBe(true);
 		expect(asHubT3Status({ paired: true })?.paired).toBe(true);
 		expect(asHubT3Status({})).toBeNull();
+		expect(parseHubMessage('{"v":1,"type":"arduinoProxy"}')?.type).toBe(
+			"arduinoProxy",
+		);
+		expect(asArduinoProxyStatus({ connected: true })?.connected).toBe(true);
+		expect(asArduinoProxyStatus({})).toBeNull();
 	});
 });
 

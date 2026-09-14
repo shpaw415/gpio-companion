@@ -8,6 +8,7 @@ import { useState } from "react";
 import { type BoardView, deviceDisplayName, patchDeviceLabel } from "../api";
 import { formatNetworkLabel } from "../device-info";
 import CompanionInfo from "./CompanionInfo";
+import FlashProxyButton from "./FlashProxyButton";
 import GpioPanel from "./GpioPanel";
 import T3Pairing from "./T3Pairing";
 
@@ -125,6 +126,7 @@ export default function BoardCard({
 				</Stack>
 				<T3Pairing uuid={device.uuid} initial={status?.t3} />
 				<CompanionInfo key={device.uuid} uuid={device.uuid} />
+				<FlashProxyButton uuid={device.uuid} connected={online} />
 				<GpioPanel
 					key={`${device.uuid}-gpio`}
 					uuid={device.uuid}
