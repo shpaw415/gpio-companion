@@ -30,7 +30,9 @@ If `connected` is true:
 
 If not connected and a USB board is present: user flashes proxy from dashboard
 **Devices → Flash Arduino as proxy**. You may `POST /v1/flash/proxy`
-`{ fqbn?, port? }` yourself. Supported FQBNs: `arduino:avr:uno`,
+`{ fqbn?, port? }` yourself. First flash of a family installs only that
+`arduino-cli` core (`arduino:avr`, `arduino:samd`, or `esp32:esp32`) — never
+install cores during companion update. Supported FQBNs: `arduino:avr:uno`,
 `arduino:avr:nano`, `arduino:avr:mega`, `arduino:samd:nano_33_iot`,
 `arduino:samd:mkrwifi1010`, `arduino:samd:mkrzero`, `arduino:samd:mzero`,
 `esp32:esp32:esp32`, `esp32:esp32:esp32s3`, `esp32:esp32:esp32c3`.

@@ -1,12 +1,15 @@
 import { readdirSync, statSync } from "node:fs";
 import {
+	arduinoCoreForFqbn,
 	capFlashLog,
+	ESP32_BOARD_MANAGER_URL,
 	FlashError,
 	type FlashPort,
 	type FlashPut,
 	type FlashResult,
 	type FlashStatus,
 	parseArduinoBoardList,
+	parseArduinoCoreList,
 	parseFlashPut,
 } from "gpio-companion";
 
@@ -92,6 +95,7 @@ export function createArduinoFlash(hooks?: {
 		listPorts: () =>
 			spawnText(["arduino-cli", "board", "list", "--format", "json"]),
 		async compileAndUpload(job) {
+			const coreLog = await ensureArduinoCore(job.fqbn);
 			const compile = await spawnResult([
 				"arduino-cli",
 				"compile",
@@ -100,7 +104,7 @@ export function createArduinoFlash(hooks?: {
 				job.dir,
 			]);
 			if (compile.code !== 0) {
-				return { ok: false, log: compile.log };
+				return { ok: false, log: joinLogs(coreLog, compile.log) };
 			}
 			const uploadCmd = ["arduino-cli", "upload", "--fqbn", job.fqbn];
 			if (job.port) {
@@ -110,7 +114,7 @@ export function createArduinoFlash(hooks?: {
 			const upload = await spawnResult(uploadCmd);
 			return {
 				ok: upload.code === 0,
-				log: `${compile.log}\n${upload.log}`.trim(),
+				log: joinLogs(coreLog, compile.log, upload.log),
 			};
 		},
 	});
@@ -159,6 +163,61 @@ function assertSketchDir(
 	if (!names.some((name) => SKETCH_EXT.some((ext) => name.endsWith(ext)))) {
 		throw new FlashError("dir needs a .c or .ino sketch");
 	}
+}
+
+export async function ensureArduinoCore(fqbn: string): Promise<string> {
+	const core = arduinoCoreForFqbn(fqbn);
+	if (!core) {
+		return "";
+	}
+	let listed = "[]";
+	try {
+		listed = await spawnText([
+			"arduino-cli",
+			"core",
+			"list",
+			"--format",
+			"json",
+		]);
+	} catch {
+		listed = "[]";
+	}
+	if (parseArduinoCoreList(listed).includes(core)) {
+		return "";
+	}
+	const logs: string[] = [];
+	if (core.startsWith("esp32:")) {
+		const add = await spawnResult([
+			"arduino-cli",
+			"config",
+			"add",
+			"board_manager.additional_urls",
+			ESP32_BOARD_MANAGER_URL,
+		]);
+		if (add.log) {
+			logs.push(add.log);
+		}
+	}
+	const install = await spawnResult([
+		"nice",
+		"-n",
+		"15",
+		"arduino-cli",
+		"core",
+		"install",
+		core,
+	]);
+	logs.push(install.log);
+	if (install.code !== 0) {
+		throw new FlashError(
+			joinLogs(...logs) || `failed to install ${core}`,
+		);
+	}
+	return joinLogs(`installed ${core}`, ...logs);
+}
+
+function joinLogs(...parts: string[]): string {
+	return parts.filter((part) => part.trim().length > 0).join("\n").trim();
 }
 
 async function spawnText(cmd: string[]): Promise<string> {

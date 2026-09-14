@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	arduinoCoreForFqbn,
 	arduinoProxyBoard,
 	arduinoProxyPins,
 	arduinoProxySketchName,
@@ -9,6 +10,7 @@ import {
 	isArduinoProxyPath,
 	isArduinoProxySketchName,
 	normalizeFqbn,
+	parseArduinoCoreList,
 	parseFlashProxyPut,
 } from "./arduino-proxy.ts";
 import { FLASH_PROXY_PATH } from "./flash.ts";
@@ -36,6 +38,12 @@ describe("arduino proxy boards", () => {
 		expect(isArduinoProxyFqbn("arduino:avr:leonardo")).toBe(false);
 		expect(normalizeFqbn("arduino:avr:mega:cpu=atmega2560")).toBe(
 			"arduino:avr:mega",
+		);
+		expect(arduinoCoreForFqbn("arduino:avr:uno")).toBe("arduino:avr");
+		expect(arduinoCoreForFqbn("arduino:samd:nano_33_iot")).toBe("arduino:samd");
+		expect(arduinoCoreForFqbn("esp32:esp32:esp32s3")).toBe("esp32:esp32");
+		expect(parseArduinoCoreList({ platforms: [{ id: "arduino:avr" }] })).toEqual(
+			["arduino:avr"],
 		);
 	});
 

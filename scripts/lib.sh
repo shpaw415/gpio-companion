@@ -1578,11 +1578,6 @@ install_arduino_proxy() {
 	echo "gpio-companion update: installing arduino-proxy firmware"
 	install -d -m 0755 "$LIB_DIR/arduino-proxy"
 	install -m 0644 "$src/arduino-proxy.ino" "$LIB_DIR/arduino-proxy/arduino-proxy.ino"
-	if command -v arduino-cli >/dev/null 2>&1; then
-		arduino-cli core install arduino:avr arduino:samd >/dev/null 2>&1 || true
-		arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json >/dev/null 2>&1 || true
-		arduino-cli core install esp32:esp32 >/dev/null 2>&1 || true
-	fi
 }
 
 install_ble_gatt_script() {

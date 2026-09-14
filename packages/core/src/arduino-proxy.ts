@@ -13,6 +13,8 @@ export const ARDUINO_PROXY_SKETCH_PREFIX = "arduino-proxy-";
 export const ARDUINO_PROXY_LIB_DIR = "/usr/local/lib/gpio-companion/arduino-proxy";
 export const FIRMWARE_BAUD_AVR = 57600;
 export const FIRMWARE_BAUD_ESP32 = 115200;
+export const ESP32_BOARD_MANAGER_URL =
+	"https://espressif.github.io/arduino-esp32/package_esp32_index.json";
 
 export type ArduinoProxyVoltage = "5v" | "3v3";
 
@@ -257,6 +259,45 @@ export const ARDUINO_PROXY_FQBNS = ARDUINO_PROXY_BOARDS.map((board) => board.fqb
 
 export function isArduinoProxyPath(path: string): boolean {
 	return path === ARDUINO_PROXY_PATH || path === FLASH_PROXY_PATH;
+}
+
+export function arduinoCoreForFqbn(fqbn: string): string {
+	const trimmed = fqbn.trim();
+	const parts = trimmed.split(":");
+	if (!parts[0] || !parts[1]) {
+		return "";
+	}
+	return `${parts[0]}:${parts[1]}`;
+}
+
+export function parseArduinoCoreList(input: unknown): string[] {
+	let parsed = input;
+	if (typeof input === "string") {
+		try {
+			parsed = JSON.parse(input) as unknown;
+		} catch {
+			return [];
+		}
+	}
+	const rows = Array.isArray(parsed)
+		? parsed
+		: parsed && typeof parsed === "object"
+			? ((parsed as { platforms?: unknown }).platforms ?? [])
+			: [];
+	if (!Array.isArray(rows)) {
+		return [];
+	}
+	const cores: string[] = [];
+	for (const row of rows) {
+		if (!row || typeof row !== "object") {
+			continue;
+		}
+		const id = (row as { id?: unknown }).id;
+		if (typeof id === "string" && id.includes(":")) {
+			cores.push(id);
+		}
+	}
+	return cores;
 }
 
 export function isArduinoProxyFqbn(fqbn: string): boolean {
