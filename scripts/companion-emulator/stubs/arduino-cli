@@ -1,0 +1,26 @@
+#!/bin/sh
+. "${GPIO_EMU_STUBS}/_common.sh"
+cmd="$1"
+if [ "$1" = "board" ] && [ "$2" = "list" ]; then
+	cat <<'EOF'
+{"detected_ports":[{"port":{"address":"/dev/ttyACM99","protocol":"serial"},"matching_boards":[{"fqbn":"arduino:avr:uno","name":"Arduino Uno"}]}]}
+EOF
+	exit 0
+fi
+if [ "$1" = "core" ] && [ "$2" = "list" ]; then
+	printf '%s\n' '[{"id":"arduino:avr"}]'
+	exit 0
+fi
+if [ "$1" = "core" ] || [ "$1" = "config" ]; then
+	echo ok
+	exit 0
+fi
+if [ "$1" = "compile" ] || [ "$1" = "upload" ]; then
+	if [ -f "$(emu_root)/hang-flash" ]; then
+		emu_hold "arduino-cli"
+	fi
+	echo ok
+	exit 0
+fi
+echo "ok $cmd"
+exit 0

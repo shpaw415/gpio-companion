@@ -1,0 +1,33 @@
+#!/bin/sh
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	-n | -H | --)
+		shift
+		;;
+	-u)
+		shift
+		shift
+		;;
+	env)
+		shift
+		while [ "$#" -gt 0 ]; do
+			case "$1" in
+			-u)
+				shift
+				shift
+				;;
+			*=*)
+				shift
+				;;
+			*)
+				break
+				;;
+			esac
+		done
+		;;
+	*)
+		exec "$@"
+		;;
+	esac
+done
+exit 0

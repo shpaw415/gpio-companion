@@ -9,7 +9,11 @@ import {
 	signOfflineEnvelope,
 	WifiConnectError,
 } from "gpio-companion";
+import { memoryArduinoProxy } from "./arduino-proxy.ts";
+import { memoryFlash } from "./flash.ts";
+import { createGpioController, memoryGpioBackend } from "./gpio.ts";
 import { filePairingStore } from "./pairing.ts";
+import { memoryRun } from "./run.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
 import { fileConfigStore, tunnelEnvContents } from "./store.ts";
@@ -69,6 +73,10 @@ const server = startDeviceApi({
 		wifiSsid = config.ssid;
 		return { ssid: config.ssid };
 	},
+	gpio: createGpioController(memoryGpioBackend("")),
+	flash: memoryFlash(),
+	run: memoryRun(),
+	proxy: memoryArduinoProxy(),
 	t3: {
 		async pair(hostname) {
 			t3PairedCalls += 1;
@@ -141,6 +149,10 @@ const untrusted = startDeviceApi({
 		"pair-key",
 	),
 	applyTunnel: async () => undefined,
+	gpio: createGpioController(memoryGpioBackend("")),
+	flash: memoryFlash(),
+	run: memoryRun(),
+	proxy: memoryArduinoProxy(),
 	deviceAuth: {
 		keyId: keys.keyId,
 		publicKeyPem: keys.publicKeyPem,

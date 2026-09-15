@@ -17,6 +17,7 @@ import {
 	TextButton,
 	Title,
 } from "../components/ui.tsx";
+import VerifyPanel from "../components/VerifyPanel.tsx";
 import ZoomableImage from "../components/ZoomableImage.tsx";
 import {
 	type BoardSketch,
@@ -442,6 +443,7 @@ export default function Project() {
 					<FlashPanel uuid={activeUuid} project={bundle?.repo} />
 					<Body>Run on board</Body>
 					<RunPanel uuid={activeUuid} project={bundle?.repo} />
+					<VerifyPanel uuid={activeUuid} project={bundle?.repo} />
 				</Paper>
 			) : null}
 			<ErrorText>{error || githubQuery.error || projectsQuery.error}</ErrorText>

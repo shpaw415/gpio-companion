@@ -558,6 +558,27 @@ export {
 	type RunStatus,
 } from "./run.ts";
 export {
+	circuitVerifyColor,
+	circuitVerifyLabel,
+	circuitVerifyOverlay,
+	circuitVerifyPlan,
+	type CircuitNet,
+	type CircuitVerifyItem,
+	type CircuitVerifyKind,
+	type CircuitVerifyOverlay,
+	type CircuitVerifyPut,
+	type CircuitVerifyResult,
+	type CircuitVerifyState,
+	type CircuitVerifyStatus,
+	expandCircuitNets,
+	isVerifyPath,
+	parseVerifyPut,
+	VERIFY_PATH,
+	VERIFY_PULSE_MS,
+	VERIFY_STOP_PATH,
+	VerifyError,
+} from "./verify.ts";
+export {
 	DEFAULT_GITHUB_URL,
 	type DeviceSecrets,
 	emptyDeviceSecrets,

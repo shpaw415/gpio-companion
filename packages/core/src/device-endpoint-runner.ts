@@ -18,6 +18,7 @@ import { LOGS_PATH, UPDATE_PATH } from "./maintenance.ts";
 import { isOfflineGrantScope, WIFI_PATH } from "./offline-grant.ts";
 import { PROJECTS_PUSH_PATH, PROJECTS_SYNC_PATH } from "./project-files.ts";
 import { RUN_PATH, RUN_SKETCHES_PATH, RUN_STOP_PATH } from "./run.ts";
+import { VERIFY_PATH, VERIFY_STOP_PATH } from "./verify.ts";
 
 export type DeviceEndpointAuth = "none" | "master" | "offline" | "offline-deny";
 export type DeviceEndpointVia = "any" | "http" | "ble";
@@ -365,6 +366,34 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			expect: { kind: "json-keys", keys: ["stopped"] },
 		}),
 		probe({
+			id: "get-verify",
+			name: "GET /v1/verify",
+			method: "GET",
+			path: VERIFY_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["running"] },
+		}),
+		probe({
+			id: "post-verify",
+			name: "POST /v1/verify",
+			method: "POST",
+			path: VERIFY_PATH,
+			auth: "master",
+			via: "any",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
+		}),
+		probe({
+			id: "post-verify-stop",
+			name: "POST /v1/verify/stop",
+			method: "POST",
+			path: VERIFY_STOP_PATH,
+			auth: "master",
+			via: "any",
+			expect: { kind: "json-keys", keys: ["stopped"] },
+		}),
+		probe({
 			id: "get-console",
 			name: "GET /v1/console",
 			method: "GET",
@@ -464,6 +493,7 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			(item.path === FLASH_PATH ||
 				item.path === FLASH_PROXY_PATH ||
 				item.path === RUN_PATH ||
+				item.path === VERIFY_PATH ||
 				item.path === CONSOLE_USB_PATH)
 		) {
 			offline.push({

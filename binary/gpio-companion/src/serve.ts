@@ -33,6 +33,7 @@ import {
 	isGpioBusCommand,
 	isGpioWsRefresh,
 	isRunPath,
+	isVerifyPath,
 	LOGS_PATH,
 	LOGS_SINCE_HOURS,
 	mergeDeviceSecrets,
@@ -58,6 +59,9 @@ import {
 	RUN_SKETCHES_PATH,
 	RUN_STOP_PATH,
 	RunError,
+	VERIFY_PATH,
+	VERIFY_STOP_PATH,
+	VerifyError,
 	redactDeviceConfig,
 	redactLogText,
 	secretsStatus,
@@ -97,6 +101,7 @@ import {
 	projectsRoot,
 } from "./projects.ts";
 import { createHostRun, type RunController } from "./run.ts";
+import { createCircuitVerify, type VerifyController } from "./verify.ts";
 import type { SecretsStore } from "./secrets.ts";
 import { listBoardSketches } from "./sketches.ts";
 import { type ConfigStore, DEFAULT_PORT } from "./store.ts";
@@ -144,6 +149,7 @@ export type ServeOptions = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	verify?: VerifyController;
 	proxy?: ArduinoProxyController;
 	console?: ConsoleHub;
 	projectsDir?: string;
@@ -157,6 +163,7 @@ export type DeviceRequestExtras = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	verify?: VerifyController;
 	proxy?: ArduinoProxyController;
 	console?: ConsoleHub;
 	projectsDir?: string;
@@ -189,6 +196,32 @@ export function startDeviceApi(options: ServeOptions) {
 		hardware: async () => (await options.store.read()).hardware,
 	});
 	const consoleHub = options.console ?? createConsoleHub();
+	const jobs: { run?: RunController; verify?: VerifyController } = {};
+	const run =
+		options.run ??
+		createHostRun({
+			hardware: async () => (await options.store.read()).hardware,
+			gpio,
+			proxy,
+			onLog: (chunk) => consoleHub.appendHost(chunk),
+			onRunning: (running) => {
+				consoleHub.setHostRunning(running);
+				if (!running) {
+					void proxy.probe();
+				}
+			},
+			isBusy: () => jobs.verify?.status().running ?? false,
+		});
+	const verify =
+		options.verify ??
+		createCircuitVerify({
+			hardware: async () => (await options.store.read()).hardware,
+			gpio,
+			projectsDir: options.projectsDir,
+			isRunBusy: () => jobs.run?.status().running ?? false,
+		});
+	jobs.run = run;
+	jobs.verify = verify;
 	const extras: DeviceRequestExtras = {
 		readDisk: options.readDisk ?? readDiskStats,
 		readLogs: options.readLogs ?? readJournalLogs,
@@ -228,20 +261,8 @@ export function startDeviceApi(options: ServeOptions) {
 					}
 				},
 			}),
-		run:
-			options.run ??
-			createHostRun({
-				hardware: async () => (await options.store.read()).hardware,
-				gpio,
-				proxy,
-				onLog: (chunk) => consoleHub.appendHost(chunk),
-				onRunning: (running) => {
-					consoleHub.setHostRunning(running);
-					if (!running) {
-						void proxy.probe();
-					}
-				},
-			}),
+		run,
+		verify,
 		projectsDir: options.projectsDir,
 		applyUpdate: options.applyUpdate,
 		applyProjects: options.applyProjects,
@@ -347,6 +368,7 @@ export function startDeviceApi(options: ServeOptions) {
 				} else if (
 					error instanceof FlashError ||
 					error instanceof RunError ||
+					error instanceof VerifyError ||
 					error instanceof ConsoleError ||
 					error instanceof ArduinoProxyError
 				) {
@@ -484,6 +506,7 @@ export async function handleDeviceRequest(
 		(path === GPIO_PATH ||
 			isFlashPath(path) ||
 			isRunPath(path) ||
+			isVerifyPath(path) ||
 			isConsolePath(path) ||
 			isArduinoProxyPath(path)) &&
 		isLoopback(url) &&
@@ -501,6 +524,9 @@ export async function handleDeviceRequest(
 		}
 		if (isRunPath(path)) {
 			return handleRun(method, path, bodyText, extras);
+		}
+		if (isVerifyPath(path)) {
+			return handleVerify(method, path, bodyText, extras);
 		}
 		if (isConsolePath(path)) {
 			return handleConsole(method, path, bodyText, extras);
@@ -769,6 +795,10 @@ export async function handleDeviceRequest(
 
 	if (isRunPath(path)) {
 		return handleRun(method, path, bodyText, extras);
+	}
+
+	if (isVerifyPath(path)) {
+		return handleVerify(method, path, bodyText, extras);
 	}
 
 	if (isConsolePath(path)) {
@@ -1194,6 +1224,28 @@ function handleRun(
 	}
 	if (method === "POST" && path === RUN_STOP_PATH) {
 		return json(run.stop());
+	}
+	return json({ error: "method not allowed" }, 405);
+}
+
+function handleVerify(
+	method: string,
+	path: string,
+	bodyText: string,
+	extras: DeviceRequestExtras | undefined,
+): Response {
+	const verify = extras?.verify;
+	if (!verify) {
+		return json({ error: "verify is unavailable" }, 503);
+	}
+	if (method === "GET" && path === VERIFY_PATH) {
+		return json(verify.status());
+	}
+	if (method === "POST" && path === VERIFY_PATH) {
+		return json(verify.start(parseJson(bodyText)));
+	}
+	if (method === "POST" && path === VERIFY_STOP_PATH) {
+		return json(verify.stop());
 	}
 	return json({ error: "method not allowed" }, 405);
 }

@@ -10,7 +10,7 @@ description: >-
 
 Write a plug map the dashboard can render. Do **not** use tscircuit for this file (tscircuit is for `pcb/`).
 
-Driving the wired circuit on this board's header is C-first (skill `gpio-host`, `POST /v1/run`). `PUT /v1/gpio` is one-shot testing only.
+Driving the wired circuit on this board's header is C-first (skill `gpio-host`, `POST /v1/run`). `PUT /v1/gpio` is one-shot testing only. Project **Verify circuit** (`POST /v1/verify` `{ repo }`) treats this diagram as a wiring contract: breadboard rows `a–e` / `f–j` and each rail polarity are nets. Continuity needs two header GPIOs on one net. A lone GPIO (typical LED) is unknown electrically. Do not mix 3V3 and 5V on a net.
 
 ## Output
 

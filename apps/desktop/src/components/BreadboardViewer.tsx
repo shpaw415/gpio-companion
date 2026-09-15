@@ -12,6 +12,9 @@ import {
 	breadboardPinOffset,
 	breadboardRows,
 	breadboardSize,
+	type CircuitVerifyOverlay,
+	type CircuitVerifyStatus,
+	circuitVerifyColor,
 	GPIO_COMPANION_HEADER_TYPE,
 	type HeaderPinDef,
 	headerPinOffset,
@@ -54,6 +57,7 @@ type Props = {
 	diagramText?: string | null;
 	previewUrl?: string | null;
 	livePins?: Record<number, 0 | 1>;
+	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
 };
 
@@ -136,6 +140,7 @@ export default function BreadboardViewer({
 	diagramText,
 	previewUrl,
 	livePins,
+	verifyOverlay,
 	boardModel,
 }: Props) {
 	const parsed = useMemo(() => parseDiagram(diagramText), [diagramText]);
@@ -145,6 +150,7 @@ export default function BreadboardViewer({
 			<DiagramBoard
 				diagram={diagram}
 				livePins={livePins}
+				verifyOverlay={verifyOverlay}
 				boardModel={boardModel}
 			/>
 		);
@@ -184,10 +190,12 @@ export default function BreadboardViewer({
 function DiagramBoard({
 	diagram,
 	livePins,
+	verifyOverlay,
 	boardModel,
 }: {
 	diagram: WokwiDiagram;
 	livePins?: Record<number, 0 | 1>;
+	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
 }) {
 	const [activeStep, setActiveStep] = useState(0);
@@ -267,6 +275,7 @@ function DiagramBoard({
 									part,
 									partHot(part, highlight),
 									livePins,
+									verifyOverlay?.parts[part.id],
 									boardModel,
 									partRefs.current.get(part.id),
 									(el) => {
@@ -313,6 +322,7 @@ function DiagramBoard({
 								.join(" ");
 							const key = `${from}->${to}`;
 							const hot = wireHot(from, to, highlight, wireKey, key);
+							const verifyColor = circuitVerifyColor(verifyOverlay?.wires[key]);
 							return (
 								// biome-ignore lint/a11y/useSemanticElements: SVG stroke hit target
 								<polyline
@@ -330,7 +340,7 @@ function DiagramBoard({
 									}}
 									points={points}
 									role="button"
-									stroke={color || "#22c55e"}
+									stroke={verifyColor || color || "#22c55e"}
 									strokeOpacity={hot ? 1 : 0.35}
 									strokeWidth={hot ? 3 : 1.5}
 									style={{ pointerEvents: "stroke", cursor: "pointer" }}
@@ -769,6 +779,7 @@ function renderPart(
 	part: WokwiPart,
 	hot: boolean,
 	livePins: Record<number, 0 | 1> | undefined,
+	verifyStatus: CircuitVerifyStatus | undefined,
 	boardModel: string | null | undefined,
 	el: HTMLElement | undefined,
 	ref: (el: HTMLElement | null) => void,
@@ -784,6 +795,10 @@ function renderPart(
 		transformOrigin: "top left",
 		opacity: hot ? 1 : 0.35,
 		cursor: isBreadboardType(part.type) ? "default" : "pointer",
+		outline: circuitVerifyColor(verifyStatus)
+			? `2px solid ${circuitVerifyColor(verifyStatus)}`
+			: undefined,
+		outlineOffset: 2,
 	};
 	if (isBreadboardType(part.type)) {
 		return (

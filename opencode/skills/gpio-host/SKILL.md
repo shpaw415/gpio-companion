@@ -29,7 +29,8 @@ You call the loopback API yourself. **Never** tell the user to `curl`
 
 If the user should start or stop a sketch: dashboard **Project → Run on board**
 (pick the sketch name, Start / Stop). Same panel on desktop and mobile. Do not
-ask them for a Pi path.
+ask them for a Pi path. To check wiring against `breadboard/diagram.json`, send
+them to **Project → Verify circuit** (`POST /v1/verify`) — not a lasting GPIO PUT.
 
 ## API (agent only)
 

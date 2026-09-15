@@ -1,0 +1,31 @@
+#!/bin/sh
+. "${GPIO_EMU_STUBS}/_common.sh"
+cat <<'EOF'
+gpiochip0 - 58 lines:
+	line   2:      "GPIO2"       unused   input
+	line   3:      "GPIO3"       unused   input
+	line   4:      "GPIO4"       unused   input
+	line   5:      "GPIO5"       unused   input
+	line   6:      "GPIO6"       unused   input
+	line   7:      "GPIO7"       unused   input
+	line   8:      "GPIO8"       unused   input
+	line   9:      "GPIO9"       unused   input
+	line  10:      "GPIO10"      unused   input
+	line  11:      "GPIO11"      unused   input
+	line  12:      "GPIO12"      unused   input
+	line  13:      "GPIO13"      unused   input
+	line  14:      "GPIO14"      unused   input
+	line  15:      "GPIO15"      unused   input
+	line  16:      "GPIO16"      unused   input
+	line  17:      "GPIO17"      unused   input
+	line  18:      "GPIO18"      unused   input
+	line  19:      "GPIO19"      unused   input
+	line  20:      "GPIO20"      unused   input
+	line  21:      "GPIO21"      unused   input
+	line  22:      "GPIO22"      unused   input
+	line  23:      "GPIO23"      unused   input
+	line  24:      "GPIO24"      unused   input
+	line  25:      "GPIO25"      unused   input
+	line  26:      "GPIO26"      unused   input
+	line  27:      "GPIO27"      unused   input
+EOF

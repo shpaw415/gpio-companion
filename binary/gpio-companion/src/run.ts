@@ -1,7 +1,6 @@
 import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import {
 	type ArduinoProxyStatus,
 	capRunLog,
@@ -15,7 +14,7 @@ import {
 	type RunStatus,
 } from "gpio-companion";
 import type { ArduinoProxyController } from "./arduino-proxy.ts";
-import type { GpioController } from "./gpio.ts";
+import { type GpioController, killTree } from "./gpio.ts";
 
 export type RunController = {
 	status(): RunStatus;
@@ -38,9 +37,11 @@ export type HostRunOptions = {
 	hasSketch?: (dir: string) => boolean;
 	onLog?: (chunk: string) => void;
 	onRunning?: (running: boolean) => void;
+	isBusy?: () => boolean;
 };
 
 export type RunProcess = {
+	pid?: number;
 	exited: Promise<number>;
 	kill(signal?: "SIGTERM" | "SIGKILL"): void;
 	stdout?: ReadableStream<Uint8Array> | number;
@@ -65,6 +66,9 @@ export function createRunController(options: HostRunOptions): RunController {
 			assertSketchDir(put.dir, options.hasSketch);
 			if (running) {
 				throw new RunError("run already running", 409);
+			}
+			if (options.isBusy?.()) {
+				throw new RunError("verify already running", 409);
 			}
 			running = true;
 			log = "";
@@ -105,13 +109,12 @@ export function createRunController(options: HostRunOptions): RunController {
 		stop() {
 			const proc = current;
 			if (proc) {
-				try {
-					proc.kill("SIGTERM");
-				} catch {
-					undefined;
-				}
-				void Promise.race([proc.exited, Bun.sleep(STOP_MS)]).then((done) => {
-					if (typeof done !== "number") {
+				void killTree(proc).then(async () => {
+					const done = await Promise.race([
+						proc.exited.then(() => true),
+						Bun.sleep(STOP_MS).then(() => false),
+					]);
+					if (!done) {
 						try {
 							proc.kill("SIGKILL");
 						} catch {

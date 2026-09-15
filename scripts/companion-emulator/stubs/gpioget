@@ -1,0 +1,36 @@
+#!/bin/sh
+. "${GPIO_EMU_STUBS}/_common.sh"
+chip="gpiochip0"
+lines=""
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	-c)
+		shift
+		chip="$1"
+		;;
+	--numeric | -a | -l) ;;
+	-*) ;;
+	*)
+		if [ -z "$lines" ]; then
+			lines="$1"
+		else
+			lines="$lines $1"
+		fi
+		;;
+	esac
+	shift
+done
+out=""
+for line in $lines; do
+	path="$(emu_line_path "$chip" "$line")"
+	value="0"
+	if [ -f "$path" ]; then
+		value="$(cat "$path")"
+	fi
+	if [ -z "$out" ]; then
+		out="$value"
+	else
+		out="$out $value"
+	fi
+done
+printf '%s\n' "${out:-0}"

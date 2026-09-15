@@ -1,0 +1,27 @@
+#!/bin/sh
+. "${GPIO_EMU_STUBS}/_common.sh"
+chip="gpiochip0"
+spec=""
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	-c)
+		shift
+		chip="$1"
+		;;
+	-m)
+		shift
+		;;
+	-*) ;;
+	*)
+		spec="$1"
+		;;
+	esac
+	shift
+done
+line="${spec%%=*}"
+value="${spec#*=}"
+if [ -z "$line" ] || [ "$line" = "$spec" ]; then
+	exit 1
+fi
+printf '%s\n' "$value" >"$(emu_line_path "$chip" "$line")"
+emu_hold "gpioset"

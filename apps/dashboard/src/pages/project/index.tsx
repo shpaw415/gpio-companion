@@ -5,12 +5,14 @@ import FlashPanel from "@components/FlashPanel";
 import GpioPanel from "@components/GpioPanel";
 import ProjectBrowser from "@components/ProjectBrowser";
 import RunPanel from "@components/RunPanel";
+import VerifyPanel from "@components/VerifyPanel";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Stepper, { Step, StepLabel } from "@shpaw415/mui-lite/Stepper";
 import Typography from "@shpaw415/mui-lite/Typography";
+import type { CircuitVerifyItem } from "gpio-companion";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceStatus } from "../../components/DeviceBoardCard.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
@@ -64,6 +66,7 @@ export default function ProjectPage() {
 	const [githubReady, setGithubReady] = useState(false);
 	const [pairingLoading, setPairingLoading] = useState(true);
 	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
+	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
 	const [project, setProject] = useState("");
 	const selectedUuidRef = useRef(selectedUuid);
 	selectedUuidRef.current = selectedUuid;
@@ -188,7 +191,10 @@ export default function ProjectPage() {
 			) : null}
 
 			{paired ? (
-				<Paper className="min-w-0 overflow-x-hidden p-4 min-[900px]:p-6" elevation={1}>
+				<Paper
+					className="min-w-0 overflow-x-hidden p-4 min-[900px]:p-6"
+					elevation={1}
+				>
 					<Stack spacing={2} className="min-w-0">
 						<DeviceSelect
 							devices={devices}
@@ -228,6 +234,11 @@ export default function ProjectPage() {
 							Compile C on the board and run it on this header for GPIO tests.
 						</Typography>
 						<RunPanel uuid={activeUuid} project={project} />
+						<VerifyPanel
+							uuid={activeUuid}
+							project={project}
+							onResults={setVerifyResults}
+						/>
 					</Stack>
 				</Paper>
 			) : null}
@@ -241,6 +252,7 @@ export default function ProjectPage() {
 					onProject={setProject}
 					uuid={activeUuid}
 					livePins={livePins}
+					verifyResults={verifyResults}
 					boardModel={statuses[activeUuid]?.model}
 				/>
 			</div>

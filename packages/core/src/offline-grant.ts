@@ -26,6 +26,7 @@ import {
 } from "./flash.ts";
 import { GPIO_PATH } from "./gpio.ts";
 import { RUN_PATH, RUN_SKETCHES_PATH, RUN_STOP_PATH } from "./run.ts";
+import { VERIFY_PATH, VERIFY_STOP_PATH } from "./verify.ts";
 
 export const OFFLINE_GRANT_VERSION = "gpio-offline-v1";
 export const OFFLINE_GRANT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -47,6 +48,9 @@ export const OFFLINE_GRANT_SCOPE = [
 	`GET ${RUN_SKETCHES_PATH}`,
 	`POST ${RUN_PATH}`,
 	`POST ${RUN_STOP_PATH}`,
+	`GET ${VERIFY_PATH}`,
+	`POST ${VERIFY_PATH}`,
+	`POST ${VERIFY_STOP_PATH}`,
 	`GET ${CONSOLE_PATH}`,
 	`POST ${CONSOLE_USB_PATH}`,
 	`POST ${CONSOLE_USB_STOP_PATH}`,

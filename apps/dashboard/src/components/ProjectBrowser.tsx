@@ -24,7 +24,12 @@ import Table, {
 } from "@shpaw415/mui-lite/Table";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import type { BoardSketch } from "gpio-companion";
+import {
+	type BoardSketch,
+	type CircuitVerifyItem,
+	circuitVerifyOverlay,
+	parseWokwiDiagram,
+} from "gpio-companion";
 import { useEffect, useMemo, useState } from "react";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -38,12 +43,14 @@ export default function ProjectBrowser({
 	onProject,
 	uuid,
 	livePins,
+	verifyResults,
 	boardModel,
 }: {
 	onConfigured?: (ready: boolean) => void;
 	onProject?: (name: string) => void;
 	uuid?: string;
 	livePins?: Record<number, 0 | 1>;
+	verifyResults?: CircuitVerifyItem[];
 	boardModel?: string | null;
 }) {
 	const [configured, setConfigured] = useState(true);
@@ -66,6 +73,19 @@ export default function ProjectBrowser({
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
 	const mobile = useMobile();
+	const overlay = useMemo(() => {
+		if (!breadboardJson || !verifyResults?.length) {
+			return undefined;
+		}
+		try {
+			return circuitVerifyOverlay(
+				parseWokwiDiagram(breadboardJson),
+				verifyResults,
+			);
+		} catch {
+			return undefined;
+		}
+	}, [breadboardJson, verifyResults]);
 
 	useEffect(() => {
 		listProjects()
@@ -412,6 +432,7 @@ export default function ProjectBrowser({
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
 							livePins={livePins}
+							verifyOverlay={overlay}
 							boardModel={boardModel}
 						/>
 						<FileGroup title="PCB" files={bundle.pcb} />

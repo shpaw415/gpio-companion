@@ -14,6 +14,11 @@ import Table, {
 } from "@shpaw415/mui-lite/Table";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import {
+	type CircuitVerifyItem,
+	circuitVerifyOverlay,
+	parseWokwiDiagram,
+} from "gpio-companion";
 import { useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
@@ -47,6 +52,7 @@ import FlashPanel from "./FlashPanel";
 import GpioPanel from "./GpioPanel";
 import RunPanel from "./RunPanel";
 import { ListSkeleton, PreviewSkeleton } from "./skeletons";
+import VerifyPanel from "./VerifyPanel";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
 
@@ -232,12 +238,27 @@ export default function Project() {
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
 	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
+	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
+	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
+	const overlay = useMemo(() => {
+		if (!breadboardJson || !verifyResults.length) {
+			return undefined;
+		}
+		try {
+			return circuitVerifyOverlay(
+				parseWokwiDiagram(breadboardJson),
+				verifyResults,
+			);
+		} catch {
+			return undefined;
+		}
+	}, [breadboardJson, verifyResults]);
 
 	useEffect(() => {
 		if (!bundle) {
@@ -519,11 +540,17 @@ export default function Project() {
 							uuid={activeUuid}
 							connected={Boolean(activeBoard?.status)}
 							poll
+							onLivePins={setLivePins}
 						/>
 						<Typography variant="subtitle1">Flash Arduino</Typography>
 						<FlashPanel uuid={activeUuid} project={bundle?.repo} />
 						<Typography variant="subtitle1">Run on board</Typography>
 						<RunPanel uuid={activeUuid} project={bundle?.repo} />
+						<VerifyPanel
+							uuid={activeUuid}
+							project={bundle?.repo}
+							onResults={setVerifyResults}
+						/>
 					</Stack>
 				</Paper>
 			) : null}
@@ -728,6 +755,8 @@ export default function Project() {
 						<BreadboardViewer
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
+							livePins={livePins}
+							verifyOverlay={overlay}
 							boardModel={activeBoard?.status?.model}
 						/>
 					</Box>

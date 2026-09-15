@@ -800,6 +800,79 @@ export function stopRun(uuid: string) {
 	});
 }
 
+export type CircuitVerifyState = {
+	running: boolean;
+	results: Array<{
+		id: string;
+		status: string;
+		detail: string;
+		kind: string;
+		partIds: string[];
+		pins: number[];
+		connections: number[];
+		net: string;
+	}>;
+	last: {
+		ok: boolean;
+		repo: string;
+		results: CircuitVerifyState["results"];
+	} | null;
+};
+
+export function loadVerify(uuid: string) {
+	return apiRequest<CircuitVerifyState>(
+		"GET",
+		`/api/mobile/verify?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function startVerify(input: { uuid: string; repo: string }) {
+	return apiRequest<{ started: boolean }>("POST", "/api/mobile/verify", input);
+}
+
+export function stopVerify(uuid: string) {
+	return apiRequest<{ stopped: boolean }>("POST", "/api/mobile/verify", {
+		uuid,
+		stop: true,
+	});
+}
+
+export function bleVerify(input: {
+	uuid: string;
+	id?: string;
+	repo?: string;
+	stop?: boolean;
+}) {
+	const start = Boolean(input.repo);
+	const stop = Boolean(input.stop);
+	return withSavedBle(input.uuid, input.id ?? "", (id) =>
+		withOfflineBle(
+			input.uuid,
+			id,
+			async () => {
+				const envelope = await apiRequest<unknown>(
+					"POST",
+					"/api/mobile/verify",
+					{
+						uuid: input.uuid,
+						repo: input.repo,
+						stop: input.stop,
+						sign: true,
+					},
+				);
+				const raw = await bleWriteEnvelope(id, input.uuid, envelope);
+				return parseBoardJson(raw, "board did not return verify");
+			},
+			{
+				method: stop || start ? "POST" : "GET",
+				path: stop ? "/v1/verify/stop" : "/v1/verify",
+				body: stop ? "{}" : start ? JSON.stringify({ repo: input.repo }) : "",
+			},
+			(raw) => parseBoardJson(raw, "board did not return verify"),
+		),
+	);
+}
+
 export function bleRun(input: {
 	uuid: string;
 	id?: string;

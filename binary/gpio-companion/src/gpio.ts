@@ -957,7 +957,13 @@ function writeHeldStdin(
 	}
 }
 
-async function killTree(proc: ReturnType<typeof Bun.spawn>): Promise<void> {
+export type KillableProc = {
+	pid?: number;
+	kill(signal?: "SIGTERM" | "SIGKILL"): void;
+	exited: Promise<number>;
+};
+
+export async function killTree(proc: KillableProc): Promise<void> {
 	const pid = proc.pid;
 	if (pid) {
 		await spawnText(["pkill", "-TERM", "-P", String(pid)]).catch(

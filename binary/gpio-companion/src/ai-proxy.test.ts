@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateDeviceKeyPair } from "gpio-companion";
 import { forgetAiCredentials } from "./ai-credentials.ts";
+import { memoryArduinoProxy } from "./arduino-proxy.ts";
+import { memoryFlash } from "./flash.ts";
+import { createGpioController, memoryGpioBackend } from "./gpio.ts";
 import { filePairingStore } from "./pairing.ts";
+import { memoryRun } from "./run.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { handleDeviceRequest, startDeviceApi } from "./serve.ts";
 import { fileConfigStore } from "./store.ts";
@@ -20,6 +24,10 @@ const server = startDeviceApi({
 	secrets: fileSecretsStore(join(dir, "secrets.env")),
 	pairing: filePairingStore(join(dir, "pairing.json"), "pair-uuid", "pair-key"),
 	applyTunnel: async () => undefined,
+	gpio: createGpioController(memoryGpioBackend("")),
+	flash: memoryFlash(),
+	run: memoryRun(),
+	proxy: memoryArduinoProxy(),
 	deviceAuth: {
 		keyId: keys.keyId,
 		publicKeyPem: keys.publicKeyPem,

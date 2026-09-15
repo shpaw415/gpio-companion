@@ -8,8 +8,8 @@ import {
 	publicDeviceUrl,
 	VERSION,
 } from "gpio-companion";
-import { startBleBridge } from "./ble.ts";
 import { createArduinoProxy, watchUsbSerialPorts } from "./arduino-proxy.ts";
+import { startBleBridge } from "./ble.ts";
 import { createArduinoFlash } from "./flash.ts";
 import {
 	fetchGithubCredentials,
@@ -114,6 +114,11 @@ const githubCredentials = async () => {
 	return creds;
 };
 const PROJECT_SYNC_MS = 15 * 60 * 1000;
+const projectSyncEnabled = process.env.GPIO_COMPANION_PROJECT_SYNC !== "0";
+const hubEnabled = process.env.GPIO_COMPANION_HUB !== "0";
+const timers: Array<
+	ReturnType<typeof setInterval> | ReturnType<typeof setTimeout>
+> = [];
 
 async function syncGithubProjects(target: ProjectSyncPut = {}): Promise<void> {
 	try {
@@ -156,41 +161,53 @@ const server = startDeviceApi({
 		process.env.GPIO_COMPANION_CLOCK_STAMP ?? DEFAULT_CLOCK_STAMP_PATH,
 	noncePath: process.env.GPIO_COMPANION_NONCES ?? DEFAULT_NONCE_PATH,
 });
-setInterval(
-	() => {
-		void githubCredentials().catch(() => undefined);
-	},
-	30 * 60 * 1000,
-);
-void syncGithubProjects();
-setTimeout(() => {
+if (projectSyncEnabled) {
+	timers.push(
+		setInterval(
+			() => {
+				void githubCredentials().catch(() => undefined);
+			},
+			30 * 60 * 1000,
+		),
+	);
 	void syncGithubProjects();
-}, 30_000);
-setTimeout(() => {
-	void syncGithubProjects();
-}, 150_000);
-setInterval(() => {
-	void syncGithubProjects();
-}, PROJECT_SYNC_MS);
+	timers.push(
+		setTimeout(() => {
+			void syncGithubProjects();
+		}, 30_000),
+	);
+	timers.push(
+		setTimeout(() => {
+			void syncGithubProjects();
+		}, 150_000),
+	);
+	timers.push(
+		setInterval(() => {
+			void syncGithubProjects();
+		}, PROJECT_SYNC_MS),
+	);
+}
 
-startBleBridge({
+const ble = startBleBridge({
 	pairingUuid,
 	hardware,
 	port: server.port ?? 4150,
 	deviceUrl: readDeviceUrl(configPath),
 });
-startHubClient({
-	uuid: pairingUuid,
-	key: pairingKey,
-	hardware,
-	gpio,
-	flash,
-	run,
-	proxy,
-	t3,
-});
+const hub = hubEnabled
+	? startHubClient({
+			uuid: pairingUuid,
+			key: pairingKey,
+			hardware,
+			gpio,
+			flash,
+			run,
+			proxy,
+			t3,
+		})
+	: { stop() {} };
 void proxy.probe();
-watchUsbSerialPorts(() => {
+const stopUsbWatch = watchUsbSerialPorts(() => {
 	if (!proxy.status().connected) {
 		void proxy.probe();
 	}
@@ -199,6 +216,51 @@ watchUsbSerialPorts(() => {
 console.log(
 	`gpio-companion device API on http://${server.hostname}:${server.port}`,
 );
+
+let shuttingDown = false;
+
+async function shutdown(signal: string): Promise<void> {
+	if (shuttingDown) {
+		return;
+	}
+	shuttingDown = true;
+	for (const timer of timers) {
+		clearInterval(timer);
+		clearTimeout(timer);
+	}
+	timers.length = 0;
+	stopUsbWatch();
+	hub.stop();
+	run.stop();
+	proxy.release();
+	await Promise.all([gpio.releaseAll?.() ?? Promise.resolve(), ble.stop()]);
+	try {
+		server.stop(true);
+	} catch {
+		undefined;
+	}
+	await reapChildren(process.pid);
+	process.exit(signal === "SIGKILL" ? 1 : 0);
+}
+
+async function reapChildren(pid: number): Promise<void> {
+	await Bun.spawn(["pkill", "-TERM", "-P", String(pid)], {
+		stdout: "ignore",
+		stderr: "ignore",
+	}).exited.catch(() => undefined);
+	await Bun.sleep(200);
+	await Bun.spawn(["pkill", "-KILL", "-P", String(pid)], {
+		stdout: "ignore",
+		stderr: "ignore",
+	}).exited.catch(() => undefined);
+}
+
+process.on("SIGTERM", () => {
+	void shutdown("SIGTERM");
+});
+process.on("SIGINT", () => {
+	void shutdown("SIGINT");
+});
 
 function loadDeviceAuth(): { keyId: string; publicKeyPem: string } {
 	const authPath =

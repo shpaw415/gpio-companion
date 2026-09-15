@@ -13,7 +13,11 @@ import {
 	signDeviceRequest,
 	WifiConnectError,
 } from "gpio-companion";
+import { memoryArduinoProxy } from "./arduino-proxy.ts";
+import { memoryFlash } from "./flash.ts";
+import { createGpioController, memoryGpioBackend } from "./gpio.ts";
 import { filePairingStore } from "./pairing.ts";
+import { memoryRun } from "./run.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { handleDeviceRequest, startDeviceApi } from "./serve.ts";
 import { fileConfigStore } from "./store.ts";
@@ -27,6 +31,10 @@ const server = startDeviceApi({
 	secrets: fileSecretsStore(join(dir, "secrets.env")),
 	pairing: filePairingStore(join(dir, "pairing.json"), "pair-uuid", "pair-key"),
 	applyTunnel: async () => undefined,
+	gpio: createGpioController(memoryGpioBackend("")),
+	flash: memoryFlash(),
+	run: memoryRun(),
+	proxy: memoryArduinoProxy(),
 	applyWifi: async (config) => {
 		if (config.ssid === "missing") {
 			throw new WifiConnectError("ssid-not-found");

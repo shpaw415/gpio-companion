@@ -57,6 +57,8 @@ Flash USB Arduino from Project **Flash Arduino** (sketch name from `firmware/` o
 
 Run C on the companion GPIO from Project **Run on board** (sketch name from `host/` on the board). A second run while one is running returns 409.
 
+Project **Verify circuit** pulses jumpers from `breadboard/diagram.json` on the board. Green/red overlay (or a chip list on mobile) shows pass/fail. A lone LED net stays unknown — this header has no ADC. Verify and Run cannot run at the same time.
+
 ## Safety
 
 - Do not put 5V into GPIO

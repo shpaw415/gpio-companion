@@ -803,6 +803,68 @@ export function stopRun(token: string, uuid: string) {
 	});
 }
 
+export type CircuitVerifyState = {
+	running: boolean;
+	results: Array<{
+		id: string;
+		status: string;
+		detail: string;
+		kind: string;
+		partIds: string[];
+		pins: number[];
+		connections: number[];
+		net: string;
+	}>;
+	last: {
+		ok: boolean;
+		repo: string;
+		results: CircuitVerifyState["results"];
+	} | null;
+};
+
+export function loadVerify(token: string, uuid: string) {
+	return request<CircuitVerifyState>(
+		token,
+		`/api/mobile/verify?uuid=${encodeURIComponent(uuid)}`,
+	);
+}
+
+export function startVerify(
+	token: string,
+	input: { uuid: string; repo: string },
+) {
+	return request<{ started: boolean }>(token, "/api/mobile/verify", {
+		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
+export function stopVerify(token: string, uuid: string) {
+	return request<{ stopped: boolean }>(token, "/api/mobile/verify", {
+		method: "POST",
+		body: JSON.stringify({ uuid, stop: true }),
+	});
+}
+
+export function signVerify(
+	token: string,
+	input: {
+		uuid: string;
+		repo?: string;
+		stop?: boolean;
+		sign?: boolean;
+	},
+) {
+	const start = Boolean(input.repo);
+	const stop = Boolean(input.stop);
+	return signOnlineOrOffline(token, "/api/mobile/verify", input, {
+		uuid: input.uuid,
+		method: stop || start ? "POST" : "GET",
+		path: stop ? "/v1/verify/stop" : "/v1/verify",
+		body: stop ? "{}" : start ? JSON.stringify({ repo: input.repo }) : "",
+	});
+}
+
 export function signRun(
 	token: string,
 	input: {

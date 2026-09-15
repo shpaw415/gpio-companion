@@ -281,6 +281,11 @@ function liveOpenUsb(
 		}
 		try {
 			stream = createReadStream(port);
+			stream.on("error", () => {
+				if (!closed) {
+					onClose();
+				}
+			});
 		} catch {
 			onClose();
 			return;
@@ -293,11 +298,6 @@ function liveOpenUsb(
 				typeof buf === "string" ? buf : decoder.decode(buf, { stream: true });
 			if (text) {
 				onChunk(text);
-			}
-		});
-		stream.on("error", () => {
-			if (!closed) {
-				onClose();
 			}
 		});
 		stream.on("end", () => {

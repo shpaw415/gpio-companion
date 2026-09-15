@@ -8,6 +8,7 @@ import {
 	BLE_SERVICE_UUID,
 	BLE_STATUS_UUID,
 } from "gpio-companion";
+import { killTree } from "./gpio.ts";
 
 export const INSTALLED_BLE_SCRIPT =
 	"/usr/local/lib/gpio-companion/ble-gatt-server.py";
@@ -58,14 +59,18 @@ export function resolveBleScriptPath(
 	return bleScriptCandidates(lookup).find((path) => exists(path)) ?? null;
 }
 
-export function startBleBridge(options: BleBridgeOptions): void {
+export type BleBridge = {
+	stop(): Promise<void>;
+};
+
+export function startBleBridge(options: BleBridgeOptions): BleBridge {
 	if (process.env.GPIO_COMPANION_BLE === "0") {
-		return;
+		return { async stop() {} };
 	}
 	const script = resolveBleScriptPath();
 	if (!script) {
 		console.log("gpio-companion ble: script not found, skipping");
-		return;
+		return { async stop() {} };
 	}
 	const child = Bun.spawn(["python3", script], {
 		stdin: "ignore",
@@ -89,6 +94,11 @@ export function startBleBridge(options: BleBridgeOptions): void {
 			console.log(`gpio-companion ble: exited ${code}`);
 		}
 	});
+	return {
+		async stop() {
+			await killTree(child);
+		},
+	};
 }
 
 function installedBleScript(env: NodeJS.Dict<string>): string {

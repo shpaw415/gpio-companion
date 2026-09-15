@@ -1,0 +1,13 @@
+#!/bin/sh
+. "${GPIO_EMU_STUBS}/_common.sh"
+for arg in "$@"; do
+	case "$arg" in
+	*ble-gatt*)
+		emu_hold "python3"
+		;;
+	esac
+done
+if [ -n "${GPIO_EMU_REAL_PYTHON:-}" ] && [ -x "${GPIO_EMU_REAL_PYTHON}" ]; then
+	exec "${GPIO_EMU_REAL_PYTHON}" "$@"
+fi
+exit 0

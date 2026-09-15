@@ -1,0 +1,12 @@
+#!/bin/sh
+. "${GPIO_EMU_STUBS}/_common.sh"
+emu_register "gpio-pwm"
+while IFS= read -r line || [ -n "$line" ]; do
+	case "$line" in
+	stop | stop*)
+		rm -f "$(emu_root)/alive/$$"
+		exit 0
+		;;
+	esac
+done
+emu_hold "gpio-pwm"

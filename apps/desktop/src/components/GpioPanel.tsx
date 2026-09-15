@@ -3,6 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { gpioLiveValues } from "gpio-companion";
 import { useCallback, useRef, useState } from "react";
 import {
 	bleGpio,
@@ -91,10 +92,12 @@ export default function GpioPanel({
 	uuid,
 	connected,
 	poll = false,
+	onLivePins,
 }: {
 	uuid: string;
 	connected?: boolean;
 	poll?: boolean;
+	onLivePins?: (pins: Record<number, 0 | 1>) => void;
 }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -108,15 +111,31 @@ export default function GpioPanel({
 	const available = Boolean(uuid) && connected !== false;
 	const pins = snapshot?.pins ?? [];
 	const selectedPin = pins.find((pin) => pin.physical === selected);
-	const onGpio = useCallback((next: GpioSnapshot) => {
-		snapshotRef.current = next;
-		setSnapshot(next);
-	}, []);
+	const livePinsRef = useRef("");
+	const onGpio = useCallback(
+		(next: GpioSnapshot) => {
+			snapshotRef.current = next;
+			setSnapshot(next);
+			const live = gpioLiveValues(next);
+			const key = JSON.stringify(live);
+			if (key !== livePinsRef.current) {
+				livePinsRef.current = key;
+				onLivePins?.(live);
+			}
+		},
+		[onLivePins],
+	);
 	const tunnel = useGpioTunnel(poll && available ? uuid : "", onGpio, setError);
 
 	function applySnapshot(next: GpioSnapshot | null) {
 		snapshotRef.current = next;
 		setSnapshot(next);
+		const live = gpioLiveValues(next);
+		const key = JSON.stringify(live);
+		if (key !== livePinsRef.current) {
+			livePinsRef.current = key;
+			onLivePins?.(live);
+		}
 	}
 
 	function start(task: () => Promise<GpioSnapshot>) {
@@ -131,8 +150,7 @@ export default function GpioPanel({
 	}
 
 	function drive(command: GpioCommand) {
-		const next =
-			target === "arduino-proxy" ? { ...command, target } : command;
+		const next = target === "arduino-proxy" ? { ...command, target } : command;
 		const current = snapshotRef.current;
 		if (current) {
 			applySnapshot(applyCommand(current, next));

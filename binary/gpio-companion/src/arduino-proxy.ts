@@ -524,6 +524,16 @@ function liveOpenSerial(
 		try {
 			reader = createReadStream(port);
 			writer = createWriteStream(port);
+			reader.on("error", () => {
+				if (!closed) {
+					onClose();
+				}
+			});
+			writer.on("error", () => {
+				if (!closed) {
+					onClose();
+				}
+			});
 		} catch {
 			resolveReady();
 			onClose();
@@ -541,11 +551,6 @@ function liveOpenSerial(
 			const bytes =
 				typeof buf === "string" ? Buffer.from(buf) : new Uint8Array(buf);
 			onData(bytes);
-		});
-		reader.on("error", () => {
-			if (!closed) {
-				onClose();
-			}
 		});
 		reader.on("end", () => {
 			if (!closed) {
