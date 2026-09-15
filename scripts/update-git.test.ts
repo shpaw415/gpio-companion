@@ -1,13 +1,29 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const libSh = join(import.meta.dir, "lib.sh");
-const ident =
-	"GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1";
-
 const dirs: string[] = [];
+let gitconfig = "";
+
+function gitEnv(): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [key, value] of Object.entries(process.env)) {
+		if (value === undefined || key.startsWith("GIT_")) {
+			continue;
+		}
+		env[key] = value;
+	}
+	env.GIT_AUTHOR_NAME = "test";
+	env.GIT_AUTHOR_EMAIL = "test@example.com";
+	env.GIT_COMMITTER_NAME = "test";
+	env.GIT_COMMITTER_EMAIL = "test@example.com";
+	env.GIT_CONFIG_NOSYSTEM = "1";
+	env.GIT_CONFIG_GLOBAL = gitconfig;
+	env.GIT_PROTOCOL_FROM_USER = "1";
+	return env;
+}
 
 async function tempDir() {
 	const dir = await mkdtemp(join(tmpdir(), "gpio-git-"));
@@ -19,7 +35,7 @@ async function bash(script: string) {
 	const proc = Bun.spawn(["bash", "-ec", script], {
 		stdout: "pipe",
 		stderr: "pipe",
-		env: { ...process.env },
+		env: gitEnv(),
 	});
 	const [stdout, stderr, exit] = await Promise.all([
 		new Response(proc.stdout).text(),
@@ -34,14 +50,17 @@ async function setupPair() {
 	const origin = join(dir, "origin");
 	const clone = join(dir, "clone");
 	const setup = await bash(`
-${ident}
-git init -b main "${origin}"
+git -c protocol.file.allow=always init -b main "${origin}"
 echo one > "${origin}/file"
 git -C "${origin}" add file
-git -C "${origin}" commit -m one
-git clone --depth 1 "file://${origin}" "${clone}"
+git -C "${origin}" -c user.name=test -c user.email=test@example.com commit --no-gpg-sign -m one
+git -c protocol.file.allow=always clone --depth 1 "file://${origin}" "${clone}"
 `);
-	expect(setup.exit).toBe(0);
+	if (setup.exit !== 0) {
+		throw new Error(
+			`setupPair failed (${setup.exit}): ${setup.stderr}\n${setup.stdout}`,
+		);
+	}
 	return { origin, clone };
 }
 
@@ -57,6 +76,21 @@ if [[ -e "$obj" ]]; then chmod u+w "$obj"; fi
 `;
 }
 
+beforeAll(async () => {
+	gitconfig = join(await tempDir(), "gitconfig");
+	await Bun.write(
+		gitconfig,
+		`[user]
+	name = test
+	email = test@example.com
+[protocol "file"]
+	allow = always
+[commit]
+	gpgsign = false
+`,
+	);
+});
+
 afterAll(async () => {
 	await Promise.all(
 		dirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -67,7 +101,6 @@ describe("managed git corruption guard", () => {
 	test("detects an empty object file", async () => {
 		const { clone } = await setupPair();
 		const result = await bash(`
-${ident}
 ${plantEmptyHeadTree(clone)}
 source "${libSh}"
 if git_checkout_corrupt "${clone}"; then echo CORRUPT; else echo CLEAN; fi
@@ -79,10 +112,9 @@ if git_checkout_corrupt "${clone}"; then echo CORRUPT; else echo CLEAN; fi
 	test("sync prunes empty objects and fast-forwards", async () => {
 		const { origin, clone } = await setupPair();
 		const result = await bash(`
-${ident}
 echo two > "${origin}/file"
 git -C "${origin}" add file
-git -C "${origin}" commit -m two
+git -C "${origin}" commit --no-gpg-sign -m two
 ${plantEmptyHeadTree(clone)}
 source "${libSh}"
 sync_managed_checkout "${clone}" main
@@ -98,7 +130,6 @@ if git_checkout_corrupt "${clone}"; then echo STILL_CORRUPT; else echo CLEAN; fi
 	test("git_in allows a checkout git refuses without safe.directory", async () => {
 		const { clone } = await setupPair();
 		const result = await bash(`
-${ident}
 source "${libSh}"
 git_in "${clone}" rev-parse --is-inside-work-tree
 `);
@@ -109,10 +140,9 @@ git_in "${clone}" rev-parse --is-inside-work-tree
 	test("reclone restores a wrecked object store", async () => {
 		const { origin, clone } = await setupPair();
 		const result = await bash(`
-${ident}
 echo two > "${origin}/file"
 git -C "${origin}" add file
-git -C "${origin}" commit -m two
+git -C "${origin}" commit --no-gpg-sign -m two
 rm -rf "${clone}/.git/objects"
 source "${libSh}"
 reclone_managed_checkout "${clone}" main

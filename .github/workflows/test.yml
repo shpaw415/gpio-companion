@@ -12,5 +12,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.0
-      - run: bun install
+      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
+        working-directory: apps/desktop
+      - run: bun install --frozen-lockfile
+        working-directory: apps/mobile
       - run: bun test
