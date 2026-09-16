@@ -2,14 +2,17 @@
 name: gpio-arduino
 description: >-
   Flash Arduino C firmware over USB from a gpio-companion Pi. USB Arduino only
-  — this board's header is C-first via gpio-host POST /v1/run, not flash and
-  not PUT /v1/gpio. Use when compiling or uploading a .c/.ino via /v1/flash.
+  — lasting drive is C-first (GET /v1/arduino-proxy; if connected
+  gpio-arduino-proxy, else gpio-host POST /v1/run), not flash and not PUT
+  /v1/gpio. Use when compiling or uploading a .c/.ino via /v1/flash.
 ---
 
 # gpio-arduino
 
-USB Arduino only (`POST /v1/flash`). This board's GPIO header is C-first via
-skill `gpio-host` (`POST /v1/run`), not flash and not `PUT /v1/gpio`.
+USB Arduino only (`POST /v1/flash`). Lasting pin drive is C-first: `GET
+/v1/arduino-proxy` first; if connected, skill `gpio-arduino-proxy` (do not
+flash over a live proxy unless asked). Else this board's GPIO header is skill
+`gpio-host` (`POST /v1/run`), not flash and not `PUT /v1/gpio`.
 
 To make the USB board a pin slave instead of flashing a project sketch: skill
 `gpio-arduino-proxy` (`POST /v1/flash/proxy`). A live proxy is replaced if you

@@ -189,7 +189,7 @@ export default function ProjectBrowser({
 		setBreadboardJson(null);
 		if (next.pcbCircuitJsonUrl) {
 			const file = unwrapAction(
-				await readFile(next.owner, next.repo, "pcb/circuit.json"),
+				await readFile(next.owner, next.repo, "pcb/circuit.json", next.ref),
 			);
 			setPcbJson(file.text);
 		}
@@ -200,7 +200,7 @@ export default function ProjectBrowser({
 				: null;
 		if (breadboardPath) {
 			const file = unwrapAction(
-				await readFile(next.owner, next.repo, breadboardPath),
+				await readFile(next.owner, next.repo, breadboardPath, next.ref),
 			);
 			setBreadboardJson(file.text);
 		}
@@ -216,6 +216,26 @@ export default function ProjectBrowser({
 			await applyBundle(unwrapAction(await loadProject(repo.owner, repo.name)));
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "failed to load project");
+		} finally {
+			setLoadingRepo(false);
+		}
+	}
+
+	async function selectBranch(ref: string) {
+		if (!bundle || !ref || ref === bundle.ref || loadingRepo) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		setPcbJson(null);
+		setBreadboardJson(null);
+		setLoadingRepo(true);
+		try {
+			await applyBundle(
+				unwrapAction(await loadProject(bundle.owner, bundle.repo, ref)),
+			);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "failed to load branch");
 		} finally {
 			setLoadingRepo(false);
 		}
@@ -410,6 +430,25 @@ export default function ProjectBrowser({
 							<Typography variant="h6" className="break-all">
 								{bundle.owner}/{bundle.repo}
 							</Typography>
+							{bundle.branches.length > 0 ? (
+								<Select
+									name="branch"
+									label="Branch"
+									value={bundle.ref}
+									onSelect={(next) => {
+										void selectBranch(next);
+									}}
+									className="min-w-0 w-full min-[900px]:w-auto min-[900px]:min-w-[12rem]"
+								>
+									{bundle.branches.map((branch) => (
+										<option key={branch.name} value={branch.name}>
+											{branch.name === bundle.defaultBranch
+												? `${branch.name} (default)`
+												: branch.name}
+										</option>
+									))}
+								</Select>
+							) : null}
 							<Button
 								variant="contained"
 								disabled={saving || !uuid}

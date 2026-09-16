@@ -8,6 +8,7 @@ import {
 	listRepos,
 	loadIndexedProjects,
 	loadProjectBundle,
+	parseProjectRef,
 	readRepoFile,
 } from "../../../lib/github.ts";
 import type { GithubAppEnv } from "../../../lib/github-app.ts";
@@ -60,7 +61,7 @@ export async function onRequestPost(ctx: MobileContext) {
 		if (!githubConfigured(account)) {
 			throw new Error("github is not configured");
 		}
-		return loadProjectBundle(account, owner, repo);
+		return loadProjectBundle(account, owner, repo, parseProjectRef(body.ref));
 	});
 }
 
@@ -77,7 +78,15 @@ export async function onRequestPut(ctx: MobileContext) {
 		if (!githubConfigured(account)) {
 			throw new Error("github is not configured");
 		}
-		return { text: await readRepoFile(account, owner, repo, path) };
+		return {
+			text: await readRepoFile(
+				account,
+				owner,
+				repo,
+				path,
+				parseProjectRef(body.ref),
+			),
+		};
 	});
 }
 

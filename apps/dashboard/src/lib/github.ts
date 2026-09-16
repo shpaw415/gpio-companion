@@ -46,9 +46,18 @@ export type GithubContent = {
 	download_url: string | null;
 };
 
+export type ProjectBranch = {
+	name: string;
+	sha: string;
+	committedAt: string;
+};
+
 export type ProjectBundle = {
 	owner: string;
 	repo: string;
+	ref: string;
+	defaultBranch: string;
+	branches: ProjectBranch[];
 	pcb: GithubContent[];
 	breadboard: GithubContent[];
 	technical: GithubContent[];
@@ -58,6 +67,55 @@ export type ProjectBundle = {
 	breadboardPreviewUrl: string | null;
 	breadboardDiagramUrl: string | null;
 };
+
+const PROJECT_BRANCHES_QUERY = `query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef { name }
+    refs(refPrefix: "refs/heads/", first: 100, orderBy: {field: COMMIT_DATE, direction: DESC}) {
+      nodes {
+        name
+        target {
+          ... on Commit {
+            oid
+            committedDate
+          }
+        }
+      }
+    }
+  }
+}`;
+
+export function parseProjectRef(value: unknown): string | undefined {
+	if (value == null) {
+		return undefined;
+	}
+	if (typeof value !== "string") {
+		throw new Error("ref must be a string");
+	}
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	if (
+		trimmed.length > 256 ||
+		trimmed.includes("..") ||
+		/[\s\\]/.test(trimmed)
+	) {
+		throw new Error("ref is invalid");
+	}
+	return trimmed;
+}
+
+export function pickProjectRef(
+	branches: ProjectBranch[],
+	defaultBranch: string,
+	requested?: string,
+): string {
+	if (requested && branches.some((branch) => branch.name === requested)) {
+		return requested;
+	}
+	return branches[0]?.name || defaultBranch || "main";
+}
 
 export function githubConfigured(
 	account: GithubAccount | null | undefined,
@@ -487,12 +545,19 @@ export async function loadProjectBundle(
 	account: GithubAccount,
 	owner: string,
 	repo: string,
+	ref?: string,
 ): Promise<ProjectBundle> {
 	const reader = readerAccount(account);
+	const { defaultBranch, branches } = await listProjectBranches(
+		reader,
+		owner,
+		repo,
+	);
+	const selected = pickProjectRef(branches, defaultBranch, ref);
 	const dirs = await Promise.all(
 		PROJECT_FILE_DIRS.map(async (dir) => {
 			try {
-				return await listContents(reader, owner, repo, dir);
+				return await listContents(reader, owner, repo, dir, selected);
 			} catch {
 				return [] as GithubContent[];
 			}
@@ -504,6 +569,9 @@ export async function loadProjectBundle(
 	return {
 		owner,
 		repo,
+		ref: selected,
+		defaultBranch,
+		branches,
 		pcb,
 		breadboard,
 		technical,
@@ -520,16 +588,14 @@ export async function readRepoFile(
 	owner: string,
 	repo: string,
 	path: string,
+	ref?: string,
 ): Promise<string> {
 	const reader = readerAccount(account);
 	const data = await githubJson<{
 		content?: string;
 		encoding?: string;
 		download_url?: string | null;
-	}>(
-		reader,
-		`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}`,
-	);
+	}>(reader, contentsUrl(owner, repo, path, ref));
 	if (data.encoding === "base64" && data.content) {
 		return atob(data.content.replace(/\n/g, ""));
 	}
@@ -545,17 +611,174 @@ export async function readRepoFile(
 	throw new Error("github file has no content");
 }
 
+async function listProjectBranches(
+	account: GithubAccount,
+	owner: string,
+	repo: string,
+): Promise<{ defaultBranch: string; branches: ProjectBranch[] }> {
+	try {
+		return await listProjectBranchesGraphql(account, owner, repo);
+	} catch {
+		return listProjectBranchesRest(account, owner, repo);
+	}
+}
+
+async function listProjectBranchesGraphql(
+	account: GithubAccount,
+	owner: string,
+	repo: string,
+): Promise<{ defaultBranch: string; branches: ProjectBranch[] }> {
+	const payload = await githubGraphql<{
+		repository?: {
+			defaultBranchRef?: { name?: string } | null;
+			refs?: {
+				nodes?: Array<{
+					name?: string;
+					target?: { oid?: string; committedDate?: string } | null;
+				} | null> | null;
+			} | null;
+		} | null;
+	}>(account, PROJECT_BRANCHES_QUERY, { owner, name: repo });
+	const repository = payload.repository;
+	if (!repository) {
+		throw new Error("github repository not found");
+	}
+	const defaultBranch = repository.defaultBranchRef?.name?.trim() || "main";
+	const branches = (repository.refs?.nodes ?? []).flatMap((node) => {
+		const name = node?.name?.trim();
+		const sha = node?.target?.oid?.trim();
+		if (!name || !sha) {
+			return [];
+		}
+		return [
+			{
+				name,
+				sha,
+				committedAt: node?.target?.committedDate ?? "",
+			} satisfies ProjectBranch,
+		];
+	});
+	if (branches.length === 0) {
+		throw new Error("github repository has no branches");
+	}
+	return { defaultBranch, branches };
+}
+
+async function listProjectBranchesRest(
+	account: GithubAccount,
+	owner: string,
+	repo: string,
+): Promise<{ defaultBranch: string; branches: ProjectBranch[] }> {
+	let defaultBranch = "main";
+	try {
+		const meta = await githubJson<{ default_branch?: string }>(
+			account,
+			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+		);
+		if (meta.default_branch?.trim()) {
+			defaultBranch = meta.default_branch.trim();
+		}
+	} catch {
+		defaultBranch = "main";
+	}
+	const listed: Array<{ name: string; sha: string }> = [];
+	let next: string | null =
+		`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches?per_page=100`;
+	for (let page = 0; next && page < 10; page += 1) {
+		const result: {
+			body: Array<{ name?: string; commit?: { sha?: string } }>;
+			next: string | null;
+		} = await githubJsonWithLink(account, next);
+		for (const item of result.body) {
+			const name = item.name?.trim();
+			const sha = item.commit?.sha?.trim();
+			if (name && sha) {
+				listed.push({ name, sha });
+			}
+		}
+		next = result.next;
+	}
+	const branches = (
+		await Promise.all(
+			listed.map(async (branch) => {
+				try {
+					const commits = await githubJson<
+						Array<{
+							sha?: string;
+							commit?: { committer?: { date?: string } };
+						}>
+					>(
+						account,
+						`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?sha=${encodeURIComponent(branch.name)}&per_page=1`,
+					);
+					const commit = commits[0];
+					return {
+						name: branch.name,
+						sha: commit?.sha?.trim() || branch.sha,
+						committedAt: commit?.commit?.committer?.date ?? "",
+					} satisfies ProjectBranch;
+				} catch {
+					return {
+						name: branch.name,
+						sha: branch.sha,
+						committedAt: "",
+					} satisfies ProjectBranch;
+				}
+			}),
+		)
+	).sort((left, right) => right.committedAt.localeCompare(left.committedAt));
+	if (branches.length === 0) {
+		return {
+			defaultBranch,
+			branches: [{ name: defaultBranch, sha: "", committedAt: "" }],
+		};
+	}
+	return { defaultBranch, branches };
+}
+
+async function githubGraphql<T>(
+	account: GithubAccount,
+	query: string,
+	variables: Record<string, unknown>,
+): Promise<T> {
+	const payload = await githubJson<{
+		data?: T;
+		errors?: Array<{ message?: string }>;
+	}>(account, "/graphql", {
+		method: "POST",
+		body: JSON.stringify({ query, variables }),
+	});
+	if (!payload.data) {
+		throw new Error(payload.errors?.[0]?.message ?? "github graphql");
+	}
+	return payload.data;
+}
+
 async function listContents(
 	account: GithubAccount,
 	owner: string,
 	repo: string,
 	path: string,
+	ref?: string,
 ): Promise<GithubContent[]> {
 	const data = await githubJson<GithubContent[] | GithubContent>(
 		account,
-		`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}`,
+		contentsUrl(owner, repo, path, ref),
 	);
 	return Array.isArray(data) ? data : [data];
+}
+
+function contentsUrl(
+	owner: string,
+	repo: string,
+	path: string,
+	ref?: string,
+): string {
+	const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}`;
+	if (!ref) {
+		return base;
+	}
+	return `${base}?ref=${encodeURIComponent(ref)}`;
 }
 
 function fileUrl(files: GithubContent[], path: string): string | null {

@@ -54,6 +54,10 @@ function lastRepoKey(repo: GithubRepo) {
 	return `${repo.owner}/${repo.name}`;
 }
 
+function bundleReady(bundle: ProjectBundle): boolean {
+	return Boolean(bundle.ref && bundle.branches);
+}
+
 function PreviewCard({
 	title,
 	hint,
@@ -322,11 +326,20 @@ export default function Project() {
 				owner: bundle.owner,
 				name: bundle.repo,
 			});
-			const key = CACHE_KEYS.projectBundle(
-				result.bundle.owner,
-				result.bundle.repo,
+			cache.set(
+				CACHE_KEYS.projectBundle(result.bundle.owner, result.bundle.repo),
+				result.bundle,
 			);
-			cache.set(key, result.bundle);
+			if (result.bundle.ref) {
+				cache.set(
+					CACHE_KEYS.projectBundle(
+						result.bundle.owner,
+						result.bundle.repo,
+						result.bundle.ref,
+					),
+					result.bundle,
+				);
+			}
 			setBundle(result.bundle);
 			setSaveHint(
 				result.board.committed
@@ -342,6 +355,33 @@ export default function Project() {
 		}
 	}
 
+	async function selectBranch(ref: string) {
+		if (!token || !bundle || !ref || ref === bundle.ref || opening) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		const key = CACHE_KEYS.projectBundle(bundle.owner, bundle.repo, ref);
+		const hit = cache.peek<ProjectBundle>(key);
+		if (hit.hit && bundleReady(hit.value)) {
+			setBundle(hit.value);
+			return;
+		}
+		setOpening(true);
+		try {
+			const next = await cache.get(key, () =>
+				loadProject(token, bundle.owner, bundle.repo, ref),
+			);
+			setBundle(next);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to load branch",
+			);
+		} finally {
+			setOpening(false);
+		}
+	}
+
 	async function openRepo(repo: GithubRepo) {
 		if (!token) {
 			return;
@@ -350,15 +390,17 @@ export default function Project() {
 		setSaveHint("");
 		const key = CACHE_KEYS.projectBundle(repo.owner, repo.name);
 		const hit = cache.peek<ProjectBundle>(key);
-		if (hit.hit) {
+		if (hit.hit && bundleReady(hit.value)) {
 			setBundle(hit.value);
 			void storageSet(LAST_REPO_KEY, lastRepoKey(repo));
 			return;
 		}
 		setOpening(true);
 		try {
-			const next = await cache.get(key, () =>
-				loadProject(token, repo.owner, repo.name),
+			const next = await cache.get(
+				key,
+				() => loadProject(token, repo.owner, repo.name),
+				hit.hit,
 			);
 			setBundle(next);
 			void storageSet(LAST_REPO_KEY, lastRepoKey(repo));
@@ -578,6 +620,38 @@ export default function Project() {
 					<Body>
 						{bundle.owner}/{bundle.repo}
 					</Body>
+					{bundle.branches && bundle.branches.length > 0 ? (
+						<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+							{bundle.branches.map((branch) => {
+								const selected = branch.name === bundle.ref;
+								const label =
+									branch.name === bundle.defaultBranch
+										? `${branch.name} (default)`
+										: branch.name;
+								return (
+									<Pressable
+										key={branch.name}
+										onPress={() => void selectBranch(branch.name)}
+										style={{
+											borderWidth: 1,
+											borderColor: selected ? colors.primary : colors.border,
+											borderRadius: 999,
+											paddingHorizontal: 10,
+											paddingVertical: 6,
+										}}
+									>
+										<Text
+											style={{
+												color: selected ? colors.primary : colors.text,
+											}}
+										>
+											{label}
+										</Text>
+									</Pressable>
+								);
+							})}
+						</View>
+					) : null}
 					<TextButton
 						label="Open on GitHub"
 						onPress={() =>

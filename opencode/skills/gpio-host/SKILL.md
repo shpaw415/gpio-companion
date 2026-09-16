@@ -2,14 +2,34 @@
 name: gpio-host
 description: >-
   Default (C-first) way to drive gpio-companion header GPIO: compile/run
-  Arduino-style C (.c/.ino) via POST /v1/run. Use for blinks, PWM, tone, loops,
-  and any lasting pin control. PUT /v1/gpio is testing-only. Not USB flash.
+  Arduino-style C (.c/.ino) via POST /v1/run. Use for blinks, LEDs, PWM, tone,
+  loops, sketches, circuits, and lasting pin control — but only after GET
+  /v1/arduino-proxy. If connected, skill gpio-arduino-proxy instead (do not
+  write a companion-header sketch). PUT /v1/gpio is testing-only. Not USB flash.
 ---
 
 # gpio-host
 
-This is the **default** way to drive this board's GPIO header. Prioritize a C
-script over direct GPIO control.
+This is the **default** way to drive this board's GPIO header **when no USB
+Arduino proxy is connected**. Prioritize a C script over direct GPIO control.
+
+## Check proxy first
+
+Before writing any sketch, breadboard, or pin drive:
+
+```sh
+curl -s http://127.0.0.1:4150/v1/arduino-proxy
+```
+
+You call loopback yourself. **Never** tell the user to curl it.
+
+If `connected` is true: **stop**. Do **not** write `host/<name>/` with physical
+header pins. Skill `gpio-arduino-proxy`: `host/arduino-proxy-<name>/`, Arduino
+pin numbers, `POST /v1/run`, and a `gpio-arduino-proxy` part in
+`breadboard/diagram.json`.
+
+If `connected` is false (or the user explicitly asked for this companion
+header):
 
 - Write a `.c`/`.ino` under `~/projects/<repo>/host/<sketch>/` and `POST /v1/run`.
 - Do **not** `PUT /v1/gpio` or skill `gpio-pwm` unless the user asked to **probe
@@ -18,9 +38,7 @@ script over direct GPIO control.
   would work.
 
 Do **not** shell `gcc`. Use the loopback run API. Pins are **physical** header
-numbers (not Arduino Uno D-numbers), unless `GET /v1/arduino-proxy` is connected
-— then skill `gpio-arduino-proxy` and `host/arduino-proxy-<name>/` with MCU pin
-numbers. This is not a drop-in `/v1/flash` sketch.
+numbers (not Arduino Uno D-numbers). This is not a drop-in `/v1/flash` sketch.
 
 ## User vs you
 

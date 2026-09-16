@@ -435,9 +435,18 @@ export type GithubContent = {
 	download_url: string | null;
 };
 
+export type ProjectBranch = {
+	name: string;
+	sha: string;
+	committedAt: string;
+};
+
 export type ProjectBundle = {
 	owner: string;
 	repo: string;
+	ref?: string;
+	defaultBranch?: string;
+	branches?: ProjectBranch[];
 	pcb: GithubContent[];
 	breadboard: GithubContent[];
 	technical: GithubContent[];
@@ -549,18 +558,25 @@ export function listProjects() {
 	);
 }
 
-export function loadProject(owner: string, repo: string) {
+export function loadProject(owner: string, repo: string, ref?: string) {
 	return apiRequest<ProjectBundle>("POST", "/api/mobile/projects", {
 		owner,
 		repo,
+		...(ref ? { ref } : {}),
 	});
 }
 
-export function readProjectFile(owner: string, repo: string, path: string) {
+export function readProjectFile(
+	owner: string,
+	repo: string,
+	path: string,
+	ref?: string,
+) {
 	return apiRequest<{ text: string }>("PUT", "/api/mobile/projects", {
 		owner,
 		repo,
 		path,
+		...(ref ? { ref } : {}),
 	});
 }
 

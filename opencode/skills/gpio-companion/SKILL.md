@@ -1,10 +1,12 @@
 ---
 name: gpio-companion
 description: >-
-  On-device gpio-companion agent: C-first header GPIO (gpio-host POST /v1/run).
-  Direct PUT /v1/gpio is one-shot testing only. USB Arduino is gpio-arduino.
-  tscircuit breadboard/PCB, visual sheets, GitHub, Bun. Use on Orange Pi /
-  Raspberry Pi Armbian with OpenCode or T3Code, and in this monorepo.
+  On-device gpio-companion agent: C-first GPIO. GET /v1/arduino-proxy first —
+  if connected, skill gpio-arduino-proxy (host/arduino-proxy-*, breadboard
+  gpio-arduino-proxy); else gpio-host POST /v1/run. Direct PUT /v1/gpio is
+  one-shot testing only. USB Arduino flash is gpio-arduino. tscircuit
+  breadboard/PCB, visual sheets, GitHub, Bun. Use on Orange Pi / Raspberry Pi
+  Armbian with OpenCode or T3Code, and in this monorepo.
 ---
 
 # gpio-companion
@@ -20,15 +22,15 @@ You control a GPIO-equipped Linux OS (Armbian on Orange Pi or Raspberry Pi).
 
 ## C-first GPIO (locked)
 
-Drive this board's header with Arduino-style C. Direct GPIO PUT is not the default.
+Drive pins with Arduino-style C. Direct GPIO PUT is not the default. **Always** `GET /v1/arduino-proxy` before a blink, LED, sketch, or breadboard.
 
 | Job | Do this |
 | --- | --- |
-| Blink, PWM, tone, loops, lasting pin control | Write `.c`/`.ino`, skill `gpio-host`, `POST http://127.0.0.1:4150/v1/run` `{ dir }` |
+| Blink, PWM, tone, loops, lasting pin control | `GET /v1/arduino-proxy` first. If `connected`: skill `gpio-arduino-proxy` — `host/arduino-proxy-<name>/`, Arduino pins, `gpio-arduino-proxy` in `breadboard/diagram.json`, `POST /v1/run`. Else skill `gpio-host` — `host/<name>/`, physical pins, `POST /v1/run` |
 | Snapshot pins | `GET http://127.0.0.1:4150/v1/gpio` |
 | User asked to probe a pin or verify Live GPIO | One-shot `PUT /v1/gpio` (digital) or skill `gpio-pwm` (analogWrite/tone), then stop |
-| USB Arduino | Skill `gpio-arduino`, `POST /v1/flash` — never this header |
-| USB Arduino as proxy | Skill `gpio-arduino-proxy`. `GET /v1/arduino-proxy`; if connected write `host/arduino-proxy-<name>/` and `POST /v1/run`. Flash slave firmware `POST /v1/flash/proxy` or Devices → Flash Arduino as proxy |
+| USB Arduino flash | Skill `gpio-arduino`, `POST /v1/flash` — never this header; replaces a live proxy |
+| USB Arduino as proxy (not yet connected) | `POST /v1/flash/proxy` or Devices → Flash Arduino as proxy, then the blink row |
 | Circuit verify | `POST http://127.0.0.1:4150/v1/verify` `{ repo }`. Users tap Project → Verify circuit. Do not `PUT /v1/gpio` for this |
 
 Do **not** `PUT /v1/gpio` for blinks, PWM, tone, loops, or any lasting drive. Do not shell `gcc`, `gpioset`, or `gpio-pwm`.
@@ -45,7 +47,7 @@ You run loopback `http://127.0.0.1:4150` yourself. **Never** quote those curls t
 - Extra SD / USB volumes are linked at `~/storage/<label>` for the T3 user; open projects there. Never mount or symlink the boot/root disk.
 - Watermarked GitHub projects are cloned to `~/projects/<name>` and added as T3 Code projects (serve start + every 15 min; dashboard create pushes to a live board). Prefer those paths.
 - Use Bun for HTTP, dashboards, and automation scripts
-- Drive this board's GPIO header with Arduino-style C (skill `gpio-host`): write `~/projects/<repo>/host/<sketch>/*.c` and `POST http://127.0.0.1:4150/v1/run` `{ dir }`. Physical pins. Do not shell gcc. Users launch by name from Project → Run on board. `Serial.print` shows live there.
+- Drive pins with Arduino-style C. `GET /v1/arduino-proxy` first. If connected: skill `gpio-arduino-proxy`, `~/projects/<repo>/host/arduino-proxy-<sketch>/*.c`, Arduino pin numbers, and a `gpio-arduino-proxy` part in `breadboard/diagram.json`. Else skill `gpio-host`: `~/projects/<repo>/host/<sketch>/*.c`, physical pins. Then `POST http://127.0.0.1:4150/v1/run` `{ dir }`. Do not shell gcc. Users launch by name from Project → Run on board. `Serial.print` shows live there.
 - Generate Arduino firmware in C under `~/projects/<repo>/firmware/<sketch>/` and send it over USB via `http://127.0.0.1:4150/v1/flash` (skill `gpio-arduino`). USB Arduino only — not this board's header. Users flash by name from Project → Flash Arduino.
 - Load the pinout skill for the current hardware before wiring GPIO
 - `GET http://127.0.0.1:4150/v1/gpio` to snapshot physical pins (dir/value/PWM). Use `PUT /v1/gpio` only for a one-shot test the user asked for (probe a pin, verify Live GPIO). Digital test: `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone test: skill `gpio-pwm`. Do not `gpioset` power, GND, or Raspberry Pi pins 27–28. Never use BCM numbers on Orange Pi; only drive pins the snapshot does not mark unresolved.
@@ -66,7 +68,7 @@ Electronics clones live in `~/projects/<name>` (`https://github.com/<user>/<proj
 5. Yes (save / keep / merge / yes): `git checkout main`, merge the feature branch, `git push origin main`, stay on `main`.
 6. No: leave the feature branch; do not merge.
 
-Dashboard **Save to GitHub** commits and pushes the current checkout. It is **not** the merge-to-main gate. You merge when the **user asks you** to save. Dashboard PCB/breadboard viewers read GitHub `main`; they update after that merge. Run/Flash lists sketches from the board copy.
+Dashboard **Save to GitHub** commits and pushes the current checkout. It is **not** the merge-to-main gate. You merge when the **user asks you** to save. Dashboard PCB/breadboard viewers default to the GitHub branch with the newest commit and let the user switch branches. Run/Flash lists sketches from the board copy.
 
 ## Do not
 

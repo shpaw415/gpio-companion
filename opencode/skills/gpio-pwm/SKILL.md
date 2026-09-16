@@ -2,14 +2,16 @@
 name: gpio-pwm
 description: >-
   Testing-only analogWrite, tone, and analogRead via PUT /v1/gpio. Do not use
-  for lasting PWM/tone — write C (gpio-host POST /v1/run) instead. One-shot pin
+  for lasting PWM/tone — write C (GET /v1/arduino-proxy first; if connected
+  gpio-arduino-proxy, else gpio-host POST /v1/run) instead. One-shot pin
   test only when the user asked to probe a pin or verify Live GPIO.
 ---
 
 # gpio-pwm
 
-**Testing only.** Prefer `analogWrite` / `tone` in a C sketch (skill `gpio-host`,
-`POST /v1/run`). Use this PUT API only when the user asked to probe a pin or
+**Testing only.** Prefer `analogWrite` / `tone` in a C sketch (`GET
+/v1/arduino-proxy` first; if connected skill `gpio-arduino-proxy`, else skill
+`gpio-host`, `POST /v1/run`). Use this PUT API only when the user asked to probe a pin or
 verify Live GPIO — one-shot, then stop. Not for blinks, fades that should keep
 running, or tone sequences.
 

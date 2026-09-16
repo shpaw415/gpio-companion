@@ -19,8 +19,10 @@ export const CACHE_KEYS = {
 	notifications: "notifications",
 	debugBoards: "debug-boards",
 	adminDevices: "admin-devices",
-	projectBundle: (owner: string, repo: string) =>
-		`project-bundle:${owner}/${repo}`,
+	projectBundle: (owner: string, repo: string, ref?: string) =>
+		ref
+			? `project-bundle:${owner}/${repo}:${ref}`
+			: `project-bundle:${owner}/${repo}`,
 } as const;
 
 export type UserBoards = {

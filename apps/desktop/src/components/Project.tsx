@@ -22,10 +22,10 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
-	type GpioTarget,
 	createProject,
 	type GithubContent,
 	type GithubRepo,
+	type GpioTarget,
 	getGithubApp,
 	listProjects,
 	loadFlash,
@@ -59,6 +59,10 @@ const LAST_REPO_KEY = "gpio-companion-selected-project";
 
 function lastRepoKey(repo: GithubRepo) {
 	return `${repo.owner}/${repo.name}`;
+}
+
+function bundleReady(bundle: ProjectBundle): boolean {
+	return Boolean(bundle.ref && bundle.branches);
 }
 
 function PreviewCard({
@@ -225,7 +229,7 @@ export default function Project() {
 					stored.slice(slash + 1),
 				),
 			);
-			return hit.hit ? hit.value : null;
+			return hit.hit && bundleReady(hit.value) ? hit.value : null;
 		} catch {
 			return null;
 		}
@@ -285,7 +289,7 @@ export default function Project() {
 			return;
 		}
 		let cancelled = false;
-		void readProjectFile(bundle.owner, bundle.repo, path)
+		void readProjectFile(bundle.owner, bundle.repo, path, bundle.ref)
 			.then((file) => {
 				if (!cancelled) {
 					setBreadboardJson(file.text);
@@ -382,11 +386,20 @@ export default function Project() {
 				owner: bundle.owner,
 				name: bundle.repo,
 			});
-			const key = CACHE_KEYS.projectBundle(
-				result.bundle.owner,
-				result.bundle.repo,
+			cache.set(
+				CACHE_KEYS.projectBundle(result.bundle.owner, result.bundle.repo),
+				result.bundle,
 			);
-			cache.set(key, result.bundle);
+			if (result.bundle.ref) {
+				cache.set(
+					CACHE_KEYS.projectBundle(
+						result.bundle.owner,
+						result.bundle.repo,
+						result.bundle.ref,
+					),
+					result.bundle,
+				);
+			}
 			setBundle(result.bundle);
 			setSaveHint(
 				result.board.committed
@@ -402,12 +415,39 @@ export default function Project() {
 		}
 	}
 
+	async function selectBranch(ref: string) {
+		if (!bundle || !ref || ref === bundle.ref || opening) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		const key = CACHE_KEYS.projectBundle(bundle.owner, bundle.repo, ref);
+		const hit = cache.peek<ProjectBundle>(key);
+		if (hit.hit && bundleReady(hit.value)) {
+			setBundle(hit.value);
+			return;
+		}
+		setOpening(true);
+		try {
+			const next = await cache.get(key, () =>
+				loadProject(bundle.owner, bundle.repo, ref),
+			);
+			setBundle(next);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to load branch",
+			);
+		} finally {
+			setOpening(false);
+		}
+	}
+
 	async function openRepo(repo: GithubRepo) {
 		setError("");
 		setSaveHint("");
 		const key = CACHE_KEYS.projectBundle(repo.owner, repo.name);
 		const hit = cache.peek<ProjectBundle>(key);
-		if (hit.hit) {
+		if (hit.hit && bundleReady(hit.value)) {
 			setBundle(hit.value);
 			try {
 				window.localStorage.setItem(LAST_REPO_KEY, lastRepoKey(repo));
@@ -418,8 +458,10 @@ export default function Project() {
 		}
 		setOpening(true);
 		try {
-			const next = await cache.get(key, () =>
-				loadProject(repo.owner, repo.name),
+			const next = await cache.get(
+				key,
+				() => loadProject(repo.owner, repo.name),
+				hit.hit,
 			);
 			setBundle(next);
 			try {
@@ -732,6 +774,25 @@ export default function Project() {
 						<Typography variant="h6">
 							{bundle.owner}/{bundle.repo}
 						</Typography>
+						{bundle.branches && bundle.branches.length > 0 ? (
+							<Select
+								name="branch"
+								label="Branch"
+								value={bundle.ref ?? ""}
+								onSelect={(next) => {
+									void selectBranch(next);
+								}}
+								sx={{ minWidth: 180 }}
+							>
+								{bundle.branches.map((branch) => (
+									<option key={branch.name} value={branch.name}>
+										{branch.name === bundle.defaultBranch
+											? `${branch.name} (default)`
+											: branch.name}
+									</option>
+								))}
+							</Select>
+						) : null}
 						<Button
 							variant="text"
 							size="small"

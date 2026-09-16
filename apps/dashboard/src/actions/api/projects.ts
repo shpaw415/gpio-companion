@@ -8,6 +8,7 @@ import {
 	listRepos,
 	loadIndexedProjects,
 	loadProjectBundle,
+	parseProjectRef,
 	readRepoFile,
 } from "../../lib/github.ts";
 import type { GithubAppEnv } from "../../lib/github-app.ts";
@@ -48,6 +49,7 @@ export const GET = wrapAction(async function GET() {
 export const POST = wrapAction(async function POST(
 	owner: string,
 	repo: string,
+	ref?: string,
 ) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
@@ -58,13 +60,14 @@ export const POST = wrapAction(async function POST(
 	if (!githubConfigured(account)) {
 		throw new Error("github is not configured");
 	}
-	return loadProjectBundle(account, owner, repo);
+	return loadProjectBundle(account, owner, repo, parseProjectRef(ref));
 });
 
 export const PUT = wrapAction(async function PUT(
 	owner: string,
 	repo: string,
 	path: string,
+	ref?: string,
 ) {
 	const ctx = getContext<PagesEnv, never, never>(arguments);
 	const identity = await requireIdentity(ctx);
@@ -75,7 +78,9 @@ export const PUT = wrapAction(async function PUT(
 	if (!githubConfigured(account)) {
 		throw new Error("github is not configured");
 	}
-	return { text: await readRepoFile(account, owner, repo, path) };
+	return {
+		text: await readRepoFile(account, owner, repo, path, parseProjectRef(ref)),
+	};
 });
 
 export const PATCH = wrapAction(async function PATCH(name: string) {

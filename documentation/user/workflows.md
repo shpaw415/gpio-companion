@@ -15,7 +15,7 @@ Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home
 
 Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth. Devices can **Flash Arduino as proxy** so the USB board becomes a Firmata slave: Project Live GPIO switches Companion | Arduino, Run on board can launch `arduino-proxy-*` sketches that drive the MCU pins from the companion, and breadboard maps can include a `gpio-arduino-proxy` header (Uno/Mega/Nano/…) next to the companion header.
 
-The on-device agent drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Pins are physical header numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path). `Serial.print` from that sketch shows live on the same panel. After **Flash Arduino**, USB `Serial` shows on that panel (Open serial if you need to attach without flashing).
+The on-device agent checks `GET /v1/arduino-proxy` before a blink or breadboard. If the USB Arduino proxy is connected, it writes `host/arduino-proxy-*` C (Arduino pin numbers) and a `gpio-arduino-proxy` part in `breadboard/diagram.json` (skill `gpio-arduino-proxy`). Otherwise it drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Header pins are physical numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path). `Serial.print` from that sketch shows live on the same panel. After **Flash Arduino**, USB `Serial` shows on that panel (Open serial if you need to attach without flashing).
 
 ## Projects live in GitHub
 
@@ -31,9 +31,10 @@ While a PCB, breadboard, technical-sheet, or C-sketch feature is in progress, th
 | `breadboard/` | `diagram.json` (Wokwi plug map), optional `preview.svg` |
 | `technical/` | sheets |
 | `host/<name>/` | gpio-host C (`.c` / `.ino`) run on this board's header |
+| `host/arduino-proxy-<name>/` | gpio-arduino-proxy C when USB Arduino proxy is connected |
 | `firmware/<name>/` | USB Arduino C flashed over USB |
 
-Dashboard `/project` reads visual paths from GitHub **`main`** (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`) and lists host/firmware sketches that are present on the selected board. Launch uses the board copy, not a typed Pi path. Project **Save to GitHub** commits and pushes the board clone `~/projects/<name>` on whatever branch is checked out (not a merge to `main`). Ask the on-device agent to save when you want the feature branch merged to `main`; viewers update after that merge.
+Dashboard `/project` reads visual paths from GitHub, defaulting to the branch with the newest commit (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`). A branch selector switches that checkout. Host/firmware sketches are listed from the selected board. Launch uses the board copy, not a typed Pi path. Project **Save to GitHub** commits and pushes the board clone `~/projects/<name>` on whatever branch is checked out (not a merge to `main`), then reloads the newest-commit branch. Ask the on-device agent to save when you want the feature branch merged to `main`.
 
 ## Change WiFi later
 
@@ -51,7 +52,7 @@ You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pu
 
 ## GPIO
 
-The on-device agent drives this board's header with C sketches (`POST /v1/run`, skill `gpio-host`). Direct `PUT /v1/gpio` is for one-shot tests only. The dashboard Project page Live GPIO header can still drive the same map. Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
+The on-device agent drives this board's header with C sketches (`POST /v1/run`, skill `gpio-host`) unless a USB Arduino proxy is connected — then `host/arduino-proxy-*` and skill `gpio-arduino-proxy`. Direct `PUT /v1/gpio` is for one-shot tests only. The dashboard Project page Live GPIO header can still drive the same map (Companion | Arduino when a proxy is live). Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
 
 Flash USB Arduino from Project **Flash Arduino** (sketch name from `firmware/` on the board). A second flash while one is running returns 409.
 
