@@ -39,6 +39,7 @@ import {
 	readProjectFile,
 	startFlash,
 	startRun,
+	t3AppUrl,
 } from "../api";
 import {
 	CACHE_KEYS,
@@ -47,6 +48,7 @@ import {
 	useUserBoards,
 } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useT3Window } from "../hooks/useT3Window";
 import BreadboardViewer from "./BreadboardViewer";
 import DebugLog from "./DebugLog";
 import FlashPanel from "./FlashPanel";
@@ -209,6 +211,7 @@ export default function Project() {
 		setUuid: selectBoard,
 		openT3Pair,
 	} = useBoardSelection();
+	const t3 = useT3Window();
 	const app = githubQuery.data ?? null;
 	const repos = projectsQuery.data?.repos ?? [];
 	const configured = projectsQuery.data?.configured ?? false;
@@ -240,6 +243,8 @@ export default function Project() {
 	const [owner, setOwner] = useState("all");
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [justCreated, setJustCreated] = useState("");
+	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
 	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
@@ -314,7 +319,7 @@ export default function Project() {
 	}, [projectsQuery.setData]);
 
 	useEffect(() => {
-		if (app?.connected || loading) {
+		if ((app?.connected && app.canCreate) || loading) {
 			return;
 		}
 		const timer = window.setInterval(() => {
@@ -326,7 +331,13 @@ export default function Project() {
 				.catch(() => undefined);
 		}, 2500);
 		return () => window.clearInterval(timer);
-	}, [app?.connected, loading, githubQuery.setData, projectsQuery.setData]);
+	}, [
+		app?.canCreate,
+		app?.connected,
+		loading,
+		githubQuery.setData,
+		projectsQuery.setData,
+	]);
 
 	const owners = useMemo(
 		() => [...new Set(repos.map((repo) => repo.owner))].sort(),
@@ -363,7 +374,8 @@ export default function Project() {
 				repos: [repo, ...(current?.repos ?? [])],
 			}));
 			setCreateName("");
-			await openRepo(repo);
+			setJustCreated(repo.name);
+			await openRepo(repo, true);
 		} catch (caught) {
 			setError(
 				caught instanceof Error ? caught.message : "failed to create project",
@@ -442,7 +454,10 @@ export default function Project() {
 		}
 	}
 
-	async function openRepo(repo: GithubRepo) {
+	async function openRepo(repo: GithubRepo, created = false) {
+		if (!created) {
+			setJustCreated("");
+		}
 		setError("");
 		setSaveHint("");
 		const key = CACHE_KEYS.projectBundle(repo.owner, repo.name);
@@ -499,6 +514,22 @@ export default function Project() {
 	}, [loading, repos]);
 
 	const selectedKey = bundle ? `${bundle.owner}/${bundle.repo}` : "";
+	const empty = !loading && configured && repos.length === 0;
+	const canCreate = app?.canCreate !== false;
+
+	useEffect(() => {
+		if (!bundle) {
+			setBoardToolsOpen(false);
+		}
+	}, [bundle]);
+
+	function openCode() {
+		if (!activeUuid) {
+			return;
+		}
+		openT3Pair(activeUuid, "");
+		void t3.openUrl(t3AppUrl(activeUuid));
+	}
 
 	useEffect(() => {
 		if (!activeUuid) {
@@ -549,66 +580,15 @@ export default function Project() {
 						Project
 					</Typography>
 					<Typography color="secondary">
-						Arduino studio: circuits, live pins, and flash. Only repos with a
-						.gpio-companion file are listed.
+						Create a project, then open Code to talk to the agent on the board.
 					</Typography>
 				</Stack>
 				{paired && activeUuid ? (
-					<Button
-						variant="contained"
-						onClick={() => openT3Pair(activeUuid, "")}
-					>
+					<Button variant="outlined" onClick={openCode} disabled={t3.busy}>
 						Open Code
 					</Button>
 				) : null}
 			</Stack>
-			{paired && activeUuid ? (
-				<Paper sx={{ p: 2, minWidth: 0, overflowX: "hidden" }} elevation={1}>
-					<Stack spacing={2} sx={{ minWidth: 0 }}>
-						<Select
-							name="board"
-							label="Board"
-							value={activeUuid}
-							onSelect={selectBoard}
-						>
-							{boards.map((board) => (
-								<option key={board.device.uuid} value={board.device.uuid}>
-									{board.device.label || board.device.uuid}
-								</option>
-							))}
-						</Select>
-						<Typography variant="h6">Live GPIO</Typography>
-						<Typography color="secondary">
-							Watch header pins and PWM from the board over the companion API
-							websocket. Tap a GPIO to drive it high or low on that socket.
-						</Typography>
-						<GpioPanel
-							uuid={activeUuid}
-							connected={Boolean(activeBoard?.status)}
-							poll
-							onLivePins={(
-								pins: Record<number, 0 | 1>,
-								target?: GpioTarget,
-							) => {
-								if (target === "arduino-proxy") {
-									setArduinoLivePins(pins);
-								} else {
-									setLivePins(pins);
-								}
-							}}
-						/>
-						<Typography variant="subtitle1">Flash Arduino</Typography>
-						<FlashPanel uuid={activeUuid} project={bundle?.repo} />
-						<Typography variant="subtitle1">Run on board</Typography>
-						<RunPanel uuid={activeUuid} project={bundle?.repo} />
-						<VerifyPanel
-							uuid={activeUuid}
-							project={bundle?.repo}
-							onResults={setVerifyResults}
-						/>
-					</Stack>
-				</Paper>
-			) : null}
 			{error || githubQuery.error || projectsQuery.error ? (
 				<Alert severity="error">
 					{error || githubQuery.error || projectsQuery.error}
@@ -652,103 +632,145 @@ export default function Project() {
 			{loading || !configured ? null : (
 				<Paper sx={{ p: 2 }} elevation={1}>
 					<Stack spacing={2}>
-						<Stack
-							direction="row"
-							spacing={2}
-							sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
-						>
-							<TextField
-								label="New project"
-								placeholder="blink-led"
-								value={createName}
-								onChange={(event) => setCreateName(event.target.value)}
-								sx={{ flex: 1, minWidth: 180 }}
-							/>
-							<Button
-								variant="contained"
-								disabled={creating || !createName.trim()}
-								onClick={() => void makeProject()}
-							>
-								{creating ? "Creating…" : "Create"}
-							</Button>
-						</Stack>
-						<Stack
-							direction="row"
-							spacing={2}
-							sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
-						>
-							<TextField
-								label="Filter"
-								placeholder="Name or owner/repo"
-								value={query}
-								onChange={(event) => setQuery(event.target.value)}
-								sx={{ flex: 1, minWidth: 220 }}
-							/>
-							<Select
-								name="owner"
-								label="Owner"
-								value={owner}
-								onSelect={setOwner}
-								sx={{ minWidth: 180 }}
-							>
-								{[
-									<option key="all" value="all">
-										All owners
-									</option>,
-									...owners.map((login) => (
-										<option key={login} value={login}>
-											{login}
-										</option>
-									)),
-								]}
-							</Select>
-						</Stack>
-						<TableContainer>
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										<TableCell>Name</TableCell>
-										<TableCell>Owner</TableCell>
-										<TableCell />
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{filtered.map((repo) => {
-										const key = lastRepoKey(repo);
-										return (
-											<TableRow
-												key={key}
-												hover
-												selected={selectedKey === key}
-												onClick={() => void openRepo(repo)}
-												sx={{ cursor: "pointer" }}
-											>
-												<TableCell>{repo.name}</TableCell>
-												<TableCell>{repo.owner}</TableCell>
-												<TableCell>
-													<Button
-														variant="text"
-														size="small"
-														onClick={(event) => {
-															event.stopPropagation();
-															void openExternal(repo.html_url);
-														}}
-													>
-														GitHub
-													</Button>
-												</TableCell>
+						{canCreate ? (
+							<Stack spacing={empty ? 1 : 2}>
+								{empty ? (
+									<>
+										<Typography variant="h6">
+											Create your first project
+										</Typography>
+										<Typography color="secondary">
+											Name it like blink-led. Then open Code to talk to the
+											agent.
+										</Typography>
+									</>
+								) : null}
+								<Stack
+									direction="row"
+									spacing={2}
+									sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
+								>
+									<TextField
+										label="New project"
+										placeholder="blink-led"
+										value={createName}
+										onChange={(event) => setCreateName(event.target.value)}
+										onKeyDown={(event) => {
+											if (event.key === "Enter") {
+												event.preventDefault();
+												void makeProject();
+											}
+										}}
+										sx={{ flex: 1, minWidth: 180 }}
+									/>
+									<Button
+										variant="contained"
+										disabled={creating || !createName.trim()}
+										onClick={() => void makeProject()}
+									>
+										{creating ? "Creating…" : "Create"}
+									</Button>
+								</Stack>
+							</Stack>
+						) : (
+							<Stack spacing={2}>
+								{empty ? (
+									<Typography variant="h6">
+										Create your first project
+									</Typography>
+								) : null}
+								<Alert severity="info">
+									Authorize GitHub so this dashboard can create repositories.
+								</Alert>
+								<Button
+									variant="contained"
+									disabled={!app?.installUrl}
+									onClick={() => void openExternal(app?.installUrl ?? "")}
+								>
+									Authorize creating repositories
+								</Button>
+							</Stack>
+						)}
+						{empty ? null : (
+							<>
+								<Stack
+									direction="row"
+									spacing={2}
+									sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
+								>
+									<TextField
+										label="Filter"
+										placeholder="Name or owner/repo"
+										value={query}
+										onChange={(event) => setQuery(event.target.value)}
+										sx={{ flex: 1, minWidth: 220 }}
+									/>
+									<Select
+										name="owner"
+										label="Owner"
+										value={owner}
+										onSelect={setOwner}
+										sx={{ minWidth: 180 }}
+									>
+										{[
+											<option key="all" value="all">
+												All owners
+											</option>,
+											...owners.map((login) => (
+												<option key={login} value={login}>
+													{login}
+												</option>
+											)),
+										]}
+									</Select>
+								</Stack>
+								<TableContainer>
+									<Table size="small">
+										<TableHead>
+											<TableRow>
+												<TableCell>Name</TableCell>
+												<TableCell>Owner</TableCell>
+												<TableCell />
 											</TableRow>
-										);
-									})}
-								</TableBody>
-							</Table>
-						</TableContainer>
-						{filtered.length === 0 ? (
-							<Typography color="secondary">
-								No gpio-companion projects yet. Create one here, or ask Code on
-								the board — it writes a .gpio-companion file at the repo root.
-							</Typography>
-						) : null}
+										</TableHead>
+										<TableBody>
+											{filtered.map((repo) => {
+												const key = lastRepoKey(repo);
+												return (
+													<TableRow
+														key={key}
+														hover
+														selected={selectedKey === key}
+														onClick={() => void openRepo(repo)}
+														sx={{ cursor: "pointer" }}
+													>
+														<TableCell>{repo.name}</TableCell>
+														<TableCell>{repo.owner}</TableCell>
+														<TableCell>
+															<Button
+																variant="text"
+																size="small"
+																onClick={(event) => {
+																	event.stopPropagation();
+																	void openExternal(repo.html_url);
+																}}
+															>
+																GitHub
+															</Button>
+														</TableCell>
+													</TableRow>
+												);
+											})}
+										</TableBody>
+									</Table>
+								</TableContainer>
+								{filtered.length === 0 ? (
+									<Typography color="secondary">
+										No matching gpio-companion projects.
+									</Typography>
+								) : null}
+							</>
+						)}
 					</Stack>
 				</Paper>
 			)}
@@ -813,6 +835,37 @@ export default function Project() {
 							{saving ? "Saving…" : "Save to GitHub"}
 						</Button>
 					</Stack>
+					{justCreated === bundle.repo ? (
+						<Alert severity="success">
+							<Stack
+								direction="row"
+								spacing={2}
+								sx={{
+									alignItems: "center",
+									justifyContent: "space-between",
+									flexWrap: "wrap",
+								}}
+							>
+								<Typography>
+									{bundle.repo} is ready. Open Code to start chatting with the
+									agent.
+								</Typography>
+								{paired && activeUuid ? (
+									<Button
+										variant="contained"
+										onClick={openCode}
+										disabled={t3.busy}
+									>
+										Open Code
+									</Button>
+								) : (
+									<Typography color="secondary">
+										Pair a board in Devices so Code can open.
+									</Typography>
+								)}
+							</Stack>
+						</Alert>
+					) : null}
 					{saveHint ? <Alert severity="success">{saveHint}</Alert> : null}
 					<Box
 						sx={{
@@ -879,13 +932,87 @@ export default function Project() {
 						/>
 					</Box>
 				</Stack>
-			) : loading || !configured ? null : (
+			) : loading || !configured || empty ? null : (
 				<Paper sx={{ p: 4 }} elevation={0}>
 					<Typography color="secondary" align="center">
 						Select a project to see the PCB and breadboard.
 					</Typography>
 				</Paper>
 			)}
+			{paired && activeUuid && bundle ? (
+				<Paper sx={{ p: 2, minWidth: 0, overflowX: "hidden" }} elevation={1}>
+					<Stack spacing={2} sx={{ minWidth: 0 }}>
+						<Stack
+							direction="row"
+							spacing={2}
+							sx={{
+								alignItems: "center",
+								justifyContent: "space-between",
+								flexWrap: "wrap",
+							}}
+						>
+							<Stack spacing={0.5}>
+								<Typography variant="h6">Board tools</Typography>
+								<Typography color="secondary">
+									Live GPIO, Flash Arduino, Run on board, Verify circuit
+								</Typography>
+							</Stack>
+							<Button
+								variant="outlined"
+								onClick={() => setBoardToolsOpen((open) => !open)}
+							>
+								{boardToolsOpen ? "Hide" : "Show"}
+							</Button>
+						</Stack>
+						{boardToolsOpen ? (
+							<>
+								<Select
+									name="board"
+									label="Board"
+									value={activeUuid}
+									onSelect={selectBoard}
+								>
+									{boards.map((board) => (
+										<option key={board.device.uuid} value={board.device.uuid}>
+											{board.device.label || board.device.uuid}
+										</option>
+									))}
+								</Select>
+								<Typography variant="h6">Live GPIO</Typography>
+								<Typography color="secondary">
+									Watch header pins and PWM from the board over the companion
+									API websocket. Tap a GPIO to drive it high or low on that
+									socket.
+								</Typography>
+								<GpioPanel
+									uuid={activeUuid}
+									connected={Boolean(activeBoard?.status)}
+									poll
+									onLivePins={(
+										pins: Record<number, 0 | 1>,
+										target?: GpioTarget,
+									) => {
+										if (target === "arduino-proxy") {
+											setArduinoLivePins(pins);
+										} else {
+											setLivePins(pins);
+										}
+									}}
+								/>
+								<Typography variant="subtitle1">Flash Arduino</Typography>
+								<FlashPanel uuid={activeUuid} project={bundle.repo} />
+								<Typography variant="subtitle1">Run on board</Typography>
+								<RunPanel uuid={activeUuid} project={bundle.repo} />
+								<VerifyPanel
+									uuid={activeUuid}
+									project={bundle.repo}
+									onResults={setVerifyResults}
+								/>
+							</>
+						) : null}
+					</Stack>
+				</Paper>
+			) : null}
 		</Stack>
 	);
 }

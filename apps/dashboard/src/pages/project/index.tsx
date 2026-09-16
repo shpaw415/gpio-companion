@@ -71,6 +71,7 @@ export default function ProjectPage() {
 	);
 	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
 	const [project, setProject] = useState("");
+	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const selectedUuidRef = useRef(selectedUuid);
 	selectedUuidRef.current = selectedUuid;
 
@@ -117,6 +118,13 @@ export default function ProjectPage() {
 	const next = NEXT[step] ?? undefined;
 	const activeUuid = selectedUuid || devices[0]?.uuid || "";
 	const wifiHint = paired && needsWifi(statuses[activeUuid]);
+	const hasProject = Boolean(project);
+
+	useEffect(() => {
+		if (!hasProject) {
+			setBoardToolsOpen(false);
+		}
+	}, [hasProject]);
 
 	return (
 		<Stack spacing={4}>
@@ -127,14 +135,13 @@ export default function ProjectPage() {
 			>
 				<SectionHeader title="Project">
 					<Typography color="secondary">
-						Your Arduino studio: circuits, live pins, and flash. Open Code to
-						talk to the board.
+						Create a project, then open Code to talk to the agent on the board.
 					</Typography>
 				</SectionHeader>
 				{paired ? (
 					<Button
 						href="/devices/t3"
-						variant="contained"
+						variant="outlined"
 						className={mobile ? "w-full" : undefined}
 					>
 						Open Code
@@ -193,68 +200,6 @@ export default function ProjectPage() {
 				</Paper>
 			) : null}
 
-			{paired ? (
-				<Paper
-					className="min-w-0 overflow-x-hidden p-4 min-[900px]:p-6"
-					elevation={1}
-				>
-					<Stack spacing={2} className="min-w-0">
-						<DeviceSelect
-							devices={devices}
-							value={activeUuid}
-							onChange={selectBoard}
-						/>
-						<Typography variant="h6">Live GPIO</Typography>
-						<Typography color="secondary">
-							Watch header pins and PWM from the board over the companion API
-							websocket. Tap a GPIO to drive it high or low on that socket.
-						</Typography>
-						{pairingLoading ? (
-							<LinesSkeleton lines={3} />
-						) : (
-							<GpioPanel
-								key={activeUuid}
-								uuid={activeUuid}
-								poll
-								connected={Boolean(statuses[activeUuid])}
-								onLivePins={(
-									pins: Record<number, 0 | 1>,
-									target?: GpioTarget,
-								) => {
-									if (target === "arduino-proxy") {
-										setArduinoLivePins(pins);
-									} else {
-										setLivePins(pins);
-									}
-								}}
-							/>
-						)}
-					</Stack>
-				</Paper>
-			) : null}
-
-			{paired && activeUuid ? (
-				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
-					<Stack spacing={2}>
-						<Typography variant="h6">Flash Arduino</Typography>
-						<Typography color="secondary">
-							Compile C firmware on the board and upload it over USB.
-						</Typography>
-						<FlashPanel uuid={activeUuid} project={project} />
-						<Typography variant="h6">Run on board</Typography>
-						<Typography color="secondary">
-							Compile C on the board and run it on this header for GPIO tests.
-						</Typography>
-						<RunPanel uuid={activeUuid} project={project} />
-						<VerifyPanel
-							uuid={activeUuid}
-							project={project}
-							onResults={setVerifyResults}
-						/>
-					</Stack>
-				</Paper>
-			) : null}
-
 			<div>
 				<Typography variant="h5" className="mb-3">
 					Your projects
@@ -263,12 +208,93 @@ export default function ProjectPage() {
 					onConfigured={setGithubReady}
 					onProject={setProject}
 					uuid={activeUuid}
+					paired={paired}
 					livePins={livePins}
 					arduinoLivePins={arduinoLivePins}
 					verifyResults={verifyResults}
 					boardModel={statuses[activeUuid]?.model}
 				/>
 			</div>
+
+			{paired && hasProject && activeUuid ? (
+				<Paper
+					className="min-w-0 overflow-x-hidden p-4 min-[900px]:p-6"
+					elevation={1}
+				>
+					<Stack spacing={2} className="min-w-0">
+						<Stack
+							direction={mobile ? "column" : "row"}
+							spacing={2}
+							className="min-[900px]:items-center min-[900px]:justify-between"
+						>
+							<Stack spacing={0.5}>
+								<Typography variant="h6">Board tools</Typography>
+								<Typography color="secondary">
+									Live GPIO, Flash Arduino, Run on board, Verify circuit
+								</Typography>
+							</Stack>
+							<Button
+								variant="outlined"
+								onClick={() => setBoardToolsOpen((open) => !open)}
+								className={mobile ? "w-full" : undefined}
+							>
+								{boardToolsOpen ? "Hide" : "Show"}
+							</Button>
+						</Stack>
+						{boardToolsOpen ? (
+							<>
+								<DeviceSelect
+									devices={devices}
+									value={activeUuid}
+									onChange={selectBoard}
+								/>
+								<Typography variant="h6">Live GPIO</Typography>
+								<Typography color="secondary">
+									Watch header pins and PWM from the board over the companion
+									API websocket. Tap a GPIO to drive it high or low on that
+									socket.
+								</Typography>
+								{pairingLoading ? (
+									<LinesSkeleton lines={3} />
+								) : (
+									<GpioPanel
+										key={activeUuid}
+										uuid={activeUuid}
+										poll
+										connected={Boolean(statuses[activeUuid])}
+										onLivePins={(
+											pins: Record<number, 0 | 1>,
+											target?: GpioTarget,
+										) => {
+											if (target === "arduino-proxy") {
+												setArduinoLivePins(pins);
+											} else {
+												setLivePins(pins);
+											}
+										}}
+									/>
+								)}
+								<Typography variant="h6">Flash Arduino</Typography>
+								<Typography color="secondary">
+									Compile C firmware on the board and upload it over USB.
+								</Typography>
+								<FlashPanel uuid={activeUuid} project={project} />
+								<Typography variant="h6">Run on board</Typography>
+								<Typography color="secondary">
+									Compile C on the board and run it on this header for GPIO
+									tests.
+								</Typography>
+								<RunPanel uuid={activeUuid} project={project} />
+								<VerifyPanel
+									uuid={activeUuid}
+									project={project}
+									onResults={setVerifyResults}
+								/>
+							</>
+						) : null}
+					</Stack>
+				</Paper>
+			) : null}
 		</Stack>
 	);
 }

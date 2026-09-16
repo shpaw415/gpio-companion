@@ -46,9 +46,11 @@ The dashboard **signs** the claim, then **Pair T3** (also on Devices overview fo
 
 OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), not a GitHub token. Buy $5 / $10 / $25 / $50 packs with PayPal on that page (desktop/mobile open the same dashboard URL). `gpio-companion github-token` prints a live token for API calls.
 
-## 6. Overview
+## 6. Project
 
-When GitHub is marked ready on the device, `/` shows the overview and `/projects` lists **your** repos (pcb / breadboard / technical). Create a project there: an online board clones it to `~/projects/<name>` and adds it in T3 Code. T3 Code pairing is **Pair T3** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
+Dashboard home is **Project** (`/project`; desktop and mobile open here too). Create a project first. An online board clones it to `~/projects/<name>` and adds it in T3 Code. After create, **Open Code** (Devices → Code) is the next step so you can chat with the agent. Live GPIO, Flash, Run, and Verify stay under **Board tools** until a project is open.
+
+T3 Code pairing is **Pair T3** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
 
 ## If something fails
 

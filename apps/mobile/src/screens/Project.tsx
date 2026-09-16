@@ -182,6 +182,8 @@ export default function Project() {
 	const [owner, setOwner] = useState("all");
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [justCreated, setJustCreated] = useState("");
+	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
@@ -245,7 +247,7 @@ export default function Project() {
 	);
 
 	useEffect(() => {
-		if (app?.connected || loading) {
+		if ((app?.connected && app.canCreate) || loading) {
 			return;
 		}
 		const timer = setInterval(() => {
@@ -261,6 +263,7 @@ export default function Project() {
 		}, 2500);
 		return () => clearInterval(timer);
 	}, [
+		app?.canCreate,
 		app?.connected,
 		loading,
 		token,
@@ -303,7 +306,8 @@ export default function Project() {
 				repos: [repo, ...(current?.repos ?? [])],
 			}));
 			setCreateName("");
-			await openRepo(repo);
+			setJustCreated(repo.name);
+			await openRepo(repo, true);
 		} catch (caught) {
 			setError(
 				caught instanceof Error ? caught.message : "failed to create project",
@@ -382,9 +386,12 @@ export default function Project() {
 		}
 	}
 
-	async function openRepo(repo: GithubRepo) {
+	async function openRepo(repo: GithubRepo, created = false) {
 		if (!token) {
 			return;
+		}
+		if (!created) {
+			setJustCreated("");
 		}
 		setError("");
 		setSaveHint("");
@@ -428,65 +435,23 @@ export default function Project() {
 	}, [loading, repos]);
 
 	const selectedKey = bundle ? `${bundle.owner}/${bundle.repo}` : "";
+	const empty = !loading && configured && repos.length === 0;
+	const canCreate = app?.canCreate !== false;
+
+	useEffect(() => {
+		if (!bundle) {
+			setBoardToolsOpen(false);
+		}
+	}, [bundle]);
 
 	return (
 		<Screen>
 			<Title>Project</Title>
 			<Muted>
-				Arduino studio: circuits, live pins, and flash. Only repos with a
-				.gpio-companion file are listed.
+				Create a project, then open Code to talk to the agent on the board.
 			</Muted>
 			{paired && activeUuid ? (
-				<PrimaryButton label="Open Code" onPress={() => setTab("t3")} />
-			) : null}
-			{paired && activeUuid ? (
-				<Paper>
-					<Body>Board</Body>
-					<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-						{boards.map((board) => (
-							<Pressable
-								key={board.device.uuid}
-								onPress={() => selectBoard(board.device.uuid)}
-								style={{
-									borderWidth: 1,
-									borderColor:
-										activeUuid === board.device.uuid
-											? colors.primary
-											: colors.border,
-									borderRadius: 999,
-									paddingHorizontal: 10,
-									paddingVertical: 6,
-								}}
-							>
-								<Text
-									style={{
-										color:
-											activeUuid === board.device.uuid
-												? colors.primary
-												: colors.text,
-									}}
-								>
-									{board.device.label || board.device.uuid.slice(0, 8)}
-								</Text>
-							</Pressable>
-						))}
-					</View>
-					<Body>Live GPIO</Body>
-					<Muted>
-						Watch header pins and PWM from the board over the companion API
-						websocket. Tap a GPIO to drive it high or low on that socket.
-					</Muted>
-					<GpioPanel
-						uuid={activeUuid}
-						connected={Boolean(activeBoard?.status)}
-						poll
-					/>
-					<Body>Flash Arduino</Body>
-					<FlashPanel uuid={activeUuid} project={bundle?.repo} />
-					<Body>Run on board</Body>
-					<RunPanel uuid={activeUuid} project={bundle?.repo} />
-					<VerifyPanel uuid={activeUuid} project={bundle?.repo} />
-				</Paper>
+				<TextButton label="Open Code" onPress={() => setTab("t3")} />
 			) : null}
 			<ErrorText>{error || githubQuery.error || projectsQuery.error}</ErrorText>
 			{loading ? (
@@ -515,99 +480,126 @@ export default function Project() {
 			)}
 			{loading || !configured ? null : (
 				<Paper>
-					<Field
-						label="New project"
-						value={createName}
-						onChangeText={setCreateName}
-						placeholder="blink-led"
-					/>
-					<PrimaryButton
-						label={creating ? "Creating…" : "Create"}
-						disabled={creating || !createName.trim()}
-						onPress={() => void makeProject()}
-					/>
-					<Field
-						label="Filter"
-						value={query}
-						onChangeText={setQuery}
-						placeholder="Name or owner/repo"
-					/>
-					<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-						<Pressable
-							onPress={() => setOwner("all")}
-							style={{
-								borderWidth: 1,
-								borderColor: owner === "all" ? colors.primary : colors.border,
-								borderRadius: 999,
-								paddingHorizontal: 10,
-								paddingVertical: 6,
-							}}
-						>
-							<Text
-								style={{
-									color: owner === "all" ? colors.primary : colors.text,
-								}}
-							>
-								All owners
-							</Text>
-						</Pressable>
-						{owners.map((login) => (
-							<Pressable
-								key={login}
-								onPress={() => setOwner(login)}
-								style={{
-									borderWidth: 1,
-									borderColor: owner === login ? colors.primary : colors.border,
-									borderRadius: 999,
-									paddingHorizontal: 10,
-									paddingVertical: 6,
-								}}
-							>
-								<Text
+					{canCreate ? (
+						<>
+							{empty ? (
+								<>
+									<Body>Create your first project</Body>
+									<Muted>
+										Name it like blink-led. Then open Code to talk to the agent.
+									</Muted>
+								</>
+							) : null}
+							<Field
+								label="New project"
+								value={createName}
+								onChangeText={setCreateName}
+								placeholder="blink-led"
+							/>
+							<PrimaryButton
+								label={creating ? "Creating…" : "Create"}
+								disabled={creating || !createName.trim()}
+								onPress={() => void makeProject()}
+							/>
+						</>
+					) : (
+						<>
+							{empty ? <Body>Create your first project</Body> : null}
+							<Muted>
+								Authorize GitHub so this dashboard can create repositories.
+							</Muted>
+							<PrimaryButton
+								label="Authorize creating repositories"
+								disabled={!app?.installUrl}
+								onPress={() => void Linking.openURL(app?.installUrl ?? "")}
+							/>
+						</>
+					)}
+					{empty ? null : (
+						<>
+							<Field
+								label="Filter"
+								value={query}
+								onChangeText={setQuery}
+								placeholder="Name or owner/repo"
+							/>
+							<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+								<Pressable
+									onPress={() => setOwner("all")}
 									style={{
-										color: owner === login ? colors.primary : colors.text,
+										borderWidth: 1,
+										borderColor:
+											owner === "all" ? colors.primary : colors.border,
+										borderRadius: 999,
+										paddingHorizontal: 10,
+										paddingVertical: 6,
 									}}
 								>
-									{login}
-								</Text>
-							</Pressable>
-						))}
-					</View>
-					{filtered.map((repo) => {
-						const key = lastRepoKey(repo);
-						const selected = selectedKey === key;
-						return (
-							<Pressable
-								key={key}
-								onPress={() => void openRepo(repo)}
-								style={{
-									paddingVertical: 10,
-									borderBottomWidth: 1,
-									borderBottomColor: colors.border,
-								}}
-							>
-								<Text
-									style={{
-										color: selected ? colors.primary : colors.text,
-										fontWeight: selected ? "700" : "500",
-									}}
-								>
-									{repo.name}
-								</Text>
-								<Muted>{repo.owner}</Muted>
-								<TextButton
-									label="GitHub"
-									onPress={() => void Linking.openURL(repo.html_url)}
-								/>
-							</Pressable>
-						);
-					})}
-					{filtered.length === 0 ? (
-						<Muted>
-							No gpio-companion projects yet. Create one here, or ask Code on
-							the board — it writes a .gpio-companion file at the repo root.
-						</Muted>
-					) : null}
+									<Text
+										style={{
+											color: owner === "all" ? colors.primary : colors.text,
+										}}
+									>
+										All owners
+									</Text>
+								</Pressable>
+								{owners.map((login) => (
+									<Pressable
+										key={login}
+										onPress={() => setOwner(login)}
+										style={{
+											borderWidth: 1,
+											borderColor:
+												owner === login ? colors.primary : colors.border,
+											borderRadius: 999,
+											paddingHorizontal: 10,
+											paddingVertical: 6,
+										}}
+									>
+										<Text
+											style={{
+												color: owner === login ? colors.primary : colors.text,
+											}}
+										>
+											{login}
+										</Text>
+									</Pressable>
+								))}
+							</View>
+							{filtered.map((repo) => {
+								const key = lastRepoKey(repo);
+								const selected = selectedKey === key;
+								return (
+									<Pressable
+										key={key}
+										onPress={() => void openRepo(repo)}
+										style={{
+											paddingVertical: 10,
+											borderBottomWidth: 1,
+											borderBottomColor: colors.border,
+										}}
+									>
+										<Text
+											style={{
+												color: selected ? colors.primary : colors.text,
+												fontWeight: selected ? "700" : "500",
+											}}
+										>
+											{repo.name}
+										</Text>
+										<Muted>{repo.owner}</Muted>
+										<TextButton
+											label="GitHub"
+											onPress={() => void Linking.openURL(repo.html_url)}
+										/>
+									</Pressable>
+								);
+							})}
+							{filtered.length === 0 ? (
+								<Muted>No matching gpio-companion projects.</Muted>
+							) : null}
+						</>
+					)}
 				</Paper>
 			)}
 			{opening ? (
@@ -665,6 +657,19 @@ export default function Project() {
 						disabled={saving || !activeUuid}
 						onPress={() => void saveFromBoard()}
 					/>
+					{justCreated === bundle.repo ? (
+						<Paper>
+							<Body>
+								{bundle.repo} is ready. Open Code to start chatting with the
+								agent.
+							</Body>
+							{paired && activeUuid ? (
+								<PrimaryButton label="Open Code" onPress={() => setTab("t3")} />
+							) : (
+								<Muted>Pair a board in Devices so Code can open.</Muted>
+							)}
+						</Paper>
+					) : null}
 					{saveHint ? <Muted>{saveHint}</Muted> : null}
 					<PreviewCard
 						title="PCB"
@@ -718,9 +723,68 @@ export default function Project() {
 						}}
 					/>
 				</>
-			) : loading || !configured ? null : (
+			) : loading || !configured || empty ? null : (
 				<Muted>Select a project to see the PCB and breadboard.</Muted>
 			)}
+			{paired && activeUuid && bundle ? (
+				<Paper>
+					<Body>Board tools</Body>
+					<Muted>Live GPIO, Flash Arduino, Run on board, Verify circuit</Muted>
+					<TextButton
+						label={boardToolsOpen ? "Hide" : "Show"}
+						onPress={() => setBoardToolsOpen((open) => !open)}
+					/>
+					{boardToolsOpen ? (
+						<>
+							<Body>Board</Body>
+							<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+								{boards.map((board) => (
+									<Pressable
+										key={board.device.uuid}
+										onPress={() => selectBoard(board.device.uuid)}
+										style={{
+											borderWidth: 1,
+											borderColor:
+												activeUuid === board.device.uuid
+													? colors.primary
+													: colors.border,
+											borderRadius: 999,
+											paddingHorizontal: 10,
+											paddingVertical: 6,
+										}}
+									>
+										<Text
+											style={{
+												color:
+													activeUuid === board.device.uuid
+														? colors.primary
+														: colors.text,
+											}}
+										>
+											{board.device.label || board.device.uuid.slice(0, 8)}
+										</Text>
+									</Pressable>
+								))}
+							</View>
+							<Body>Live GPIO</Body>
+							<Muted>
+								Watch header pins and PWM from the board over the companion API
+								websocket. Tap a GPIO to drive it high or low on that socket.
+							</Muted>
+							<GpioPanel
+								uuid={activeUuid}
+								connected={Boolean(activeBoard?.status)}
+								poll
+							/>
+							<Body>Flash Arduino</Body>
+							<FlashPanel uuid={activeUuid} project={bundle.repo} />
+							<Body>Run on board</Body>
+							<RunPanel uuid={activeUuid} project={bundle.repo} />
+							<VerifyPanel uuid={activeUuid} project={bundle.repo} />
+						</>
+					) : null}
+				</Paper>
+			) : null}
 		</Screen>
 	);
 }

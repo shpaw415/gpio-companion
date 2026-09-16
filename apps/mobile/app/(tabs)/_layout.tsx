@@ -77,7 +77,7 @@ export default function TabsLayout() {
 					</Pressable>
 				</View>
 				<Tabs
-					initialRouteName="index"
+					initialRouteName="project"
 					screenOptions={{
 						headerShown: false,
 						lazy: false,

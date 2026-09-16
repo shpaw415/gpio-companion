@@ -1,5 +1,6 @@
 import { GET as loadFlash, POST as startFlash } from "@api/flash";
 import { GET as loadFlashSketches } from "@api/flash/sketches";
+import { GET as getGithubApp } from "@api/github-app";
 import {
 	PATCH as createProject,
 	GET as listProjects,
@@ -38,10 +39,17 @@ import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
 import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
 
+const LAST_REPO_KEY = "gpio-companion-selected-project";
+
+function lastRepoKey(repo: GithubRepo) {
+	return `${repo.owner}/${repo.name}`;
+}
+
 export default function ProjectBrowser({
 	onConfigured,
 	onProject,
 	uuid,
+	paired,
 	livePins,
 	arduinoLivePins,
 	verifyResults,
@@ -50,6 +58,7 @@ export default function ProjectBrowser({
 	onConfigured?: (ready: boolean) => void;
 	onProject?: (name: string) => void;
 	uuid?: string;
+	paired?: boolean;
 	livePins?: Record<number, 0 | 1>;
 	arduinoLivePins?: Record<number, 0 | 1>;
 	verifyResults?: CircuitVerifyItem[];
@@ -69,6 +78,9 @@ export default function ProjectBrowser({
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
+	const [canCreate, setCanCreate] = useState(true);
+	const [installUrl, setInstallUrl] = useState("");
+	const [justCreated, setJustCreated] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
@@ -106,6 +118,16 @@ export default function ProjectBrowser({
 				setLoading(false);
 			});
 	}, [onConfigured]);
+
+	useEffect(() => {
+		void getGithubApp()
+			.then((result) => {
+				const data = unwrapAction(result);
+				setCanCreate(data.canCreate);
+				setInstallUrl(data.installUrl);
+			})
+			.catch(() => undefined);
+	}, []);
 
 	useEffect(() => {
 		if (!uuid) {
@@ -174,7 +196,8 @@ export default function ProjectBrowser({
 					: [repo, ...current],
 			);
 			setCreateName("");
-			await openRepo(repo);
+			setJustCreated(repo.name);
+			await openRepo(repo, true);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "failed to create project");
 		} finally {
@@ -206,12 +229,20 @@ export default function ProjectBrowser({
 		}
 	}
 
-	async function openRepo(repo: GithubRepo) {
+	async function openRepo(repo: GithubRepo, created = false) {
+		if (!created) {
+			setJustCreated("");
+		}
 		setError("");
 		setSaveHint("");
 		setPcbJson(null);
 		setBreadboardJson(null);
 		setLoadingRepo(true);
+		try {
+			window.localStorage.setItem(LAST_REPO_KEY, lastRepoKey(repo));
+		} catch {
+			// ignore
+		}
 		try {
 			await applyBundle(unwrapAction(await loadProject(repo.owner, repo.name)));
 		} catch (err) {
@@ -220,6 +251,24 @@ export default function ProjectBrowser({
 			setLoadingRepo(false);
 		}
 	}
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: open last/first repo once the list is ready
+	useEffect(() => {
+		if (loading || bundle || repos.length === 0) {
+			return;
+		}
+		let stored = "";
+		try {
+			stored = window.localStorage.getItem(LAST_REPO_KEY) ?? "";
+		} catch {
+			stored = "";
+		}
+		const match =
+			repos.find((repo) => lastRepoKey(repo) === stored) ?? repos[0];
+		if (match) {
+			void openRepo(match);
+		}
+	}, [loading, repos]);
 
 	async function selectBranch(ref: string) {
 		if (!bundle || !ref || ref === bundle.ref || loadingRepo) {
@@ -279,6 +328,71 @@ export default function ProjectBrowser({
 			.finally(() => setSketchBusy(false));
 	}
 
+	const empty = !loading && repos.length === 0;
+
+	function createFields(hero: boolean) {
+		if (!canCreate) {
+			return (
+				<Stack spacing={2}>
+					{hero ? (
+						<Typography variant="h6">Create your first project</Typography>
+					) : null}
+					<Alert severity="info">
+						Authorize GitHub so this dashboard can create repositories.
+					</Alert>
+					<Button
+						href={installUrl || "/profile/github"}
+						variant="contained"
+						className={mobile ? "w-full" : undefined}
+					>
+						Authorize creating repositories
+					</Button>
+				</Stack>
+			);
+		}
+		return (
+			<Stack spacing={2}>
+				{hero ? (
+					<>
+						<Typography variant="h6">Create your first project</Typography>
+						<Typography color="secondary">
+							Name it like blink-led. Then open Code to talk to the agent.
+						</Typography>
+					</>
+				) : null}
+				<Stack
+					direction={mobile ? "column" : "row"}
+					spacing={2}
+					sx={{
+						flexWrap: "wrap",
+						alignItems: mobile ? "stretch" : "flex-end",
+					}}
+				>
+					<TextField
+						label="New project"
+						placeholder="blink-led"
+						value={createName}
+						onChange={(event) => setCreateName(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								void makeProject();
+							}
+						}}
+						className="min-w-0 w-full flex-1"
+					/>
+					<Button
+						variant="contained"
+						disabled={creating || !createName.trim()}
+						onClick={() => void makeProject()}
+					>
+						{creating ? "Creating…" : "Create"}
+					</Button>
+				</Stack>
+			</Stack>
+		);
+	}
+
 	if (!configured) {
 		return (
 			<Alert severity="info">
@@ -295,117 +409,106 @@ export default function ProjectBrowser({
 		<Stack spacing={3}>
 			<Paper className="p-3 min-[900px]:p-4" elevation={1}>
 				<Stack spacing={2}>
-					<Stack
-						direction={mobile ? "column" : "row"}
-						spacing={2}
-						sx={{
-							flexWrap: "wrap",
-							alignItems: mobile ? "stretch" : "flex-end",
-						}}
-					>
-						<TextField
-							label="New project"
-							placeholder="blink-led"
-							value={createName}
-							onChange={(event) => setCreateName(event.target.value)}
-							className="min-w-0 w-full flex-1"
-						/>
-						<Button
-							variant="contained"
-							disabled={creating || !createName.trim()}
-							onClick={() => void makeProject()}
-						>
-							{creating ? "Creating…" : "Create"}
-						</Button>
-					</Stack>
-					<Stack
-						direction={mobile ? "column" : "row"}
-						spacing={2}
-						sx={{
-							flexWrap: "wrap",
-							alignItems: mobile ? "stretch" : "flex-end",
-						}}
-					>
-						<TextField
-							label="Filter"
-							placeholder="Name or owner/repo"
-							value={query}
-							onChange={(event) => {
-								setQuery(event.target.value);
-								setPage(0);
-							}}
-							className="min-w-0 w-full flex-1"
-						/>
-						<Select
-							name="owner"
-							label="Owner"
-							value={owner}
-							onSelect={(next) => {
-								setOwner(next);
-								setPage(0);
-							}}
-							className="min-w-0 w-full min-[900px]:w-auto min-[900px]:min-w-[12rem]"
-						>
-							<option value="all">All owners</option>
-							{owners.map((login) => (
-								<option key={login} value={login}>
-									{login}
-								</option>
-							))}
-						</Select>
-					</Stack>
-					<TableContainer>
-						<Table size="small">
-							<TableHead>
-								<TableRow>
-									<TableCell>Name</TableCell>
-									<TableCell>Owner</TableCell>
-									{mobile ? null : <TableCell>Repository</TableCell>}
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{loading ? (
-									<TableRowsSkeleton rows={5} columns={mobile ? 2 : 3} />
-								) : (
-									paged.map((repo) => (
-										<TableRow
-											key={repo.full_name}
-											hover
-											selected={
-												bundle?.owner === repo.owner &&
-												bundle?.repo === repo.name
-											}
-											onClick={() => void openRepo(repo)}
-										>
-											<TableCell className="break-all">{repo.name}</TableCell>
-											<TableCell className="break-all">{repo.owner}</TableCell>
-											{mobile ? null : (
-												<TableCell className="break-all">
-													{repo.full_name}
-												</TableCell>
-											)}
+					{createFields(empty)}
+					{empty ? null : (
+						<>
+							<Stack
+								direction={mobile ? "column" : "row"}
+								spacing={2}
+								sx={{
+									flexWrap: "wrap",
+									alignItems: mobile ? "stretch" : "flex-end",
+								}}
+							>
+								<TextField
+									label="Filter"
+									placeholder="Name or owner/repo"
+									value={query}
+									onChange={(event) => {
+										setQuery(event.target.value);
+										setPage(0);
+									}}
+									className="min-w-0 w-full flex-1"
+								/>
+								<Select
+									name="owner"
+									label="Owner"
+									value={owner}
+									onSelect={(next) => {
+										setOwner(next);
+										setPage(0);
+									}}
+									className="min-w-0 w-full min-[900px]:w-auto min-[900px]:min-w-[12rem]"
+								>
+									{[
+										<option key="all" value="all">
+											All owners
+										</option>,
+										...owners.map((login) => (
+											<option key={login} value={login}>
+												{login}
+											</option>
+										)),
+									]}
+								</Select>
+							</Stack>
+							<TableContainer>
+								<Table size="small">
+									<TableHead>
+										<TableRow>
+											<TableCell>Name</TableCell>
+											<TableCell>Owner</TableCell>
+											{mobile ? null : <TableCell>Repository</TableCell>}
 										</TableRow>
-									))
-								)}
-							</TableBody>
-						</Table>
-					</TableContainer>
-					{loading ? null : filtered.length === 0 ? (
-						<Typography color="secondary">
-							No gpio-companion projects yet. Create one here, or ask Code on
-							the board — it writes a .gpio-companion file at the repo root.
-						</Typography>
-					) : (
-						<TablePagination
-							count={filtered.length}
-							page={page}
-							rowsPerPage={rowsPerPage}
-							onPageChange={(_event, nextPage) => setPage(nextPage)}
-							onRowsPerPageChange={(next) => {
-								setRowsPerPage(next);
-								setPage(0);
-							}}
-						/>
+									</TableHead>
+									<TableBody>
+										{loading ? (
+											<TableRowsSkeleton rows={5} columns={mobile ? 2 : 3} />
+										) : (
+											paged.map((repo) => (
+												<TableRow
+													key={repo.full_name}
+													hover
+													selected={
+														bundle?.owner === repo.owner &&
+														bundle?.repo === repo.name
+													}
+													onClick={() => void openRepo(repo)}
+												>
+													<TableCell className="break-all">
+														{repo.name}
+													</TableCell>
+													<TableCell className="break-all">
+														{repo.owner}
+													</TableCell>
+													{mobile ? null : (
+														<TableCell className="break-all">
+															{repo.full_name}
+														</TableCell>
+													)}
+												</TableRow>
+											))
+										)}
+									</TableBody>
+								</Table>
+							</TableContainer>
+							{loading ? null : filtered.length === 0 ? (
+								<Typography color="secondary">
+									No matching gpio-companion projects.
+								</Typography>
+							) : (
+								<TablePagination
+									count={filtered.length}
+									page={page}
+									rowsPerPage={rowsPerPage}
+									onPageChange={(_event, nextPage) => setPage(nextPage)}
+									onRowsPerPageChange={(next) => {
+										setRowsPerPage(next);
+										setPage(0);
+									}}
+								/>
+							)}
+						</>
 					)}
 				</Stack>
 			</Paper>
@@ -457,6 +560,40 @@ export default function ProjectBrowser({
 								{saving ? "Saving…" : "Save to GitHub"}
 							</Button>
 						</Stack>
+						{justCreated === bundle.repo ? (
+							<Alert severity="success">
+								<Stack
+									direction={mobile ? "column" : "row"}
+									spacing={2}
+									sx={{
+										alignItems: mobile ? "stretch" : "center",
+										justifyContent: "space-between",
+									}}
+								>
+									<Typography>
+										{bundle.repo} is ready. Open Code to start chatting with the
+										agent.
+									</Typography>
+									{paired ? (
+										<Button
+											href="/devices/t3"
+											variant="contained"
+											className={mobile ? "w-full" : undefined}
+										>
+											Open Code
+										</Button>
+									) : (
+										<Button
+											href="/devices"
+											variant="contained"
+											className={mobile ? "w-full" : undefined}
+										>
+											Pair a board
+										</Button>
+									)}
+								</Stack>
+							</Alert>
+						) : null}
 						{uuid ? null : (
 							<Typography color="secondary">
 								Select a board to save pcb/, breadboard/, and technical/ from
@@ -521,7 +658,7 @@ export default function ProjectBrowser({
 							}}
 						/>
 					</>
-				) : (
+				) : empty ? null : (
 					<Typography color="secondary">Select a project.</Typography>
 				)}
 			</Stack>

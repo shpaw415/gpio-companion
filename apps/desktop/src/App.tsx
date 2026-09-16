@@ -54,7 +54,7 @@ export default function App() {
 	const [ready, setReady] = useState(false);
 	const [signedIn, setSignedIn] = useState(false);
 	const [session, setSession] = useState<Session | null>(null);
-	const [section, setSection] = useState<Section>("devices");
+	const [section, setSection] = useState<Section>("project");
 	const [deviceTab, setDeviceTab] = useState<DeviceTab>("overview");
 
 	useEffect(() => {
