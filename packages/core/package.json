@@ -10,7 +10,8 @@
 		"directory": "packages/core"
 	},
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./i18n": "./src/i18n/index.ts"
 	},
 	"files": [
 		"src",

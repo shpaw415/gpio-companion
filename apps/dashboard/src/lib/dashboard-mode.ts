@@ -4,35 +4,46 @@ export const DASHBOARD_MODE_STORAGE_KEY = "gpio-companion-dashboard-mode";
 
 export type SectionTab = {
 	href: string;
-	label: string;
+	labelKey:
+		| "nav.myBoard"
+		| "nav.wifi"
+		| "nav.code"
+		| "nav.learn"
+		| "nav.pair"
+		| "nav.requests"
+		| "nav.debug"
+		| "nav.admin"
+		| "nav.account"
+		| "nav.github"
+		| "nav.credits";
 };
 
 export const DEVICE_TABS_EASY: SectionTab[] = [
-	{ href: "/devices", label: "My board" },
-	{ href: "/devices/wifi", label: "WiFi" },
-	{ href: "/devices/t3", label: "Code" },
-	{ href: "/devices/docs", label: "Learn" },
+	{ href: "/devices", labelKey: "nav.myBoard" },
+	{ href: "/devices/wifi", labelKey: "nav.wifi" },
+	{ href: "/devices/t3", labelKey: "nav.code" },
+	{ href: "/devices/docs", labelKey: "nav.learn" },
 ];
 
 export const DEVICE_TABS_EXPERT: SectionTab[] = [
-	{ href: "/devices", label: "My board" },
-	{ href: "/devices/docs", label: "Learn" },
-	{ href: "/devices/t3", label: "Code" },
-	{ href: "/devices/pair", label: "Pair" },
-	{ href: "/devices/wifi", label: "WiFi" },
-	{ href: "/devices/notifications", label: "Requests" },
-	{ href: "/devices/debug", label: "Debug" },
+	{ href: "/devices", labelKey: "nav.myBoard" },
+	{ href: "/devices/docs", labelKey: "nav.learn" },
+	{ href: "/devices/t3", labelKey: "nav.code" },
+	{ href: "/devices/pair", labelKey: "nav.pair" },
+	{ href: "/devices/wifi", labelKey: "nav.wifi" },
+	{ href: "/devices/notifications", labelKey: "nav.requests" },
+	{ href: "/devices/debug", labelKey: "nav.debug" },
 ];
 
 export const DEVICE_TAB_ADMIN: SectionTab = {
 	href: "/devices/admin",
-	label: "Admin",
+	labelKey: "nav.admin",
 };
 
 export const PROFILE_TABS: SectionTab[] = [
-	{ href: "/profile", label: "Account" },
-	{ href: "/profile/github", label: "GitHub" },
-	{ href: "/profile/credits", label: "Credits" },
+	{ href: "/profile", labelKey: "nav.account" },
+	{ href: "/profile/github", labelKey: "nav.github" },
+	{ href: "/profile/credits", labelKey: "nav.credits" },
 ];
 
 const EXPERT_ONLY_PATHS = ["/devices/debug", "/devices/admin"] as const;

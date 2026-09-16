@@ -263,6 +263,31 @@ function DiagramBoard({
 		}
 	}
 
+	function partNode(part: WokwiPart) {
+		if (part.hide) {
+			return null;
+		}
+		return renderPart(
+			diagram,
+			part,
+			partHot(part, highlight),
+			livePins,
+			arduinoLivePins,
+			verifyOverlay?.parts[part.id],
+			boardModel,
+			partRefs.current.get(part.id),
+			(el) => {
+				if (el) {
+					partRefs.current.set(part.id, el);
+				} else {
+					partRefs.current.delete(part.id);
+				}
+			},
+			() => selectPart(part.id),
+			camera.view.scale,
+		);
+	}
+
 	return (
 		<BoardShell
 			camera={camera}
@@ -277,29 +302,9 @@ function DiagramBoard({
 						height: bounds.height * camera.view.scale,
 					}}
 				>
-					{diagram.parts.map((part) =>
-						part.hide
-							? null
-							: renderPart(
-									diagram,
-									part,
-									partHot(part, highlight),
-									livePins,
-									arduinoLivePins,
-									verifyOverlay?.parts[part.id],
-									boardModel,
-									partRefs.current.get(part.id),
-									(el) => {
-										if (el) {
-											partRefs.current.set(part.id, el);
-										} else {
-											partRefs.current.delete(part.id);
-										}
-									},
-									() => selectPart(part.id),
-									camera.view.scale,
-								),
-					)}
+					{diagram.parts
+						.filter((part) => isBreadboardType(part.type))
+						.map(partNode)}
 					<svg
 						aria-label="Breadboard wiring"
 						style={{
@@ -360,6 +365,9 @@ function DiagramBoard({
 							);
 						})}
 					</svg>
+					{diagram.parts
+						.filter((part) => !isBreadboardType(part.type))
+						.map(partNode)}
 				</div>
 			</ZoomSurface>
 			{diagram.steps?.length ? (

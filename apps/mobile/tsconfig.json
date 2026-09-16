@@ -5,7 +5,8 @@
 		"baseUrl": ".",
 		"allowImportingTsExtensions": true,
 		"paths": {
-			"openauthster": ["./modules/openauthster/index.ts"]
+			"openauthster": ["./modules/openauthster/index.ts"],
+			"gpio-companion-i18n": ["../../packages/core/src/i18n/index.ts"]
 		}
 	},
 	"include": ["**/*.ts", "**/*.tsx"],

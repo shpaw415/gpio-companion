@@ -33,6 +33,8 @@ export type HostRunOptions = {
 		outPath: string;
 		hostDir: string;
 		proxy?: boolean;
+		setProc?: (proc: RunProcess | null) => void;
+		cancelled?: () => boolean;
 	}) => Promise<{ ok: boolean; log: string; proc?: RunProcess }>;
 	hasSketch?: (dir: string) => boolean;
 	onLog?: (chunk: string) => void;
@@ -54,6 +56,7 @@ const STOP_MS = 2_000;
 
 export function createRunController(options: HostRunOptions): RunController {
 	let running = false;
+	let cancelled = false;
 	let log = "";
 	let last: RunResult | null = null;
 	let current: RunProcess | null = null;
@@ -71,6 +74,7 @@ export function createRunController(options: HostRunOptions): RunController {
 				throw new RunError("verify already running", 409);
 			}
 			running = true;
+			cancelled = false;
 			log = "";
 			options.onRunning?.(true);
 			const startedAt = Date.now();
@@ -81,6 +85,9 @@ export function createRunController(options: HostRunOptions): RunController {
 				},
 				setProc(proc) {
 					current = proc;
+				},
+				cancelled() {
+					return cancelled;
 				},
 			})
 				.then((result) => {
@@ -107,6 +114,7 @@ export function createRunController(options: HostRunOptions): RunController {
 			return { started: true };
 		},
 		stop() {
+			cancelled = true;
 			const proc = current;
 			if (proc) {
 				void killTree(proc).then(async () => {
@@ -183,9 +191,20 @@ async function runJob(
 	startedAt: number,
 	hooks: {
 		append(text: string): void;
-		setProc(proc: RunProcess): void;
+		setProc(proc: RunProcess | null): void;
+		cancelled(): boolean;
 	},
 ): Promise<RunResult> {
+	const stopped = (): RunResult => ({
+		ok: true,
+		dir: put.dir,
+		log: "stopped",
+		startedAt,
+		finishedAt: Date.now(),
+	});
+	if (hooks.cancelled()) {
+		return stopped();
+	}
 	const hostDir = options.hostDir ?? resolveHostDir();
 	const work = join(tmpdir(), "gpio-companion-run", String(startedAt));
 	mkdirSync(work, { recursive: true });
@@ -214,6 +233,9 @@ async function runJob(
 	} else if (!proxySketch) {
 		writeFileSync(pinmapPath, `hardware ${hardware}\n`);
 	}
+	if (hooks.cancelled()) {
+		return stopped();
+	}
 	const compile = options.compileAndRun ?? liveCompileAndRun;
 	const result = await compile({
 		dir: put.dir,
@@ -221,7 +243,21 @@ async function runJob(
 		outPath,
 		hostDir,
 		proxy: proxySketch,
+		setProc: hooks.setProc,
+		cancelled: hooks.cancelled,
 	});
+	if (hooks.cancelled()) {
+		if (result.proc) {
+			await killTree(result.proc);
+		}
+		return {
+			ok: true,
+			dir: put.dir,
+			log: capRunLog(result.log || "stopped"),
+			startedAt,
+			finishedAt: Date.now(),
+		};
+	}
 	if (!result.ok || !result.proc) {
 		return {
 			ok: result.ok,
@@ -232,7 +268,6 @@ async function runJob(
 		};
 	}
 	hooks.setProc(result.proc);
-	hooks.append(result.log ? `${result.log}\n` : "");
 	const [stdout, stderr] = await Promise.all([
 		readLive(result.proc.stdout, hooks.append),
 		readLive(result.proc.stderr, hooks.append),
@@ -253,7 +288,12 @@ async function liveCompileAndRun(job: {
 	outPath: string;
 	hostDir: string;
 	proxy?: boolean;
+	setProc?: (proc: RunProcess | null) => void;
+	cancelled?: () => boolean;
 }): Promise<{ ok: boolean; log: string; proc?: RunProcess }> {
+	if (job.cancelled?.()) {
+		return { ok: true, log: "stopped" };
+	}
 	const sketches = sketchFiles(job.dir);
 	if (!sketches.length) {
 		return { ok: false, log: "dir needs a .c or .ino sketch" };
@@ -277,15 +317,26 @@ async function liveCompileAndRun(job: {
 			...(job.proxy ? ["-lpthread"] : ["-lgpiod", "-lpthread"]),
 		],
 		COMPILE_MS,
+		job,
 	);
+	if (job.cancelled?.()) {
+		return { ok: true, log: compile.log || "stopped" };
+	}
 	if (compile.code !== 0) {
 		return { ok: false, log: compile.log || "gcc failed" };
+	}
+	if (job.cancelled?.()) {
+		return { ok: true, log: compile.log || "stopped" };
 	}
 	const proc = Bun.spawn([job.outPath, "--pinmap", job.pinmapPath], {
 		cwd: job.dir,
 		stdout: "pipe",
 		stderr: "pipe",
 	});
+	if (job.cancelled?.()) {
+		await killTree(proc);
+		return { ok: true, log: compile.log || "stopped" };
+	}
 	return {
 		ok: true,
 		log: compile.log,
@@ -371,25 +422,34 @@ function statExists(path: string): boolean {
 async function spawnResult(
 	cmd: string[],
 	timeoutMs: number,
+	hooks?: {
+		setProc?: (proc: RunProcess | null) => void;
+		cancelled?: () => boolean;
+	},
 ): Promise<{ code: number; log: string }> {
 	const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
-	const timed = Promise.race([
-		proc.exited,
-		Bun.sleep(timeoutMs).then(() => {
-			try {
-				proc.kill("SIGKILL");
-			} catch {
-				undefined;
-			}
-			return 1;
-		}),
-	]);
-	const [stdout, stderr, code] = await Promise.all([
-		readPipe(proc.stdout),
-		readPipe(proc.stderr),
-		timed,
-	]);
-	return { code, log: `${stdout}\n${stderr}`.trim() };
+	hooks?.setProc?.(proc);
+	try {
+		const timed = Promise.race([
+			proc.exited,
+			Bun.sleep(timeoutMs).then(() => {
+				try {
+					proc.kill("SIGKILL");
+				} catch {
+					undefined;
+				}
+				return 1;
+			}),
+		]);
+		const [stdout, stderr, code] = await Promise.all([
+			readPipe(proc.stdout),
+			readPipe(proc.stderr),
+			timed,
+		]);
+		return { code, log: `${stdout}\n${stderr}`.trim() };
+	} finally {
+		hooks?.setProc?.(null);
+	}
 }
 
 async function readLive(

@@ -18,6 +18,7 @@ import { AuthCtx, AuthSessionCtx } from "./hooks/useAuth.ts";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection.tsx";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
 import { DashboardModeProvider } from "./hooks/useDashboardMode.tsx";
+import { LocaleProvider } from "./hooks/useLocale.tsx";
 import { PathnameProvider } from "./hooks/usePathname.tsx";
 import {
 	identityToPublicSession,
@@ -63,10 +64,11 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 				}}
 			>
 				<PathnameProvider pathname={pathname}>
-					<ColorModeProvider>
-						<DashboardModeProvider>
-							<AuthProvider>
-								<BoardSelectionProvider>
+					<LocaleProvider>
+						<ColorModeProvider>
+							<DashboardModeProvider>
+								<AuthProvider>
+									<BoardSelectionProvider>
 									<RouterHost
 										onRouteChange={async (match) => {
 											matched.current = match;
@@ -80,10 +82,11 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 										{children}
 									</RouterHost>
 									<T3Frame />
-								</BoardSelectionProvider>
-							</AuthProvider>
-						</DashboardModeProvider>
-					</ColorModeProvider>
+									</BoardSelectionProvider>
+								</AuthProvider>
+							</DashboardModeProvider>
+						</ColorModeProvider>
+					</LocaleProvider>
 				</PathnameProvider>
 			</SSRPropsProvider>
 		</StrictMode>

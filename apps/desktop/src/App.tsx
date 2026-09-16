@@ -19,6 +19,7 @@ import Project from "./components/Project";
 import { ApiCacheProvider } from "./hooks/useApiCache";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection";
 import { useDashboardMode } from "./hooks/useDashboardMode";
+import { useT } from "./locale";
 
 type Section = "project" | "devices" | "profile";
 
@@ -51,6 +52,7 @@ function MoonIcon() {
 export default function App() {
 	const { isDark, toggleMode } = useColorMode();
 	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
+	const t = useT();
 	const [ready, setReady] = useState(false);
 	const [signedIn, setSignedIn] = useState(false);
 	const [session, setSession] = useState<Session | null>(null);
@@ -142,9 +144,9 @@ export default function App() {
 							{signedIn
 								? (
 										[
-											["project", "Project"],
-											["devices", "Devices"],
-											["profile", "Profile"],
+											["project", t("nav.project")],
+											["devices", t("nav.devices")],
+											["profile", t("nav.profile")],
 										] as const
 									).map(([id, label]) => (
 										<Button
@@ -161,15 +163,15 @@ export default function App() {
 								variant="text"
 								size="small"
 								aria-label={
-									isEasy ? "Switch to Expert mode" : "Switch to Easy mode"
+									isEasy ? t("mode.switchToExpert") : t("mode.switchToEasy")
 								}
 								onClick={toggleDashboardMode}
 							>
-								{isEasy ? "Easy" : "Expert"}
+								{isEasy ? t("mode.easy") : t("mode.expert")}
 							</Button>
 							<IconButton
 								aria-label={
-									isDark ? "Switch to light mode" : "Switch to dark mode"
+									isDark ? t("theme.switchToLight") : t("theme.switchToDark")
 								}
 								color="secondary"
 								onClick={toggleMode}

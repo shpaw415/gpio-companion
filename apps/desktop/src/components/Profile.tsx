@@ -7,8 +7,10 @@ import { useState } from "react";
 import { DASHBOARD_URL, getCredits, openExternal, type Session } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
 import { useDashboardMode } from "../hooks/useDashboardMode";
+import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 import Keys from "./Keys";
+import LanguageCard from "./LanguageCard";
 import { LinesSkeleton } from "./skeletons";
 
 export default function Profile({
@@ -21,13 +23,14 @@ export default function Profile({
 	const creditsQuery = useCachedQuery(CACHE_KEYS.credits, getCredits);
 	const credits = creditsQuery.data ?? null;
 	const { isEasy, toggleMode } = useDashboardMode();
+	const t = useT();
 	const [error, setError] = useState("");
 	const loading = creditsQuery.loading;
 
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Profile
+				{t("profile.title")}
 			</Typography>
 			{error || creditsQuery.error ? (
 				<Alert severity="error">{error || creditsQuery.error}</Alert>
@@ -35,12 +38,13 @@ export default function Profile({
 			{error || creditsQuery.error ? (
 				<DebugLog error={error || creditsQuery.error} />
 			) : null}
+			<LanguageCard />
 			<Paper sx={{ p: 3 }} elevation={1}>
-				<Typography variant="subtitle1">Account</Typography>
-				<Typography>{session?.name || "Signed in"}</Typography>
+				<Typography variant="subtitle1">{t("profile.account")}</Typography>
+				<Typography>{session?.name || t("auth.signedIn")}</Typography>
 				<Typography color="secondary">{session?.email}</Typography>
 				<Typography color="secondary">
-					Role: {session?.role || "user"}
+					{t("profile.role", { role: session?.role || t("profile.roleUser") })}
 				</Typography>
 				<Button
 					variant="text"
@@ -48,31 +52,29 @@ export default function Profile({
 					sx={{ mt: 2 }}
 					onClick={onSignOut}
 				>
-					Sign out
+					{t("auth.signOut")}
 				</Button>
 			</Paper>
 			<Paper sx={{ p: 3 }} elevation={1}>
-				<Typography variant="subtitle1">Dashboard mode</Typography>
-				<Typography color="secondary">
-					Easy hides Linux tools. Expert shows pairing requests, debug, and
-					admin.
-				</Typography>
+				<Typography variant="subtitle1">{t("mode.title")}</Typography>
+				<Typography color="secondary">{t("mode.hint")}</Typography>
 				<Button variant="outlined" sx={{ mt: 2 }} onClick={toggleMode}>
-					{isEasy
-						? "Using Easy — switch to Expert"
-						: "Using Expert — switch to Easy"}
+					{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
 				</Button>
 			</Paper>
 			<Keys />
 			<Paper sx={{ p: 3 }} elevation={1}>
-				<Typography variant="subtitle1">Credits</Typography>
+				<Typography variant="subtitle1">{t("credits.title")}</Typography>
 				{loading ? (
 					<LinesSkeleton lines={1} />
 				) : (
 					<Typography color="secondary">
 						{credits
-							? `$${credits.usd.toFixed(2)} (${credits.micros} µUSD)`
-							: "No credits yet"}
+							? t("credits.balance", {
+									usd: credits.usd.toFixed(2),
+									micros: credits.micros,
+								})
+							: t("credits.noCredits")}
 					</Typography>
 				)}
 				<Button
@@ -85,13 +87,13 @@ export default function Profile({
 								setError(
 									caught instanceof Error
 										? caught.message
-										: "could not open credits",
+										: t("errors.couldNotOpenCredits"),
 								);
 							},
 						);
 					}}
 				>
-					Add credits
+					{t("credits.add")}
 				</Button>
 			</Paper>
 		</Stack>

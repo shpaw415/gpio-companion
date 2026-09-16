@@ -5,6 +5,7 @@ import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { useEffect } from "react";
 import { useDashboardMode } from "../hooks/useDashboardMode";
 import { type DeviceTabId, deviceTabs } from "../lib/dashboard-mode";
+import { useT } from "../locale";
 import Admin from "./Admin";
 import Debug from "./Debug";
 import Docs from "./Docs";
@@ -26,6 +27,7 @@ export default function DevicesHub({
 	admin: boolean;
 }) {
 	const { mode, isEasy, setMode } = useDashboardMode();
+	const t = useT();
 	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
 	const allowed = tabs.some((item) => item.id === tab);
@@ -59,11 +61,11 @@ export default function DevicesHub({
 				value={allowed ? tab : "overview"}
 				onChange={(_event, next) => onTab(String(next) as DeviceTab)}
 				variant="scrollable"
-				aria-label="Devices sections"
+				aria-label={t("nav.devicesSections")}
 				sx={{ flex: "0 0 auto", height: "auto", flexShrink: 0 }}
 			>
 				{tabs.map((item) => (
-					<Tab key={item.id} value={item.id} label={item.label} />
+					<Tab key={item.id} value={item.id} label={t(item.labelKey)} />
 				))}
 			</Tabs>
 			<Box
@@ -82,13 +84,13 @@ export default function DevicesHub({
 			>
 				{isEasy && expertOnly ? (
 					<Alert severity="info">
-						This page is Expert mode.{" "}
+						{t("mode.expertPage")}{" "}
 						<Button
 							type="button"
 							variant="text"
 							onClick={() => setMode("expert")}
 						>
-							Switch to Expert
+							{t("mode.switchToExpertShort")}
 						</Button>
 					</Alert>
 				) : (

@@ -1,5 +1,7 @@
 import LoginPanel from "@components/LoginPanel";
+import Stack from "@shpaw415/mui-lite/Stack";
 import { useEffect } from "react";
+import LanguageCard from "../components/LanguageCard.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
 
 export default function LoginPage() {
@@ -11,5 +13,10 @@ export default function LoginPage() {
 		}
 	}, [session.data?.id, session.data?.email]);
 
-	return <LoginPanel />;
+	return (
+		<Stack spacing={3} className="mx-auto w-full max-w-md">
+			<LoginPanel />
+			<LanguageCard />
+		</Stack>
+	);
 }

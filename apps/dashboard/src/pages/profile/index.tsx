@@ -7,10 +7,12 @@ import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
+import LanguageCard from "../../components/LanguageCard.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuth, useAuthSession } from "../../hooks/useAuth.ts";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
+import { useT } from "../../hooks/useLocale.tsx";
 import { formatUsd } from "../../lib/credits.ts";
 import { clearOfflineKeys } from "../../lib/offline-keys.ts";
 
@@ -18,6 +20,7 @@ export default function ProfilePage() {
 	const auth = useAuth();
 	const session = useAuthSession();
 	const { isEasy, toggleMode } = useDashboardMode();
+	const t = useT();
 	const { run } = useActionError();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [micros, setMicros] = useState<number | null>(null);
@@ -44,11 +47,11 @@ export default function ProfilePage() {
 
 	return (
 		<Stack spacing={3}>
-			<SectionHeader title="Profile">
-				<Typography color="secondary">
-					Your GitHub account and gpio-companion credits.
-				</Typography>
+			<SectionHeader title={t("profile.title")}>
+				<Typography color="secondary">{t("profile.subtitle")}</Typography>
 			</SectionHeader>
+
+			<LanguageCard />
 
 			{!loggedIn ? (
 				<LoginPanel />
@@ -56,7 +59,7 @@ export default function ProfilePage() {
 				<>
 					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 						<Stack spacing={1}>
-							<Typography variant="h6">Account</Typography>
+							<Typography variant="h6">{t("profile.account")}</Typography>
 							{session.data?.name ? (
 								<Typography className="break-all">
 									{session.data.name}
@@ -68,43 +71,40 @@ export default function ProfilePage() {
 								</Typography>
 							) : null}
 							<Chip
-								label={session.data?.role === "admin" ? "admin" : "user"}
+								label={
+									session.data?.role === "admin"
+										? t("profile.roleAdmin")
+										: t("profile.roleUser")
+								}
 								variant="outlined"
 							/>
 							<Stack direction="row" spacing={2} className="mt-4 flex-wrap">
 								<Button href="/profile/github" variant="outlined">
-									GitHub
+									{t("nav.github")}
 								</Button>
 								<Button href="/profile/credits" variant="outlined">
-									Credits
+									{t("nav.credits")}
 								</Button>
 								<Button variant="outlined" onClick={signOut}>
-									Sign out
+									{t("auth.signOut")}
 								</Button>
 							</Stack>
 						</Stack>
 					</Paper>
 					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 						<Stack spacing={1}>
-							<Typography variant="h6">Dashboard mode</Typography>
-							<Typography color="secondary">
-								Easy hides Linux tools. Expert shows pairing requests, debug,
-								and admin.
-							</Typography>
+							<Typography variant="h6">{t("mode.title")}</Typography>
+							<Typography color="secondary">{t("mode.hint")}</Typography>
 							<Button variant="outlined" onClick={toggleMode}>
-								{isEasy
-									? "Using Easy — switch to Expert"
-									: "Using Expert — switch to Easy"}
+								{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
 							</Button>
 						</Stack>
 					</Paper>
 					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
 						<Stack spacing={1}>
-							<Typography variant="h6">AI credits</Typography>
+							<Typography variant="h6">{t("credits.aiTitle")}</Typography>
 							<Typography color="secondary">
-								OpenCode on your boards spends gpio-companion balance (Workers
-								AI list price × markup). Empty balance returns 402 from the AI
-								proxy. Buy USD packs with PayPal on Credits.
+								{t("credits.profileHint")}
 							</Typography>
 							{creditsLoading ? (
 								<Skeleton variant="rounded" height={30} width={130} />
@@ -114,7 +114,7 @@ export default function ProfilePage() {
 								</Typography>
 							)}
 							<Button href="/profile/credits" variant="outlined">
-								Manage credits
+								{t("profile.manageCredits")}
 							</Button>
 						</Stack>
 					</Paper>

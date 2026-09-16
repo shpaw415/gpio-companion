@@ -18,15 +18,10 @@ import type { ReactNode } from "react";
 import { ActionErrorProvider } from "../hooks/useActionError.tsx";
 import { useColorMode } from "../hooks/useColorMode.tsx";
 import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
+import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import { DASHBOARD_BOTTOM_NAV_ID, isT3Path } from "../lib/t3-url.ts";
-
-const sections: Array<{ href: string; label: string; icon: ReactNode }> = [
-	{ href: "/project", label: "Project", icon: <FolderIcon /> },
-	{ href: "/devices", label: "Devices", icon: <MemoryIcon /> },
-	{ href: "/profile", label: "Profile", icon: <AccountCircleIcon /> },
-];
 
 function currentSection(pathname: string) {
 	if (pathname.startsWith("/devices")) {
@@ -41,9 +36,15 @@ function currentSection(pathname: string) {
 export default function Layout({ children }: { children: React.JSX.Element }) {
 	const { isDark, toggleMode } = useColorMode();
 	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
+	const t = useT();
 	const pathname = usePathname();
 	const onT3 = isT3Path(pathname);
 	const mobile = useMobile();
+	const sections: Array<{ href: string; label: string; icon: ReactNode }> = [
+		{ href: "/project", label: t("nav.project"), icon: <FolderIcon /> },
+		{ href: "/devices", label: t("nav.devices"), icon: <MemoryIcon /> },
+		{ href: "/profile", label: t("nav.profile"), icon: <AccountCircleIcon /> },
+	];
 
 	const section = currentSection(pathname);
 
@@ -89,15 +90,15 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 							variant="text"
 							size="small"
 							aria-label={
-								isEasy ? "Switch to Expert mode" : "Switch to Easy mode"
+								isEasy ? t("mode.switchToExpert") : t("mode.switchToEasy")
 							}
 							onClick={toggleDashboardMode}
 						>
-							{isEasy ? "Easy" : "Expert"}
+							{isEasy ? t("mode.easy") : t("mode.expert")}
 						</Button>
 						<IconButton
 							aria-label={
-								isDark ? "Switch to light mode" : "Switch to dark mode"
+								isDark ? t("theme.switchToLight") : t("theme.switchToDark")
 							}
 							color="secondary"
 							onClick={toggleMode}

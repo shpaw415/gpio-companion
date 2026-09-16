@@ -16,6 +16,8 @@ import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { dashboardUrl } from "../lib/config.ts";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
+import { useT } from "../lib/locale.tsx";
+import LanguageCard from "../components/LanguageCard.tsx";
 import Keys from "./Keys.tsx";
 
 export default function Profile() {
@@ -29,48 +31,53 @@ export default function Profile() {
 	});
 	const credits = creditsQuery.data ?? null;
 	const { isEasy, toggleMode } = useDashboardMode();
+	const t = useT();
 	const [error, setError] = useState("");
 
 	return (
 		<Screen>
-			<Title>Profile</Title>
+			<Title>{t("profile.title")}</Title>
 			<ErrorText>{error || creditsQuery.error}</ErrorText>
+			<LanguageCard />
 			<Paper>
-				<Body>Account</Body>
-				<Body>{auth.session?.name || "Signed in"}</Body>
+				<Body>{t("profile.account")}</Body>
+				<Body>{auth.session?.name || t("auth.signedIn")}</Body>
 				<Muted>{auth.session?.email}</Muted>
-				<Muted>Role: {auth.session?.role || "user"}</Muted>
-				<TextButton label="Sign out" onPress={() => void auth.logout()} />
-			</Paper>
-			<Paper>
-				<Body>Dashboard mode</Body>
 				<Muted>
-					Easy hides Linux tools. Expert shows pairing requests, debug, and
-					admin.
+					{t("profile.role", {
+						role: auth.session?.role || t("profile.roleUser"),
+					})}
 				</Muted>
 				<TextButton
-					label={
-						isEasy
-							? "Using Easy — switch to Expert"
-							: "Using Expert — switch to Easy"
-					}
+					label={t("auth.signOut")}
+					onPress={() => void auth.logout()}
+				/>
+			</Paper>
+			<Paper>
+				<Body>{t("mode.title")}</Body>
+				<Muted>{t("mode.hint")}</Muted>
+				<TextButton
+					label={isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
 					onPress={toggleMode}
 				/>
 			</Paper>
 			<Keys />
 			<Paper>
-				<Body>Credits</Body>
+				<Body>{t("credits.title")}</Body>
 				{creditsQuery.loading ? (
 					<Skeleton height={24} />
 				) : (
 					<Muted>
 						{credits
-							? `$${credits.usd.toFixed(2)} (${credits.micros} µUSD)`
-							: "No credits yet"}
+							? t("credits.balance", {
+									usd: credits.usd.toFixed(2),
+									micros: credits.micros,
+								})
+							: t("credits.noCredits")}
 					</Muted>
 				)}
 				<PrimaryButton
-					label="Add credits"
+					label={t("credits.add")}
 					onPress={() => {
 						setError("");
 						void Linking.openURL(`${dashboardUrl}/profile/credits`).catch(
@@ -78,7 +85,7 @@ export default function Profile() {
 								setError(
 									caught instanceof Error
 										? caught.message
-										: "could not open credits",
+										: t("errors.couldNotOpenCredits"),
 								);
 							},
 						);

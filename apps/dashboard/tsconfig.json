@@ -63,6 +63,9 @@
 			"@next/client": [
 				"./node_modules/frame-master-plugin-apply-react/src/utils.ts"
 			],
+			"gpio-companion-i18n": [
+				"../../packages/core/src/i18n/index.ts"
+			],
 			"@hooks/*": [
 				"./src/hooks/*"
 			],

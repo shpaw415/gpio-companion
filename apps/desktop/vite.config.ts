@@ -15,6 +15,10 @@ export default defineConfig({
 				repoRoot,
 				"packages/core/src/breadboard-view.ts",
 			),
+			"gpio-companion-i18n": path.resolve(
+				repoRoot,
+				"packages/core/src/i18n/index.ts",
+			),
 		},
 	},
 	clearScreen: false,

@@ -1,6 +1,7 @@
 import { navigate } from "@next/client";
 import Box from "@shpaw415/mui-lite/Box";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
+import { useT } from "../../hooks/useLocale.tsx";
 import { usePathname } from "../../hooks/usePathname.tsx";
 import { PROFILE_TABS } from "../../lib/dashboard-mode.ts";
 
@@ -17,6 +18,7 @@ export default function ProfileLayout({
 	children: React.JSX.Element;
 }) {
 	const pathname = usePathname();
+	const t = useT();
 	const value = active(pathname);
 
 	return (
@@ -25,10 +27,10 @@ export default function ProfileLayout({
 				value={value}
 				onChange={(_event, next) => navigate(String(next))}
 				variant="scrollable"
-				aria-label="Profile sections"
+				aria-label={t("nav.profileSections")}
 			>
 				{PROFILE_TABS.map((tab) => (
-					<Tab key={tab.href} value={tab.href} label={tab.label} />
+					<Tab key={tab.href} value={tab.href} label={t(tab.labelKey)} />
 				))}
 			</Tabs>
 			<Box className="mt-3 min-[900px]:mt-6">{children}</Box>

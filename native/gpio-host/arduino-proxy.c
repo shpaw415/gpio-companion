@@ -4,7 +4,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,7 +40,6 @@ typedef struct {
 static PinState pins[MAX_PINS];
 static struct timespec start_time;
 static int serial_fd = -1;
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static char serial_port[128];
 static int serial_baud = 57600;
 

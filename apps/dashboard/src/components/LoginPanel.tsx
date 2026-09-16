@@ -5,14 +5,16 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth.ts";
+import { useT } from "../hooks/useLocale.tsx";
 
 export default function LoginPanel() {
 	const auth = useAuth();
+	const t = useT();
 	const [error, setError] = useState("");
 
 	async function start() {
 		if (!auth) {
-			setError("auth unavailable");
+			setError(t("errors.authUnavailable"));
 			return;
 		}
 		setError("");
@@ -22,21 +24,23 @@ export default function LoginPanel() {
 				provider: "github",
 			});
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "login failed");
+			setError(
+				caught instanceof Error ? caught.message : t("errors.loginFailed"),
+			);
 		}
 	}
 
 	return (
 		<Paper className="mx-auto w-full max-w-md p-6 min-[900px]:p-8" elevation={2}>
 			<Typography variant="h5" Element="h1" align="center">
-				Sign in
+				{t("auth.signIn")}
 			</Typography>
 			<Typography color="secondary" align="center" className="mt-2 mb-6">
-				Sign in with GitHub, then pair a Pi and connect the GitHub App.
+				{t("auth.helperDashboard")}
 			</Typography>
 			<Stack spacing={2}>
 				<Button variant="contained" onClick={() => void start()}>
-					Continue with GitHub
+					{t("auth.continueWithGithub")}
 				</Button>
 			</Stack>
 			{error ? (

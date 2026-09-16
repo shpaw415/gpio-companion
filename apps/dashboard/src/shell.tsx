@@ -2,6 +2,7 @@ import CssBaseline from "@shpaw415/mui-lite/CssBaseline";
 import { APP_DATA } from "./common.ts";
 import { ColorModeProvider } from "./hooks/useColorMode.tsx";
 import { DashboardModeProvider } from "./hooks/useDashboardMode.tsx";
+import { LocaleProvider } from "./hooks/useLocale.tsx";
 
 export default function RenderShell({
 	children,
@@ -13,7 +14,7 @@ export default function RenderShell({
 			<head>
 				<script
 					dangerouslySetInnerHTML={{
-						__html: `try{var m=localStorage.getItem("gpio-companion-color-mode");if(m!=="light"&&m!=="dark"){m=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=m;document.documentElement.style.colorScheme=m}catch(e){}`,
+						__html: `try{var m=localStorage.getItem("gpio-companion-color-mode");if(m!=="light"&&m!=="dark"){m=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.dataset.theme=m;document.documentElement.style.colorScheme=m;var l=localStorage.getItem("gpio-companion-locale")||navigator.language||"en";l=String(l).toLowerCase().replace("_","-");document.documentElement.lang=l==="fr"||l.indexOf("fr-")===0?"fr":"en"}catch(e){}`,
 					}}
 				/>
 				<meta charSet="utf-8" />
@@ -36,12 +37,14 @@ export default function RenderShell({
 				<title>{APP_DATA.projectName}</title>
 			</head>
 			<body id="root">
-				<ColorModeProvider>
-					<DashboardModeProvider>
-						<CssBaseline />
-						{children}
-					</DashboardModeProvider>
-				</ColorModeProvider>
+				<LocaleProvider>
+					<ColorModeProvider>
+						<DashboardModeProvider>
+							<CssBaseline />
+							{children}
+						</DashboardModeProvider>
+					</ColorModeProvider>
+				</LocaleProvider>
 			</body>
 		</html>
 	);

@@ -7,6 +7,7 @@ import Login from "../../src/components/Login.tsx";
 import { useAuth } from "../../src/lib/auth.tsx";
 import { useColorMode } from "../../src/lib/color-mode.tsx";
 import { useDashboardMode } from "../../src/lib/dashboard-mode.tsx";
+import { useT } from "../../src/lib/locale.tsx";
 
 const logo = require("../../assets/logo.png");
 
@@ -14,6 +15,7 @@ export default function TabsLayout() {
 	const auth = useAuth();
 	const { colors, isDark, toggleMode } = useColorMode();
 	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
+	const t = useT();
 	const insets = useSafeAreaInsets();
 
 	if (!auth.ready || !auth.token) {
@@ -54,18 +56,18 @@ export default function TabsLayout() {
 					<Pressable
 						onPress={toggleDashboardMode}
 						accessibilityLabel={
-							isEasy ? "Switch to Expert mode" : "Switch to Easy mode"
+							isEasy ? t("mode.switchToExpert") : t("mode.switchToEasy")
 						}
 						style={{ padding: 8 }}
 					>
 						<Text style={{ color: colors.primary, fontWeight: "600" }}>
-							{isEasy ? "Easy" : "Expert"}
+							{isEasy ? t("mode.easy") : t("mode.expert")}
 						</Text>
 					</Pressable>
 					<Pressable
 						onPress={toggleMode}
 						accessibilityLabel={
-							isDark ? "Switch to light mode" : "Switch to dark mode"
+							isDark ? t("theme.switchToLight") : t("theme.switchToDark")
 						}
 						style={{ padding: 8 }}
 					>
@@ -95,7 +97,7 @@ export default function TabsLayout() {
 					<Tabs.Screen
 						name="project"
 						options={{
-							title: "Project",
+							title: t("nav.project"),
 							tabBarIcon: ({ color, size }) => (
 								<MaterialIcons name="folder" color={color} size={size} />
 							),
@@ -104,7 +106,7 @@ export default function TabsLayout() {
 					<Tabs.Screen
 						name="index"
 						options={{
-							title: "Devices",
+							title: t("nav.devices"),
 							tabBarIcon: ({ color, size }) => (
 								<MaterialIcons name="memory" color={color} size={size} />
 							),
@@ -113,7 +115,7 @@ export default function TabsLayout() {
 					<Tabs.Screen
 						name="profile"
 						options={{
-							title: "Profile",
+							title: t("nav.profile"),
 							tabBarIcon: ({ color, size }) => (
 								<MaterialIcons
 									name="account-circle"

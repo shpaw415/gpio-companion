@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ColorModeProvider } from "./color-mode";
 import { DashboardModeProvider } from "./hooks/useDashboardMode";
+import { LocaleProvider } from "./locale";
 import "./index.css";
 
 const root = document.getElementById("root");
@@ -11,10 +12,12 @@ if (!root) {
 }
 createRoot(root).render(
 	<StrictMode>
-		<ColorModeProvider>
-			<DashboardModeProvider>
-				<App />
-			</DashboardModeProvider>
-		</ColorModeProvider>
+		<LocaleProvider>
+			<ColorModeProvider>
+				<DashboardModeProvider>
+					<App />
+				</DashboardModeProvider>
+			</ColorModeProvider>
+		</LocaleProvider>
 	</StrictMode>,
 );

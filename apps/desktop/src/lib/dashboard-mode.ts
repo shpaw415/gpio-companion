@@ -12,21 +12,37 @@ export type DeviceTabId =
 	| "debug"
 	| "admin";
 
-export const DEVICE_TABS_EASY: Array<{ id: DeviceTabId; label: string }> = [
-	{ id: "overview", label: "My board" },
-	{ id: "wifi", label: "WiFi" },
-	{ id: "t3", label: "Code" },
-	{ id: "docs", label: "Learn" },
+export type DeviceTabLabelKey =
+	| "nav.myBoard"
+	| "nav.wifi"
+	| "nav.code"
+	| "nav.learn"
+	| "nav.pair"
+	| "nav.requests"
+	| "nav.debug"
+	| "nav.admin";
+
+export const DEVICE_TABS_EASY: Array<{
+	id: DeviceTabId;
+	labelKey: DeviceTabLabelKey;
+}> = [
+	{ id: "overview", labelKey: "nav.myBoard" },
+	{ id: "wifi", labelKey: "nav.wifi" },
+	{ id: "t3", labelKey: "nav.code" },
+	{ id: "docs", labelKey: "nav.learn" },
 ];
 
-export const DEVICE_TABS_EXPERT: Array<{ id: DeviceTabId; label: string }> = [
-	{ id: "overview", label: "My board" },
-	{ id: "docs", label: "Learn" },
-	{ id: "t3", label: "Code" },
-	{ id: "pair", label: "Pair" },
-	{ id: "wifi", label: "WiFi" },
-	{ id: "requests", label: "Requests" },
-	{ id: "debug", label: "Debug" },
+export const DEVICE_TABS_EXPERT: Array<{
+	id: DeviceTabId;
+	labelKey: DeviceTabLabelKey;
+}> = [
+	{ id: "overview", labelKey: "nav.myBoard" },
+	{ id: "docs", labelKey: "nav.learn" },
+	{ id: "t3", labelKey: "nav.code" },
+	{ id: "pair", labelKey: "nav.pair" },
+	{ id: "wifi", labelKey: "nav.wifi" },
+	{ id: "requests", labelKey: "nav.requests" },
+	{ id: "debug", labelKey: "nav.debug" },
 ];
 
 export function parseDashboardMode(
@@ -38,10 +54,10 @@ export function parseDashboardMode(
 export function deviceTabs(
 	mode: DashboardMode,
 	admin: boolean,
-): Array<{ id: DeviceTabId; label: string }> {
+): Array<{ id: DeviceTabId; labelKey: DeviceTabLabelKey }> {
 	const tabs = mode === "easy" ? DEVICE_TABS_EASY : DEVICE_TABS_EXPERT;
 	if (mode === "expert" && admin) {
-		return [...tabs, { id: "admin", label: "Admin" }];
+		return [...tabs, { id: "admin", labelKey: "nav.admin" }];
 	}
 	return tabs;
 }

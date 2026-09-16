@@ -7,6 +7,7 @@ import { useColors } from "../lib/color-mode.tsx";
 import { deviceTabs, isAllowedDeviceTab } from "../lib/dashboard-mode.ts";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
+import { useT } from "../lib/locale.tsx";
 import Admin from "./Admin.tsx";
 import Debug from "./Debug.tsx";
 import Docs from "./Docs.tsx";
@@ -21,6 +22,7 @@ export default function DevicesHub() {
 	const auth = useAuth();
 	const { tab, setTab } = useDeviceHub();
 	const { mode, isEasy, setMode } = useDashboardMode();
+	const t = useT();
 	const admin = auth.session?.role === "admin";
 	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
@@ -66,7 +68,7 @@ export default function DevicesHub() {
 									fontWeight: active ? "700" : "500",
 								}}
 							>
-								{item.label}
+								{t(item.labelKey)}
 							</Text>
 						</Pressable>
 					);
@@ -75,9 +77,9 @@ export default function DevicesHub() {
 			<View style={{ flex: 1, minHeight: 0 }}>
 				{isEasy && expertOnly ? (
 					<Paper>
-						<Title>Expert mode</Title>
+						<Title>{t("mode.expertTitle")}</Title>
 						<PrimaryButton
-							label="Switch to Expert"
+							label={t("mode.switchToExpertShort")}
 							onPress={() => setMode("expert")}
 						/>
 					</Paper>

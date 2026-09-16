@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
 import { filePairingStore } from "./pairing.ts";
-import { formatPinmap, memoryRun } from "./run.ts";
+import {
+	createRunController,
+	formatPinmap,
+	memoryRun,
+	type RunProcess,
+} from "./run.ts";
 import { fileSecretsStore } from "./secrets.ts";
 import { handleDeviceRequest, startDeviceApi } from "./serve.ts";
 import { fileConfigStore } from "./store.ts";
@@ -39,6 +44,82 @@ describe("run controller", () => {
 	test("stop is idempotent", () => {
 		const run = memoryRun();
 		expect(run.stop()).toEqual({ stopped: true });
+	});
+
+	test("stop during compile does not start the sketch", async () => {
+		let spawned = false;
+		let compiling = false;
+		let release: () => void = () => undefined;
+		const hang = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const run = createRunController({
+			hardware: "raspberrypi",
+			hasSketch: () => true,
+			async compileAndRun(job) {
+				const proc: RunProcess = {
+					exited: hang.then(() => 0),
+					kill() {
+						release();
+					},
+				};
+				job.setProc?.(proc);
+				compiling = true;
+				await hang;
+				if (job.cancelled?.()) {
+					return { ok: true, log: "stopped" };
+				}
+				spawned = true;
+				return {
+					ok: true,
+					log: "warning: lock unused\n",
+					proc: { exited: Promise.resolve(0), kill() {} },
+				};
+			},
+		});
+		expect(run.start({ dir: "/tmp/fade" })).toEqual({ started: true });
+		const wait = Date.now();
+		while (!compiling && Date.now() - wait < 1000) {
+			await Bun.sleep(10);
+		}
+		expect(run.status().running).toBe(true);
+		expect(run.stop()).toEqual({ stopped: true });
+		const start = Date.now();
+		while (run.status().running && Date.now() - start < 1000) {
+			await Bun.sleep(10);
+		}
+		expect(run.status().running).toBe(false);
+		expect(spawned).toBe(false);
+	});
+
+	test("live log is sketch output not gcc warnings", async () => {
+		const chunks: string[] = [];
+		const run = createRunController({
+			hardware: "raspberrypi",
+			hasSketch: () => true,
+			onLog: (chunk) => {
+				chunks.push(chunk);
+			},
+			async compileAndRun() {
+				return {
+					ok: true,
+					log: "warning: lock unused\n",
+					proc: {
+						exited: Promise.resolve(0),
+						kill() {},
+						stdout: new Blob(["LED fade\n"]).stream(),
+					},
+				};
+			},
+		});
+		expect(run.start({ dir: "/tmp/fade" })).toEqual({ started: true });
+		const start = Date.now();
+		while (run.status().running && Date.now() - start < 1000) {
+			await Bun.sleep(10);
+		}
+		expect(chunks.join("")).toBe("LED fade\n");
+		expect(run.status().last?.log).toContain("warning");
+		expect(run.status().last?.log).toContain("LED fade");
 	});
 });
 
