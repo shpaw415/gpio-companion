@@ -6,9 +6,11 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion/i18n";
 import { useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import {
 	peekGithubAppCallback,
@@ -20,6 +22,7 @@ import type { StoredPairing } from "../lib/pairing-store.ts";
 export default function KeysForm() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const [login, setLogin] = useState("");
 	const [installUrl, setInstallUrl] = useState("");
 	const [checking, setChecking] = useState(true);
@@ -75,21 +78,24 @@ export default function KeysForm() {
 				setInstallUrl(current.installUrl);
 			} catch (caught) {
 				setError(
-					caught instanceof Error ? caught.message : "github app failed",
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "github app failed",
+					),
 				);
 			} finally {
 				setChecking(false);
 			}
 		})();
-	}, [session.data?.id]);
+	}, [session.data?.id, t]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
 			<Typography color="secondary">
 				<Button href="/login" variant="text">
-					Sign in
+					{t("auth.signIn")}
 				</Button>{" "}
-				to connect GitHub.
+				{t("auth.toGithub")}
 			</Typography>
 		);
 	}
@@ -98,40 +104,37 @@ export default function KeysForm() {
 		<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
 				<Typography variant="body2" color="secondary">
-					Install the gpio-companion GitHub App once. Boards mint a fresh token
-					at git push — nothing to paste.
+					{t("github.formHint")}
 				</Typography>
 				{checking ? (
 					<Skeleton variant="rounded" height={40} width="60%" />
 				) : login && !installUrl ? (
-					<Alert severity="success">Connected as @{login}</Alert>
+					<Alert severity="success">{t("github.connectedAs", { login })}</Alert>
 				) : installUrl ? (
 					<Stack spacing={1}>
 						{login ? (
 							<Alert severity="info">
-								Connected as @{login}. Authorize again to create projects.
+								{t("github.authorizeAgain", { login })}
 							</Alert>
 						) : null}
 						<Button href={installUrl} variant="contained">
-							{login ? "Authorize creating repositories" : "Connect GitHub"}
+							{login ? t("project.authorizeRepos") : t("project.connectGithub")}
 						</Button>
 					</Stack>
 				) : (
-					<Typography color="secondary">GitHub App not connected.</Typography>
+					<Typography color="secondary">{t("github.notConnected")}</Typography>
 				)}
 				{devicesLoading ? (
 					<Skeleton variant="rounded" height={24} width="75%" />
 				) : devices.length === 0 ? (
 					<Alert severity="info">
 						<Button href="/devices" variant="text">
-							Pair a board
-						</Button>{" "}
-						so the agent can push with this GitHub App.
+							{t("github.pairSoPush")}
+						</Button>
 					</Alert>
 				) : (
 					<Typography color="secondary">
-						{devices.length} paired board{devices.length === 1 ? "" : "s"} will
-						use this App at git push.
+						{t("github.nBoardsPush", { n: devices.length })}
 					</Typography>
 				)}
 				{error ? <Alert severity="error">{error}</Alert> : null}

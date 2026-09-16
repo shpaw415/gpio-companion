@@ -1,5 +1,5 @@
+import { LOCALES } from "gpio-companion-i18n";
 import { Pressable, Text, View } from "react-native";
-import { LOCALES } from "../../../packages/core/src/i18n/index.ts";
 import { useColors } from "../lib/color-mode.tsx";
 import { asLocale, useLocale } from "../lib/locale.tsx";
 import { Body, Muted, Paper } from "./ui.tsx";

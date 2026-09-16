@@ -1,19 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { claimDevice, signCredentials } from "../lib/api.ts";
-import { useUserBoards } from "../lib/api-cache.tsx";
-import { useAuth } from "../lib/auth.tsx";
-import {
-	createBoardLoss,
-	ensureBluetoothOn,
-	openBoardSession,
-	readInfo,
-	scanNearby,
-	scannedDevice,
-	sendEnvelope,
-	type NearbyRadio,
-} from "../lib/ble.ts";
-import { looksLikeMac } from "../lib/ble-frame.ts";
-import { saveLocalBleId } from "../lib/ble-ids.ts";
 import { NearbyPicker } from "../components/NearbyPicker.tsx";
 import {
 	Busy,
@@ -24,15 +9,32 @@ import {
 	TextButton,
 	Title,
 } from "../components/ui.tsx";
+import { claimDevice, signCredentials } from "../lib/api.ts";
+import { useUserBoards } from "../lib/api-cache.tsx";
+import { useAuth } from "../lib/auth.tsx";
+import {
+	createBoardLoss,
+	ensureBluetoothOn,
+	type NearbyRadio,
+	openBoardSession,
+	readInfo,
+	scanNearby,
+	scannedDevice,
+	sendEnvelope,
+} from "../lib/ble.ts";
+import { looksLikeMac } from "../lib/ble-frame.ts";
+import { saveLocalBleId } from "../lib/ble-ids.ts";
 import { useDeviceHub } from "../lib/device-hub.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 
 export default function Pair() {
 	const auth = useAuth();
+	const t = useT();
 	const { setTab } = useDeviceHub();
 	const { refetch: refetchBoards } = useUserBoards();
 	const [boards, setBoards] = useState<NearbyRadio[]>([]);
 	const [boardId, setBoardId] = useState("");
-	const [status, setStatus] = useState("Ready to scan");
+	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [scanning, setScanning] = useState(false);
@@ -44,7 +46,7 @@ export default function Pair() {
 		setScanning(true);
 		setError("");
 		setPaired(false);
-		setStatus("Scanning nearby Bluetooth…");
+		setStatus(t("pair.scanningNearby"));
 		try {
 			await ensureBluetoothOn();
 			const next = await scanNearby();
@@ -56,21 +58,21 @@ export default function Pair() {
 			setBoardId(pick);
 			setStatus(
 				next.length === 0
-					? "No nearby devices — move closer and scan again"
-					: "Select a device to pair with",
+					? t("pair.noNearbyMoveCloser")
+					: t("pair.selectDevice"),
 			);
 		} catch (caught) {
 			if (scanRef.current !== generation) {
 				return;
 			}
 			setError(caught instanceof Error ? caught.message : "scan failed");
-			setStatus("Ready to scan");
+			setStatus(t("pair.readyToScan"));
 		} finally {
 			if (scanRef.current === generation) {
 				setScanning(false);
 			}
 		}
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		void scan();
@@ -85,12 +87,12 @@ export default function Pair() {
 			return;
 		}
 		if (!boardId) {
-			setError("select a nearby Bluetooth device first");
+			setError(t("pair.selectNearbyFirst"));
 			return;
 		}
 		const bleDevice = scannedDevice(boardId);
 		if (!bleDevice) {
-			setError("scan again and pick the board");
+			setError(t("pair.scanAgainPick"));
 			return;
 		}
 		setBusy(true);
@@ -98,14 +100,16 @@ export default function Pair() {
 		setError("");
 		try {
 			const loss = createBoardLoss();
-			setStatus("Connecting…");
-			const session = await openBoardSession(bleDevice, (why) => loss.lose(why));
+			setStatus(t("pair.connecting"));
+			const session = await openBoardSession(bleDevice, (why) =>
+				loss.lose(why),
+			);
 			try {
-				setStatus("Reading board…");
+				setStatus(t("pair.readingBoard"));
 				const info = await readInfo(session.device);
-				setStatus("Signing credentials…");
+				setStatus(t("pair.signingCredentials"));
 				const envelope = await signCredentials(auth.token);
-				setStatus("Asking board for pairing key…");
+				setStatus(t("pair.askingKey"));
 				const raw = await sendEnvelope(session.device, envelope, loss);
 				const creds = JSON.parse(raw) as {
 					uuid?: string;
@@ -115,7 +119,7 @@ export default function Pair() {
 				if (!creds.uuid || !creds.key) {
 					throw new Error("device did not return pairing credentials");
 				}
-				setStatus("Claiming…");
+				setStatus(t("pair.claiming"));
 				await claimDevice(auth.token, {
 					uuid: creds.uuid,
 					key: creds.key,
@@ -124,14 +128,14 @@ export default function Pair() {
 				});
 				await saveLocalBleId(creds.uuid, boardId).catch(() => undefined);
 				await refetchBoards({ force: true }).catch(() => undefined);
-				setStatus("Paired");
+				setStatus(t("pair.paired"));
 				setPaired(true);
 			} finally {
 				await session.close();
 			}
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "pair failed");
-			setStatus("Select a device to pair with");
+			setStatus(t("pair.selectDevice"));
 		} finally {
 			setBusy(false);
 		}
@@ -139,10 +143,8 @@ export default function Pair() {
 
 	return (
 		<Screen>
-			<Title>Pair a board</Title>
-			<Muted>
-				Select the Pi in Nearby Bluetooth device. Do not auto-claim the first advert.
-			</Muted>
+			<Title>{t("pair.title")}</Title>
+			<Muted>{t("pair.mobileHint")}</Muted>
 			<NearbyPicker
 				boards={boards}
 				selectedId={boardId}
@@ -150,19 +152,22 @@ export default function Pair() {
 				scanning={scanning}
 				disabled={busy}
 			/>
-			<Muted>{status}</Muted>
-			<ErrorText>{error}</ErrorText>
+			<Muted>{status || t("pair.readyToScan")}</Muted>
+			<ErrorText>{translateError(t, error)}</ErrorText>
 			<Busy show={busy || scanning} />
 			{paired ? (
-				<TextButton label="Back to devices" onPress={() => setTab("overview")} />
+				<TextButton
+					label={t("pair.backToDevices")}
+					onPress={() => setTab("overview")}
+				/>
 			) : null}
 			<TextButton
-				label="Scan nearby"
+				label={t("pair.scanNearby")}
 				disabled={scanning || busy}
 				onPress={() => void scan()}
 			/>
 			<PrimaryButton
-				label="Pair selected"
+				label={t("pair.pairSelected")}
 				disabled={busy || scanning || !boardId || paired}
 				onPress={() => void pair()}
 			/>

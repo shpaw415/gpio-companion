@@ -2,11 +2,13 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useState } from "react";
 import { openExternal, startT3Pair, type T3Status, t3IframeSrc } from "../api";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { openT3Window } from "../lib/t3-window";
+import { useT } from "../locale";
 
 function tokenFrom(status?: T3Status): string {
 	const direct = status?.pairingToken?.trim() ?? "";
@@ -32,11 +34,13 @@ export default function T3Pairing({
 	uuid: string;
 	initial?: T3Status;
 }) {
+	const t = useT();
 	const { openT3Pair } = useBoardSelection();
 	const [status, setStatus] = useState<T3Status | undefined>(initial);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const token = tokenFrom(status);
+	const shown = translateError(t, error);
 	const onT3 = useCallback((next: T3Status) => {
 		setStatus(next);
 		if (next.pairingUrl || next.pairingToken) {
@@ -60,11 +64,9 @@ export default function T3Pairing({
 
 	return (
 		<Stack spacing={1}>
-			{error ? <Alert severity="error">{error}</Alert> : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{status?.paired ? (
-				<Typography color="secondary">
-					T3 Code is paired. Mint a new link anytime to pair another session.
-				</Typography>
+				<Typography color="secondary">{t("t3.pairedHint")}</Typography>
 			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
@@ -74,10 +76,10 @@ export default function T3Pairing({
 					onClick={() => void pair()}
 				>
 					{busy
-						? "Minting T3 link…"
+						? t("t3.minting")
 						: status?.pairingUrl || status?.paired
-							? "New pairing link"
-							: "Pair T3 Code"}
+							? t("t3.newLink")
+							: t("t3.pairT3")}
 				</Button>
 				{status?.pairingUrl ? (
 					<Button
@@ -85,7 +87,7 @@ export default function T3Pairing({
 						size="small"
 						onClick={() => void openExternal(status.pairingUrl ?? "")}
 					>
-						Open pairing URL
+						{t("t3.openPairingUrl")}
 					</Button>
 				) : null}
 				{token ? (
@@ -97,13 +99,13 @@ export default function T3Pairing({
 							void openT3Window(t3IframeSrc(uuid, token));
 						}}
 					>
-						Open in dashboard
+						{t("t3.openInDashboard")}
 					</Button>
 				) : null}
 			</Stack>
 			{token ? (
 				<Typography color="secondary" sx={{ wordBreak: "break-all" }}>
-					Pair code: {token}
+					{t("t3.pairCode", { token })}
 				</Typography>
 			) : null}
 		</Stack>

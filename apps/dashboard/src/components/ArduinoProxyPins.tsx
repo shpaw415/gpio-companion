@@ -7,10 +7,11 @@ import {
 	arduinoProxyHeaderLayout,
 	canDriveGpio,
 	type GpioPinState,
-	gpioPinStatusLabel,
 	gpioPinTone,
 	pinByPhysical,
 } from "gpio-companion";
+import { useT } from "../hooks/useLocale.tsx";
+import { gpioStatusText } from "./GpioHeader.tsx";
 
 const TONE_BG: Record<string, string> = {
 	reserved: "bg-surface",
@@ -34,10 +35,11 @@ export default function ArduinoProxyPins({
 	onSelect?: (pin: GpioPinState) => void;
 	fqbn?: string;
 }) {
+	const t = useT();
 	if (pins.length === 0) {
 		return (
 			<Typography color="secondary" variant="body2">
-				Waiting for Arduino proxy pins.
+				{t("gpio.waitingProxy")}
 			</Typography>
 		);
 	}
@@ -88,7 +90,7 @@ export default function ArduinoProxyPins({
 			{layout.extra.length > 0 ? (
 				<Stack spacing={0.5} className="pt-2">
 					<Typography variant="caption" color="secondary">
-						More pins
+						{t("gpio.morePins")}
 					</Typography>
 					<Box className="grid w-full min-w-0 grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-1">
 						{layout.extra.map((physical) => {
@@ -177,9 +179,10 @@ function PinButton({
 	selected: boolean;
 	onSelect?: (pin: GpioPinState) => void;
 }) {
+	const t = useT();
 	const selectable = canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
-	const status = gpioPinStatusLabel(pin);
+	const status = gpioStatusText(t, pin);
 	const content = (
 		<Stack
 			direction="row"
@@ -232,7 +235,11 @@ function PinButton({
 			variant="text"
 			size="small"
 			disabled={busy}
-			aria-label={`Pin ${pin.name || pin.physical} ${status}`}
+			aria-label={t("gpio.pinAria", {
+				physical: pin.physical,
+				label: pin.name || `D${pin.physical}`,
+				tone,
+			})}
 			aria-pressed={selected}
 			onClick={() => onSelect?.(pin)}
 			className="min-w-0"

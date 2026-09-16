@@ -1,9 +1,5 @@
 import { FLASH_PROXY_PATH } from "./flash.ts";
-import type {
-	GpioPinState,
-	GpioSnapshot,
-	GpioTarget,
-} from "./gpio.ts";
+import type { GpioPinState, GpioSnapshot } from "./gpio.ts";
 
 export type { GpioTarget } from "./gpio.ts";
 export { FLASH_PROXY_PATH };

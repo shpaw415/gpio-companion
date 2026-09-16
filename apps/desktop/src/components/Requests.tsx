@@ -3,6 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useState } from "react";
 import { listNotifications, resolveNotification } from "../api";
 import {
@@ -10,16 +11,19 @@ import {
 	useCachedQuery,
 	useUserBoards,
 } from "../hooks/useApiCache";
+import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 import { ListSkeleton } from "./skeletons";
 
 export default function Requests() {
+	const t = useT();
 	const query = useCachedQuery(CACHE_KEYS.notifications, listNotifications);
 	const { refetch: refetchBoards } = useUserBoards();
 	const items = query.data?.items ?? [];
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState("");
 	const loading = query.loading;
+	const shown = translateError(t, error || query.error);
 
 	async function act(uuid: string, action: "accept" | "reject") {
 		setBusy(uuid);
@@ -40,15 +44,13 @@ export default function Requests() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Requests
+				{t("requests.title")}
 			</Typography>
-			{error || query.error ? (
-				<Alert severity="error">{error || query.error}</Alert>
-			) : null}
-			{error || query.error ? <DebugLog error={error || query.error} /> : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			{loading ? <ListSkeleton items={2} /> : null}
 			{loading ? null : items.length === 0 ? (
-				<Typography color="secondary">No pending transfer requests.</Typography>
+				<Typography color="secondary">{t("requests.emptyDesktop")}</Typography>
 			) : (
 				items.map((item) => (
 					<Paper key={item.uuid} sx={{ p: 2 }} elevation={1}>
@@ -62,7 +64,7 @@ export default function Requests() {
 								disabled={busy === item.uuid}
 								onClick={() => void act(item.uuid, "accept")}
 							>
-								Accept
+								{t("requests.accept")}
 							</Button>
 							<Button
 								color="error"
@@ -70,7 +72,7 @@ export default function Requests() {
 								disabled={busy === item.uuid}
 								onClick={() => void act(item.uuid, "reject")}
 							>
-								Reject
+								{t("requests.reject")}
 							</Button>
 						</Stack>
 					</Paper>

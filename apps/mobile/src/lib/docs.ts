@@ -1,11 +1,19 @@
+import type { MessageKey, Messages } from "gpio-companion-i18n";
 import {
 	gettingStarted,
+	gettingStartedFr,
 	pinoutOrange,
+	pinoutOrangeFr,
 	pinoutRaspberry,
+	pinoutRaspberryFr,
 	storage,
+	storageFr,
 	userGuide,
+	userGuideFr,
 	wifiBluetooth,
+	wifiBluetoothFr,
 	workflows,
+	workflowsFr,
 } from "./docs-content.ts";
 
 export type DocHardware = "raspberrypi" | "orangepi";
@@ -13,7 +21,9 @@ export type DocHardware = "raspberrypi" | "orangepi";
 export type DocEntry = {
 	id: string;
 	title: string;
+	titleKey: MessageKey<Messages>;
 	description: string;
+	descriptionKey: MessageKey<Messages>;
 	group: "guides" | "hardware";
 	hardware?: DocHardware;
 	content: string;
@@ -107,73 +117,98 @@ function doc(entry: Omit<DocEntry, "content"> & { raw: string }): DocEntry {
 	};
 }
 
-export const DOCS: DocEntry[] = [
-	doc({
-		id: "getting-started",
-		title: "Getting started",
-		description:
-			"Power the board, get it online, sign in, pair, connect GitHub, reach the overview.",
-		group: "guides",
-		raw: gettingStarted,
-	}),
-	doc({
-		id: "user-guide",
-		title: "User guide",
-		description:
-			"What ships on your bench and where each gpio-companion document fits.",
-		group: "guides",
-		raw: userGuide,
-	}),
-	doc({
-		id: "wifi-bluetooth",
-		title: "WiFi over Bluetooth",
-		description:
-			"Chrome/Edge Web Bluetooth, native apps, and the iOS LightBlue / nRF Connect paste flow.",
-		group: "guides",
-		raw: wifiBluetooth,
-	}),
-	doc({
-		id: "workflows",
-		title: "Daily workflows",
-		description:
-			"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
-		group: "guides",
-		raw: workflows,
-	}),
-	doc({
-		id: "storage",
-		title: "Removable storage",
-		description:
-			"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
-		group: "guides",
-		raw: storage,
-	}),
-	doc({
-		id: "pinout-raspberrypi",
-		title: "Raspberry Pi GPIO pinout",
-		description:
-			"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
-		group: "hardware",
-		hardware: "raspberrypi",
-		raw: pinoutRaspberry,
-	}),
-	doc({
-		id: "pinout-orangepi",
-		title: "Orange Pi GPIO pinout",
-		description:
-			"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
-		group: "hardware",
-		hardware: "orangepi",
-		raw: pinoutOrange,
-	}),
-];
+function pickRaw(locale: string, en: string, fr: string): string {
+	return locale === "fr" ? fr : en;
+}
 
-export function findDoc(id: string | null | undefined): DocEntry | null {
+export function docsForLocale(locale: string): DocEntry[] {
+	return [
+		doc({
+			id: "getting-started",
+			title: "Getting started",
+			titleKey: "docs.gettingStartedTitle",
+			description:
+				"Power the board, get it online, sign in, pair, connect GitHub, reach the overview.",
+			descriptionKey: "docs.gettingStartedDesc",
+			group: "guides",
+			raw: pickRaw(locale, gettingStarted, gettingStartedFr),
+		}),
+		doc({
+			id: "user-guide",
+			title: "User guide",
+			titleKey: "docs.userGuideTitle",
+			description:
+				"What ships on your bench and where each gpio-companion document fits.",
+			descriptionKey: "docs.userGuideDesc",
+			group: "guides",
+			raw: pickRaw(locale, userGuide, userGuideFr),
+		}),
+		doc({
+			id: "wifi-bluetooth",
+			title: "WiFi over Bluetooth",
+			titleKey: "docs.wifiBluetoothTitle",
+			description:
+				"Chrome/Edge Web Bluetooth, native apps, and the iOS LightBlue / nRF Connect paste flow.",
+			descriptionKey: "docs.wifiBluetoothDesc",
+			group: "guides",
+			raw: pickRaw(locale, wifiBluetooth, wifiBluetoothFr),
+		}),
+		doc({
+			id: "workflows",
+			title: "Daily workflows",
+			titleKey: "docs.workflowsTitle",
+			description:
+				"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
+			descriptionKey: "docs.workflowsDesc",
+			group: "guides",
+			raw: pickRaw(locale, workflows, workflowsFr),
+		}),
+		doc({
+			id: "storage",
+			title: "Removable storage",
+			titleKey: "docs.storageTitle",
+			description:
+				"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
+			descriptionKey: "docs.storageDesc",
+			group: "guides",
+			raw: pickRaw(locale, storage, storageFr),
+		}),
+		doc({
+			id: "pinout-raspberrypi",
+			title: "Raspberry Pi GPIO pinout",
+			titleKey: "docs.pinoutPiTitle",
+			description:
+				"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
+			descriptionKey: "docs.pinoutPiDesc",
+			group: "hardware",
+			hardware: "raspberrypi",
+			raw: pickRaw(locale, pinoutRaspberry, pinoutRaspberryFr),
+		}),
+		doc({
+			id: "pinout-orangepi",
+			title: "Orange Pi GPIO pinout",
+			titleKey: "docs.pinoutOrangeTitle",
+			description:
+				"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
+			descriptionKey: "docs.pinoutOrangeDesc",
+			group: "hardware",
+			hardware: "orangepi",
+			raw: pickRaw(locale, pinoutOrange, pinoutOrangeFr),
+		}),
+	];
+}
+
+export const DOCS: DocEntry[] = docsForLocale("en");
+
+export function findDoc(
+	id: string | null | undefined,
+	docs: DocEntry[] = DOCS,
+): DocEntry | null {
 	const trimmed = id?.trim() ?? "";
 	if (!trimmed) {
 		return null;
 	}
-	return DOCS.find((entry) => entry.id === trimmed) ?? null;
+	return docs.find((entry) => entry.id === trimmed) ?? null;
 }
 
 export function hardwareFromStatus(
@@ -203,7 +238,8 @@ export function searchDocs(query: string, docs: DocEntry[], limit = 12) {
 	}> = [];
 	for (const entry of docs) {
 		for (const section of docSections(entry.content)) {
-			const hay = `${entry.title} ${section.title} ${section.body}`.toLowerCase();
+			const hay =
+				`${entry.title} ${section.title} ${section.body}`.toLowerCase();
 			if (!terms.every((term) => hay.includes(term))) {
 				continue;
 			}

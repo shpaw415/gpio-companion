@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useConsoleTunnel } from "../lib/use-console-tunnel.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
@@ -28,6 +29,7 @@ export default function FlashPanel({
 	project?: string;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const token = auth.token;
 	const colors = useColors();
 	const [busy, setBusy] = useState(false);
@@ -99,10 +101,10 @@ export default function FlashPanel({
 
 	return (
 		<View style={{ gap: 8, marginTop: 8 }}>
-			<Body>Arduino flash</Body>
+			<Body>{t("flash.arduinoFlash")}</Body>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<TextButton
-				label={busy ? "Loading…" : "Load ports"}
+				label={busy ? t("common.loading") : t("flash.loadPorts")}
 				disabled={busy || !uuid || !token}
 				onPress={() => {
 					if (!token) {
@@ -121,21 +123,18 @@ export default function FlashPanel({
 					});
 				}}
 			/>
-			<Field label="FQBN" value={fqbn} onChangeText={setFqbn} />
+			<Field label={t("flash.fqbn")} value={fqbn} onChangeText={setFqbn} />
 			{legacy ? (
 				<Field
-					label="Sketch dir on the Pi"
+					label={t("flash.sketchDir")}
 					value={dir}
 					onChangeText={setDir}
 					placeholder="/home/gpio/blink"
 				/>
 			) : !project ? (
-				<Muted>Select a project to see firmware sketches on this board.</Muted>
+				<Muted>{t("flash.selectProject")}</Muted>
 			) : listed.length === 0 ? (
-				<Muted>
-					No USB sketches on this board for this project. Ask Code to write them
-					under firmware/.
-				</Muted>
+				<Muted>{t("flash.noSketches")}</Muted>
 			) : (
 				listed.map((item) => (
 					<Pressable
@@ -159,9 +158,13 @@ export default function FlashPanel({
 					</Pressable>
 				))
 			)}
-			<Field label="Port (optional)" value={port} onChangeText={setPort} />
+			<Field
+				label={t("flash.portOptional")}
+				value={port}
+				onChangeText={setPort}
+			/>
 			<TextButton
-				label="Open serial"
+				label={t("flash.openSerial")}
 				disabled={busy || !token || !port.trim() || Boolean(status?.running)}
 				onPress={() => {
 					if (!token) {
@@ -173,7 +176,7 @@ export default function FlashPanel({
 				}}
 			/>
 			<TextButton
-				label="Close serial"
+				label={t("flash.closeSerial")}
 				disabled={busy || !token}
 				onPress={() => {
 					if (!token) {
@@ -185,7 +188,7 @@ export default function FlashPanel({
 				}}
 			/>
 			<TextButton
-				label="Flash"
+				label={t("flash.flash")}
 				disabled={busy || !token || !canFlash}
 				onPress={() => {
 					if (!token) {
@@ -203,7 +206,7 @@ export default function FlashPanel({
 				}}
 			/>
 			<TextButton
-				label="Flash over Bluetooth"
+				label={t("flash.overBle")}
 				disabled={busy || !token || !canFlash}
 				onPress={() => {
 					if (!token) {
@@ -226,17 +229,17 @@ export default function FlashPanel({
 					});
 				}}
 			/>
-			{error ? <ErrorText>{error}</ErrorText> : null}
+			{error ? <ErrorText>{translateError(t, error)}</ErrorText> : null}
 			<Muted>
 				{status?.running
-					? "Flashing…"
+					? t("flash.flashing")
 					: status?.last
 						? status.last.ok
-							? `Last flash ok · ${status.last.fqbn}`
-							: `Last flash failed · ${status.last.fqbn}`
-						: "C sketch on the Pi, then flash."}
+							? t("flash.lastOk", { fqbn: status.last.fqbn })
+							: t("flash.lastFailed", { fqbn: status.last.fqbn })
+						: t("flash.thenFlash")}
 			</Muted>
-			<Muted>Serial {serial.status}</Muted>
+			<Muted>{t("flash.serialStatus", { status: serial.status })}</Muted>
 			{serial.snapshot.usb.log ? (
 				<Muted>{serial.snapshot.usb.log}</Muted>
 			) : null}

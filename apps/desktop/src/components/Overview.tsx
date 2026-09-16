@@ -1,15 +1,20 @@
 import Alert from "@shpaw415/mui-lite/Alert";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useEffect, useRef, useState } from "react";
 import { unpairDevice } from "../api";
 import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useDashboardMode } from "../hooks/useDashboardMode";
+import { useT } from "../locale";
 import BoardCard from "./BoardCard";
 import DebugLog from "./DebugLog";
 import { BoardCardSkeleton } from "./skeletons";
 
 export default function Overview() {
+	const t = useT();
+	const { isEasy } = useDashboardMode();
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
@@ -21,6 +26,7 @@ export default function Overview() {
 		patchLabel,
 	} = useUserBoards();
 	const [error, setError] = useState("");
+	const shown = translateError(t, error || loadError);
 
 	useEffect(() => {
 		if (
@@ -34,21 +40,17 @@ export default function Overview() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Devices
+				{t(isEasy ? "devices.titleEasy" : "devices.titleExpert")}
 			</Typography>
-			{error || loadError ? (
-				<Alert severity="error">{error || loadError}</Alert>
-			) : null}
-			{error || loadError ? <DebugLog error={error || loadError} /> : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			{loading ? (
 				<>
 					<BoardCardSkeleton />
 					<BoardCardSkeleton />
 				</>
 			) : boards.length === 0 ? (
-				<Typography color="secondary">
-					No boards yet. Pair one nearby.
-				</Typography>
+				<Typography color="secondary">{t("devices.noBoardsYetBle")}</Typography>
 			) : (
 				boards.map((board) => (
 					<BoardCard

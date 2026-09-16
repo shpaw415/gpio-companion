@@ -33,8 +33,10 @@ import {
 	parseWokwiDiagram,
 	type RunStatus,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
@@ -67,6 +69,7 @@ export default function ProjectBrowser({
 	verifyResults?: CircuitVerifyItem[];
 	boardModel?: string | null;
 }) {
+	const t = useT();
 	const [configured, setConfigured] = useState(true);
 	const [repos, setRepos] = useState<GithubRepo[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -116,13 +119,16 @@ export default function ProjectBrowser({
 			})
 			.catch((err: unknown) => {
 				setError(
-					err instanceof Error ? err.message : "failed to list projects",
+					translateError(
+						t,
+						err instanceof Error ? err.message : "failed to list project",
+					),
 				);
 			})
 			.finally(() => {
 				setLoading(false);
 			});
-	}, [onConfigured]);
+	}, [onConfigured, t]);
 
 	useEffect(() => {
 		void getGithubApp()
@@ -221,7 +227,12 @@ export default function ProjectBrowser({
 			setJustCreated(repo.name);
 			await openRepo(repo, true);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "failed to create project");
+			setError(
+				translateError(
+					t,
+					err instanceof Error ? err.message : "failed to create project",
+				),
+			);
 		} finally {
 			setCreating(false);
 		}
@@ -268,7 +279,12 @@ export default function ProjectBrowser({
 		try {
 			await applyBundle(unwrapAction(await loadProject(repo.owner, repo.name)));
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "failed to load project");
+			setError(
+				translateError(
+					t,
+					err instanceof Error ? err.message : "failed to load project",
+				),
+			);
 		} finally {
 			setLoadingRepo(false);
 		}
@@ -306,7 +322,12 @@ export default function ProjectBrowser({
 				unwrapAction(await loadProject(bundle.owner, bundle.repo, ref)),
 			);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "failed to load branch");
+			setError(
+				translateError(
+					t,
+					err instanceof Error ? err.message : "failed to load branch",
+				),
+			);
 		} finally {
 			setLoadingRepo(false);
 		}
@@ -322,7 +343,12 @@ export default function ProjectBrowser({
 			unwrapAction(await stopRun(uuid));
 			setRunRunning(unwrapAction(await loadRun(uuid)).running);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "failed to stop sketch");
+			setError(
+				translateError(
+					t,
+					err instanceof Error ? err.message : "failed to stop sketch",
+				),
+			);
 		} finally {
 			setStopping(false);
 		}
@@ -346,11 +372,16 @@ export default function ProjectBrowser({
 			await applyBundle(result.bundle);
 			setSaveHint(
 				result.board.committed
-					? "Saved and pushed from the board."
-					: "Already up to date on GitHub.",
+					? t("project.savedPushed")
+					: t("project.alreadyUpToDate"),
 			);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "failed to save project");
+			setError(
+				translateError(
+					t,
+					err instanceof Error ? err.message : "failed to save project",
+				),
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -361,7 +392,12 @@ export default function ProjectBrowser({
 		setError("");
 		void task()
 			.catch((caught) => {
-				setError(caught instanceof Error ? caught.message : "request failed");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "request failed",
+					),
+				);
 			})
 			.finally(() => setSketchBusy(false));
 	}
@@ -373,17 +409,15 @@ export default function ProjectBrowser({
 			return (
 				<Stack spacing={2}>
 					{hero ? (
-						<Typography variant="h6">Create your first project</Typography>
+						<Typography variant="h6">{t("project.createFirst")}</Typography>
 					) : null}
-					<Alert severity="info">
-						Authorize GitHub so this dashboard can create repositories.
-					</Alert>
+					<Alert severity="info">{t("project.authorizeHint")}</Alert>
 					<Button
 						href={installUrl || "/profile/github"}
 						variant="contained"
 						className={mobile ? "w-full" : undefined}
 					>
-						Authorize creating repositories
+						{t("project.authorizeRepos")}
 					</Button>
 				</Stack>
 			);
@@ -392,10 +426,8 @@ export default function ProjectBrowser({
 			<Stack spacing={2}>
 				{hero ? (
 					<>
-						<Typography variant="h6">Create your first project</Typography>
-						<Typography color="secondary">
-							Name it like blink-led. Then open Code to talk to the agent.
-						</Typography>
+						<Typography variant="h6">{t("project.createFirst")}</Typography>
+						<Typography color="secondary">{t("project.createHint")}</Typography>
 					</>
 				) : null}
 				<Stack
@@ -407,8 +439,8 @@ export default function ProjectBrowser({
 					}}
 				>
 					<TextField
-						label="New project"
-						placeholder="blink-led"
+						label={t("project.newProject")}
+						placeholder={t("project.placeholderName")}
 						value={createName}
 						onChange={(event) => setCreateName(event.target.value)}
 						onKeyDown={(event) => {
@@ -424,7 +456,7 @@ export default function ProjectBrowser({
 						disabled={creating || !createName.trim()}
 						onClick={() => void makeProject()}
 					>
-						{creating ? "Creating…" : "Create"}
+						{creating ? t("project.creating") : t("project.create")}
 					</Button>
 				</Stack>
 			</Stack>
@@ -435,10 +467,8 @@ export default function ProjectBrowser({
 		return (
 			<Alert severity="info">
 				<Button href="/profile/github" variant="text">
-					Connect GitHub
-				</Button>{" "}
-				so this dashboard can list your repos. Agent-pushed files live in pcb/,
-				breadboard/, and technical/.
+					{t("project.connectGithubAlert")}
+				</Button>
 			</Alert>
 		);
 	}
@@ -459,8 +489,8 @@ export default function ProjectBrowser({
 								}}
 							>
 								<TextField
-									label="Filter"
-									placeholder="Name or owner/repo"
+									label={t("project.filter")}
+									placeholder={t("project.filterPlaceholder")}
 									value={query}
 									onChange={(event) => {
 										setQuery(event.target.value);
@@ -470,7 +500,7 @@ export default function ProjectBrowser({
 								/>
 								<Select
 									name="owner"
-									label="Owner"
+									label={t("project.owner")}
 									value={owner}
 									onSelect={(next) => {
 										setOwner(next);
@@ -480,7 +510,7 @@ export default function ProjectBrowser({
 								>
 									{[
 										<option key="all" value="all">
-											All owners
+											{t("project.allOwners")}
 										</option>,
 										...owners.map((login) => (
 											<option key={login} value={login}>
@@ -494,9 +524,11 @@ export default function ProjectBrowser({
 								<Table size="small">
 									<TableHead>
 										<TableRow>
-											<TableCell>Name</TableCell>
-											<TableCell>Owner</TableCell>
-											{mobile ? null : <TableCell>Repository</TableCell>}
+											<TableCell>{t("project.colName")}</TableCell>
+											<TableCell>{t("project.colOwner")}</TableCell>
+											{mobile ? null : (
+												<TableCell>{t("project.colRepo")}</TableCell>
+											)}
 										</TableRow>
 									</TableHead>
 									<TableBody>
@@ -532,7 +564,7 @@ export default function ProjectBrowser({
 							</TableContainer>
 							{loading ? null : filtered.length === 0 ? (
 								<Typography color="secondary">
-									No matching gpio-companion projects.
+									{t("project.noMatch")}
 								</Typography>
 							) : (
 								<TablePagination
@@ -574,7 +606,7 @@ export default function ProjectBrowser({
 							{bundle.branches.length > 0 ? (
 								<Select
 									name="branch"
-									label="Branch"
+									label={t("project.branch")}
 									value={bundle.ref}
 									onSelect={(next) => {
 										void selectBranch(next);
@@ -584,7 +616,7 @@ export default function ProjectBrowser({
 									{bundle.branches.map((branch) => (
 										<option key={branch.name} value={branch.name}>
 											{branch.name === bundle.defaultBranch
-												? `${branch.name} (default)`
+												? t("project.defaultBranch", { name: branch.name })
 												: branch.name}
 										</option>
 									))}
@@ -605,7 +637,7 @@ export default function ProjectBrowser({
 									onClick={() => void stopSketch()}
 									className={mobile ? "flex-1" : undefined}
 								>
-									{stopping ? "Stopping…" : "Stop sketch"}
+									{stopping ? t("project.stopping") : t("project.stopSketch")}
 								</Button>
 								<Button
 									variant="contained"
@@ -613,7 +645,7 @@ export default function ProjectBrowser({
 									onClick={() => void saveFromBoard()}
 									className={mobile ? "flex-1" : undefined}
 								>
-									{saving ? "Saving…" : "Save to GitHub"}
+									{saving ? t("project.saving") : t("project.saveToGithub")}
 								</Button>
 							</Stack>
 						</Stack>
@@ -628,8 +660,7 @@ export default function ProjectBrowser({
 									}}
 								>
 									<Typography>
-										{bundle.repo} is ready. Open Code to start chatting with the
-										agent.
+										{t("project.readyChat", { repo: bundle.repo })}
 									</Typography>
 									{paired ? (
 										<Button
@@ -637,7 +668,7 @@ export default function ProjectBrowser({
 											variant="contained"
 											className={mobile ? "w-full" : undefined}
 										>
-											Open Code
+											{t("project.openCode")}
 										</Button>
 									) : (
 										<Button
@@ -645,7 +676,7 @@ export default function ProjectBrowser({
 											variant="contained"
 											className={mobile ? "w-full" : undefined}
 										>
-											Pair a board
+											{t("project.pairABoard")}
 										</Button>
 									)}
 								</Stack>
@@ -653,14 +684,13 @@ export default function ProjectBrowser({
 						) : null}
 						{uuid ? null : (
 							<Typography color="secondary">
-								Select a board to save pcb/, breadboard/, and technical/ from
-								its disk.
+								{t("project.selectBoardToSave")}
 							</Typography>
 						)}
 						{saveHint ? <Alert severity="success">{saveHint}</Alert> : null}
 						<PcbViewer
 							circuitJsonText={pcbJson}
-							label="PCB"
+							label={t("project.pcb")}
 							previewUrl={bundle.pcbPreviewUrl}
 						/>
 						<BreadboardViewer
@@ -671,12 +701,18 @@ export default function ProjectBrowser({
 							verifyOverlay={overlay}
 							boardModel={boardModel}
 						/>
-						<FileGroup title="PCB" files={bundle.pcb} />
-						<FileGroup title="Breadboard" files={bundle.breadboard} />
-						<FileGroup title="Technical" files={bundle.technical} />
+						<FileGroup title={t("project.pcb")} files={bundle.pcb} />
+						<FileGroup
+							title={t("project.breadboard")}
+							files={bundle.breadboard}
+						/>
+						<FileGroup
+							title={t("project.technical")}
+							files={bundle.technical}
+						/>
 						<BoardSketchGroup
-							title="Host sketches"
-							action="Run"
+							title={t("project.hostSketches")}
+							action={t("project.run")}
 							sketches={hostSketches.filter(
 								(item) => item.project === bundle.repo,
 							)}
@@ -692,8 +728,8 @@ export default function ProjectBrowser({
 							}}
 						/>
 						<BoardSketchGroup
-							title="Arduino firmware"
-							action="Flash"
+							title={t("project.arduinoFirmware")}
+							action={t("flash.flash")}
 							sketches={firmwareSketches.filter(
 								(item) => item.project === bundle.repo,
 							)}
@@ -716,7 +752,9 @@ export default function ProjectBrowser({
 						/>
 					</>
 				) : empty ? null : (
-					<Typography color="secondary">Select a project.</Typography>
+					<Typography color="secondary">
+						{t("project.selectProject")}
+					</Typography>
 				)}
 			</Stack>
 		</Stack>
@@ -736,6 +774,7 @@ function BoardSketchGroup({
 	busy: boolean;
 	onLaunch: (dir: string) => void;
 }) {
+	const t = useT();
 	return (
 		<Paper className="p-4" elevation={1}>
 			<Typography variant="h6" className="mb-2">
@@ -743,7 +782,7 @@ function BoardSketchGroup({
 			</Typography>
 			{sketches.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					None on this board for this project.
+					{t("project.noneOnBoard")}
 				</Typography>
 			) : (
 				<Stack spacing={1}>
@@ -779,6 +818,7 @@ function FileGroup({
 	title: string;
 	files: { name: string; path: string; download_url: string | null }[];
 }) {
+	const t = useT();
 	return (
 		<Paper className="p-4" elevation={1}>
 			<Typography variant="h6" className="mb-2">
@@ -786,7 +826,7 @@ function FileGroup({
 			</Typography>
 			{files.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					No files in this folder.
+					{t("project.noFiles")}
 				</Typography>
 			) : (
 				<Stack spacing={1}>

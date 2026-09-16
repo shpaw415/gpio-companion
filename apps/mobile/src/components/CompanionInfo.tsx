@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Text } from "react-native";
 import { loadDeviceInfo, signDeviceInfo } from "../lib/api.ts";
-import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
-import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
 import { flattenDeviceInfo } from "../lib/device-info.ts";
+import { translateError, useT } from "../lib/locale.tsx";
+import { openPairedBoard } from "../lib/paired-ble.ts";
+import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { ErrorText, Muted, TextButton } from "./ui.tsx";
 
 function parseInfoPayload(raw: string): unknown {
@@ -29,6 +30,7 @@ function parseInfoPayload(raw: string): unknown {
 
 export default function CompanionInfo({ uuid }: { uuid: string }) {
 	const auth = useAuth();
+	const t = useT();
 	const colors = useColors();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -54,7 +56,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 		<>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<TextButton
-				label={busy ? "Loading…" : "Load companion info"}
+				label={busy ? t("common.loading") : t("ble.loadInfo")}
 				disabled={busy || !uuid || !auth.token}
 				onPress={() => {
 					if (!auth.token) {
@@ -66,7 +68,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 				}}
 			/>
 			<TextButton
-				label="Load over Bluetooth"
+				label={t("ble.loadOverBle")}
 				disabled={busy || !uuid || !auth.token}
 				onPress={() => {
 					if (!auth.token) {
@@ -90,7 +92,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 					});
 				}}
 			/>
-			<ErrorText>{error}</ErrorText>
+			<ErrorText>{translateError(t, error)}</ErrorText>
 			{rows.map((row) => (
 				<Text
 					key={row.key}

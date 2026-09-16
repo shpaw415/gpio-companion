@@ -3,6 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useEffect } from "react";
 import { getGithubApp, openExternal } from "../api";
 import {
@@ -10,16 +11,19 @@ import {
 	useCachedQuery,
 	useUserBoards,
 } from "../hooks/useApiCache";
+import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 import { LinesSkeleton } from "./skeletons";
 
 export default function Keys() {
+	const t = useT();
 	const github = useCachedQuery(CACHE_KEYS.githubApp, getGithubApp);
 	const { devices } = useUserBoards();
 	const status = github.data;
 	const paired = devices.length;
 	const error = github.error;
 	const loading = github.loading;
+	const shown = translateError(t, error);
 
 	useEffect(() => {
 		if ((status?.connected && !status.installUrl) || loading) {
@@ -36,26 +40,27 @@ export default function Keys() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				GitHub
+				{t("github.title")}
 			</Typography>
 			<Typography color="secondary">
-				Connect the gpio-companion GitHub App so boards can push project files.
-				{paired ? ` ${paired} paired board(s).` : ""}
+				{t("github.nativeHint", { n: paired })}
 			</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			<Paper sx={{ p: 3 }} elevation={1}>
 				{loading ? <LinesSkeleton lines={2} /> : null}
 				{loading ? null : status?.connected && !status.installUrl ? (
 					<Typography>
-						GitHub App connected as {status.login || "your account"}.
+						{t("github.connectedAs", {
+							login: status.login || t("github.yourAccount"),
+						})}
 					</Typography>
 				) : (
 					<Stack spacing={2}>
 						<Typography color="secondary">
 							{status?.connected
-								? "Authorize again in your browser so the dashboard can create repositories."
-								: "GitHub App is not connected. Finish the install in your browser; this page polls until it shows up."}
+								? t("github.authorizeAgainNative")
+								: t("github.notConnectedPoll")}
 						</Typography>
 						<Button
 							variant="contained"
@@ -63,8 +68,8 @@ export default function Keys() {
 							onClick={() => void openExternal(status?.installUrl ?? "")}
 						>
 							{status?.connected
-								? "Authorize creating repositories"
-								: "Connect GitHub App"}
+								? t("project.authorizeRepos")
+								: t("github.connect")}
 						</Button>
 					</Stack>
 				)}

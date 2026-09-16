@@ -17,11 +17,13 @@ import { useCallback, useEffect, useState } from "react";
 import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 
 export default function PairPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [boards, setBoards] = useState<BoardView[]>([]);
 	const [loaded, setLoaded] = useState(false);
@@ -73,36 +75,24 @@ export default function PairPage() {
 					spacing={2}
 					className="min-[900px]:items-start min-[900px]:justify-between"
 				>
-					<SectionHeader title="Pair hardware" />
+					<SectionHeader title={t("pair.hardwareTitle")} />
 					<Button
 						type="button"
 						variant="contained"
 						className={mobile ? "w-full" : undefined}
 						onClick={() => setDialogOpen(true)}
 					>
-						Pair another device
+						{t("pair.another")}
 					</Button>
 				</Stack>
 			) : (
-				<SectionHeader title="Pair hardware" />
+				<SectionHeader title={t("pair.hardwareTitle")} />
 			)}
 			{showCards ? (
-				<Typography color="secondary">
-					Boards paired to this account. Pair another device to claim a second
-					Pi.
-				</Typography>
+				<Typography color="secondary">{t("pair.cardsHint")}</Typography>
 			) : null}
 			{showForm ? (
-				<Typography color="secondary">
-					Connect over Bluetooth to load Device URL, pairing UUID, and key from
-					the Pi. If Web Bluetooth is unavailable, the dashboard signs a command
-					to paste in LightBlue or nRF Connect. Console printout still works.
-					You can pair more than one board. After claim (or anytime from Devices
-					overview), start T3 Code to get a pair code, QR, and board pairing
-					URL. Then set WiFi from{" "}
-					<a href="/devices/wifi">WiFi over Bluetooth</a> or Ethernet/TTY, and
-					connect GitHub in Profile.
-				</Typography>
+				<Typography color="secondary">{t("pair.formHint")}</Typography>
 			) : null}
 			{showForm ? (
 				<PairForm
@@ -154,7 +144,7 @@ export default function PairPage() {
 				sx={{ zIndex: 1300 }}
 				slotProps={{ paper: { className: "max-w-xl w-full" } }}
 			>
-				<DialogTitle>Pair another device</DialogTitle>
+				<DialogTitle>{t("pair.another")}</DialogTitle>
 				<DialogContent>
 					{dialogOpen ? (
 						<PairForm
@@ -171,7 +161,7 @@ export default function PairPage() {
 						variant="text"
 						onClick={() => setDialogOpen(false)}
 					>
-						Close
+						{t("common.close")}
 					</Button>
 				</DialogActions>
 			</Dialog>

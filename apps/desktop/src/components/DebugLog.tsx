@@ -3,8 +3,10 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { debugLogs } from "../api";
+import { useT } from "../locale";
 
 export default function DebugLog({ error }: { error: string }) {
+	const t = useT();
 	const [lines, setLines] = useState<string[] | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [copyFailed, setCopyFailed] = useState(false);
@@ -31,17 +33,17 @@ export default function DebugLog({ error }: { error: string }) {
 	return (
 		<Stack spacing={1}>
 			<Button variant="text" color="secondary" onClick={() => void load()}>
-				{lines ? "Refresh debug log" : "Show debug log"}
+				{lines ? t("debug.refreshLog") : t("debug.showLog")}
 			</Button>
 			{lines ? (
 				<>
-				<Button variant="text" onClick={() => void copy()}>
-					{copyFailed
-						? "Copy failed — select the text below"
-						: copied
-							? "Copied"
-							: "Copy debug log"}
-				</Button>
+					<Button variant="text" onClick={() => void copy()}>
+						{copyFailed
+							? t("debug.copyFailed")
+							: copied
+								? t("common.copied")
+								: t("debug.copyLog")}
+					</Button>
 					<Typography
 						Element="pre"
 						color="secondary"

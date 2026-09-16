@@ -20,6 +20,7 @@ import {
 	parseBleHealthBody,
 } from "../lib/ble-health.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { useT } from "../lib/locale.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { Body, Muted, TextButton } from "./ui.tsx";
 
@@ -43,6 +44,7 @@ function emptyRows(): Row[] {
 
 export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	const auth = useAuth();
+	const t = useT();
 	const colors = useColors();
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
@@ -71,7 +73,11 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 				if (row.id === failedId || row.state !== "idle") {
 					return row;
 				}
-				return { ...row, state: "skipped", log: `Skipped: ${reason}` };
+				return {
+					...row,
+					state: "skipped",
+					log: t("debug.skipped", { reason }),
+				};
 			}),
 		);
 	}
@@ -152,19 +158,15 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 
 	return (
 		<View style={{ gap: 8, marginTop: 8 }}>
-			<Body>Bluetooth endpoints</Body>
-			<Muted>
-				Runtime healthcheck of GATT info plus each companion route the Pi
-				accepts over Bluetooth. WiFi uses a probe SSID that should not exist.
-				GPIO write targets physical pin 1 (power) and must be refused.
-			</Muted>
+			<Body>{t("debug.bleTitle")}</Body>
+			<Muted>{t("debug.bleHint")}</Muted>
 			<TextButton
-				label={busy ? "Testing…" : "Test Bluetooth"}
+				label={busy ? t("debug.testing") : t("debug.testBluetooth")}
 				disabled={!uuid || busy || !auth.token}
 				onPress={() => void run()}
 			/>
 			<TextButton
-				label={copied ? "Copied" : "Copy results"}
+				label={copied ? t("common.copied") : t("debug.copyResults")}
 				disabled={!hasResults}
 				onPress={() => void copyResults()}
 			/>

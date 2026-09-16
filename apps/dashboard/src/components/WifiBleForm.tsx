@@ -12,9 +12,11 @@ import {
 	envelopeToPasteText,
 	WIFI_PATH,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { type FormEvent, useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -29,13 +31,10 @@ import { SelectSkeleton } from "./skeletons.tsx";
 
 type Status = "idle" | "connecting" | "sending" | "success" | "error";
 
-const LIGHTBLUE = "https://apps.apple.com/app/lightblue/id557428110";
-const NRF_CONNECT =
-	"https://apps.apple.com/app/nrf-connect-for-mobile/id1054366564";
-
 export default function WifiBleForm() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const supported = bluetoothSupported();
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
@@ -75,9 +74,9 @@ export default function WifiBleForm() {
 		return (
 			<Typography color="secondary">
 				<Button href="/login" variant="text">
-					Sign in
+					{t("auth.signIn")}
 				</Button>{" "}
-				to configure WiFi over Bluetooth.
+				{t("auth.toWifi")}
 			</Typography>
 		);
 	}
@@ -87,7 +86,7 @@ export default function WifiBleForm() {
 		setMessage("");
 		if (!uuid) {
 			setStatus("error");
-			setMessage("pair a device first");
+			setMessage(t("wifi.pairBefore"));
 			return;
 		}
 		if (!supported) {
@@ -110,13 +109,16 @@ export default function WifiBleForm() {
 				setPasteText(text);
 				await navigator.clipboard.writeText(text).catch(() => undefined);
 				setStatus("success");
-				setMessage(
-					"signed command copied — paste it in LightBlue or nRF Connect",
-				);
+				setMessage(t("wifi.copiedPaste"));
 				setPsk("");
 			} catch (error) {
 				setStatus("error");
-				setMessage(error instanceof Error ? error.message : "sign failed");
+				setMessage(
+					translateError(
+						t,
+						error instanceof Error ? error.message : "sign failed",
+					),
+				);
 			}
 			return;
 		}
@@ -159,9 +161,9 @@ export default function WifiBleForm() {
 				};
 				if (parsed.error || parsed.connected === false) {
 					ok = false;
-					setMessage(parsed.error || "wifi connect failed");
+					setMessage(translateError(t, parsed.error || "wifi connect failed"));
 				} else {
-					setMessage(`connected to ${parsed.ssid || ssid}`);
+					setMessage(t("wifi.connectedTo", { ssid: parsed.ssid || ssid }));
 				}
 			} catch {
 				setMessage(raw);
@@ -170,7 +172,12 @@ export default function WifiBleForm() {
 			setPsk("");
 		} catch (error) {
 			setStatus("error");
-			setMessage(error instanceof Error ? error.message : "wifi failed");
+			setMessage(
+				translateError(
+					t,
+					error instanceof Error ? error.message : "wifi failed",
+				),
+			);
 		}
 	}
 
@@ -182,20 +189,15 @@ export default function WifiBleForm() {
 			<form onSubmit={onSubmit}>
 				<Stack spacing={2}>
 					{supported ? null : (
-						<Alert severity="error">
-							Safari on iOS cannot talk to the Pi from this page. Sign the WiFi
-							command here, then paste it as text in LightBlue or nRF Connect. A
-							native gpio-companion app will replace this later.
-						</Alert>
+						<Alert severity="error">{t("wifi.safariAlert")}</Alert>
 					)}
 					{devicesLoading ? (
 						<SelectSkeleton />
 					) : devices.length === 0 ? (
 						<Alert severity="info">
 							<Button href="/devices/pair" variant="text">
-								Pair a board
-							</Button>{" "}
-							before signing a WiFi command.
+								{t("wifi.pairBefore")}
+							</Button>
 						</Alert>
 					) : (
 						<DeviceSelect
@@ -206,13 +208,13 @@ export default function WifiBleForm() {
 						/>
 					)}
 					<TextField
-						label="SSID"
+						label={t("wifi.ssid")}
 						value={ssid}
 						onChange={(event) => setSsid(event.target.value)}
 						className="w-full"
 					/>
 					<TextField
-						label="WiFi password"
+						label={t("wifi.password")}
 						type="password"
 						autoComplete="off"
 						value={psk}
@@ -226,36 +228,33 @@ export default function WifiBleForm() {
 					) : null}
 					<Button type="submit" variant="contained" disabled={!canSubmit}>
 						{status === "connecting"
-							? "Connecting…"
+							? t("wifi.connecting")
 							: status === "sending"
-								? "Signing…"
+								? t("wifi.signing")
 								: supported
-									? "Connect over Bluetooth"
-									: "Sign and copy"}
+									? t("pair.connectBle")
+									: t("wifi.signAndCopy")}
 					</Button>
 					{supported ? null : (
 						<>
 							<Typography variant="body2" color="secondary">
-								1. Install{" "}
-								<Button href={LIGHTBLUE} variant="text">
-									LightBlue
-								</Button>{" "}
-								or{" "}
-								<Button href={NRF_CONNECT} variant="text">
-									nRF Connect
-								</Button>
-								.
+								{t("wifi.iosStep1")}
 							</Typography>
 							<Typography variant="body2" color="secondary">
-								2. Connect to the board, open the write characteristic, paste
-								the signed JSON as UTF-8 text, send.
+								{t("wifi.iosStep2")}
 							</Typography>
-							<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-							<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
+							<CopyBlock
+								label={t("ble.bluetoothName")}
+								value={BLE_DEVICE_NAME}
+							/>
+							<CopyBlock
+								label={t("ble.writeCharacteristic")}
+								value={BLE_CMD_UUID}
+							/>
 						</>
 					)}
 					{pasteText ? (
-						<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+						<CopyBlock label={t("ble.signedCommand")} value={pasteText} />
 					) : null}
 					{message ? (
 						<Alert severity={status === "error" ? "error" : "success"}>

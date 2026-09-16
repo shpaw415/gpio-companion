@@ -2,12 +2,14 @@ import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import type { GpioPinState } from "../api";
 import {
 	type ArduinoLayoutSeat,
 	arduinoProxyHeaderLayout,
 	pinByPhysical,
 } from "../arduino-layout";
-import type { GpioPinState } from "../api";
+import { gpioPinStatusLabel } from "../lib/i18n-labels";
+import { useT } from "../locale";
 
 const TONE_BG: Record<string, string> = {
 	reserved: "bg-surface",
@@ -41,29 +43,6 @@ function gpioPinTone(pin: GpioPinState): string {
 	return "idle";
 }
 
-function pinStatus(pin: GpioPinState): string {
-	if (pin.reserved) {
-		return "Reserved";
-	}
-	if (pin.unresolved) {
-		return "Unresolved";
-	}
-	if (typeof pin.hz === "number") {
-		return `tone ${Math.round(pin.hz)} Hz`;
-	}
-	if (typeof pin.analog === "number") {
-		return `PWM ${Math.round(pin.analog)}/255`;
-	}
-	if (typeof pin.pwm === "number") {
-		return `PWM ${Math.round(pin.pwm)}%`;
-	}
-	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
-	if (pin.dir === "in" || pin.dir === "out") {
-		return level ? `${pin.dir} · ${level}` : pin.dir;
-	}
-	return level ?? "—";
-}
-
 export default function ArduinoProxyPins({
 	pins,
 	busy = false,
@@ -77,10 +56,11 @@ export default function ArduinoProxyPins({
 	onSelect?: (pin: GpioPinState) => void;
 	fqbn?: string;
 }) {
+	const t = useT();
 	if (pins.length === 0) {
 		return (
 			<Typography color="secondary" variant="body2">
-				Waiting for Arduino proxy pins.
+				{t("gpio.waitingProxy")}
 			</Typography>
 		);
 	}
@@ -96,7 +76,7 @@ export default function ArduinoProxyPins({
 				color="secondary"
 				sx={{ width: "100%", textAlign: "center" }}
 			>
-				USB
+				{t("gpio.usb")}
 			</Typography>
 			{rows.map((row, index) => (
 				<Stack
@@ -136,7 +116,7 @@ export default function ArduinoProxyPins({
 			{layout.extra.length > 0 ? (
 				<Stack spacing={0.5} sx={{ pt: 1 }}>
 					<Typography variant="caption" color="secondary">
-						More pins
+						{t("gpio.morePins")}
 					</Typography>
 					<Box
 						sx={{
@@ -234,9 +214,10 @@ function PinButton({
 	selected: boolean;
 	onSelect?: (pin: GpioPinState) => void;
 }) {
+	const t = useT();
 	const selectable = canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
-	const status = pinStatus(pin);
+	const status = gpioPinStatusLabel(pin, t);
 	const content = (
 		<Stack
 			direction="row"
@@ -264,7 +245,10 @@ function PinButton({
 			<Typography
 				noWrap
 				variant="caption"
-				sx={{ minWidth: 0, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+				sx={{
+					minWidth: 0,
+					fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+				}}
 			>
 				{pin.name || `D${pin.physical}`}
 				{status !== "—" ? `  ${status}` : ""}
@@ -309,7 +293,11 @@ function PinButton({
 			variant="text"
 			size="small"
 			disabled={busy}
-			aria-label={`Pin ${pin.name || pin.physical} ${status}`}
+			aria-label={t("gpio.pinAria", {
+				physical: pin.physical,
+				label: pin.name || status,
+				tone,
+			})}
 			aria-pressed={selected}
 			onClick={() => onSelect?.(pin)}
 			sx={{

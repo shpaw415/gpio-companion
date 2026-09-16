@@ -1,7 +1,15 @@
+import type { MessageKey, Messages } from "gpio-companion-i18n";
+import gettingStartedFr from "../../../../documentation/user/fr/getting-started.md?raw";
+import pinoutOrangeFr from "../../../../documentation/user/fr/pinout-orangepi.md?raw";
+import pinoutRaspberryFr from "../../../../documentation/user/fr/pinout-raspberrypi.md?raw";
+import userGuideFr from "../../../../documentation/user/fr/README.md?raw";
+import storageFr from "../../../../documentation/user/fr/storage.md?raw";
+import wifiBluetoothFr from "../../../../documentation/user/fr/wifi-bluetooth.md?raw";
+import workflowsFr from "../../../../documentation/user/fr/workflows.md?raw";
 import gettingStartedContent from "../../../../documentation/user/getting-started.md?raw";
 import userGuideContent from "../../../../documentation/user/README.md?raw";
-import wifiBluetoothContent from "../../../../documentation/user/wifi-bluetooth.md?raw";
 import storageContent from "../../../../documentation/user/storage.md?raw";
+import wifiBluetoothContent from "../../../../documentation/user/wifi-bluetooth.md?raw";
 import workflowsContent from "../../../../documentation/user/workflows.md?raw";
 import pinoutOrangeContent from "../../../../opencode/skills/gpio-pinout-orangepi/SKILL.md?raw";
 import pinoutRaspberryContent from "../../../../opencode/skills/gpio-pinout-raspberrypi/SKILL.md?raw";
@@ -11,8 +19,8 @@ export type DocHardware = "raspberrypi" | "orangepi";
 
 export type DocEntry = {
 	id: string;
-	title: string;
-	description: string;
+	titleKey: MessageKey<Messages>;
+	descriptionKey: MessageKey<Messages>;
 	group: "guides" | "hardware";
 	hardware?: DocHardware;
 	content: string;
@@ -41,8 +49,7 @@ const DOC_LINK_TARGETS: Record<string, string> = {
 export function rewriteDocLinks(content: string): string {
 	return content.replace(
 		/\]\((?:\.\/)?(README|getting-started|wifi-bluetooth|workflows|storage)\.md\)/g,
-		(_match, file: string) =>
-			`](#doc:${DOC_LINK_TARGETS[`${file}.md`]})`,
+		(_match, file: string) => `](#doc:${DOC_LINK_TARGETS[`${file}.md`]})`,
 	);
 }
 
@@ -98,76 +105,83 @@ function doc(entry: Omit<DocEntry, "content"> & { raw: string }): DocEntry {
 	};
 }
 
-export const DOCS: DocEntry[] = [
-	doc({
-		id: "getting-started",
-		title: "Getting started",
-		description:
-			"Power the board, get it online, sign in, pair, connect GitHub, reach the overview.",
-		group: "guides",
-		raw: gettingStartedContent,
-	}),
-	doc({
-		id: "user-guide",
-		title: "User guide",
-		description:
-			"What ships on your bench and where each gpio-companion document fits.",
-		group: "guides",
-		raw: userGuideContent,
-	}),
-	doc({
-		id: "wifi-bluetooth",
-		title: "WiFi over Bluetooth",
-		description:
-			"Chrome/Edge Web Bluetooth, native apps, and the iOS LightBlue / nRF Connect paste flow.",
-		group: "guides",
-		raw: wifiBluetoothContent,
-	}),
-	doc({
-		id: "workflows",
-		title: "Daily workflows",
-		description:
-			"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
-		group: "guides",
-		raw: workflowsContent,
-	}),
-	doc({
-		id: "storage",
-		title: "Removable storage",
-		description:
-			"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
-		group: "guides",
-		raw: storageContent,
-	}),
-	doc({
-		id: "pinout-raspberrypi",
-		title: "Raspberry Pi GPIO pinout",
-		description:
-			"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
-		group: "hardware",
-		hardware: "raspberrypi",
-		raw: pinoutRaspberryContent,
-	}),
-	doc({
-		id: "pinout-orangepi",
-		title: "Orange Pi GPIO pinout",
-		description:
-			"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
-		group: "hardware",
-		hardware: "orangepi",
-		raw: pinoutOrangeContent,
-	}),
-];
+function pickRaw(locale: string, en: string, fr: string): string {
+	return locale === "fr" ? fr : en;
+}
 
-export function findDoc(id: string | null | undefined): DocEntry | null {
+export function docsForLocale(locale: string): DocEntry[] {
+	return [
+		doc({
+			id: "getting-started",
+			titleKey: "docs.gettingStartedTitle",
+			descriptionKey: "docs.gettingStartedDesc",
+			group: "guides",
+			raw: pickRaw(locale, gettingStartedContent, gettingStartedFr),
+		}),
+		doc({
+			id: "user-guide",
+			titleKey: "docs.userGuideTitle",
+			descriptionKey: "docs.userGuideDesc",
+			group: "guides",
+			raw: pickRaw(locale, userGuideContent, userGuideFr),
+		}),
+		doc({
+			id: "wifi-bluetooth",
+			titleKey: "docs.wifiBluetoothTitle",
+			descriptionKey: "docs.wifiBluetoothDesc",
+			group: "guides",
+			raw: pickRaw(locale, wifiBluetoothContent, wifiBluetoothFr),
+		}),
+		doc({
+			id: "workflows",
+			titleKey: "docs.workflowsTitle",
+			descriptionKey: "docs.workflowsDesc",
+			group: "guides",
+			raw: pickRaw(locale, workflowsContent, workflowsFr),
+		}),
+		doc({
+			id: "storage",
+			titleKey: "docs.storageTitle",
+			descriptionKey: "docs.storageDesc",
+			group: "guides",
+			raw: pickRaw(locale, storageContent, storageFr),
+		}),
+		doc({
+			id: "pinout-raspberrypi",
+			titleKey: "docs.pinoutPiTitle",
+			descriptionKey: "docs.pinoutPiDesc",
+			group: "hardware",
+			hardware: "raspberrypi",
+			raw: pickRaw(locale, pinoutRaspberryContent, pinoutRaspberryFr),
+		}),
+		doc({
+			id: "pinout-orangepi",
+			titleKey: "docs.pinoutOrangeTitle",
+			descriptionKey: "docs.pinoutOrangeDesc",
+			group: "hardware",
+			hardware: "orangepi",
+			raw: pickRaw(locale, pinoutOrangeContent, pinoutOrangeFr),
+		}),
+	];
+}
+
+export const DOCS: DocEntry[] = docsForLocale("en");
+
+export function findDoc(
+	id: string | null | undefined,
+	docs: DocEntry[] = DOCS,
+): DocEntry | null {
 	const trimmed = id?.trim() ?? "";
 	if (!trimmed) {
 		return null;
 	}
-	return DOCS.find((entry) => entry.id === trimmed) ?? null;
+	return docs.find((entry) => entry.id === trimmed) ?? null;
 }
 
-export function hardwareFromStatus(model?: string, hardware?: string): DocHardware | null {
+export function hardwareFromStatus(
+	model?: string,
+	hardware?: string,
+): DocHardware | null {
 	const text = `${model ?? ""} ${hardware ?? ""}`.toLowerCase();
 	if (text.includes("orange")) {
 		return "orangepi";
@@ -178,7 +192,11 @@ export function hardwareFromStatus(model?: string, hardware?: string): DocHardwa
 	return null;
 }
 
-export function searchDocs(query: string, docs: DocEntry[], limit = 12) {
+export function searchDocs(
+	query: string,
+	docs: Array<DocEntry & { title: string }>,
+	limit = 12,
+) {
 	const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 	if (terms.length === 0) {
 		return [];
@@ -191,7 +209,8 @@ export function searchDocs(query: string, docs: DocEntry[], limit = 12) {
 	}> = [];
 	for (const entry of docs) {
 		for (const section of docSections(entry.content)) {
-			const hay = `${entry.title} ${section.title} ${section.body}`.toLowerCase();
+			const hay =
+				`${entry.title} ${section.title} ${section.body}`.toLowerCase();
 			if (!terms.every((term) => hay.includes(term))) {
 				continue;
 			}

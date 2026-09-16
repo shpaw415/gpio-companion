@@ -1,15 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { detectLocale } from "./detect.ts";
 import { en, type Messages } from "./en.ts";
-import { fr } from "./fr.ts";
-import { createTranslator, interpolate, lookup } from "./t.ts";
 import { translateError } from "./errors.ts";
-import {
-	catalogFor,
-	DEFAULT_LOCALE,
-	LOCALES,
-	parseLocale,
-} from "./locales.ts";
+import { fr } from "./fr.ts";
+import { catalogFor, DEFAULT_LOCALE, LOCALES, parseLocale } from "./locales.ts";
+import { createTranslator, interpolate, lookup } from "./t.ts";
 
 function keysOf(value: unknown, prefix = ""): string[] {
 	if (typeof value === "string") {
@@ -18,8 +13,8 @@ function keysOf(value: unknown, prefix = ""): string[] {
 	if (!value || typeof value !== "object") {
 		return [];
 	}
-	return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
-		keysOf(child, prefix ? `${prefix}.${key}` : key),
+	return Object.entries(value as Record<string, unknown>).flatMap(
+		([key, child]) => keysOf(child, prefix ? `${prefix}.${key}` : key),
 	);
 }
 
@@ -67,10 +62,10 @@ describe("translator", () => {
 		expect(lookup(en, "nav.project")).toBe("Project");
 		expect(lookup(fr, "nav.project")).toBe("Projet");
 		expect(lookup(en, "nav.missing")).toBeUndefined();
-		const t = createTranslator(fr, en);
+		const t = createTranslator<Messages>(fr, en);
 		expect(t("nav.profile")).toBe("Profil");
 		expect(t("docs.resultsFor", { n: 2, query: "wifi" })).toBe(
-			'2 résultat(s) pour « wifi »',
+			"2 résultat(s) pour « wifi »",
 		);
 	});
 

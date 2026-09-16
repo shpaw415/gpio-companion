@@ -75,7 +75,8 @@ export const en = {
 	},
 	project: {
 		title: "Project",
-		subtitle: "Create a project, then open Code to talk to the agent on the board.",
+		subtitle:
+			"Create a project, then open Code to talk to the agent on the board.",
 		openCode: "Open Code",
 		setup: "Set up your board",
 		stepSignIn: "Sign in",
@@ -107,7 +108,8 @@ export const en = {
 		create: "Create",
 		creating: "Creating…",
 		authorizeRepos: "Authorize creating repositories",
-		authorizeHint: "Authorize GitHub so this dashboard can create repositories.",
+		authorizeHint:
+			"Authorize GitHub so this dashboard can create repositories.",
 		connectGithubAlert:
 			"Connect GitHub so this dashboard can list your repos. Agent-pushed files live in pcb/, breadboard/, and technical/.",
 		connectGithubNative: "Connect GitHub to see your bench",
@@ -148,13 +150,18 @@ export const en = {
 		noBreadboard: "No breadboard/diagram.json on GitHub yet.",
 		pairSoCodeOpens: "Pair a board in Devices so Code can open.",
 		openOnGithub: "Open on GitHub",
+		emptyFolder: "Nothing in this folder yet. The agent will push files here.",
+		noBreadboardPreview:
+			"No breadboard/preview.svg yet. Ask the agent to wire a breadboard.",
+		selectToSee: "Select a project to see the PCB and breadboard.",
 	},
 	devices: {
 		titleEasy: "My board",
 		titleExpert: "Devices",
 		easyHint:
 			"Your Arduino companion board. Pair it, put it on Wi‑Fi, then open Code.",
-		expertHint: "Boards paired to your account and how they reach the dashboard.",
+		expertHint:
+			"Boards paired to your account and how they reach the dashboard.",
 		addBoard: "Add board",
 		close: "Close",
 		pendingTransfer: "Someone asked to take a board.",
@@ -262,6 +269,9 @@ export const en = {
 			"claim copied — paste in LightBlue or nRF Connect to finish on the Pi",
 		statusPaired: "paired",
 		statusUnpaired: "unpaired",
+		claiming: "Claiming…",
+		selectNearbyFirst: "select a nearby Bluetooth device first",
+		scanAgainPick: "scan again and pick the board",
 	},
 	wifi: {
 		title: "WiFi over Bluetooth",
@@ -298,6 +308,12 @@ export const en = {
 		noPaired: "No paired boards yet. Pair one first.",
 		pairedBoard: "Paired board",
 		connectedTo: "connected to {ssid}",
+		foundNearby: "Found {n} nearby",
+		writing: "Writing…",
+		sent: "sent",
+		chooseBoard: "choose a paired board first",
+		enterNetwork: "enter the wifi network name",
+		passwordPlaceholder: "WiFi password",
 	},
 	docs: {
 		title: "Learn",
@@ -309,7 +325,8 @@ export const en = {
 		boardDocs: "Board docs:",
 		all: "All",
 		noBoardYet: "No paired board yet — docs below cover every family.",
-		signInToScope: "Sign in and pair a board to scope these docs to its hardware.",
+		signInToScope:
+			"Sign in and pair a board to scope these docs to its hardware.",
 		guides: "Guides",
 		guidesDesc: "Guides for the person at the desk.",
 		hardware: "Hardware",
@@ -435,6 +452,9 @@ export const en = {
 		passed: "passed",
 		failed: "failed",
 		idle: "idle",
+		live: "live",
+		unpaired: "unpaired",
+		wsFailed: "debug websocket failed",
 	},
 	admin: {
 		title: "Admin",
@@ -519,6 +539,11 @@ export const en = {
 		high: "high",
 		low: "low",
 		adc: "adc {n}",
+		wsNotConnected: "live gpio websocket is not connected",
+		noData: "board did not return gpio",
+		usb: "USB",
+		inDir: "in",
+		outDir: "out",
 	},
 	flash: {
 		title: "Flash Arduino",
@@ -560,6 +585,8 @@ export const en = {
 		finished: "Flash finished",
 		ok: "Flash ok · {fqbn}",
 		serialUsb: "Serial (USB)",
+		serialStatus: "Serial {status}",
+		timedOut: "flash timed out — check Project flash log",
 	},
 	run: {
 		title: "Run on board",
@@ -579,6 +606,7 @@ export const en = {
 		lastFailed: "Last run failed",
 		thenRun: "C sketch on the Pi, then run on this header.",
 		serialHost: "Serial (host)",
+		serialStatus: "Serial {status}",
 	},
 	verify: {
 		title: "Verify circuit",
@@ -608,10 +636,10 @@ export const en = {
 			"OpenCode on the Pi spends gpio-companion balance at Cloudflare Workers AI list price (in/out tokens) times markup. Empty balance returns 402. Buy a USD pack with PayPal; the paid amount is added as credits.",
 		paypalMissing: "PayPal checkout is not configured on this host.",
 		adminStub: "Add $1.00 (admin stub)",
-		added: "added ${amount}",
+		added: "added $ {amount}",
 		granted: "granted $1.00",
 		noCredits: "No credits yet",
-		balance: "${usd} ({micros} µUSD)",
+		balance: "$ {usd} ({micros} µUSD)",
 		paypalCaptureFailed: "PayPal capture failed",
 		paypalCheckoutFailed: "PayPal checkout failed",
 		couldNotStartPaypal: "Could not start PayPal",
@@ -649,6 +677,7 @@ export const en = {
 		yes: "yes",
 		no: "no",
 		signInFirst: "Sign in first",
+		serial: "Serial {status}",
 	},
 	errors: {
 		t3PairFailed: "T3 pair failed",
@@ -677,6 +706,16 @@ export const en = {
 		noPairingCredentials: "board did not return pairing credentials",
 		wrongBoard: "this board is not the selected paired device",
 		goOnlineBle: "Go online once to issue a 24h Bluetooth key",
+		noGpio: "board did not return gpio",
+		noCompanionInfo: "board did not return companion info",
+		liveGpioWs: "live gpio websocket is not connected",
+		flashTimedOut: "flash timed out — check Project flash log",
+		connectFailed: "connect failed",
+		bluetoothTestFailed: "bluetooth test failed",
+		debugWsFailed: "debug websocket failed",
+		noFlash: "board did not return flash",
+		noRun: "board did not return run",
+		noVerify: "board did not return verify",
 	},
 	ble: {
 		bluetoothName: "Bluetooth name",
@@ -712,7 +751,16 @@ export const en = {
 	companion: {
 		title: "Companion info",
 		json: "JSON",
+		noInfo: "board did not return companion info",
 	},
 } as const;
 
-export type Messages = typeof en;
+type DeepString<T> = {
+	[K in keyof T]: T[K] extends string
+		? string
+		: T[K] extends Record<string, unknown>
+			? DeepString<T[K]>
+			: T[K];
+};
+
+export type Messages = DeepString<typeof en>;

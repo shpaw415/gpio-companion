@@ -9,9 +9,11 @@ import {
 	extractT3PairingToken,
 	type HubT3Status,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import CopyBlock from "./CopyBlock.tsx";
 import DeviceSelect, { type DeviceOption } from "./DeviceSelect.tsx";
@@ -39,6 +41,7 @@ export default function T3PairingPanel({
 	skipFetch?: boolean;
 }) {
 	const { run } = useActionError();
+	const t = useT();
 	const [selected, setSelected] = useState(uuid || devices[0]?.uuid || "");
 	const [pairingUrl, setPairingUrl] = useState(initialStatus?.pairingUrl ?? "");
 	const [pairingToken, setPairingToken] = useState(
@@ -69,24 +72,32 @@ export default function T3PairingPanel({
 		});
 	}, [uuid, devices]);
 
-	const startPairing = useCallback(async (boardUuid: string) => {
-		setBusy(true);
-		setError("");
-		setT3Ready(false);
-		setStatus("minting T3 pairing link…");
-		try {
-			const started = unwrapAction(await t3Action("pair", boardUuid));
-			const token = tokenFrom(started.pairingUrl, started.pairingToken);
-			setPairingUrl(started.pairingUrl);
-			setPairingToken(token);
-			setStatus("scan the QR or open the pairing URL in the browser");
-		} catch (caught) {
-			setStatus("");
-			setError(caught instanceof Error ? caught.message : "T3 pair failed");
-		} finally {
-			setBusy(false);
-		}
-	}, []);
+	const startPairing = useCallback(
+		async (boardUuid: string) => {
+			setBusy(true);
+			setError("");
+			setT3Ready(false);
+			setStatus(t("t3.minting"));
+			try {
+				const started = unwrapAction(await t3Action("pair", boardUuid));
+				const token = tokenFrom(started.pairingUrl, started.pairingToken);
+				setPairingUrl(started.pairingUrl);
+				setPairingToken(token);
+				setStatus(t("t3.scanQr"));
+			} catch (caught) {
+				setStatus("");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "T3 pair failed",
+					),
+				);
+			} finally {
+				setBusy(false);
+			}
+		},
+		[t],
+	);
 
 	useEffect(() => {
 		if (!selected) {
@@ -129,18 +140,21 @@ export default function T3PairingPanel({
 		void startPairing(selected);
 	}, [autoStart, selected, startPairing]);
 
-	const onT3 = useCallback((result: HubT3Status) => {
-		if (result.pairingUrl) {
-			setPairingUrl(result.pairingUrl);
-			setPairingToken(tokenFrom(result.pairingUrl, result.pairingToken));
-			setError("");
-			setStatus("scan the QR or open the pairing URL in the browser");
-		}
-		if (result.paired) {
-			setT3Ready(true);
-			setStatus("T3 Code is paired");
-		}
-	}, []);
+	const onT3 = useCallback(
+		(result: HubT3Status) => {
+			if (result.pairingUrl) {
+				setPairingUrl(result.pairingUrl);
+				setPairingToken(tokenFrom(result.pairingUrl, result.pairingToken));
+				setError("");
+				setStatus(t("t3.scanQr"));
+			}
+			if (result.paired) {
+				setT3Ready(true);
+				setStatus(t("t3.isPaired"));
+			}
+		},
+		[t],
+	);
 	useDeviceHub(selected, { onT3 });
 
 	if (devices.length === 0) {
@@ -149,17 +163,16 @@ export default function T3PairingPanel({
 
 	return (
 		<Stack spacing={1}>
-			<Typography variant="subtitle1">T3 Code pairing</Typography>
+			<Typography variant="subtitle1">{t("t3.pairingTitle")}</Typography>
 			<Typography variant="body2" color="secondary">
-				T3 already runs on the Pi. Mint a pairing link, then scan the QR or open
-				the board pairing URL.
+				{t("t3.pairingHint")}
 			</Typography>
 			{!uuid && devices.length > 1 ? (
 				<DeviceSelect
 					devices={devices}
 					value={selected}
 					onChange={setSelected}
-					label="T3 device"
+					label={t("t3.device")}
 					disabled={busy}
 				/>
 			) : null}
@@ -169,14 +182,17 @@ export default function T3PairingPanel({
 				disabled={busy || !selected}
 				onClick={() => void startPairing(selected)}
 			>
-				{pairingUrl || t3Ready ? "New pairing link" : "Pair T3"}
+				{pairingUrl || t3Ready ? t("t3.newLink") : t("t3.pairT3")}
 			</Button>
 			{pairingUrl ? (
 				<>
 					{pairingToken ? (
-						<CopyBlock label="T3 pair code" value={pairingToken} />
+						<CopyBlock
+							label={t("t3.pairCode", { token: pairingToken })}
+							value={pairingToken}
+						/>
 					) : null}
-					<QrCode value={pairingUrl} label="T3 pairing QR code" />
+					<QrCode value={pairingUrl} label={t("t3.qr")} />
 					<Button
 						type="button"
 						variant="contained"
@@ -184,7 +200,7 @@ export default function T3PairingPanel({
 							window.open(pairingUrl, "_blank", "noopener,noreferrer");
 						}}
 					>
-						Open pairing URL
+						{t("t3.openPairingUrl")}
 					</Button>
 					{pairingToken ? (
 						<Button
@@ -199,13 +215,15 @@ export default function T3PairingPanel({
 								window.location.hash = `token=${encodeURIComponent(pairingToken)}`;
 							}}
 						>
-							Open T3 tab
+							{t("t3.openT3Tab")}
 						</Button>
 					) : null}
-					<CopyBlock label="T3 pairing URL" value={pairingUrl} />
+					<CopyBlock label={t("t3.pairingUrl")} value={pairingUrl} />
 				</>
 			) : null}
-			{t3Ready ? <Alert severity="success">T3 Code paired</Alert> : null}
+			{t3Ready ? (
+				<Alert severity="success">{t("devices.t3Paired")}</Alert>
+			) : null}
 			{status ? <Typography color="secondary">{status}</Typography> : null}
 			{error ? <Alert severity="error">{error}</Alert> : null}
 		</Stack>

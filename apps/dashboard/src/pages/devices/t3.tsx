@@ -9,6 +9,7 @@ import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
+import { useT } from "../../hooks/useLocale.tsx";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
 import {
 	pickT3DeviceUuid,
@@ -20,6 +21,7 @@ import {
 export default function T3Page() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
@@ -74,9 +76,9 @@ export default function T3Page() {
 					<Box sx={{ flex: 1, minWidth: 0 }}>
 						<Alert severity="info">
 							<Button href="/login" variant="text" size="small">
-								Sign in
+								{t("auth.signIn")}
 							</Button>{" "}
-							to open Code on a paired board.
+							{t("auth.toT3")}
 						</Alert>
 					</Box>
 				) : null}
@@ -91,9 +93,8 @@ export default function T3Page() {
 					<Box sx={{ flex: 1, minWidth: 0 }}>
 						<Alert severity="info">
 							<Button href="/devices" variant="text" size="small">
-								Pair a board
-							</Button>{" "}
-							to load Code here.
+								{t("t3.pairToLoad")}
+							</Button>
 						</Alert>
 					</Box>
 				) : null}
@@ -105,7 +106,7 @@ export default function T3Page() {
 								devices={devices}
 								value={uuid}
 								onChange={setUuid}
-								label="Board"
+								label={t("docs.board")}
 							/>
 						</Box>
 						{src ? (
@@ -116,7 +117,7 @@ export default function T3Page() {
 									window.open(src, "_blank", "noopener,noreferrer");
 								}}
 							>
-								Open
+								{t("t3.open")}
 							</Button>
 						) : null}
 					</>

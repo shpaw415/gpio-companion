@@ -12,12 +12,14 @@ import { SectionHeader } from "../../components/Section.tsx";
 import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useT } from "../../hooks/useLocale.tsx";
 import { isAdmin } from "../../lib/auth/role.ts";
 import type { DebugBoard } from "../../lib/debug-live.ts";
 
 export default function DeviceDebugPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const admin = isAdmin(session.data?.role);
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [devices, setDevices] = useState<DebugBoard[]>([]);
@@ -61,21 +63,16 @@ export default function DeviceDebugPage() {
 	return (
 		<ExpertGate>
 			<Stack spacing={3}>
-				<SectionHeader title="Debug">
-					<Typography color="secondary">
-						Live companion API errors over WebSocket, plus disk space and a
-						redacted last-24h journal excerpt. Owner or admin can start the same
-						updater as the 24h timer. Boards ping when they are up; hourly
-						cleanup keeps logs for a day.
-					</Typography>
+				<SectionHeader title={t("debug.title")}>
+					<Typography color="secondary">{t("debug.webHint")}</Typography>
 				</SectionHeader>
 
 				{!loggedIn ? (
 					<Alert severity="info">
 						<Button href="/login" variant="text">
-							Sign in
+							{t("auth.signIn")}
 						</Button>{" "}
-						to stream companion request logs.
+						{t("auth.toDebug")}
 					</Alert>
 				) : null}
 
@@ -83,9 +80,7 @@ export default function DeviceDebugPage() {
 
 				{loggedIn && !loading && devices.length === 0 ? (
 					<Alert severity="info">
-						{admin
-							? "No live companions. A board appears here when gpio-companion serve pings the dashboard."
-							: "Pair a board, or wait until your companion is live."}
+						{admin ? t("debug.noLiveAdmin") : t("debug.noLiveUser")}
 					</Alert>
 				) : null}
 

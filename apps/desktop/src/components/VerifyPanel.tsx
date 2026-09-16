@@ -3,7 +3,8 @@ import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { type CircuitVerifyItem, circuitVerifyLabel } from "gpio-companion";
+import type { CircuitVerifyItem } from "gpio-companion";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useEffect, useState } from "react";
 import {
 	bleVerify,
@@ -14,6 +15,8 @@ import {
 } from "../api";
 import { useSavedBleId } from "../hooks/useApiCache";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import { verifyStatusLabel } from "../lib/i18n-labels";
+import { useT } from "../locale";
 
 export default function VerifyPanel({
 	uuid,
@@ -24,6 +27,7 @@ export default function VerifyPanel({
 	project?: string;
 	onResults?: (results: CircuitVerifyItem[]) => void;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<CircuitVerifyState | null>(null);
@@ -71,10 +75,9 @@ export default function VerifyPanel({
 
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
-			<Typography variant="subtitle2">Verify circuit</Typography>
+			<Typography variant="subtitle2">{t("verify.title")}</Typography>
 			<Typography variant="body2" color="secondary">
-				Pulse declared jumpers on the board. LED on/off needs a second GPIO or
-				ADC (not on this header).
+				{t("verify.hint")}
 			</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
@@ -83,7 +86,7 @@ export default function VerifyPanel({
 			) : null}
 			{!project ? (
 				<Typography color="secondary" variant="body2">
-					Select a project with breadboard/diagram.json.
+					{t("verify.selectProject")}
 				</Typography>
 			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
@@ -98,7 +101,7 @@ export default function VerifyPanel({
 						});
 					}}
 				>
-					Verify
+					{t("verify.verify")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -111,7 +114,7 @@ export default function VerifyPanel({
 						});
 					}}
 				>
-					Stop
+					{t("verify.stop")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -132,25 +135,27 @@ export default function VerifyPanel({
 						});
 					}}
 				>
-					Verify over Bluetooth
+					{t("verify.overBle")}
 				</Button>
 			</Stack>
-			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? (
+				<Alert severity="error">{translateError(t, error)}</Alert>
+			) : null}
 			<Typography color="secondary" variant="body2">
 				{status?.running
-					? "Probing jumpers…"
+					? t("verify.probing")
 					: status?.last
 						? status.last.ok
-							? "Last verify had no fails"
-							: "Last verify found a problem"
-						: "Uses breadboard/diagram.json on the board."}
+							? t("verify.lastOk")
+							: t("verify.lastFail")
+						: t("verify.usesDiagram")}
 			</Typography>
 			{results.length ? (
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 					{results.map((item) => (
 						<Chip
 							key={item.id}
-							label={`${circuitVerifyLabel(item.status)} · ${item.detail}`}
+							label={`${verifyStatusLabel(item.status, t)} · ${item.detail}`}
 							size="small"
 							variant="outlined"
 							color={

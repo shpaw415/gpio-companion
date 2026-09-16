@@ -22,11 +22,7 @@ import Table, {
 } from "@shpaw415/mui-lite/Table";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
-import {
-	envelopeToPasteText,
-	formatNetworkLabel,
-	type NetworkStatus,
-} from "gpio-companion";
+import { envelopeToPasteText, type NetworkStatus } from "gpio-companion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CopyBlock from "../../components/CopyBlock.tsx";
 import DeviceCompanionInfo from "../../components/DeviceCompanionInfo.tsx";
@@ -37,6 +33,7 @@ import { TableRowsSkeleton } from "../../components/skeletons.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 import { unwrapAction } from "../../lib/action.ts";
 import { isAdmin } from "../../lib/auth/role.ts";
@@ -68,6 +65,7 @@ type BoardView = {
 export default function AdminDevicesPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const mobile = useMobile();
 	const admin = isAdmin(session.data?.role);
 	const [boards, setBoards] = useState<BoardView[]>([]);
@@ -156,24 +154,21 @@ export default function AdminDevicesPage() {
 	return (
 		<ExpertGate>
 			<Stack spacing={3}>
-				<SectionHeader title="Admin devices">
-					<Typography color="secondary">
-						Debug every account’s Pi without taking ownership (status, T3, WiFi,
-						companion update). Unpair, label, and force-transfer change state.
-					</Typography>
+				<SectionHeader title={t("admin.title")}>
+					<Typography color="secondary">{t("admin.hint")}</Typography>
 				</SectionHeader>
 
 				{!session.data?.id && !session.data?.email ? (
 					<Alert severity="info">
 						<Button href="/login" variant="text">
-							Sign in
+							{t("auth.signIn")}
 						</Button>{" "}
-						as an admin to see every board.
+						{t("auth.toAdmin")}
 					</Alert>
 				) : null}
 
 				{session.data?.id && !admin ? (
-					<Alert severity="error">admin only</Alert>
+					<Alert severity="error">{t("admin.only")}</Alert>
 				) : null}
 
 				{admin ? (
@@ -181,7 +176,7 @@ export default function AdminDevicesPage() {
 						<Paper className="p-3 min-[900px]:p-4" elevation={1}>
 							<Stack spacing={2}>
 								<TextField
-									label="Filter"
+									label={t("admin.filter")}
 									value={query}
 									onChange={(event) => {
 										setQuery(event.target.value);
@@ -193,11 +188,15 @@ export default function AdminDevicesPage() {
 									<Table size="small">
 										<TableHead>
 											<TableRow>
-												<TableCell>Label</TableCell>
-												{mobile ? null : <TableCell>UUID</TableCell>}
-												<TableCell>Owner</TableCell>
-												{mobile ? null : <TableCell>Device URL</TableCell>}
-												<TableCell>Status</TableCell>
+												<TableCell>{t("admin.colLabel")}</TableCell>
+												{mobile ? null : (
+													<TableCell>{t("admin.colUuid")}</TableCell>
+												)}
+												<TableCell>{t("admin.colOwner")}</TableCell>
+												{mobile ? null : (
+													<TableCell>{t("admin.colDeviceUrl")}</TableCell>
+												)}
+												<TableCell>{t("admin.colStatus")}</TableCell>
 											</TableRow>
 										</TableHead>
 										<TableBody>
@@ -250,28 +249,37 @@ export default function AdminDevicesPage() {
 																			variant="outlined"
 																		/>
 																	) : null}
-																	{formatNetworkLabel(board.status.network) ? (
+																	{board.status.network?.type === "ethernet" ? (
 																		<Chip
-																			label={formatNetworkLabel(
-																				board.status.network,
-																			)}
+																			label={t("devices.ethernet")}
+																			variant="outlined"
+																		/>
+																	) : board.status.network?.type === "wifi" ? (
+																		<Chip
+																			label={
+																				board.status.network.ssid.trim()
+																					? t("devices.wifiSsid", {
+																							ssid: board.status.network.ssid.trim(),
+																						})
+																					: t("nav.wifi")
+																			}
 																			variant="outlined"
 																		/>
 																	) : null}
 																	<Chip
 																		label={
 																			board.status.t3?.paired
-																				? "T3 paired"
+																				? t("admin.t3Paired")
 																				: board.status.t3?.running
-																					? "T3 running"
-																					: "T3 idle"
+																					? t("admin.t3Running")
+																					: t("admin.t3Idle")
 																		}
 																		variant="outlined"
 																	/>
 																</Stack>
 															) : (
 																<Typography color="secondary" variant="body2">
-																	offline
+																	{t("devices.offline")}
 																</Typography>
 															)}
 														</TableCell>
@@ -282,7 +290,9 @@ export default function AdminDevicesPage() {
 									</Table>
 								</TableContainer>
 								{loading ? null : filtered.length === 0 ? (
-									<Typography color="secondary">No boards.</Typography>
+									<Typography color="secondary">
+										{t("admin.noBoards")}
+									</Typography>
 								) : (
 									<TablePagination
 										count={filtered.length}
@@ -347,13 +357,13 @@ export default function AdminDevicesPage() {
 										loadInfo={loadDeviceInfo}
 									/>
 									<TextField
-										label="SSID"
+										label={t("wifi.ssid")}
 										value={ssid}
 										onChange={(event) => setSsid(event.target.value)}
 										className="w-full"
 									/>
 									<TextField
-										label="WiFi password"
+										label={t("wifi.password")}
 										type="password"
 										autoComplete="off"
 										value={psk}
@@ -369,15 +379,13 @@ export default function AdminDevicesPage() {
 											void run(startDeviceUpdate(current.device.uuid))
 												.then((result) => {
 													if (result?.started) {
-														setUpdateNote(
-															"Update started. The board may restart.",
-														);
+														setUpdateNote(t("debug.updateStarted"));
 													}
 												})
 												.finally(() => setBusy(false));
 										}}
 									>
-										Update companion
+										{t("debug.updateCompanion")}
 									</Button>
 									{updateNote ? (
 										<Alert severity="success">{updateNote}</Alert>
@@ -387,17 +395,19 @@ export default function AdminDevicesPage() {
 										disabled={busy || !ssid || !psk}
 										onClick={() => void sendWifi()}
 									>
-										Sign WiFi
+										{t("wifi.signWifi")}
 									</Button>
 									{pasteText ? (
 										<CopyBlock
-											label="Signed Bluetooth command"
+											label={t("ble.signedCommand")}
 											value={pasteText}
 										/>
 									) : null}
 									<TextField
-										label="Transfer to user id"
-										placeholder={session.data?.id || "OpenAuthster user id"}
+										label={t("admin.transferTo")}
+										placeholder={
+											session.data?.id || t("admin.transferPlaceholder")
+										}
 										value={toUserId}
 										onChange={(event) => setToUserId(event.target.value)}
 										className="w-full"
@@ -409,7 +419,10 @@ export default function AdminDevicesPage() {
 											const target = toUserId.trim() || session.data?.id || "";
 											if (
 												!window.confirm(
-													`Transfer ${current.device.uuid} to ${target || "this admin"}?`,
+													t("admin.transferConfirm", {
+														uuid: current.device.uuid,
+														target: target || t("admin.thisAdmin"),
+													}),
 												)
 											) {
 												return;
@@ -431,7 +444,7 @@ export default function AdminDevicesPage() {
 												.finally(() => setBusy(false));
 										}}
 									>
-										Force transfer
+										{t("admin.forceTransfer")}
 									</Button>
 									<Button
 										color="error"
@@ -440,11 +453,13 @@ export default function AdminDevicesPage() {
 										onClick={() => {
 											if (
 												!window.confirm(
-													`Unpair ${current.device.uuid} from ${
-														current.device.email ||
-														current.device.login ||
-														current.device.userId
-													}?`,
+													t("admin.unpairConfirmUuid", {
+														uuid: current.device.uuid,
+														owner:
+															current.device.email ||
+															current.device.login ||
+															current.device.userId,
+													}),
 												)
 											) {
 												return;
@@ -461,7 +476,7 @@ export default function AdminDevicesPage() {
 												.finally(() => setBusy(false));
 										}}
 									>
-										Unpair from owner
+										{t("admin.unpairFromOwner")}
 									</Button>
 								</Stack>
 							</Paper>

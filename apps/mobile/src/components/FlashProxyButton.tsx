@@ -11,6 +11,7 @@ import {
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { Body, Busy, Chip, ErrorText, Muted, TextButton } from "./ui.tsx";
 
@@ -62,6 +63,7 @@ export default function FlashProxyButton({
 	connected?: boolean;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const token = auth.token;
 	const colors = useColors();
 	const [busy, setBusy] = useState(false);
@@ -77,36 +79,43 @@ export default function FlashProxyButton({
 	const seenRunningRef = useRef(false);
 	const beforeKeyRef = useRef("");
 
-	const applyFlash = useCallback((next: FlashStatus) => {
-		setStatus(next);
-		if (next.running) {
-			seenRunningRef.current = true;
-			waitingRef.current = true;
-			setWaiting(true);
-			setBusy(true);
-			return;
-		}
-		if (!waitingRef.current) {
-			return;
-		}
-		if (
-			!seenRunningRef.current &&
-			lastKey(next.last) === beforeKeyRef.current
-		) {
-			return;
-		}
-		waitingRef.current = false;
-		seenRunningRef.current = false;
-		setWaiting(false);
-		setBusy(false);
-		if (next.last && !next.last.ok) {
-			setNotice("");
-			setError(failMessage(next.last.log));
-			return;
-		}
-		setError("");
-		setNotice(next.last ? `Flash ok · ${next.last.fqbn}` : "Flash finished");
-	}, []);
+	const applyFlash = useCallback(
+		(next: FlashStatus) => {
+			setStatus(next);
+			if (next.running) {
+				seenRunningRef.current = true;
+				waitingRef.current = true;
+				setWaiting(true);
+				setBusy(true);
+				return;
+			}
+			if (!waitingRef.current) {
+				return;
+			}
+			if (
+				!seenRunningRef.current &&
+				lastKey(next.last) === beforeKeyRef.current
+			) {
+				return;
+			}
+			waitingRef.current = false;
+			seenRunningRef.current = false;
+			setWaiting(false);
+			setBusy(false);
+			if (next.last && !next.last.ok) {
+				setNotice("");
+				setError(failMessage(next.last.log));
+				return;
+			}
+			setError("");
+			setNotice(
+				next.last
+					? t("flash.ok", { fqbn: next.last.fqbn })
+					: t("flash.finished"),
+			);
+		},
+		[t],
+	);
 
 	const load = useCallback(async () => {
 		if (!uuid || !token || connected === false) {
@@ -186,12 +195,12 @@ export default function FlashProxyButton({
 				waitingRef.current = false;
 				setWaiting(false);
 				setBusy(false);
-				setError((prev) => prev || "flash timed out — check Project flash log");
+				setError((prev) => prev || t("flash.timedOut"));
 			},
 			5 * 60 * 1000,
 		);
 		return () => clearTimeout(timer);
-	}, [waiting]);
+	}, [waiting, t]);
 
 	useDeviceHub(uuid, token, {
 		onArduinoProxy: (next) => setProxy(next),
@@ -215,21 +224,20 @@ export default function FlashProxyButton({
 
 	return (
 		<View style={{ gap: 8 }}>
-			<Body>Arduino proxy</Body>
+			<Body>{t("flash.proxyTitle")}</Body>
 			<Chip
 				label={
 					flashing
-						? "Flashing…"
+						? t("flash.flashing")
 						: live
-							? `Firmata · ${proxy?.name || proxy?.fqbn || "connected"}`
-							: "USB Arduino"
+							? t("flash.firmata", {
+									name: proxy?.name || proxy?.fqbn || t("debug.connected"),
+								})
+							: t("flash.usbArduino")
 				}
 				tone={flashing ? "warning" : live ? "success" : "muted"}
 			/>
-			<Muted>
-				Flash the companion slave firmware so Live GPIO and Run on board can
-				drive every pin over USB. Uno/Mega are 5V; SAMD/ESP32 are 3.3V.
-			</Muted>
+			<Muted>{t("flash.proxyHint")}</Muted>
 			{ports.length > 1
 				? ports.map((item) => (
 						<Pressable
@@ -283,16 +291,16 @@ export default function FlashProxyButton({
 					</Text>
 				</Pressable>
 			))}
-			{error ? <ErrorText>{error}</ErrorText> : null}
+			{error ? <ErrorText>{translateError(t, error)}</ErrorText> : null}
 			{notice && !flashing ? <Muted>{notice}</Muted> : null}
 			<Busy show={flashing} />
 			<TextButton
 				label={
 					flashing
-						? "Flashing…"
+						? t("flash.flashing")
 						: live
-							? "Re-flash Arduino as proxy"
-							: "Flash Arduino as proxy"
+							? t("flash.reflashProxy")
+							: t("flash.asProxy")
 				}
 				disabled={busy || flashing || !uuid || !token}
 				onPress={() => {
@@ -325,11 +333,11 @@ export default function FlashProxyButton({
 			/>
 			<Muted>
 				{flashing
-					? "Flashing… this can take a minute."
+					? t("flash.takeMinute")
 					: last
 						? last.ok
-							? `Last flash ok · ${last.fqbn}`
-							: `Last flash failed · ${last.fqbn}`
+							? t("flash.lastOk", { fqbn: last.fqbn })
+							: t("flash.lastFailed", { fqbn: last.fqbn })
 						: ""}
 			</Muted>
 		</View>

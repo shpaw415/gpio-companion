@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
+import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import {
@@ -30,6 +31,7 @@ function frameBottom(mobile: boolean): number {
 
 export default function T3Frame() {
 	const pathname = usePathname();
+	const t = useT();
 	const mobile = useMobile();
 	const { uuid, setUuid } = useBoardSelection();
 	const visible = isT3Path(pathname);
@@ -133,7 +135,7 @@ export default function T3Frame() {
 			}}
 		>
 			<iframe
-				title="T3 Code"
+				title={t("t3.title")}
 				src={src}
 				allow="clipboard-read; clipboard-write; fullscreen"
 				style={{ width: "100%", height: "100%", border: 0 }}

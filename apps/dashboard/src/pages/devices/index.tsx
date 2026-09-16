@@ -23,12 +23,14 @@ import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
+import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 
 export default function DevicesPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const { isEasy } = useDashboardMode();
+	const t = useT();
 	const mobile = useMobile();
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
@@ -97,11 +99,11 @@ export default function DevicesPage() {
 				spacing={2}
 				className="min-[900px]:items-start min-[900px]:justify-between"
 			>
-				<SectionHeader title={isEasy ? "My board" : "Devices"}>
+				<SectionHeader
+					title={isEasy ? t("devices.titleEasy") : t("devices.titleExpert")}
+				>
 					<Typography color="secondary">
-						{isEasy
-							? "Your Arduino companion board. Pair it, put it on Wi‑Fi, then open Code."
-							: "Boards paired to your account and how they reach the dashboard."}
+						{isEasy ? t("devices.easyHint") : t("devices.expertHint")}
 					</Typography>
 				</SectionHeader>
 				{loggedIn && boards.length > 0 ? (
@@ -111,7 +113,7 @@ export default function DevicesPage() {
 						className={mobile ? "w-full" : undefined}
 						onClick={() => setDialogOpen(true)}
 					>
-						Add board
+						{t("devices.addBoard")}
 					</Button>
 				) : null}
 			</Stack>
@@ -119,17 +121,17 @@ export default function DevicesPage() {
 			{!loggedIn ? (
 				<Alert severity="info">
 					<Button href="/login" variant="text">
-						Sign in
+						{t("auth.signIn")}
 					</Button>{" "}
-					to manage your boards.
+					{t("auth.toManageBoards")}
 				</Alert>
 			) : null}
 
 			{loggedIn && isEasy && pendingCount > 0 ? (
 				<Alert severity="info">
-					Someone asked to take a board.{" "}
+					{t("devices.pendingTransfer")}{" "}
 					<Button href="/devices/notifications" variant="text">
-						Review requests
+						{t("devices.reviewRequests")}
 					</Button>
 				</Alert>
 			) : null}
@@ -144,8 +146,7 @@ export default function DevicesPage() {
 			{showForm ? (
 				<>
 					<Typography color="secondary">
-						Connect over Bluetooth to load pairing details from the board. Then
-						set Wi‑Fi from the WiFi tab if it is not on Ethernet.
+						{t("devices.emptyPairHint")}
 					</Typography>
 					<PairForm
 						onComplete={({ uuid }) => {
@@ -193,49 +194,42 @@ export default function DevicesPage() {
 
 			{isEasy ? null : (
 				<SectionHub
-					description="Everything you can do with a board."
+					description={t("devices.hubDescription")}
 					items={[
 						{
 							href: "/devices/docs",
-							title: "Learn",
-							description:
-								"Official gpio-companion docs for the selected board — guides, wiring, and pinouts.",
+							title: t("nav.learn"),
+							description: t("devices.learnDesc"),
 						},
 						{
 							href: "/devices/t3",
-							title: "Code",
-							description:
-								"Open Code on a paired board in this dashboard. Switching tabs keeps your place.",
+							title: t("nav.code"),
+							description: t("devices.codeDesc"),
 						},
 						{
 							href: "/devices/pair",
-							title: "Pair hardware",
-							description:
-								"Claim a board, then start Code to get a pair code, QR, and board pairing URL.",
+							title: t("devices.pairHardware"),
+							description: t("devices.pairHardwareDesc"),
 						},
 						{
 							href: "/devices/wifi",
-							title: "WiFi over Bluetooth",
-							description:
-								"Have the dashboard sign a WiFi command the board verifies before connecting.",
+							title: t("wifi.title"),
+							description: t("devices.wifiDesc"),
 						},
 						{
 							href: "/profile/github",
-							title: "GitHub",
-							description:
-								"Connect the gpio-companion GitHub App so boards can push project files.",
+							title: t("nav.github"),
+							description: t("devices.githubDesc"),
 						},
 						{
 							href: "/devices/notifications",
-							title: "Pairing requests",
-							description:
-								"Accept or reject incoming board transfers from other users.",
+							title: t("devices.pairingRequests"),
+							description: t("devices.pairingRequestsDesc"),
 						},
 						{
 							href: "/devices/debug",
-							title: "Debug stream",
-							description:
-								"Watch live companion API errors and warnings over WebSocket.",
+							title: t("devices.debugStream"),
+							description: t("devices.debugStreamDesc"),
 						},
 					]}
 				/>
@@ -250,7 +244,7 @@ export default function DevicesPage() {
 				sx={{ zIndex: 1300 }}
 				slotProps={{ paper: { className: "max-w-xl w-full" } }}
 			>
-				<DialogTitle>Add board</DialogTitle>
+				<DialogTitle>{t("devices.addBoard")}</DialogTitle>
 				<DialogContent>
 					{dialogOpen ? (
 						<PairForm
@@ -268,7 +262,7 @@ export default function DevicesPage() {
 						variant="text"
 						onClick={() => setDialogOpen(false)}
 					>
-						Close
+						{t("devices.close")}
 					</Button>
 				</DialogActions>
 			</Dialog>

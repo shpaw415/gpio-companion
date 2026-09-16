@@ -1,6 +1,7 @@
 import Paper from "@shpaw415/mui-lite/Paper";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useMemo } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 
 type Props = {
 	circuitJsonText?: string | null;
@@ -13,6 +14,7 @@ export default function PcbViewer({
 	previewUrl,
 	label,
 }: Props) {
+	const t = useT();
 	const embeddedSvg = useMemo(
 		() => extractPreviewSvg(circuitJsonText),
 		[circuitJsonText],
@@ -22,7 +24,7 @@ export default function PcbViewer({
 		return (
 			<Paper className="overflow-hidden" elevation={1}>
 				<img
-					alt={`${label} preview`}
+					alt={t("project.pcbPreviewAlt")}
 					className="w-full bg-white"
 					src={previewUrl}
 				/>
@@ -37,12 +39,12 @@ export default function PcbViewer({
 		return (
 			<Paper className="overflow-hidden" elevation={1}>
 				<img
-					alt={`${label} preview`}
+					alt={t("project.pcbPreviewAlt")}
 					className="w-full bg-white"
 					src={`data:image/svg+xml;utf8,${encodeURIComponent(embeddedSvg)}`}
 				/>
 				<Typography color="secondary" className="px-4 py-2">
-					{label} PCB
+					{label}
 				</Typography>
 			</Paper>
 		);
@@ -52,7 +54,7 @@ export default function PcbViewer({
 		return (
 			<Paper className="p-4" elevation={1}>
 				<Typography variant="subtitle1" className="mb-2">
-					{label} PCB
+					{label}
 				</Typography>
 				<pre className="max-h-[32rem] overflow-auto text-xs">
 					{circuitJsonText.slice(0, 8000)}
@@ -63,9 +65,7 @@ export default function PcbViewer({
 
 	return (
 		<Paper className="p-4 min-[900px]:p-6" elevation={1}>
-			<Typography color="secondary">
-				No {label} circuit.json or preview.svg on GitHub yet.
-			</Typography>
+			<Typography color="secondary">{t("project.noPcb")}</Typography>
 		</Paper>
 	);
 }

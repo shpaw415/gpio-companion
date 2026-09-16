@@ -39,6 +39,7 @@ import {
 	type JournalWindowId,
 	journalWindowMs,
 } from "../lib/journal.ts";
+import { translateError, useT } from "../lib/locale.tsx";
 
 type LogLine = {
 	t?: number;
@@ -50,11 +51,15 @@ type LogLine = {
 	via?: string;
 };
 
-function debugBoardOptionLabel(board: DebugBoard): string {
+function debugBoardOptionLabel(
+	board: DebugBoard,
+	live: string,
+	unpaired: string,
+): string {
 	const bits = [
 		deviceDisplayName(board),
-		board.live ? "live" : null,
-		board.paired === false ? "unpaired" : null,
+		board.live ? live : null,
+		board.paired === false ? unpaired : null,
 	].filter(Boolean);
 	return bits.join(" · ");
 }
@@ -75,6 +80,7 @@ function pickDebugUuid(
 
 export default function Debug() {
 	const auth = useAuth();
+	const t = useT();
 	const colors = useColors();
 	const token = auth.token;
 	const { uuid: preferredUuid } = useBoardSelection();
@@ -136,9 +142,9 @@ export default function Debug() {
 		}
 		return (
 			filterJournalByAge(journal, journalWindowMs(journalWindow)) ||
-			`No journal lines in the last ${journalWindow}.`
+			t("debug.noJournalWindow", { window: journalWindow })
 		);
-	}, [journal, journalWindow]);
+	}, [journal, journalWindow, t]);
 
 	const liveText = useMemo(
 		() =>
@@ -188,7 +194,7 @@ export default function Debug() {
 		try {
 			const next = await loadDeviceLogs(token, nextUuid);
 			setJournalFor(nextUuid);
-			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
+			setJournal(next.text.trim() || t("debug.noJournal24h"));
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "logs failed");
 		} finally {
@@ -209,7 +215,7 @@ export default function Debug() {
 		setUpdateBusy(nextUuid);
 		try {
 			await startDeviceUpdate(token, nextUuid);
-			setUpdateNote("Update started. The board may restart.");
+			setUpdateNote(t("debug.updateStarted"));
 			updateLock.current = setTimeout(() => {
 				setUpdateBusy("");
 				updateLock.current = null;
@@ -241,7 +247,7 @@ export default function Debug() {
 				}
 			},
 			onError(message) {
-				setError(message || "debug websocket failed");
+				setError(message || t("debug.wsFailed"));
 			},
 			onOpen() {
 				setError("");
@@ -251,23 +257,18 @@ export default function Debug() {
 
 	return (
 		<Screen>
-			<Title>Debug</Title>
-			<Muted>
-				Live companion API errors over WebSocket. Pick an online Pi to connect.
-			</Muted>
-			<ErrorText>{error || query.error}</ErrorText>
+			<Title>{t("debug.title")}</Title>
+			<Muted>{t("debug.nativeHint")}</Muted>
+			<ErrorText>{translateError(t, error || query.error || "")}</ErrorText>
 			{updateNote ? <Muted>{updateNote}</Muted> : null}
-			<Muted>Board</Muted>
+			<Muted>{t("docs.board")}</Muted>
 			{query.loading ? (
 				<>
 					<Skeleton />
 					<Skeleton />
 				</>
 			) : boards.length === 0 ? (
-				<Muted>
-					Pair a board, or wait until your companion is live and websocket
-					debuggable.
-				</Muted>
+				<Muted>{t("debug.noLiveNative")}</Muted>
 			) : (
 				<View style={{ gap: 8 }}>
 					{boards.map((board) => {
@@ -290,7 +291,11 @@ export default function Debug() {
 										fontWeight: picked ? "600" : "400",
 									}}
 								>
-									{debugBoardOptionLabel(board)}
+									{debugBoardOptionLabel(
+										board,
+										t("debug.live"),
+										t("debug.unpaired"),
+									)}
 								</Text>
 							</Pressable>
 						);
@@ -301,25 +306,38 @@ export default function Debug() {
 				<Paper>
 					<Muted>{deviceDisplayName(selected)}</Muted>
 					<Muted>
-						{selected.live ? "live · websocket debug" : "offline"}
+						{selected.live ? t("debug.liveWs") : t("debug.offline")}
 						{selected.email ? ` · ${selected.email}` : ""}
 						{selected.maintenance?.diskAvailMb != null &&
 						selected.maintenance.diskTotalMb
-							? ` · ${selected.maintenance.diskAvailMb} MB free of ${selected.maintenance.diskTotalMb} MB`
+							? t("debug.mbFreeOf", {
+									avail: selected.maintenance.diskAvailMb,
+									total: selected.maintenance.diskTotalMb,
+								})
 							: ""}
 					</Muted>
 					<TextButton
-						label={active === selected.uuid ? "Reconnect" : "Connect"}
+						label={
+							active === selected.uuid
+								? t("debug.reconnect")
+								: t("debug.connect")
+						}
 						onPress={() => void connect(selected.uuid)}
 					/>
 					<TextButton
-						label={journalBusy === selected.uuid ? "Loading…" : "Last 24h"}
+						label={
+							journalBusy === selected.uuid
+								? t("debug.loading")
+								: t("debug.last24h")
+						}
 						disabled={journalBusy === selected.uuid}
 						onPress={() => void fetchLogs(selected.uuid)}
 					/>
 					<TextButton
 						label={
-							updateBusy === selected.uuid ? "Updating…" : "Update companion"
+							updateBusy === selected.uuid
+								? t("debug.updating")
+								: t("debug.updateCompanion")
 						}
 						disabled={Boolean(updateBusy)}
 						onPress={() => void runUpdate(selected.uuid)}
@@ -367,7 +385,7 @@ export default function Debug() {
 			{lines.length > 0 ? (
 				<Paper>
 					<TextButton
-						label={liveCopied ? "Copied" : "Copy live debug"}
+						label={liveCopied ? t("common.copied") : t("debug.copyLive")}
 						onPress={() => void copyLive()}
 					/>
 					<ScrollView nestedScrollEnabled style={{ maxHeight: 280 }}>

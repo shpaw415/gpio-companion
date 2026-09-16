@@ -16,9 +16,11 @@ import {
 	useUserBoards,
 } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 
 export default function Keys() {
 	const auth = useAuth();
+	const t = useT();
 	const token = auth.token;
 	const github = useCachedQuery(CACHE_KEYS.githubApp, () => {
 		if (!token) {
@@ -55,28 +57,29 @@ export default function Keys() {
 
 	return (
 		<View style={{ gap: 12 }}>
-			<Title>GitHub</Title>
-			<Muted>
-				Connect the gpio-companion GitHub App so the Pi can push project files.
-				{devices.length ? ` ${devices.length} paired board(s).` : ""}
-			</Muted>
-			<ErrorText>{github.error}</ErrorText>
+			<Title>{t("github.title")}</Title>
+			<Muted>{t("github.nativeHint", { n: devices.length })}</Muted>
+			<ErrorText>{translateError(t, github.error || "")}</ErrorText>
 			<Paper>
 				{github.loading ? <Skeleton height={40} /> : null}
 				{github.loading ? null : status?.connected && !status.installUrl ? (
-					<Body>GitHub App connected as {status.login || "your account"}.</Body>
+					<Body>
+						{t("github.connectedAs", {
+							login: status.login || t("github.yourAccount"),
+						})}
+					</Body>
 				) : (
 					<>
 						<Muted>
 							{status?.connected
-								? "Authorize again in your browser so the dashboard can create repositories."
-								: "GitHub App is not connected. Finish the install in your browser; this page polls until it shows up."}
+								? t("github.authorizeAgainNative")
+								: t("github.notConnectedPoll")}
 						</Muted>
 						<PrimaryButton
 							label={
 								status?.connected
-									? "Authorize creating repositories"
-									: "Connect GitHub App"
+									? t("project.authorizeRepos")
+									: t("github.connect")
 							}
 							disabled={!status?.installUrl}
 							onPress={() => void Linking.openURL(status?.installUrl ?? "")}

@@ -11,6 +11,12 @@ import {
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import {
+	type Messages,
+	type Translate,
+	translateError,
+	useT,
+} from "../lib/locale.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useGpioTunnel } from "../lib/use-gpio-tunnel.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
@@ -119,6 +125,7 @@ export default function GpioPanel({
 	poll?: boolean;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
@@ -158,8 +165,7 @@ export default function GpioPanel({
 	}
 
 	function drive(command: GpioCommand) {
-		const next =
-			target === "arduino-proxy" ? { ...command, target } : command;
+		const next = target === "arduino-proxy" ? { ...command, target } : command;
 		const current = snapshotRef.current;
 		if (current) {
 			applySnapshot(applyCommand(current, next));
@@ -180,8 +186,8 @@ export default function GpioPanel({
 	if (!available) {
 		return (
 			<View style={{ gap: 8, marginTop: 8 }}>
-				<Body>GPIO</Body>
-				<Muted>Board not connected</Muted>
+				<Body>{t("gpio.title")}</Body>
+				<Muted>{t("gpio.notConnected")}</Muted>
 			</View>
 		);
 	}
@@ -197,7 +203,7 @@ export default function GpioPanel({
 					gap: 8,
 				}}
 			>
-				<Body>{poll ? "Live GPIO" : "GPIO"}</Body>
+				<Body>{poll ? t("gpio.live") : t("gpio.title")}</Body>
 				{poll ? (
 					<LiveChip status={tunnel.status} ready={Boolean(snapshot)} />
 				) : null}
@@ -206,7 +212,7 @@ export default function GpioPanel({
 			{poll ? (
 				<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 					<TargetChip
-						label="Companion"
+						label={t("gpio.companion")}
 						active={target === "header"}
 						onPress={() => {
 							setTarget("header");
@@ -215,7 +221,7 @@ export default function GpioPanel({
 						}}
 					/>
 					<TargetChip
-						label="Arduino"
+						label={t("gpio.arduino")}
 						active={target === "arduino-proxy"}
 						onPress={() => {
 							setTarget("arduino-proxy");
@@ -229,14 +235,20 @@ export default function GpioPanel({
 				<Muted>
 					{snapshot
 						? target === "arduino-proxy"
-							? "Arduino proxy pins. 5V AVR boards must not jumper to the 3.3V header."
-							: "Tap a GPIO pin, then set In, high, or low."
-						: "Waiting for live pin state from the board."}
+							? t("gpio.proxyHint")
+							: t("gpio.tapHint")
+						: t("gpio.waiting")}
 				</Muted>
 			) : null}
 			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 				<TextButton
-					label={busy ? "Loading…" : snapshot || poll ? "Refresh" : "Load GPIO"}
+					label={
+						busy
+							? t("common.loading")
+							: snapshot || poll
+								? t("gpio.refresh")
+								: t("gpio.load")
+					}
 					disabled={busy || !uuid || !token}
 					onPress={() => {
 						if (poll) {
@@ -254,7 +266,7 @@ export default function GpioPanel({
 				/>
 				{poll ? null : (
 					<TextButton
-						label="Load over Bluetooth"
+						label={t("gpio.loadOverBle")}
 						disabled={busy || !uuid || !token}
 						onPress={() => {
 							if (!token) {
@@ -279,7 +291,7 @@ export default function GpioPanel({
 					/>
 				)}
 			</View>
-			{error ? <ErrorText>{error}</ErrorText> : null}
+			{error ? <ErrorText>{translateError(t, error)}</ErrorText> : null}
 			{poll || snapshot ? (
 				target === "arduino-proxy" ? (
 					<ArduinoProxyPins
@@ -299,7 +311,7 @@ export default function GpioPanel({
 					/>
 				)
 			) : (
-				<Muted>Load GPIO to see live pin status.</Muted>
+				<Muted>{t("gpio.loadToSee")}</Muted>
 			)}
 			{snapshot ? (
 				<GpioPinActions
@@ -320,18 +332,21 @@ function LiveChip({
 	status: "idle" | "connecting" | "live" | "reconnecting";
 	ready: boolean;
 }) {
+	const t = useT();
 	if (status === "reconnecting") {
-		return <Chip label="Reconnecting" tone="warning" />;
+		return <Chip label={t("gpio.reconnecting")} tone="warning" />;
 	}
 	if (status === "connecting" || !ready) {
 		return (
 			<Chip
-				label={status === "connecting" ? "Connecting" : "Waiting"}
+				label={
+					status === "connecting" ? t("gpio.connecting") : t("gpio.waitingChip")
+				}
 				tone="muted"
 			/>
 		);
 	}
-	return <Chip label="Live" tone="success" />;
+	return <Chip label={t("gpio.liveChip")} tone="success" />;
 }
 
 function TargetChip({
@@ -379,48 +394,49 @@ function GpioPinActions({
 	disabled: boolean;
 	onDrive: (command: GpioCommand) => void;
 }) {
+	const t = useT();
 	if (!pin) {
-		return <Muted>Tap a GPIO pin to drive it.</Muted>;
+		return <Muted>{t("gpio.tapToDrive")}</Muted>;
 	}
 	const locked = !canDriveGpio(pin) || disabled;
 	const analog = typeof pin.analog === "number" ? pin.analog : 128;
 	return (
 		<View style={{ gap: 8 }}>
 			<View>
-				<Body>
-					Pin {pin.physical} {pin.name}
-				</Body>
-				<Muted>{pinStatus(pin)}</Muted>
+				<Body>{t("gpio.pin", { n: pin.physical, name: pin.name })}</Body>
+				<Muted>{pinStatus(pin, t)}</Muted>
 			</View>
 			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 				<TextButton
-					label="In"
+					label={t("gpio.in")}
 					disabled={busy || locked}
 					onPress={() => onDrive({ physical: pin.physical, dir: "in" })}
 				/>
 				<TextButton
-					label="Set high"
+					label={t("gpio.setHigh")}
 					disabled={busy || locked}
 					onPress={() =>
 						onDrive({ physical: pin.physical, dir: "out", value: 1 })
 					}
 				/>
 				<TextButton
-					label="Set low"
+					label={t("gpio.setLow")}
 					disabled={busy || locked}
 					onPress={() =>
 						onDrive({ physical: pin.physical, dir: "out", value: 0 })
 					}
 				/>
 				<TextButton
-					label="PWM"
+					label={t("gpio.pwm")}
 					disabled={busy || locked}
 					onPress={() =>
 						onDrive({ physical: pin.physical, dir: "pwm", analog })
 					}
 				/>
 				<TextButton
-					label={typeof pin.hz === "number" ? "Stop" : "Tone"}
+					label={
+						typeof pin.hz === "number" ? t("gpio.stopTone") : t("gpio.tone")
+					}
 					disabled={busy || locked}
 					onPress={() =>
 						onDrive(
@@ -435,25 +451,41 @@ function GpioPinActions({
 	);
 }
 
-function pinStatus(pin: GpioPinState): string {
+function pinStatus(pin: GpioPinState, t: Translate<Messages>): string {
 	if (pin.reserved) {
-		return "Reserved";
+		return t("gpio.reserved");
 	}
 	if (pin.unresolved) {
-		return "Unresolved";
+		return t("gpio.unresolved");
 	}
 	if (typeof pin.hz === "number") {
-		return `tone ${Math.round(pin.hz)} Hz`;
+		return t("gpio.toneHz", { n: Math.round(pin.hz) });
 	}
 	if (typeof pin.analog === "number") {
-		return `PWM ${Math.round(pin.analog)}/255`;
+		return t("gpio.pwmDuty", { n: Math.round(pin.analog) });
 	}
 	if (typeof pin.pwm === "number") {
-		return `PWM ${Math.round(pin.pwm)}%`;
+		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
-	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
-	if (pin.dir === "in" || pin.dir === "out") {
-		return level ? `${pin.dir} · ${level}` : pin.dir;
+	if (pin.dir === "in") {
+		return pin.value === 1
+			? t("gpio.inHigh")
+			: pin.value === 0
+				? t("gpio.inLow")
+				: pin.dir;
 	}
-	return level ?? "—";
+	if (pin.dir === "out") {
+		return pin.value === 1
+			? t("gpio.outHigh")
+			: pin.value === 0
+				? t("gpio.outLow")
+				: pin.dir;
+	}
+	if (pin.value === 1) {
+		return t("gpio.high");
+	}
+	if (pin.value === 0) {
+		return t("gpio.low");
+	}
+	return "—";
 }

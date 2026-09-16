@@ -19,6 +19,7 @@ import {
 	circuitVerifyOverlay,
 	parseWokwiDiagram,
 } from "gpio-companion";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
@@ -52,6 +53,7 @@ import {
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useT3Window } from "../hooks/useT3Window";
+import { useT } from "../locale";
 import BreadboardViewer from "./BreadboardViewer";
 import DebugLog from "./DebugLog";
 import FlashPanel from "./FlashPanel";
@@ -79,12 +81,13 @@ function PreviewCard({
 	hint: string;
 	url: string | null;
 }) {
+	const t = useT();
 	return (
 		<Paper sx={{ overflow: "hidden", minHeight: 220 }} elevation={1}>
 			{url ? (
 				<img
 					src={url}
-					alt={`${title} preview`}
+					alt={t("project.pcbPreviewAlt")}
 					style={{
 						display: "block",
 						width: "100%",
@@ -127,6 +130,7 @@ function BoardSketchGroup({
 	busy: boolean;
 	onLaunch: (dir: string) => void;
 }) {
+	const t = useT();
 	return (
 		<Paper sx={{ p: 2 }} elevation={1}>
 			<Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -134,7 +138,7 @@ function BoardSketchGroup({
 			</Typography>
 			{sketches.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					None on this board for this project.
+					{t("project.noneOnBoard")}
 				</Typography>
 			) : (
 				<Stack spacing={0.5}>
@@ -169,6 +173,7 @@ function FileGroup({
 	title: string;
 	files: GithubContent[];
 }) {
+	const t = useT();
 	return (
 		<Paper sx={{ p: 2 }} elevation={1}>
 			<Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
@@ -177,7 +182,7 @@ function FileGroup({
 			</Stack>
 			{files.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					Nothing in this folder yet. The agent will push files here.
+					{t("project.emptyFolder")}
 				</Typography>
 			) : (
 				<Stack spacing={0.5}>
@@ -205,6 +210,7 @@ function FileGroup({
 }
 
 export default function Project() {
+	const t = useT();
 	const { cache } = useApiCache();
 	const githubQuery = useCachedQuery(CACHE_KEYS.githubApp, getGithubApp);
 	const projectsQuery = useCachedQuery(CACHE_KEYS.projects, listProjects);
@@ -438,8 +444,8 @@ export default function Project() {
 			setBundle(result.bundle);
 			setSaveHint(
 				result.board.committed
-					? "Saved and pushed from the board."
-					: "Already up to date on GitHub.",
+					? t("project.savedPushed")
+					: t("project.alreadyUpToDate"),
 			);
 		} catch (caught) {
 			setError(
@@ -617,25 +623,28 @@ export default function Project() {
 			>
 				<Stack spacing={0.5}>
 					<Typography variant="h5" Element="h1">
-						Project
+						{t("project.title")}
 					</Typography>
-					<Typography color="secondary">
-						Create a project, then open Code to talk to the agent on the board.
-					</Typography>
+					<Typography color="secondary">{t("project.subtitle")}</Typography>
 				</Stack>
 				{paired && activeUuid ? (
 					<Button variant="outlined" onClick={openCode} disabled={t3.busy}>
-						Open Code
+						{t("project.openCode")}
 					</Button>
 				) : null}
 			</Stack>
 			{error || githubQuery.error || projectsQuery.error ? (
 				<Alert severity="error">
-					{error || githubQuery.error || projectsQuery.error}
+					{translateError(t, error || githubQuery.error || projectsQuery.error)}
 				</Alert>
 			) : null}
 			{error || githubQuery.error || projectsQuery.error ? (
-				<DebugLog error={error || githubQuery.error || projectsQuery.error} />
+				<DebugLog
+					error={translateError(
+						t,
+						error || githubQuery.error || projectsQuery.error,
+					)}
+				/>
 			) : null}
 
 			{loading ? <ListSkeleton items={4} /> : null}
@@ -644,12 +653,10 @@ export default function Project() {
 				<Paper sx={{ p: 4 }} elevation={1}>
 					<Stack spacing={2}>
 						<Typography variant="h6">
-							Connect GitHub to see your bench
+							{t("project.connectGithubNative")}
 						</Typography>
 						<Typography color="secondary">
-							Install the gpio-companion GitHub App. The Pi pushes pcb/,
-							breadboard/, and technical/ here. This page updates when the
-							install finishes.
+							{t("project.connectGithubNativeHint")}
 						</Typography>
 						<Stack direction="row" spacing={1}>
 							<Button
@@ -657,11 +664,11 @@ export default function Project() {
 								disabled={!app?.installUrl}
 								onClick={() => void openExternal(app?.installUrl ?? "")}
 							>
-								Connect GitHub App
+								{t("github.connect")}
 							</Button>
 							{!paired ? (
 								<Typography color="secondary" sx={{ alignSelf: "center" }}>
-									Pair a board in Devices when you are ready.
+									{t("project.pairWhenReady")}
 								</Typography>
 							) : null}
 						</Stack>
@@ -677,11 +684,10 @@ export default function Project() {
 								{empty ? (
 									<>
 										<Typography variant="h6">
-											Create your first project
+											{t("project.createFirst")}
 										</Typography>
 										<Typography color="secondary">
-											Name it like blink-led. Then open Code to talk to the
-											agent.
+											{t("project.createHint")}
 										</Typography>
 									</>
 								) : null}
@@ -691,8 +697,8 @@ export default function Project() {
 									sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
 								>
 									<TextField
-										label="New project"
-										placeholder="blink-led"
+										label={t("project.newProject")}
+										placeholder={t("project.placeholderName")}
 										value={createName}
 										onChange={(event) => setCreateName(event.target.value)}
 										onKeyDown={(event) => {
@@ -708,7 +714,7 @@ export default function Project() {
 										disabled={creating || !createName.trim()}
 										onClick={() => void makeProject()}
 									>
-										{creating ? "Creating…" : "Create"}
+										{creating ? t("project.creating") : t("project.create")}
 									</Button>
 								</Stack>
 							</Stack>
@@ -716,18 +722,16 @@ export default function Project() {
 							<Stack spacing={2}>
 								{empty ? (
 									<Typography variant="h6">
-										Create your first project
+										{t("project.createFirst")}
 									</Typography>
 								) : null}
-								<Alert severity="info">
-									Authorize GitHub so this dashboard can create repositories.
-								</Alert>
+								<Alert severity="info">{t("project.authorizeHint")}</Alert>
 								<Button
 									variant="contained"
 									disabled={!app?.installUrl}
 									onClick={() => void openExternal(app?.installUrl ?? "")}
 								>
-									Authorize creating repositories
+									{t("project.authorizeRepos")}
 								</Button>
 							</Stack>
 						)}
@@ -739,22 +743,22 @@ export default function Project() {
 									sx={{ flexWrap: "wrap", alignItems: "flex-end" }}
 								>
 									<TextField
-										label="Filter"
-										placeholder="Name or owner/repo"
+										label={t("project.filter")}
+										placeholder={t("project.filterPlaceholder")}
 										value={query}
 										onChange={(event) => setQuery(event.target.value)}
 										sx={{ flex: 1, minWidth: 220 }}
 									/>
 									<Select
 										name="owner"
-										label="Owner"
+										label={t("project.owner")}
 										value={owner}
 										onSelect={setOwner}
 										sx={{ minWidth: 180 }}
 									>
 										{[
 											<option key="all" value="all">
-												All owners
+												{t("project.allOwners")}
 											</option>,
 											...owners.map((login) => (
 												<option key={login} value={login}>
@@ -768,8 +772,8 @@ export default function Project() {
 									<Table size="small">
 										<TableHead>
 											<TableRow>
-												<TableCell>Name</TableCell>
-												<TableCell>Owner</TableCell>
+												<TableCell>{t("project.colName")}</TableCell>
+												<TableCell>{t("project.colOwner")}</TableCell>
 												<TableCell />
 											</TableRow>
 										</TableHead>
@@ -795,7 +799,7 @@ export default function Project() {
 																	void openExternal(repo.html_url);
 																}}
 															>
-																GitHub
+																{t("nav.github")}
 															</Button>
 														</TableCell>
 													</TableRow>
@@ -806,7 +810,7 @@ export default function Project() {
 								</TableContainer>
 								{filtered.length === 0 ? (
 									<Typography color="secondary">
-										No matching gpio-companion projects.
+										{t("project.noMatch")}
 									</Typography>
 								) : null}
 							</>
@@ -839,7 +843,7 @@ export default function Project() {
 						{bundle.branches && bundle.branches.length > 0 ? (
 							<Select
 								name="branch"
-								label="Branch"
+								label={t("project.branch")}
 								value={bundle.ref ?? ""}
 								onSelect={(next) => {
 									void selectBranch(next);
@@ -849,7 +853,7 @@ export default function Project() {
 								{bundle.branches.map((branch) => (
 									<option key={branch.name} value={branch.name}>
 										{branch.name === bundle.defaultBranch
-											? `${branch.name} (default)`
+											? t("project.defaultBranch", { name: branch.name })
 											: branch.name}
 									</option>
 								))}
@@ -864,7 +868,7 @@ export default function Project() {
 								)
 							}
 						>
-							Open on GitHub
+							{t("project.openOnGithub")}
 						</Button>
 						<Button
 							variant="outlined"
@@ -873,7 +877,7 @@ export default function Project() {
 							disabled={stopping || !activeUuid}
 							onClick={() => void stopSketch()}
 						>
-							{stopping ? "Stopping…" : "Stop sketch"}
+							{stopping ? t("project.stopping") : t("project.stopSketch")}
 						</Button>
 						<Button
 							variant="contained"
@@ -881,7 +885,7 @@ export default function Project() {
 							disabled={saving || !activeUuid}
 							onClick={() => void saveFromBoard()}
 						>
-							{saving ? "Saving…" : "Save to GitHub"}
+							{saving ? t("project.saving") : t("project.saveToGithub")}
 						</Button>
 					</Stack>
 					{justCreated === bundle.repo ? (
@@ -896,8 +900,7 @@ export default function Project() {
 								}}
 							>
 								<Typography>
-									{bundle.repo} is ready. Open Code to start chatting with the
-									agent.
+									{t("project.readyChat", { repo: bundle.repo })}
 								</Typography>
 								{paired && activeUuid ? (
 									<Button
@@ -905,11 +908,11 @@ export default function Project() {
 										onClick={openCode}
 										disabled={t3.busy}
 									>
-										Open Code
+										{t("project.openCode")}
 									</Button>
 								) : (
 									<Typography color="secondary">
-										Pair a board in Devices so Code can open.
+										{t("project.pairSoCodeOpens")}
 									</Typography>
 								)}
 							</Stack>
@@ -924,8 +927,8 @@ export default function Project() {
 						}}
 					>
 						<PreviewCard
-							title="PCB"
-							hint="No pcb/preview.svg yet. Ask the agent to design a PCB."
+							title={t("project.pcb")}
+							hint={t("project.noPcbHintDesktop")}
 							url={bundle.pcbPreviewUrl}
 						/>
 						<BreadboardViewer
@@ -944,12 +947,18 @@ export default function Project() {
 							gap: 2,
 						}}
 					>
-						<FileGroup title="PCB" files={bundle.pcb} />
-						<FileGroup title="Breadboard" files={bundle.breadboard} />
-						<FileGroup title="Technical" files={bundle.technical} />
+						<FileGroup title={t("project.pcb")} files={bundle.pcb} />
+						<FileGroup
+							title={t("project.breadboard")}
+							files={bundle.breadboard}
+						/>
+						<FileGroup
+							title={t("project.technical")}
+							files={bundle.technical}
+						/>
 						<BoardSketchGroup
-							title="Host sketches"
-							action="Run"
+							title={t("project.hostSketches")}
+							action={t("project.run")}
 							sketches={hostSketches.filter(
 								(item) => item.project === bundle.repo,
 							)}
@@ -962,8 +971,8 @@ export default function Project() {
 							}}
 						/>
 						<BoardSketchGroup
-							title="Arduino firmware"
-							action="Flash"
+							title={t("project.arduinoFirmware")}
+							action={t("flash.flash")}
 							sketches={firmwareSketches.filter(
 								(item) => item.project === bundle.repo,
 							)}
@@ -984,7 +993,7 @@ export default function Project() {
 			) : loading || !configured || empty ? null : (
 				<Paper sx={{ p: 4 }} elevation={0}>
 					<Typography color="secondary" align="center">
-						Select a project to see the PCB and breadboard.
+						{t("project.selectToSee")}
 					</Typography>
 				</Paper>
 			)}
@@ -1001,23 +1010,23 @@ export default function Project() {
 							}}
 						>
 							<Stack spacing={0.5}>
-								<Typography variant="h6">Board tools</Typography>
+								<Typography variant="h6">{t("project.boardTools")}</Typography>
 								<Typography color="secondary">
-									Live GPIO, Flash Arduino, Run on board, Verify circuit
+									{t("project.boardToolsHint")}
 								</Typography>
 							</Stack>
 							<Button
 								variant="outlined"
 								onClick={() => setBoardToolsOpen((open) => !open)}
 							>
-								{boardToolsOpen ? "Hide" : "Show"}
+								{boardToolsOpen ? t("project.hide") : t("project.show")}
 							</Button>
 						</Stack>
 						{boardToolsOpen ? (
 							<>
 								<Select
 									name="board"
-									label="Board"
+									label={t("docs.board")}
 									value={activeUuid}
 									onSelect={selectBoard}
 								>
@@ -1027,11 +1036,9 @@ export default function Project() {
 										</option>
 									))}
 								</Select>
-								<Typography variant="h6">Live GPIO</Typography>
+								<Typography variant="h6">{t("gpio.live")}</Typography>
 								<Typography color="secondary">
-									Watch header pins and PWM from the board over the companion
-									API websocket. Tap a GPIO to drive it high or low on that
-									socket.
+									{t("project.liveGpioHint")}
 								</Typography>
 								<GpioPanel
 									uuid={activeUuid}
@@ -1048,9 +1055,9 @@ export default function Project() {
 										}
 									}}
 								/>
-								<Typography variant="subtitle1">Flash Arduino</Typography>
+								<Typography variant="subtitle1">{t("flash.title")}</Typography>
 								<FlashPanel uuid={activeUuid} project={bundle.repo} />
-								<Typography variant="subtitle1">Run on board</Typography>
+								<Typography variant="subtitle1">{t("run.title")}</Typography>
 								<RunPanel uuid={activeUuid} project={bundle.repo} />
 								<VerifyPanel
 									uuid={activeUuid}

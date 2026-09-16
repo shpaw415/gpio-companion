@@ -31,7 +31,10 @@ export default function LoginPanel() {
 	}
 
 	return (
-		<Paper className="mx-auto w-full max-w-md p-6 min-[900px]:p-8" elevation={2}>
+		<Paper
+			className="mx-auto w-full max-w-md p-6 min-[900px]:p-8"
+			elevation={2}
+		>
 			<Typography variant="h5" Element="h1" align="center">
 				{t("auth.signIn")}
 			</Typography>

@@ -14,6 +14,7 @@ import {
 	parseBleHealthBody,
 } from "../ble-health";
 import { useSavedBleId } from "../hooks/useApiCache";
+import { useT } from "../locale";
 
 type RowState = "idle" | "running" | "pass" | "fail" | "skipped";
 
@@ -34,6 +35,7 @@ function emptyRows(): Row[] {
 }
 
 export default function BleHealthRunner({ uuid }: { uuid: string }) {
+	const t = useT();
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
 	const [copied, setCopied] = useState(false);
@@ -66,7 +68,11 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 				) {
 					return row;
 				}
-				return { ...row, state: "skipped", log: `Skipped: ${reason}` };
+				return {
+					...row,
+					state: "skipped",
+					log: t("debug.skipped", { reason }),
+				};
 			}),
 		);
 	}
@@ -131,11 +137,9 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
-			<Typography variant="subtitle2">Bluetooth endpoints</Typography>
+			<Typography variant="subtitle2">{t("debug.bleTitle")}</Typography>
 			<Typography color="secondary" variant="body2">
-				Runtime healthcheck of GATT info plus each companion route the Pi
-				accepts over Bluetooth. WiFi uses a probe SSID that should not exist.
-				GPIO write targets physical pin 1 (power) and must be refused.
+				{t("debug.bleHint")}
 			</Typography>
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 				<Button
@@ -143,21 +147,27 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 					disabled={!uuid || busy}
 					onClick={() => void run()}
 				>
-					{busy ? "Testing…" : "Test Bluetooth"}
+					{busy ? t("debug.testing") : t("debug.testBluetooth")}
 				</Button>
 				<Button
 					variant="outlined"
 					disabled={!hasResults}
 					onClick={() => void copyResults()}
 				>
-					{copied ? "Copied" : "Copy results"}
+					{copied ? t("common.copied") : t("debug.copyResults")}
 				</Button>
 			</Stack>
 			<Stack spacing={1}>
 				{rows.map((row) => (
 					<Stack key={row.id} spacing={0.5}>
 						<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-							<StatusMark state={row.state} />
+							<StatusMark
+								state={row.state}
+								passed={t("debug.passed")}
+								failed={t("debug.failed")}
+								idle={t("debug.idle")}
+								skipped={t("debug.skipped", { reason: "" }).trim()}
+							/>
 							<Typography variant="body2">{row.name}</Typography>
 						</Stack>
 						{row.log ? (
@@ -181,33 +191,45 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 	);
 }
 
-function StatusMark({ state }: { state: RowState }) {
+function StatusMark({
+	state,
+	passed,
+	failed,
+	idle,
+	skipped,
+}: {
+	state: RowState;
+	passed: string;
+	failed: string;
+	idle: string;
+	skipped: string;
+}) {
 	if (state === "running") {
 		return <CircularProgress size="16px" />;
 	}
 	if (state === "pass") {
 		return (
-			<Typography color="success" variant="body2" aria-label="passed">
+			<Typography color="success" variant="body2" aria-label={passed}>
 				✓
 			</Typography>
 		);
 	}
 	if (state === "fail") {
 		return (
-			<Typography color="error" variant="body2" aria-label="failed">
+			<Typography color="error" variant="body2" aria-label={failed}>
 				✕
 			</Typography>
 		);
 	}
 	if (state === "skipped") {
 		return (
-			<Typography color="secondary" variant="body2" aria-label="skipped">
+			<Typography color="secondary" variant="body2" aria-label={skipped}>
 				–
 			</Typography>
 		);
 	}
 	return (
-		<Typography color="secondary" variant="body2" aria-label="idle">
+		<Typography color="secondary" variant="body2" aria-label={idle}>
 			○
 		</Typography>
 	);

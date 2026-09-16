@@ -4,6 +4,8 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { memo } from "react";
 import type { GpioPinState } from "../api";
+import { gpioPinStatusLabel } from "../lib/i18n-labels";
+import { useT } from "../locale";
 
 type GpioPinTone =
 	| "power"
@@ -70,29 +72,6 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 		return "low";
 	}
 	return "idle";
-}
-
-function pinStatusLabel(pin: GpioPinState): string {
-	if (pin.reserved) {
-		return "Reserved";
-	}
-	if (pin.unresolved) {
-		return "Unresolved";
-	}
-	if (typeof pin.hz === "number") {
-		return `tone ${Math.round(pin.hz)} Hz`;
-	}
-	if (typeof pin.analog === "number") {
-		return `PWM ${Math.round(pin.analog)}/255`;
-	}
-	if (typeof pin.pwm === "number") {
-		return `PWM ${Math.round(pin.pwm)}%`;
-	}
-	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
-	if (pin.dir === "in" || pin.dir === "out") {
-		return level ? `${pin.dir} · ${level}` : pin.dir;
-	}
-	return level ?? "—";
 }
 
 function pinStatusKey(pin: GpioPinState): string {
@@ -174,9 +153,10 @@ const HeaderPin = memo(function HeaderPin({
 	selected: boolean;
 	onSelect?: (pin: GpioPinState) => void;
 }) {
+	const t = useT();
 	const selectable = interactive && canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
-	const status = pinStatusLabel(pin);
+	const status = gpioPinStatusLabel(pin, t);
 	const label =
 		pin.type === "gpio" && status !== "—"
 			? `${pin.name || "GPIO"}  ${status}`
@@ -227,7 +207,11 @@ const HeaderPin = memo(function HeaderPin({
 			variant="text"
 			size="small"
 			disabled={busy}
-			aria-label={`Pin ${pin.physical} ${label} ${tone}`}
+			aria-label={t("gpio.pinAria", {
+				physical: pin.physical,
+				label,
+				tone,
+			})}
 			aria-pressed={selected}
 			onClick={() => onSelect?.(pin)}
 			sx={{

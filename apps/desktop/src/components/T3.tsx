@@ -8,9 +8,11 @@ import { deviceDisplayName, t3AppUrl } from "../api";
 import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import { useT3Window } from "../hooks/useT3Window";
+import { useT } from "../locale";
 import { SelectSkeleton } from "./skeletons";
 
 export default function T3() {
+	const t = useT();
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
@@ -46,14 +48,14 @@ export default function T3() {
 					sx={{ flexGrow: 1 }}
 					noWrap
 				>
-					T3 Code
+					{t("t3.title")}
 				</Typography>
 				{loading ? (
 					<SelectSkeleton height={40} />
 				) : (
 					<Select
 						name="board"
-						label="Board"
+						label={t("docs.board")}
 						value={uuid}
 						onSelect={setUuid}
 						disabled={boards.length === 0}
@@ -71,7 +73,7 @@ export default function T3() {
 					disabled={!uuid || t3.busy}
 					onClick={openWindow}
 				>
-					Open in a new window
+					{t("t3.openNewWindow")}
 				</Button>
 			</Stack>
 			<Paper
@@ -90,29 +92,23 @@ export default function T3() {
 					sx={{ alignItems: "center", maxWidth: 420, textAlign: "center" }}
 				>
 					{loading ? null : !uuid ? (
-						<Typography color="secondary">
-							Pair a board to open T3 Code.
-						</Typography>
+						<Typography color="secondary">{t("t3.pairToOpen")}</Typography>
 					) : t3.open ? (
 						<>
-							<Typography color="secondary">
-								T3 Code is open in a window.
-							</Typography>
+							<Typography color="secondary">{t("t3.openInWindow")}</Typography>
 							<Button variant="outlined" onClick={() => void t3.focus()}>
-								Focus window
+								{t("t3.focusWindow")}
 							</Button>
 						</>
 					) : (
 						<>
-							<Typography color="secondary">
-								T3 Code runs in its own window.
-							</Typography>
+							<Typography color="secondary">{t("t3.runsInWindow")}</Typography>
 							<Button
 								variant="contained"
 								disabled={t3.busy}
 								onClick={openWindow}
 							>
-								Open in a new window
+								{t("t3.openNewWindow")}
 							</Button>
 						</>
 					)}

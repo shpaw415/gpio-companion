@@ -69,19 +69,19 @@ export default function ClientWrapper({ children }: { children: JSX.Element }) {
 							<DashboardModeProvider>
 								<AuthProvider>
 									<BoardSelectionProvider>
-									<RouterHost
-										onRouteChange={async (match) => {
-											matched.current = match;
-											setPathname(match.pathname);
-											if (process.env.NODE_ENV === "development") {
-												setDevKey((prev) => prev + 1);
-											}
-											await routeChangePromiseRef.current.promise;
-										}}
-									>
-										{children}
-									</RouterHost>
-									<T3Frame />
+										<RouterHost
+											onRouteChange={async (match) => {
+												matched.current = match;
+												setPathname(match.pathname);
+												if (process.env.NODE_ENV === "development") {
+													setDevKey((prev) => prev + 1);
+												}
+												await routeChangePromiseRef.current.promise;
+											}}
+										>
+											{children}
+										</RouterHost>
+										<T3Frame />
 									</BoardSelectionProvider>
 								</AuthProvider>
 							</DashboardModeProvider>

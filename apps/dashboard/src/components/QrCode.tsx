@@ -1,12 +1,15 @@
 import { encode } from "uqr";
+import { useT } from "../hooks/useLocale.tsx";
 
 export default function QrCode({
 	value,
-	label = "QR code",
+	label,
 }: {
 	value: string;
 	label?: string;
 }) {
+	const t = useT();
+	const caption = label ?? t("t3.qrDefault");
 	const { data, size } = encode(value, { ecc: "M", border: 2 });
 	const modules = data.flatMap((row, y) =>
 		row.flatMap((dark, x) => (dark ? [`${x},${y}`] : [])),
@@ -14,13 +17,13 @@ export default function QrCode({
 	return (
 		<svg
 			role="img"
-			aria-label={label}
+			aria-label={caption}
 			viewBox={`0 0 ${size} ${size}`}
 			width={180}
 			height={180}
 			className="rounded bg-white text-black"
 		>
-			<title>{label}</title>
+			<title>{caption}</title>
 			<rect width={size} height={size} fill="white" />
 			{modules.map((cell) => {
 				const [x, y] = cell.split(",");

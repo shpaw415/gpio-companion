@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Linking } from "react-native";
+import LanguageCard from "../components/LanguageCard.tsx";
 import {
 	Body,
 	ErrorText,
@@ -16,8 +17,7 @@ import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { dashboardUrl } from "../lib/config.ts";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
-import { useT } from "../lib/locale.tsx";
-import LanguageCard from "../components/LanguageCard.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 import Keys from "./Keys.tsx";
 
 export default function Profile() {
@@ -37,7 +37,9 @@ export default function Profile() {
 	return (
 		<Screen>
 			<Title>{t("profile.title")}</Title>
-			<ErrorText>{error || creditsQuery.error}</ErrorText>
+			<ErrorText>
+				{translateError(t, error || creditsQuery.error || "")}
+			</ErrorText>
 			<LanguageCard />
 			<Paper>
 				<Body>{t("profile.account")}</Body>

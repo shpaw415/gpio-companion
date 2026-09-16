@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useColors } from "../lib/color-mode.tsx";
+import { useT } from "../lib/locale.tsx";
 import {
 	MANUAL_NETWORK,
 	networkValue,
@@ -19,18 +20,22 @@ export function SavedWifiPicker({
 	disabled?: boolean;
 }) {
 	const colors = useColors();
+	const t = useT();
 	const [open, setOpen] = useState(false);
 	const options = [
-		{ id: MANUAL_NETWORK, label: "Enter manually" },
+		{ id: MANUAL_NETWORK, label: t("wifi.enterManually") },
 		...networks.map((network) => ({
 			id: networkValue(network.ssid),
 			label: network.ssid,
 		})),
 	];
-	const selected = options.find((option) => option.id === selectedId) ?? options[0];
+	const selected =
+		options.find((option) => option.id === selectedId) ?? options[0];
 	return (
 		<View style={{ gap: 6 }}>
-			<Text style={{ color: colors.text, fontWeight: "600" }}>Saved network</Text>
+			<Text style={{ color: colors.text, fontWeight: "600" }}>
+				{t("wifi.savedNetwork")}
+			</Text>
 			<Pressable
 				disabled={disabled}
 				onPress={() => setOpen((current) => !current)}

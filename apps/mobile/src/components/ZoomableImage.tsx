@@ -9,6 +9,7 @@ import {
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useT } from "../lib/locale.tsx";
 
 export default function ZoomableImage({
 	uri,
@@ -54,6 +55,7 @@ function ZoomModal({
 	title: string;
 	onClose: () => void;
 }) {
+	const t = useT();
 	const insets = useSafeAreaInsets();
 	const { width, height } = Dimensions.get("window");
 	const scale = useRef(1);
@@ -140,7 +142,9 @@ function ZoomModal({
 			>
 				<Text style={{ color: "#e2e8f0", fontWeight: "600" }}>{title}</Text>
 				<Pressable onPress={onClose} style={{ paddingVertical: 8 }}>
-					<Text style={{ color: "#8ab4f8", fontWeight: "600" }}>Close</Text>
+					<Text style={{ color: "#8ab4f8", fontWeight: "600" }}>
+						{t("common.close")}
+					</Text>
 				</Pressable>
 			</View>
 			<View style={{ flex: 1 }} {...responder.panHandlers}>

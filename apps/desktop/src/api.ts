@@ -106,22 +106,35 @@ async function withSavedBle<T>(
 	}
 }
 
-function rssiSuffix(rssi: number | null) {
-	return rssi != null ? ` (${rssi} dBm)` : "";
+function rssiSuffix(
+	rssi: number | null,
+	t?: (key: "ble.rssi", vars: { n: number }) => string,
+) {
+	if (rssi == null) {
+		return "";
+	}
+	return t ? t("ble.rssi", { n: rssi }) : ` (${rssi} dBm)`;
 }
 
-export function nearbyBoardLabel(board: NearbyBoard) {
+export function nearbyBoardLabel(
+	board: NearbyBoard,
+	t?: (
+		key: "ble.rssi" | "ble.nearbyRadio",
+		vars?: Record<string, string | number>,
+	) => string,
+) {
 	const name = board.name.trim();
 	const named = Boolean(name) && !looksLikeMac(name);
+	const rssi = rssiSuffix(board.rssi, t);
 	if (board.matched) {
 		const display = named ? name : "gpio-companion";
 		const extra = board.hardware?.trim() || board.pairingUuid?.slice(0, 8);
 		return extra ? `${display} (${extra})` : display;
 	}
 	if (named) {
-		return `${name}${rssiSuffix(board.rssi)}`;
+		return `${name}${rssi}`;
 	}
-	return `Nearby radio${rssiSuffix(board.rssi)}`;
+	return t ? t("ble.nearbyRadio", { rssi }) : `Nearby radio${rssi}`;
 }
 
 async function call<T>(
@@ -378,12 +391,22 @@ export function wifiRememberNetwork(ssid: string, psk: string) {
 	return call<void>("wifi_remember_network", { ssid, psk });
 }
 
-export function knownNetworkLabel(network: KnownNetwork) {
+export function knownNetworkLabel(
+	network: KnownNetwork,
+	t?: (
+		key: "wifi.thisComputer" | "wifi.saved",
+		vars: { ssid: string },
+	) => string,
+) {
 	if (network.current) {
-		return `${network.ssid} (this computer)`;
+		return t
+			? t("wifi.thisComputer", { ssid: network.ssid })
+			: `${network.ssid} (this computer)`;
 	}
 	if (network.source === "saved") {
-		return `${network.ssid} (saved)`;
+		return t
+			? t("wifi.saved", { ssid: network.ssid })
+			: `${network.ssid} (saved)`;
 	}
 	return network.ssid;
 }

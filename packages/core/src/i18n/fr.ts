@@ -88,7 +88,8 @@ export const fr = {
 		hintSignIn: "Connectez-vous avec GitHub pour commencer.",
 		hintPair:
 			"Associez votre carte depuis Appareils pour graver des croquis et voir les circuits.",
-		hintGithub: "Connectez GitHub une fois pour que les fichiers de projet apparaissent ici.",
+		hintGithub:
+			"Connectez GitHub une fois pour que les fichiers de projet apparaissent ici.",
 		pairABoard: "Associer une carte",
 		connectGithub: "Connecter GitHub",
 		wifiHint:
@@ -96,7 +97,8 @@ export const fr = {
 		setWifi: "Configurer le WiFi",
 		yourProjects: "Vos projets",
 		boardTools: "Outils de la carte",
-		boardToolsHint: "GPIO en direct, Graver Arduino, Exécuter sur la carte, Vérifier le circuit",
+		boardToolsHint:
+			"GPIO en direct, Graver Arduino, Exécuter sur la carte, Vérifier le circuit",
 		show: "Afficher",
 		hide: "Masquer",
 		liveGpioHint:
@@ -155,6 +157,11 @@ export const fr = {
 		noBreadboard: "Pas encore de breadboard/diagram.json sur GitHub.",
 		pairSoCodeOpens: "Associez une carte dans Appareils pour ouvrir Code.",
 		openOnGithub: "Ouvrir sur GitHub",
+		emptyFolder:
+			"Rien dans ce dossier pour l’instant. L’agent y poussera des fichiers.",
+		noBreadboardPreview:
+			"Pas encore de breadboard/preview.svg. Demandez à l’agent de câbler un breadboard.",
+		selectToSee: "Sélectionnez un projet pour voir le PCB et le breadboard.",
 	},
 	devices: {
 		titleEasy: "Ma carte",
@@ -271,6 +278,9 @@ export const fr = {
 			"réclamation copiée — collez dans LightBlue ou nRF Connect pour terminer sur le Pi",
 		statusPaired: "associé",
 		statusUnpaired: "dissocié",
+		claiming: "Réclamation…",
+		selectNearbyFirst: "sélectionnez d’abord un appareil Bluetooth à proximité",
+		scanAgainPick: "scannez à nouveau et choisissez la carte",
 	},
 	wifi: {
 		title: "WiFi en Bluetooth",
@@ -308,6 +318,12 @@ export const fr = {
 		noPaired: "Aucune carte associée. Associez-en une d’abord.",
 		pairedBoard: "Carte associée",
 		connectedTo: "connecté à {ssid}",
+		foundNearby: "{n} à proximité",
+		writing: "Écriture…",
+		sent: "envoyé",
+		chooseBoard: "choisissez d’abord une carte associée",
+		enterNetwork: "saisissez le nom du réseau wifi",
+		passwordPlaceholder: "Mot de passe WiFi",
 	},
 	docs: {
 		title: "Apprendre",
@@ -327,13 +343,14 @@ export const fr = {
 		hardware: "Matériel",
 		forFamily: "Pour les cartes {family}",
 		scopedTo: "Limité à {label}.",
-		pickOrPin: "Choisissez une carte ci-dessus ou épinglez une famille avec les puces.",
+		pickOrPin:
+			"Choisissez une carte ci-dessus ou épinglez une famille avec les puces.",
 		pinned: "Épinglé via les puces de famille ci-dessus.",
 		everyFamily: "Toutes les familles de cartes prises en charge.",
 		pinoutFor: "Brochage et câblage pour {family}.",
-		resultsFor: '{n} résultat(s) pour « {query} »',
+		resultsFor: "{n} résultat(s) pour « {query} »",
 		noMatches:
-			'Aucune documentation ne correspond à « {query} ». Essayez un numéro de broche, un outil (gpioinfo, nmcli, t3) ou un sujet comme l’association ou le WiFi.',
+			"Aucune documentation ne correspond à « {query} ». Essayez un numéro de broche, un outil (gpioinfo, nmcli, t3) ou un sujet comme l’association ou le WiFi.",
 		breadcrumb: "Fil d’Ariane de la documentation",
 		onThisPage: "Sur cette page",
 		matchingSections: "{n} section(s) correspondante(s)",
@@ -399,7 +416,8 @@ export const fr = {
 			"Erreurs de l’API compagnon en direct via WebSocket. Choisissez un Pi en ligne pour vous connecter.",
 		noLiveAdmin:
 			"Aucun compagnon en ligne. Une carte apparaît ici lorsque gpio-companion serve contacte le tableau de bord.",
-		noLiveUser: "Associez une carte, ou attendez que votre compagnon soit en ligne.",
+		noLiveUser:
+			"Associez une carte, ou attendez que votre compagnon soit en ligne.",
 		noLiveNative:
 			"Associez une carte, ou attendez que votre compagnon soit en ligne et débogable en websocket.",
 		diskSnapshot: "L’instantané disque apparaît après le nettoyage horaire.",
@@ -447,6 +465,9 @@ export const fr = {
 		passed: "réussi",
 		failed: "échoué",
 		idle: "inactif",
+		live: "en direct",
+		unpaired: "non associé",
+		wsFailed: "échec du websocket de débogage",
 	},
 	admin: {
 		title: "Admin",
@@ -531,6 +552,11 @@ export const fr = {
 		high: "haut",
 		low: "bas",
 		adc: "adc {n}",
+		wsNotConnected: "le websocket gpio en direct n’est pas connecté",
+		noData: "la carte n’a pas renvoyé le gpio",
+		usb: "USB",
+		inDir: "entrée",
+		outDir: "sortie",
 	},
 	flash: {
 		title: "Graver Arduino",
@@ -573,12 +599,15 @@ export const fr = {
 		finished: "Gravure terminée",
 		ok: "Gravure ok · {fqbn}",
 		serialUsb: "Série (USB)",
+		serialStatus: "Série {status}",
+		timedOut: "gravure expirée — consultez le journal de gravure du Projet",
 	},
 	run: {
 		title: "Exécuter sur la carte",
 		proxyHint:
 			"Les croquis arduino-proxy-* commandent l’Arduino USB. Les croquis d’en-tête restent sur ce compagnon.",
-		selectProject: "Sélectionnez un projet pour voir les croquis hôte sur cette carte.",
+		selectProject:
+			"Sélectionnez un projet pour voir les croquis hôte sur cette carte.",
 		noSketches:
 			"Aucun croquis hôte sur cette carte pour ce projet. Demandez à Code de les écrire sous host/.",
 		start: "Démarrer",
@@ -592,6 +621,7 @@ export const fr = {
 		lastFailed: "Dernière exécution échouée",
 		thenRun: "Croquis C sur le Pi, puis exécution sur cet en-tête.",
 		serialHost: "Série (hôte)",
+		serialStatus: "Série {status}",
 	},
 	verify: {
 		title: "Vérifier le circuit",
@@ -621,10 +651,10 @@ export const fr = {
 			"OpenCode sur le Pi dépense le solde gpio-companion au prix liste Cloudflare Workers AI (jetons entrée/sortie) fois la marge. Un solde vide renvoie 402. Achetez un pack USD avec PayPal ; le montant payé est ajouté en crédits.",
 		paypalMissing: "Le paiement PayPal n’est pas configuré sur cet hôte.",
 		adminStub: "Ajouter 1,00 $ (test admin)",
-		added: "ajouté ${amount}",
+		added: "ajouté {amount} $",
 		granted: "accordé 1,00 $",
 		noCredits: "Pas encore de crédits",
-		balance: "${usd} ({micros} µUSD)",
+		balance: "{usd} $ ({micros} µUSD)",
 		paypalCaptureFailed: "Capture PayPal échouée",
 		paypalCheckoutFailed: "Paiement PayPal échoué",
 		couldNotStartPaypal: "Impossible de démarrer PayPal",
@@ -664,6 +694,7 @@ export const fr = {
 		yes: "oui",
 		no: "non",
 		signInFirst: "Connectez-vous d’abord",
+		serial: "Série {status}",
 	},
 	errors: {
 		t3PairFailed: "Association T3 échouée",
@@ -689,9 +720,22 @@ export const fr = {
 		failedSaveProject: "échec de l’enregistrement du projet",
 		failedLoadBranch: "échec du chargement de la branche",
 		failedStopSketch: "échec de l’arrêt du croquis",
-		noPairingCredentials: "la carte n’a pas renvoyé les identifiants d’association",
+		noPairingCredentials:
+			"la carte n’a pas renvoyé les identifiants d’association",
 		wrongBoard: "cette carte n’est pas l’appareil associé sélectionné",
-		goOnlineBle: "Passez en ligne une fois pour émettre une clé Bluetooth de 24 h",
+		goOnlineBle:
+			"Passez en ligne une fois pour émettre une clé Bluetooth de 24 h",
+		noGpio: "la carte n’a pas renvoyé le gpio",
+		noCompanionInfo: "la carte n’a pas renvoyé les infos compagnon",
+		liveGpioWs: "le websocket gpio en direct n’est pas connecté",
+		flashTimedOut:
+			"gravure expirée — consultez le journal de gravure du Projet",
+		connectFailed: "connexion échouée",
+		bluetoothTestFailed: "test bluetooth échoué",
+		debugWsFailed: "échec du websocket de débogage",
+		noFlash: "la carte n’a pas renvoyé le flash",
+		noRun: "la carte n’a pas renvoyé l’exécution",
+		noVerify: "la carte n’a pas renvoyé la vérification",
 	},
 	ble: {
 		bluetoothName: "Nom Bluetooth",
@@ -727,5 +771,6 @@ export const fr = {
 	companion: {
 		title: "Infos compagnon",
 		json: "JSON",
+		noInfo: "la carte n’a pas renvoyé les infos compagnon",
 	},
 } as const satisfies Messages;

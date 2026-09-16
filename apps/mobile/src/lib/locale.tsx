@@ -2,12 +2,13 @@ import {
 	catalogFor,
 	createTranslator,
 	detectLocale,
-	type LocaleCode,
 	LOCALE_STORAGE_KEY,
+	type LocaleCode,
 	type Messages,
 	parseLocale,
 	type Translate,
-} from "../../../packages/core/src/i18n/index.ts";
+	translateError,
+} from "gpio-companion-i18n";
 import {
 	createContext,
 	type ReactNode,
@@ -71,3 +72,6 @@ export function useT(): Translate<Messages> {
 export function asLocale(value: string): LocaleCode {
 	return parseLocale(value) ?? "en";
 }
+
+export type { MessageKey, Messages, Translate } from "gpio-companion-i18n";
+export { translateError };

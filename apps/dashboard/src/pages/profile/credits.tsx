@@ -10,10 +10,12 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Skeleton from "@shpaw415/mui-lite/Skeleton";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion/i18n";
 import { useEffect, useRef, useState } from "react";
 import { SectionHeader } from "../../components/Section.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useColorMode } from "../../hooks/useColorMode.tsx";
+import { useT } from "../../hooks/useLocale.tsx";
 import { unwrapAction } from "../../lib/action.ts";
 import { isAdmin } from "../../lib/auth/role.ts";
 import {
@@ -32,6 +34,7 @@ type PaypalConfig = {
 
 export default function CreditsPage() {
 	const session = useAuthSession();
+	const t = useT();
 	const { isDark } = useColorMode();
 	const admin = isAdmin(session.data?.role);
 	const [micros, setMicros] = useState<number | null>(null);
@@ -54,10 +57,15 @@ export default function CreditsPage() {
 				setPaypal(unwrapAction(paypalResult));
 			})
 			.catch((caught: unknown) => {
-				setError(caught instanceof Error ? caught.message : "load failed");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "load failed",
+					),
+				);
 			})
 			.finally(() => setCreditsLoading(false));
-	}, [session.data?.id]);
+	}, [session.data?.id, t]);
 
 	useEffect(() => {
 		if (!paypal?.configured || !paypal.clientId) {
@@ -87,17 +95,22 @@ export default function CreditsPage() {
 					try {
 						const next = unwrapAction(await capturePaypalOrder(data.orderID));
 						setMicros(next.micros);
-						setStatus(`added $${pack.toFixed(2)}`);
+						setStatus(t("credits.added", { amount: pack.toFixed(2) }));
 					} catch (caught: unknown) {
 						setError(
-							caught instanceof Error
-								? caught.message
-								: "PayPal capture failed",
+							translateError(
+								t,
+								caught instanceof Error
+									? caught.message
+									: "PayPal capture failed",
+							),
 						);
 					}
 				},
 				onError: (caught) => {
-					setError(caught.message || "PayPal checkout failed");
+					setError(
+						translateError(t, caught.message || "PayPal checkout failed"),
+					);
 				},
 			});
 			if (paypalMountRef.current) {
@@ -106,7 +119,10 @@ export default function CreditsPage() {
 		}
 		void mount().catch((caught: unknown) => {
 			setError(
-				caught instanceof Error ? caught.message : "Could not start PayPal",
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "Could not start PayPal",
+				),
 			);
 		});
 		return () => {
@@ -116,27 +132,23 @@ export default function CreditsPage() {
 				paypalMountRef.current.innerHTML = "";
 			}
 		};
-	}, [paypal?.configured, paypal?.clientId, paypal?.liveMode, pack, isDark]);
+	}, [paypal?.configured, paypal?.clientId, paypal?.liveMode, pack, isDark, t]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
 			<Typography color="secondary">
 				<Button href="/login" variant="text">
-					Sign in
+					{t("auth.signIn")}
 				</Button>{" "}
-				to manage AI credits.
+				{t("auth.toCredits")}
 			</Typography>
 		);
 	}
 
 	return (
 		<Stack spacing={3}>
-			<SectionHeader title="Credits" />
-			<Typography color="secondary">
-				OpenCode on the Pi spends gpio-companion balance at Cloudflare Workers
-				AI list price (in/out tokens) times markup. Empty balance returns 402.
-				Buy a USD pack with PayPal; the paid amount is added as credits.
-			</Typography>
+			<SectionHeader title={t("credits.title")} />
+			<Typography color="secondary">{t("credits.pageHint")}</Typography>
 			<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 				<Stack spacing={2}>
 					{creditsLoading ? (
@@ -146,7 +158,7 @@ export default function CreditsPage() {
 							{micros === null ? "…" : formatUsd(micros)}
 						</Typography>
 					)}
-					<Typography variant="subtitle1">Add credits</Typography>
+					<Typography variant="subtitle1">{t("credits.add")}</Typography>
 					<Stack direction="row" spacing={1} className="flex-wrap gap-2">
 						{CREDIT_PACKS_USD.map((usd) => (
 							<Button
@@ -163,9 +175,7 @@ export default function CreditsPage() {
 					) : paypal?.configured && paypal.clientId ? (
 						<div ref={paypalMountRef} className="min-h-[45px]" />
 					) : (
-						<Alert severity="info">
-							PayPal checkout is not configured on this host.
-						</Alert>
+						<Alert severity="info">{t("credits.paypalMissing")}</Alert>
 					)}
 					{admin ? (
 						<Button
@@ -176,16 +186,21 @@ export default function CreditsPage() {
 								void grantCredits(1)
 									.then((result) => {
 										setMicros(unwrapAction(result).micros);
-										setStatus("granted $1.00");
+										setStatus(t("credits.granted"));
 									})
 									.catch((caught: unknown) => {
 										setError(
-											caught instanceof Error ? caught.message : "grant failed",
+											translateError(
+												t,
+												caught instanceof Error
+													? caught.message
+													: "grant failed",
+											),
 										);
 									});
 							}}
 						>
-							Add $1.00 (admin stub)
+							{t("credits.adminStub")}
 						</Button>
 					) : null}
 					{status ? <Alert severity="success">{status}</Alert> : null}

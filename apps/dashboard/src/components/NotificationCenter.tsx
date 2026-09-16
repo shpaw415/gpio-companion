@@ -5,9 +5,11 @@ import { List, ListItem, ListItemText } from "@shpaw415/mui-lite/List";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion/i18n";
 import { useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { ListSkeleton } from "./skeletons.tsx";
@@ -22,6 +24,7 @@ type Item = {
 export default function NotificationCenter() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const mobile = useMobile();
 	const [items, setItems] = useState<Item[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -43,15 +46,15 @@ export default function NotificationCenter() {
 			.finally(() => {
 				setLoading(false);
 			});
-	}, [session.data?.id]);
+	}, [session.data?.id, run]);
 
 	if (!session.data?.id) {
 		return (
 			<Typography color="secondary">
 				<Button href="/login" variant="text">
-					Sign in
+					{t("auth.signIn")}
 				</Button>{" "}
-				to see pairing requests.
+				{t("auth.toRequests")}
 			</Typography>
 		);
 	}
@@ -59,16 +62,11 @@ export default function NotificationCenter() {
 	return (
 		<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 			<Stack spacing={2}>
-				<Typography>
-					Incoming pairing transfers wait here until you accept or reject.
-					Accept moves the board and revokes T3 Code for the previous session.
-				</Typography>
+				<Typography>{t("requests.hint")}</Typography>
 				{loading ? (
 					<ListSkeleton items={2} />
 				) : items.length === 0 ? (
-					<Typography color="secondary">
-						No pending pairing requests.
-					</Typography>
+					<Typography color="secondary">{t("requests.empty")}</Typography>
 				) : (
 					<List>
 						{items.map((item) => (
@@ -81,7 +79,10 @@ export default function NotificationCenter() {
 								}}
 							>
 								<ListItemText
-									primary={`${item.requesterEmail || item.login} wants ${item.uuid}`}
+									primary={t("requests.wants", {
+										email: item.requesterEmail || item.login,
+										uuid: item.uuid,
+									})}
 									secondary={item.createdAt}
 									className="min-w-0 break-all"
 								/>
@@ -97,7 +98,7 @@ export default function NotificationCenter() {
 											void decideNote({ uuid: item.uuid, action: "accept" })
 												.then(async (result) => {
 													unwrapAction(result);
-													setMessage("transferred");
+													setMessage(t("requests.transferred"));
 													const next = await run(listNotes());
 													if (next) {
 														setItems(next.items);
@@ -105,14 +106,17 @@ export default function NotificationCenter() {
 												})
 												.catch((caught: unknown) => {
 													setError(
-														caught instanceof Error
-															? caught.message
-															: "accept failed",
+														translateError(
+															t,
+															caught instanceof Error
+																? caught.message
+																: "accept failed",
+														),
 													);
 												});
 										}}
 									>
-										Accept
+										{t("requests.accept")}
 									</Button>
 									<Button
 										variant="outlined"
@@ -121,7 +125,7 @@ export default function NotificationCenter() {
 											void decideNote({ uuid: item.uuid, action: "reject" })
 												.then(async (result) => {
 													unwrapAction(result);
-													setMessage("rejected");
+													setMessage(t("requests.rejected"));
 													const next = await run(listNotes());
 													if (next) {
 														setItems(next.items);
@@ -129,14 +133,17 @@ export default function NotificationCenter() {
 												})
 												.catch((caught: unknown) => {
 													setError(
-														caught instanceof Error
-															? caught.message
-															: "reject failed",
+														translateError(
+															t,
+															caught instanceof Error
+																? caught.message
+																: "reject failed",
+														),
 													);
 												});
 										}}
 									>
-										Reject
+										{t("requests.reject")}
 									</Button>
 								</Stack>
 							</ListItem>

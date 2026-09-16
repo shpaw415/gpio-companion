@@ -17,9 +17,11 @@ import {
 	publicDeviceUrl,
 	tunnelHostnames,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import type { StoredPairing } from "../lib/pairing-store.ts";
 import {
@@ -44,6 +46,7 @@ export default function PairForm({
 }) {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const [bleReady, setBleReady] = useState(false);
 	const [deviceUrl, setDeviceUrl] = useState("");
 	const [uuid, setUuid] = useState("");
@@ -89,7 +92,7 @@ export default function PairForm({
 			deviceUrl?: string;
 		};
 		if (!body.uuid || !body.key) {
-			throw new Error("device did not return pairing credentials");
+			throw new Error("board did not return pairing credentials");
 		}
 		setUuid(body.uuid);
 		setKey(body.key);
@@ -98,12 +101,12 @@ export default function PairForm({
 				infoDeviceUrl ||
 				publicDeviceUrl(tunnelHostnames(body.uuid).apiHostname),
 		);
-		setStatus("credentials loaded");
+		setStatus(t("pair.statusCredentialsLoaded"));
 	}
 
 	async function copySignedCommand(
 		envelope: Parameters<typeof envelopeToPasteText>[0],
-		message = "copied — paste in LightBlue or nRF Connect, then read the status JSON",
+		message = t("pair.statusCopiedPaste"),
 	) {
 		const text = envelopeToPasteText(envelope);
 		setPasteText(text);
@@ -113,15 +116,15 @@ export default function PairForm({
 
 	async function retrieveCredentials() {
 		setError("");
-		setStatus("checking Bluetooth…");
+		setStatus(t("pair.statusCheckingBle"));
 		try {
 			const canBle = await bluetoothAvailable();
 			setBleReady(canBle);
 			if (canBle) {
-				setStatus("select a gpio-companion device…");
+				setStatus(t("pair.statusSelectDevice"));
 				try {
 					const ble = await connectGpioCompanionBle(uuid);
-					setStatus("reading pairing…");
+					setStatus(t("pair.statusReading"));
 					const envelope = unwrapAction(await signCredentials());
 					const raw = await ble.sendEnvelope(envelope);
 					ble.disconnect();
@@ -138,18 +141,23 @@ export default function PairForm({
 			await copySignedCommand(envelope);
 		} catch (caught) {
 			setStatus("");
-			setError(caught instanceof Error ? caught.message : "retrieve failed");
+			setError(
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "retrieve failed",
+				),
+			);
 		}
 	}
 
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
 		if (!session.data?.id) {
-			setError("sign in first");
+			setError(t("common.signInFirst"));
 			return;
 		}
 		setError("");
-		setStatus("pairing…");
+		setStatus(t("pair.statusPairing"));
 		try {
 			const body = unwrapAction(
 				await claimPairing({
@@ -159,7 +167,7 @@ export default function PairForm({
 				}),
 			);
 			if ("pending" in body && body.pending) {
-				setStatus("waiting for the current owner to accept in Notifications");
+				setStatus(t("pair.statusWaitingOwner"));
 				setKey("");
 				return;
 			}
@@ -176,17 +184,11 @@ export default function PairForm({
 							setStatus("");
 							return;
 						}
-						await copySignedCommand(
-							body.envelope,
-							"claim copied — paste in LightBlue or nRF Connect to finish on the Pi",
-						);
+						await copySignedCommand(body.envelope, t("pair.statusClaimCopied"));
 						return;
 					}
 				} else {
-					await copySignedCommand(
-						body.envelope,
-						"claim copied — paste in LightBlue or nRF Connect to finish on the Pi",
-					);
+					await copySignedCommand(body.envelope, t("pair.statusClaimCopied"));
 					return;
 				}
 			}
@@ -202,7 +204,7 @@ export default function PairForm({
 			}
 			const boardUuid =
 				"uuid" in body && typeof body.uuid === "string" ? body.uuid : uuid;
-			setStatus("paired");
+			setStatus(t("pair.statusPaired"));
 			setKey("");
 			const listing = await run(getPairing());
 			applyDevices(listing?.devices ?? []);
@@ -211,7 +213,12 @@ export default function PairForm({
 			onComplete?.({ deviceUrl: nextUrl, uuid: boardUuid });
 		} catch (caught) {
 			setStatus("");
-			setError(caught instanceof Error ? caught.message : "pair failed");
+			setError(
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "pair failed",
+				),
+			);
 		}
 	}
 
@@ -219,9 +226,9 @@ export default function PairForm({
 		return (
 			<Typography color="secondary">
 				<Button href="/login" variant="text">
-					Sign in
+					{t("auth.signIn")}
 				</Button>{" "}
-				to pair a board.
+				{t("auth.toPair")}
 			</Typography>
 		);
 	}
@@ -233,8 +240,8 @@ export default function PairForm({
 				{!hideManagedList && devices.length > 0 ? (
 					<Alert severity="success">
 						{devices.length === 1
-							? `Paired as ${paired || devices[0]?.login}`
-							: `${devices.length} boards paired`}
+							? t("pair.pairedAs", { login: paired || devices[0]?.login || "" })
+							: t("pair.nBoardsPaired", { n: devices.length })}
 					</Alert>
 				) : null}
 				<Button
@@ -242,14 +249,10 @@ export default function PairForm({
 					variant="contained"
 					onClick={() => void retrieveCredentials()}
 				>
-					{bleReady
-						? "Connect over Bluetooth"
-						: "Sign Bluetooth pairing command"}
+					{bleReady ? t("pair.connectBle") : t("pair.signBleCommand")}
 				</Button>
 				<Typography variant="body2" color="secondary">
-					{bleReady
-						? "Checks Web Bluetooth, then asks you to select gpio-companion. If that fails, a signed command is copied for LightBlue or nRF Connect."
-						: "Web Bluetooth is unavailable. Paste the signed command into LightBlue or nRF Connect."}{" "}
+					{bleReady ? t("pair.bleReadyHint") : t("pair.bleUnavailableHint")}{" "}
 					<Button href={LIGHTBLUE} variant="text">
 						LightBlue
 					</Button>{" "}
@@ -261,32 +264,35 @@ export default function PairForm({
 				</Typography>
 				{bleReady ? null : (
 					<>
-						<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-						<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
+						<CopyBlock label={t("ble.bluetoothName")} value={BLE_DEVICE_NAME} />
+						<CopyBlock
+							label={t("ble.writeCharacteristic")}
+							value={BLE_CMD_UUID}
+						/>
 					</>
 				)}
 				<TextField
-					label="Device URL"
-					placeholder="https://api-<uuid>.gpio-companion.com (optional)"
+					label={t("pair.deviceUrl")}
+					placeholder={t("pair.deviceUrlPlaceholder")}
 					value={deviceUrl}
 					onChange={(event) => setDeviceUrl(event.target.value)}
 					className="w-full"
 				/>
 				<TextField
-					label="Pairing UUID"
+					label={t("pair.pairingUuid")}
 					value={uuid}
 					onChange={(event) => setUuid(event.target.value)}
 					className="w-full"
 				/>
 				<TextField
-					label="Pairing key"
+					label={t("pair.pairingKey")}
 					type="password"
 					value={key}
 					onChange={(event) => setKey(event.target.value)}
 					className="w-full"
 				/>
 				<Button type="submit" variant="contained">
-					Pair hardware
+					{t("pair.submit")}
 				</Button>
 				{!hideManagedList && devices.length > 0 ? (
 					<>
@@ -295,7 +301,7 @@ export default function PairForm({
 								devices={devices}
 								value={unpairUuid}
 								onChange={setUnpairUuid}
-								label="Unpair device"
+								label={t("pair.unpairDevice")}
 							/>
 						) : null}
 						<Button
@@ -317,16 +323,16 @@ export default function PairForm({
 										setT3Uuid("");
 										setT3AutoStart(false);
 									}
-									setStatus("unpaired");
+									setStatus(t("pair.statusUnpaired"));
 								});
 							}}
 						>
-							Unpair (revokes T3 Code)
+							{t("devices.unpairRevokes")}
 						</Button>
 					</>
 				) : null}
 				{pasteText ? (
-					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+					<CopyBlock label={t("ble.signedCommand")} value={pasteText} />
 				) : null}
 				<T3PairingPanel
 					key={t3Uuid || "t3"}

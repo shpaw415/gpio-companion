@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
-import { nearbyBoardLabel, type NearbyRadio } from "../lib/ble-frame.ts";
+import { type NearbyRadio, nearbyBoardLabel } from "../lib/ble-frame.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { useT } from "../lib/locale.tsx";
 
 export function NearbyPicker({
 	boards,
@@ -16,12 +17,17 @@ export function NearbyPicker({
 	disabled?: boolean;
 }) {
 	const colors = useColors();
+	const t = useT();
 	return (
 		<View style={{ gap: 8 }}>
-			<Text style={{ color: colors.text, fontWeight: "600" }}>Nearby Bluetooth device</Text>
-			{scanning ? <Text style={{ color: colors.muted }}>Scanning…</Text> : null}
+			<Text style={{ color: colors.text, fontWeight: "600" }}>
+				{t("ble.nearbyDevice")}
+			</Text>
+			{scanning ? (
+				<Text style={{ color: colors.muted }}>{t("ble.scanning")}</Text>
+			) : null}
 			{!scanning && boards.length === 0 ? (
-				<Text style={{ color: colors.muted }}>No nearby devices — scan again</Text>
+				<Text style={{ color: colors.muted }}>{t("ble.noNearby")}</Text>
 			) : null}
 			<View style={{ gap: 8 }}>
 				{boards.map((board) => {

@@ -1,30 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { deviceDisplayName, signWifi } from "../lib/api.ts";
-import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
-import { useUserBoards } from "../lib/api-cache.tsx";
-import { useAuth } from "../lib/auth.tsx";
-import { useBoardSelection } from "../lib/board-selection.tsx";
-import { loadLocalBleId } from "../lib/ble-ids.ts";
-import {
-	ensureBluetoothOn,
-	scanNearby,
-	sendEnvelope,
-	type NearbyRadio,
-} from "../lib/ble.ts";
-import { looksLikeMac } from "../lib/ble-frame.ts";
-import { openPairedBoard } from "../lib/paired-ble.ts";
-import { useColors } from "../lib/color-mode.tsx";
-import {
-	loadSavedNetworks,
-	rememberNetwork,
-} from "../lib/wifi-networks-store.ts";
-import {
-	MANUAL_NETWORK,
-	networkValue,
-	ssidFromValue,
-	type SavedNetwork,
-} from "../lib/wifi-networks.ts";
 import { NearbyPicker } from "../components/NearbyPicker.tsx";
 import { SavedWifiPicker } from "../components/SavedWifiPicker.tsx";
 import {
@@ -37,9 +12,36 @@ import {
 	TextButton,
 	Title,
 } from "../components/ui.tsx";
+import { deviceDisplayName, signWifi } from "../lib/api.ts";
+import { useUserBoards } from "../lib/api-cache.tsx";
+import { useAuth } from "../lib/auth.tsx";
+import {
+	ensureBluetoothOn,
+	type NearbyRadio,
+	scanNearby,
+	sendEnvelope,
+} from "../lib/ble.ts";
+import { looksLikeMac } from "../lib/ble-frame.ts";
+import { loadLocalBleId } from "../lib/ble-ids.ts";
+import { useBoardSelection } from "../lib/board-selection.tsx";
+import { useColors } from "../lib/color-mode.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
+import { openPairedBoard } from "../lib/paired-ble.ts";
+import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
+import {
+	MANUAL_NETWORK,
+	networkValue,
+	type SavedNetwork,
+	ssidFromValue,
+} from "../lib/wifi-networks.ts";
+import {
+	loadSavedNetworks,
+	rememberNetwork,
+} from "../lib/wifi-networks-store.ts";
 
 export default function Wifi() {
 	const auth = useAuth();
+	const t = useT();
 	const colors = useColors();
 	const { uuid: selectedUuid, setUuid } = useBoardSelection();
 	const { devices, error: loadError } = useUserBoards();
@@ -77,7 +79,7 @@ export default function Wifi() {
 		const generation = ++scanRef.current;
 		setScanning(true);
 		setError("");
-		setStatus("Scanning nearby Bluetooth…");
+		setStatus(t("pair.scanningNearby"));
 		try {
 			await ensureBluetoothOn();
 			const next = await scanNearby();
@@ -89,8 +91,8 @@ export default function Wifi() {
 			setBoardId(pick);
 			setStatus(
 				next.length === 0
-					? "No nearby devices — move closer and scan again"
-					: `Found ${next.length} nearby`,
+					? t("pair.noNearbyMoveCloser")
+					: t("wifi.foundNearby", { n: next.length }),
 			);
 		} catch (caught) {
 			if (scanRef.current !== generation) {
@@ -103,7 +105,7 @@ export default function Wifi() {
 				setScanning(false);
 			}
 		}
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -120,11 +122,11 @@ export default function Wifi() {
 	useEffect(() => {
 		if (savedId) {
 			setBoardId(savedId);
-			setStatus("Using saved Bluetooth link");
+			setStatus(t("wifi.usingSavedLink"));
 			return;
 		}
 		void scan();
-	}, [scan, savedId]);
+	}, [scan, savedId, t]);
 
 	function pickNetwork(next: string) {
 		setNetworkId(next);
@@ -149,39 +151,39 @@ export default function Wifi() {
 			return;
 		}
 		if (!uuid) {
-			setError("choose a paired board first");
+			setError(t("wifi.chooseBoard"));
 			return;
 		}
 		if (!ssid.trim()) {
-			setError("enter the wifi network name");
+			setError(t("wifi.enterNetwork"));
 			return;
 		}
 		if (psk.length < 8) {
-			setError("wifi password must be at least 8 characters");
+			setError(t("wifi.passwordMin"));
 			return;
 		}
 		setBusy(true);
 		setError("");
 		try {
-			setStatus("Connecting…");
+			setStatus(t("wifi.connecting"));
 			const paired = await openPairedBoard(uuid, {
 				token: auth.token,
 				bleMac: savedMac || (looksLikeMac(boardId) ? boardId : ""),
 			});
 			try {
-				setStatus("Signing WiFi…");
+				setStatus(t("wifi.signing"));
 				const envelope = await signWifi(auth.token, {
 					uuid,
 					ssid: ssid.trim(),
 					psk,
 				});
-				setStatus("Writing…");
+				setStatus(t("wifi.writing"));
 				const raw = await sendEnvelope(
 					paired.session.device,
 					envelope,
 					paired.loss,
 				);
-				setStatus(raw || "sent");
+				setStatus(raw || t("wifi.sent"));
 				try {
 					const next = await rememberNetwork(ssid.trim(), psk);
 					setNetworks(next);
@@ -202,15 +204,12 @@ export default function Wifi() {
 
 	return (
 		<Screen>
-			<Title>WiFi over Bluetooth</Title>
+			<Title>{t("wifi.title")}</Title>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
-			<Muted>
-				Pick the Pi in Nearby Bluetooth device, then send the network name and password.
-				Choose a saved network to fill both, or enter them manually.
-			</Muted>
-			<Muted>Paired board</Muted>
+			<Muted>{t("wifi.mobileHint")}</Muted>
+			<Muted>{t("wifi.pairedBoard")}</Muted>
 			{devices.length === 0 ? (
-				<Muted>No paired boards yet. Pair one first.</Muted>
+				<Muted>{t("wifi.noPaired")}</Muted>
 			) : (
 				<View style={{ gap: 8 }}>
 					{devices.map((board) => {
@@ -263,7 +262,7 @@ export default function Wifi() {
 				disabled={busy}
 			/>
 			<TextButton
-				label="Scan nearby"
+				label={t("pair.scanNearby")}
 				disabled={scanning || busy}
 				onPress={() => void scan()}
 			/>
@@ -273,23 +272,28 @@ export default function Wifi() {
 				onSelect={pickNetwork}
 				disabled={busy}
 			/>
-			<Field label="Network name" value={ssid} onChangeText={setSsid} placeholder="SSID" />
 			<Field
-				label="Password"
+				label={t("wifi.networkName")}
+				value={ssid}
+				onChangeText={setSsid}
+				placeholder={t("wifi.ssid")}
+			/>
+			<Field
+				label={t("wifi.password")}
 				value={psk}
 				onChangeText={setPsk}
-				placeholder="WiFi password"
+				placeholder={t("wifi.passwordPlaceholder")}
 				secure={!showPassword}
 			/>
 			<TextButton
-				label={showPassword ? "Hide password" : "Show password"}
+				label={showPassword ? t("wifi.hidePassword") : t("wifi.showPassword")}
 				onPress={() => setShowPassword((current) => !current)}
 			/>
 			{status ? <Muted>{status}</Muted> : null}
-			<ErrorText>{error || loadError}</ErrorText>
+			<ErrorText>{translateError(t, error || loadError || "")}</ErrorText>
 			<Busy show={busy || scanning} />
 			<PrimaryButton
-				label="Send to board"
+				label={t("wifi.send")}
 				disabled={busy || scanning || !uuid || !boardId}
 				onPress={() => void send()}
 			/>

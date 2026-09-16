@@ -116,20 +116,30 @@ export function isOfflineSignFallback(error: unknown): boolean {
 	);
 }
 
-export function shouldMintOfflineKey(record: OfflineGrantBundle | null, now = Date.now()) {
+export function shouldMintOfflineKey(
+	record: OfflineGrantBundle | null,
+	now = Date.now(),
+) {
 	if (!record) {
 		return true;
 	}
 	return record.exp - now <= 60 * 60 * 1000;
 }
 
-export function offlineKeyLabel(record: OfflineGrantBundle | null, now = Date.now()) {
+export function offlineKeyLabel(
+	record: OfflineGrantBundle | null,
+	now = Date.now(),
+	t?: (
+		key: "ble.offlineNotIssued" | "ble.offlineExpired" | "ble.offlineLeft",
+		vars?: { hours: number },
+	) => string,
+) {
 	if (!record) {
-		return "Offline BLE key not issued";
+		return t ? t("ble.offlineNotIssued") : "Offline BLE key not issued";
 	}
 	if (record.exp <= now) {
-		return "Offline BLE key expired";
+		return t ? t("ble.offlineExpired") : "Offline BLE key expired";
 	}
 	const hours = Math.max(0, Math.floor((record.exp - now) / 3_600_000));
-	return `Offline BLE · ${hours}h left`;
+	return t ? t("ble.offlineLeft", { hours }) : `Offline BLE · ${hours}h left`;
 }

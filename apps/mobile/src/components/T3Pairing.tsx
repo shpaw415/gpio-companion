@@ -3,6 +3,7 @@ import { Linking } from "react-native";
 import { startT3Pair, type T3Status } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 import { tokenFromPairing } from "../lib/t3.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { ErrorText, Muted, Row, TextButton } from "./ui.tsx";
@@ -15,6 +16,7 @@ export default function T3Pairing({
 	initial?: T3Status;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const { openT3Pair } = useBoardSelection();
 	const [status, setStatus] = useState<T3Status | undefined>(initial);
 	const [busy, setBusy] = useState(false);
@@ -47,36 +49,34 @@ export default function T3Pairing({
 
 	return (
 		<>
-			<ErrorText>{error}</ErrorText>
-			{status?.paired ? (
-				<Muted>T3 Code is paired. Mint a new link anytime to pair another session.</Muted>
-			) : null}
+			<ErrorText>{translateError(t, error)}</ErrorText>
+			{status?.paired ? <Muted>{t("t3.pairedHint")}</Muted> : null}
 			<Row>
 				<TextButton
 					disabled={busy || !uuid}
 					label={
 						busy
-							? "Minting T3 link…"
+							? t("t3.minting")
 							: status?.pairingUrl || status?.paired
-								? "New pairing link"
-								: "Pair T3 Code"
+								? t("t3.newLink")
+								: t("t3.pairT3")
 					}
 					onPress={() => void pair()}
 				/>
 				{status?.pairingUrl ? (
 					<TextButton
-						label="Open pairing URL"
+						label={t("t3.openPairingUrl")}
 						onPress={() => void Linking.openURL(status.pairingUrl ?? "")}
 					/>
 				) : null}
 				{token ? (
 					<TextButton
-						label="Open in dashboard"
+						label={t("t3.openInDashboard")}
 						onPress={() => openT3Pair(uuid, token)}
 					/>
 				) : null}
 			</Row>
-			{token ? <Muted>Pair code: {token}</Muted> : null}
+			{token ? <Muted>{t("t3.pairCode", { token })}</Muted> : null}
 		</>
 	);
 }

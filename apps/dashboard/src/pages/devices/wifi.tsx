@@ -2,16 +2,14 @@ import WifiBleForm from "@components/WifiBleForm";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { SectionHeader } from "../../components/Section.tsx";
+import { useT } from "../../hooks/useLocale.tsx";
 
 export default function WifiPage() {
+	const t = useT();
 	return (
 		<Stack spacing={3}>
-			<SectionHeader title="WiFi over Bluetooth" />
-			<Typography color="secondary">
-				Put a paired board on your Wi‑Fi from this phone or computer. Chrome or
-				Edge can talk to the board over Bluetooth. On iOS, sign and copy, then
-				paste into LightBlue or nRF Connect.
-			</Typography>
+			<SectionHeader title={t("wifi.title")} />
+			<Typography color="secondary">{t("wifi.webHint")}</Typography>
 			<WifiBleForm />
 		</Stack>
 	);

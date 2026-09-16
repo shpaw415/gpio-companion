@@ -1,16 +1,14 @@
-import {
-	DEFAULT_LOCALE,
-	type LocaleCode,
-	parseLocale,
-} from "./locales.ts";
+import { DEFAULT_LOCALE, type LocaleCode, parseLocale } from "./locales.ts";
 
 export function detectDeviceLocale(tag?: string | null): string | null {
 	if (tag) {
 		return tag;
 	}
 	try {
-		if (typeof navigator !== "undefined" && navigator.language) {
-			return navigator.language;
+		const language = (globalThis as { navigator?: { language?: string } })
+			.navigator?.language;
+		if (language) {
+			return language;
 		}
 	} catch {
 		return null;

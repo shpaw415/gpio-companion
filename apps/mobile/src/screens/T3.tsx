@@ -1,14 +1,16 @@
 import { useEffect, useRef } from "react";
 import { Linking, Pressable, Text, View } from "react-native";
+import { Muted, Skeleton } from "../components/ui.tsx";
 import { deviceDisplayName } from "../lib/api.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import { useT } from "../lib/locale.tsx";
 import { t3AppUrl } from "../lib/t3.ts";
-import { Muted, Skeleton } from "../components/ui.tsx";
 
 export default function T3() {
 	const colors = useColors();
+	const t = useT();
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
 	uuidRef.current = uuid;
@@ -25,8 +27,17 @@ export default function T3() {
 
 	return (
 		<View style={{ gap: 8, paddingHorizontal: 12, paddingTop: 8 }}>
-			<View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-				<Text style={{ color: colors.text, fontWeight: "600", flexGrow: 1 }}>T3 Code</Text>
+			<View
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					gap: 8,
+					flexWrap: "wrap",
+				}}
+			>
+				<Text style={{ color: colors.text, fontWeight: "600", flexGrow: 1 }}>
+					{t("t3.title")}
+				</Text>
 				{loading ? (
 					<Skeleton height={36} />
 				) : (
@@ -45,7 +56,9 @@ export default function T3() {
 										paddingVertical: 6,
 									}}
 								>
-									<Text style={{ color: selected ? colors.primary : colors.text }}>
+									<Text
+										style={{ color: selected ? colors.primary : colors.text }}
+									>
 										{deviceDisplayName(board.device)}
 									</Text>
 								</Pressable>
@@ -53,11 +66,16 @@ export default function T3() {
 						})}
 					</View>
 				)}
-				<Pressable disabled={!uuid} onPress={() => void Linking.openURL(t3AppUrl(uuid))}>
-					<Text style={{ color: colors.primary, fontWeight: "600" }}>Open in browser</Text>
+				<Pressable
+					disabled={!uuid}
+					onPress={() => void Linking.openURL(t3AppUrl(uuid))}
+				>
+					<Text style={{ color: colors.primary, fontWeight: "600" }}>
+						{t("t3.openInBrowser")}
+					</Text>
 				</Pressable>
 			</View>
-			{loading || uuid ? null : <Muted>Pair a board to embed T3 Code.</Muted>}
+			{loading || uuid ? null : <Muted>{t("t3.pairToEmbed")}</Muted>}
 		</View>
 	);
 }

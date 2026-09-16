@@ -2,6 +2,12 @@ import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { GpioPinState } from "../lib/api.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import {
+	type Messages,
+	type Translate,
+	useLocale,
+	useT,
+} from "../lib/locale.tsx";
 
 type GpioPinTone =
 	| "power"
@@ -58,27 +64,43 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	return "idle";
 }
 
-function pinStatusLabel(pin: GpioPinState): string {
+function pinStatusLabel(pin: GpioPinState, t: Translate<Messages>): string {
 	if (pin.reserved) {
-		return "Reserved";
+		return t("gpio.reserved");
 	}
 	if (pin.unresolved) {
-		return "Unresolved";
+		return t("gpio.unresolved");
 	}
 	if (typeof pin.hz === "number") {
-		return `tone ${Math.round(pin.hz)} Hz`;
+		return t("gpio.toneHz", { n: Math.round(pin.hz) });
 	}
 	if (typeof pin.analog === "number") {
-		return `PWM ${Math.round(pin.analog)}/255`;
+		return t("gpio.pwmDuty", { n: Math.round(pin.analog) });
 	}
 	if (typeof pin.pwm === "number") {
-		return `PWM ${Math.round(pin.pwm)}%`;
+		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
-	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
-	if (pin.dir === "in" || pin.dir === "out") {
-		return level ? `${pin.dir} · ${level}` : pin.dir;
+	if (pin.dir === "in") {
+		return pin.value === 1
+			? t("gpio.inHigh")
+			: pin.value === 0
+				? t("gpio.inLow")
+				: pin.dir;
 	}
-	return level ?? "—";
+	if (pin.dir === "out") {
+		return pin.value === 1
+			? t("gpio.outHigh")
+			: pin.value === 0
+				? t("gpio.outLow")
+				: pin.dir;
+	}
+	if (pin.value === 1) {
+		return t("gpio.high");
+	}
+	if (pin.value === 0) {
+		return t("gpio.low");
+	}
+	return "—";
 }
 
 function pinStatusKey(pin: GpioPinState): string {
@@ -107,6 +129,7 @@ export default function GpioHeader({
 	onSelect?: (pin: GpioPinState) => void;
 }) {
 	const colors = useColors();
+	const { locale } = useLocale();
 	const source = pins.length > 0 ? pins : placeholderPins();
 	const toneColor: Record<GpioPinTone, string> = {
 		power: colors.warning,
@@ -140,6 +163,7 @@ export default function GpioHeader({
 							selected={selected === odd.physical}
 							dot={toneColor[gpioPinTone(odd)]}
 							ring={colors.primary}
+							locale={locale}
 							onSelect={onSelect}
 						/>
 						<HeaderPin
@@ -150,6 +174,7 @@ export default function GpioHeader({
 							selected={selected === even.physical}
 							dot={toneColor[gpioPinTone(even)]}
 							ring={colors.primary}
+							locale={locale}
 							onSelect={onSelect}
 						/>
 					</View>
@@ -176,11 +201,13 @@ const HeaderPin = memo(function HeaderPin({
 	selected: boolean;
 	dot: string;
 	ring: string;
+	locale: string;
 	onSelect?: (pin: GpioPinState) => void;
 }) {
 	const colors = useColors();
+	const t = useT();
 	const selectable = interactive && canDriveGpio(pin) && !busy;
-	const status = pinStatusLabel(pin);
+	const status = pinStatusLabel(pin, t);
 	const label =
 		pin.type === "gpio" && status !== "—"
 			? `${pin.name || "GPIO"}  ${status}`
@@ -222,7 +249,7 @@ const HeaderPin = memo(function HeaderPin({
 		<Pressable
 			style={{ flex: 1, minWidth: 0 }}
 			onPress={() => onSelect?.(pin)}
-			accessibilityLabel={`Pin ${pin.physical} ${label}`}
+			accessibilityLabel={t("gpio.pin", { n: pin.physical, name: label })}
 			accessibilityState={{ selected }}
 		>
 			{content}
@@ -238,6 +265,7 @@ function headerPinEqual(
 		selected: boolean;
 		dot: string;
 		ring: string;
+		locale: string;
 		onSelect?: (pin: GpioPinState) => void;
 	},
 	next: {
@@ -247,6 +275,7 @@ function headerPinEqual(
 		selected: boolean;
 		dot: string;
 		ring: string;
+		locale: string;
 		onSelect?: (pin: GpioPinState) => void;
 	},
 ) {
@@ -256,6 +285,7 @@ function headerPinEqual(
 		prev.selected === next.selected &&
 		prev.dot === next.dot &&
 		prev.ring === next.ring &&
+		prev.locale === next.locale &&
 		prev.onSelect === next.onSelect &&
 		pinStatusKey(prev.pin) === pinStatusKey(next.pin)
 	);

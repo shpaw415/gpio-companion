@@ -9,16 +9,20 @@ import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import {
 	DOC_HARDWARE_LABELS,
-	DOCS,
 	type DocHardware,
+	docsForLocale,
 	docSections,
 	findDoc,
 	hardwareFromStatus,
 	searchDocs,
 } from "../lib/docs";
+import { useLocale, useT } from "../locale";
 import DocsMarkdown from "./DocsMarkdown";
 
 export default function Docs() {
+	const t = useT();
+	const { locale } = useLocale();
+	const docs = useMemo(() => docsForLocale(locale), [locale]);
 	const { uuid } = useBoardSelection();
 	const [query, setQuery] = useState("");
 	const [family, setFamily] = useState<DocHardware | "all">("all");
@@ -32,7 +36,7 @@ export default function Docs() {
 	);
 
 	const catalog = useMemo(() => {
-		return DOCS.filter((entry) => {
+		return docs.filter((entry) => {
 			if (entry.group !== "hardware") {
 				return true;
 			}
@@ -40,20 +44,25 @@ export default function Docs() {
 				return true;
 			}
 			return entry.hardware === family;
-		});
-	}, [family]);
+		}).map((entry) => ({
+			...entry,
+			title: t(entry.titleKey),
+			description: t(entry.descriptionKey),
+		}));
+	}, [docs, family, t]);
 
 	const hits = useMemo(() => searchDocs(query, catalog), [query, catalog]);
-	const doc = findDoc(docId);
+	const doc = findDoc(docId, docs);
+	const docTitle = doc ? t(doc.titleKey) : "";
 
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Docs
+				{t("docs.docsTitle")}
 			</Typography>
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
 				<Chip
-					label="All"
+					label={t("docs.all")}
 					variant={family === "all" ? "filled" : "outlined"}
 					onClick={() => setFamily("all")}
 				/>
@@ -68,17 +77,17 @@ export default function Docs() {
 				))}
 			</Stack>
 			<TextField
-				label="Search"
+				label={t("docs.search")}
 				value={query}
 				onChange={(event) => setQuery(event.target.value)}
 			/>
 			{doc ? (
 				<Paper sx={{ p: 3 }} elevation={1}>
 					<Button variant="text" onClick={() => setDocId("")}>
-						Back to catalog
+						{t("docs.backToCatalog")}
 					</Button>
 					<Typography variant="h6" sx={{ mt: 1 }}>
-						{doc.title}
+						{docTitle}
 					</Typography>
 					<Stack spacing={0.5} sx={{ mt: 2, mb: 3 }}>
 						{docSections(doc.content)
@@ -105,30 +114,28 @@ export default function Docs() {
 					</Stack>
 					<DocsMarkdown content={doc.content} onOpenDoc={setDocId} />
 				</Paper>
+			) : hits.length > 0 ? (
+				hits.map((hit) => (
+					<Paper
+						key={`${hit.docId}-${hit.sectionTitle}`}
+						sx={{ p: 2 }}
+						elevation={1}
+					>
+						<Button variant="text" onClick={() => setDocId(hit.docId)}>
+							{hit.docTitle}
+						</Button>
+						<Typography color="secondary">{hit.snippet}</Typography>
+					</Paper>
+				))
 			) : (
-				<>
-					{hits.length > 0
-						? hits.map((hit) => (
-								<Paper
-									key={`${hit.docId}-${hit.sectionTitle}`}
-									sx={{ p: 2 }}
-									elevation={1}
-								>
-									<Button variant="text" onClick={() => setDocId(hit.docId)}>
-										{hit.docTitle}
-									</Button>
-									<Typography color="secondary">{hit.snippet}</Typography>
-								</Paper>
-							))
-						: catalog.map((entry) => (
-								<Paper key={entry.id} sx={{ p: 2 }} elevation={1}>
-									<Button variant="text" onClick={() => setDocId(entry.id)}>
-										{entry.title}
-									</Button>
-									<Typography color="secondary">{entry.description}</Typography>
-								</Paper>
-							))}
-				</>
+				catalog.map((entry) => (
+					<Paper key={entry.id} sx={{ p: 2 }} elevation={1}>
+						<Button variant="text" onClick={() => setDocId(entry.id)}>
+							{entry.title}
+						</Button>
+						<Typography color="secondary">{entry.description}</Typography>
+					</Paper>
+				))
 			)}
 		</Stack>
 	);

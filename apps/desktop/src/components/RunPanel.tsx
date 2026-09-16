@@ -4,6 +4,7 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
@@ -18,6 +19,8 @@ import { useSavedBleId } from "../hooks/useApiCache";
 import { useConsoleTunnel } from "../hooks/useConsoleTunnel";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import { consoleStatusLabel } from "../lib/i18n-labels";
+import { useT } from "../locale";
 
 export default function RunPanel({
 	uuid,
@@ -26,6 +29,7 @@ export default function RunPanel({
 	uuid: string;
 	project?: string;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<RunStatus | null>(null);
@@ -96,7 +100,7 @@ export default function RunPanel({
 
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
-			<Typography variant="subtitle2">Run on board</Typography>
+			<Typography variant="subtitle2">{t("run.title")}</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
@@ -104,21 +108,25 @@ export default function RunPanel({
 			) : null}
 			{legacy ? (
 				<TextField
-					label="Sketch dir on the Pi"
+					label={t("flash.sketchDir")}
 					value={dir}
 					onChange={(event) => setDir(event.target.value)}
 				/>
 			) : !project ? (
 				<Typography color="secondary" variant="body2">
-					Select a project to see host sketches on this board.
+					{t("run.selectProject")}
 				</Typography>
 			) : listed.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					No host sketches on this board for this project. Ask Code to write
-					them under host/.
+					{t("run.noSketches")}
 				</Typography>
 			) : (
-				<Select name="host-sketch" label="Sketch" value={dir} onSelect={setDir}>
+				<Select
+					name="host-sketch"
+					label={t("flash.sketch")}
+					value={dir}
+					onSelect={setDir}
+				>
 					{listed.map((item) => (
 						<option key={item.dir} value={item.dir}>
 							{item.name}
@@ -138,7 +146,7 @@ export default function RunPanel({
 						});
 					}}
 				>
-					Start
+					{t("run.start")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -151,7 +159,7 @@ export default function RunPanel({
 						});
 					}}
 				>
-					Stop
+					{t("run.stop")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -163,7 +171,7 @@ export default function RunPanel({
 						});
 					}}
 				>
-					Start over Bluetooth
+					{t("run.startBle")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -175,21 +183,23 @@ export default function RunPanel({
 						});
 					}}
 				>
-					Stop over Bluetooth
+					{t("run.stopBle")}
 				</Button>
 			</Stack>
-			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? (
+				<Alert severity="error">{translateError(t, error)}</Alert>
+			) : null}
 			<Typography color="secondary" variant="body2">
 				{status?.running
-					? "Running on companion GPIO…"
+					? t("run.running")
 					: status?.last
 						? status.last.ok
-							? "Last run exited 0"
-							: "Last run failed"
-						: "C sketch on the Pi, then run on this header."}
+							? t("run.lastOk")
+							: t("run.lastFailed")
+						: t("run.thenRun")}
 			</Typography>
 			<Typography variant="caption" color="secondary">
-				Serial {serial.status}
+				{t("common.serial", { status: consoleStatusLabel(serial.status, t) })}
 			</Typography>
 			{log ? (
 				<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>

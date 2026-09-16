@@ -12,6 +12,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import type { Messages, Translate } from "gpio-companion/i18n";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { DeviceStatus } from "../../../components/DeviceBoardCard.tsx";
 import DeviceSelect from "../../../components/DeviceSelect.tsx";
@@ -21,14 +22,15 @@ import { SelectSkeleton } from "../../../components/skeletons.tsx";
 import { useActionError } from "../../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../../hooks/useBoardSelection.tsx";
+import { useLocale, useT } from "../../../hooks/useLocale.tsx";
 import useMobile from "../../../hooks/useMobile.ts";
 import { searchDocs } from "../../../lib/doc-search.ts";
 import {
 	DOC_HARDWARE_LABELS,
-	DOCS,
 	type DocEntry,
 	type DocHardware,
 	docSections,
+	docsForLocale,
 	docUrl,
 	findDoc,
 } from "../../../lib/docs.ts";
@@ -44,6 +46,51 @@ function readDocIdParam(): string {
 		return "";
 	}
 	return new URLSearchParams(window.location.search).get("id")?.trim() ?? "";
+}
+
+function docCopy(
+	t: Translate<Messages>,
+	doc: { id: string; title: string; description: string },
+) {
+	switch (doc.id) {
+		case "getting-started":
+			return {
+				title: t("docs.gettingStartedTitle"),
+				description: t("docs.gettingStartedDesc"),
+			};
+		case "user-guide":
+			return {
+				title: t("docs.userGuideTitle"),
+				description: t("docs.userGuideDesc"),
+			};
+		case "wifi-bluetooth":
+			return {
+				title: t("docs.wifiBluetoothTitle"),
+				description: t("docs.wifiBluetoothDesc"),
+			};
+		case "workflows":
+			return {
+				title: t("docs.workflowsTitle"),
+				description: t("docs.workflowsDesc"),
+			};
+		case "storage":
+			return {
+				title: t("docs.storageTitle"),
+				description: t("docs.storageDesc"),
+			};
+		case "pinout-raspberrypi":
+			return {
+				title: t("docs.pinoutPiTitle"),
+				description: t("docs.pinoutPiDesc"),
+			};
+		case "pinout-orangepi":
+			return {
+				title: t("docs.pinoutOrangeTitle"),
+				description: t("docs.pinoutOrangeDesc"),
+			};
+		default:
+			return { title: doc.title, description: doc.description };
+	}
 }
 
 function asDocHardware(value: string | undefined): DocHardware | null {
@@ -87,7 +134,10 @@ function highlight(text: string, query: string): ReactNode[] {
 export default function DocsPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
+	const { locale } = useLocale();
 	const mobile = useMobile();
+	const docs = useMemo(() => docsForLocale(locale), [locale]);
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [boards, setBoards] = useState<BoardView[]>([]);
@@ -98,7 +148,7 @@ export default function DocsPage() {
 	>(null);
 	const [docId] = useState(readDocIdParam);
 
-	const doc = findDoc(docId);
+	const doc = findDoc(docId, docs);
 	if (docId && !doc) {
 		ThrowNotFound();
 	}
@@ -148,16 +198,19 @@ export default function DocsPage() {
 		familyOverride ?? boardHardware ?? "all";
 
 	const results = useMemo(
-		() => (query.trim() ? searchDocs(query, DOCS) : []),
-		[query],
+		() => (query.trim() ? searchDocs(query, docs) : []),
+		[docs, query],
 	);
-	const guides = useMemo(() => DOCS.filter((d) => d.group === "guides"), []);
+	const guides = useMemo(
+		() => docs.filter((d) => d.group === "guides"),
+		[docs],
+	);
 	const hardwareDocs = useMemo(
 		() =>
 			familyFocus === "all"
-				? DOCS.filter((d) => d.group === "hardware")
-				: DOCS.filter((d) => d.hardware === familyFocus),
-		[familyFocus],
+				? docs.filter((d) => d.group === "hardware")
+				: docs.filter((d) => d.hardware === familyFocus),
+		[docs, familyFocus],
 	);
 
 	useEffect(() => {
@@ -195,11 +248,9 @@ export default function DocsPage() {
 
 	return (
 		<Stack spacing={3}>
-			<SectionHeader title="Learn">
+			<SectionHeader title={t("docs.title")}>
 				{mobile ? null : (
-					<Typography color="secondary">
-						Guides, wiring, and pinouts for the selected board.
-					</Typography>
+					<Typography color="secondary">{t("docs.subtitle")}</Typography>
 				)}
 			</SectionHeader>
 
@@ -217,13 +268,11 @@ export default function DocsPage() {
 								devices={boards.map((board) => board.device)}
 								value={selectedUuid}
 								onChange={selectBoard}
-								label="Board"
+								label={t("docs.board")}
 							/>
 						) : (
 							<Typography color="secondary">
-								{loggedIn
-									? "No paired board yet — docs below cover every family."
-									: "Sign in and pair a board to scope these docs to its hardware."}
+								{loggedIn ? t("docs.noBoardYet") : t("docs.signInToScope")}
 							</Typography>
 						)}
 					</Box>
@@ -234,7 +283,11 @@ export default function DocsPage() {
 							className="flex-wrap items-center"
 						>
 							<Chip
-								label={selectedBoard.status ? "Online" : "Offline"}
+								label={
+									selectedBoard.status
+										? t("devices.online")
+										: t("devices.offline")
+								}
 								color={selectedBoard.status ? "success" : "secondary"}
 								variant="outlined"
 								size="small"
@@ -251,7 +304,7 @@ export default function DocsPage() {
 					className="mt-2 flex-wrap items-center"
 				>
 					<Typography variant="body2" color="secondary">
-						Board docs:
+						{t("docs.boardDocs")}
 					</Typography>
 					{(["raspberrypi", "orangepi"] as const).map((family) => (
 						<Chip
@@ -264,7 +317,7 @@ export default function DocsPage() {
 						/>
 					))}
 					<Chip
-						label="All"
+						label={t("docs.all")}
 						color={familyFocus === "all" ? "primary" : undefined}
 						variant={familyFocus === "all" ? "filled" : "outlined"}
 						size="small"
@@ -275,7 +328,7 @@ export default function DocsPage() {
 
 			<Box className="w-full max-w-xl">
 				<TextField
-					label="Search documentation"
+					label={t("docs.search")}
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
 					className="w-full"
@@ -286,8 +339,10 @@ export default function DocsPage() {
 			{query.trim() ? (
 				<Stack spacing={2}>
 					<Typography variant="h6">
-						{results.length} result{results.length === 1 ? "" : "s"} for “
-						{query.trim()}”
+						{t("docs.resultsFor", {
+							n: results.length,
+							query: query.trim(),
+						})}
 					</Typography>
 					{results.map((hit) => (
 						<Paper
@@ -298,7 +353,13 @@ export default function DocsPage() {
 							<Stack spacing={1}>
 								<Typography variant="subtitle1">
 									<Link href={docUrl(hit.docId, hit.sectionId)}>
-										{hit.docTitle}
+										{
+											docCopy(t, {
+												id: hit.docId,
+												title: hit.docTitle,
+												description: "",
+											}).title
+										}
 										{hit.sectionTitle ? ` — ${hit.sectionTitle}` : ""}
 									</Link>
 								</Typography>
@@ -310,47 +371,58 @@ export default function DocsPage() {
 					))}
 					{results.length === 0 ? (
 						<Alert severity="info">
-							No documentation matches “{query.trim()}”. Try a pin number, a
-							tool name (gpioinfo, nmcli, t3), or a topic like pairing or WiFi.
+							{t("docs.noMatches", { query: query.trim() })}
 						</Alert>
 					) : null}
 				</Stack>
 			) : (
 				<Stack spacing={4}>
 					<SectionHub
-						description="Guides for the person at the desk."
-						items={guides.map((entry) => ({
-							href: docUrl(entry.id),
-							title: entry.title,
-							description: entry.description,
-						}))}
+						description={t("docs.guidesDesc")}
+						items={guides.map((entry) => {
+							const copy = docCopy(t, entry);
+							return {
+								href: docUrl(entry.id),
+								title: copy.title,
+								description: copy.description,
+							};
+						})}
 					/>
 					<Box>
 						<Stack spacing={1} className="mb-3">
 							<Typography variant="h6">
 								{familyFocus === "all"
-									? "Hardware"
-									: `For ${DOC_HARDWARE_LABELS[familyFocus]} boards`}
+									? t("docs.hardware")
+									: t("docs.forFamily", {
+											family: DOC_HARDWARE_LABELS[familyFocus],
+										})}
 							</Typography>
 							<Typography color="secondary" variant="body2">
 								{selectedBoard && boardHardware
-									? `Scoped to ${boardLabel}${selectedBoard.device.label?.trim() ? ` (${selectedBoard.device.label.trim()})` : ""}.`
+									? t("docs.scopedTo", {
+											label: `${boardLabel}${selectedBoard.device.label?.trim() ? ` (${selectedBoard.device.label.trim()})` : ""}`,
+										})
 									: familyFocus === "all"
-										? "Pick a board above or pin a family with the chips."
-										: "Pinned via the family chips above."}
+										? t("docs.pickOrPin")
+										: t("docs.pinned")}
 							</Typography>
 						</Stack>
 						<SectionHub
 							description={
 								familyFocus === "all"
-									? "Every supported board family."
-									: `Pinout and wiring for ${DOC_HARDWARE_LABELS[familyFocus]}.`
+									? t("docs.everyFamily")
+									: t("docs.pinoutFor", {
+											family: DOC_HARDWARE_LABELS[familyFocus],
+										})
 							}
-							items={hardwareDocs.map((entry) => ({
-								href: docUrl(entry.id),
-								title: entry.title,
-								description: entry.description,
-							}))}
+							items={hardwareDocs.map((entry) => {
+								const copy = docCopy(t, entry);
+								return {
+									href: docUrl(entry.id),
+									title: copy.title,
+									description: copy.description,
+								};
+							})}
 						/>
 					</Box>
 				</Stack>
@@ -360,6 +432,8 @@ export default function DocsPage() {
 }
 
 function DocReader({ doc }: { doc: DocEntry }) {
+	const t = useT();
+	const copy = docCopy(t, doc);
 	const mobile = useMobile();
 	const [tocQuery, setTocQuery] = useState("");
 	const sections = useMemo(
@@ -384,7 +458,7 @@ function DocReader({ doc }: { doc: DocEntry }) {
 
 	const searchInDoc = (
 		<TextField
-			label="Search in this doc"
+			label={t("docs.searchInDoc")}
 			value={tocQuery}
 			onChange={(event) => setTocQuery(event.target.value)}
 			className="w-full"
@@ -395,13 +469,13 @@ function DocReader({ doc }: { doc: DocEntry }) {
 	return (
 		<Stack spacing={3}>
 			<Stack spacing={1}>
-				<Breadcrumbs aria-label="Documentation breadcrumb">
-					<Link href="/devices/docs">Docs</Link>
-					<Typography color="secondary">{doc.title}</Typography>
+				<Breadcrumbs aria-label={t("docs.breadcrumb")}>
+					<Link href="/devices/docs">{t("docs.docsTitle")}</Link>
+					<Typography color="secondary">{copy.title}</Typography>
 				</Breadcrumbs>
 				<Stack direction="row" spacing={1} className="flex-wrap items-center">
 					<Typography variant={mobile ? "h5" : "h4"} Element="h1">
-						{doc.title}
+						{copy.title}
 					</Typography>
 					{doc.hardware ? (
 						<Chip
@@ -410,7 +484,7 @@ function DocReader({ doc }: { doc: DocEntry }) {
 						/>
 					) : null}
 				</Stack>
-				<Typography color="secondary">{doc.description}</Typography>
+				<Typography color="secondary">{copy.description}</Typography>
 			</Stack>
 
 			<Box className="w-full max-w-xl">{searchInDoc}</Box>
@@ -419,8 +493,8 @@ function DocReader({ doc }: { doc: DocEntry }) {
 				<details className="docs-toc-details">
 					<summary>
 						{docHits.length > 0
-							? `${docHits.length} matching section${docHits.length === 1 ? "" : "s"}`
-							: "On this page"}
+							? t("docs.matchingSections", { n: docHits.length })
+							: t("docs.onThisPage")}
 					</summary>
 					<Box className="mt-2">
 						<TocList items={toc} />
@@ -440,7 +514,7 @@ function DocReader({ doc }: { doc: DocEntry }) {
 					<DocsMarkdown content={doc.content} />
 					<Box className="mt-6">
 						<Button href="/devices/docs" variant="text">
-							← All documentation
+							{t("docs.allDocumentation")}
 						</Button>
 					</Box>
 				</Paper>

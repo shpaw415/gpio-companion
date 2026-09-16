@@ -9,14 +9,15 @@ import {
 	debugProbeMessage,
 	filterJournalByAge,
 	formatDebugLogLine,
-	formatDiskFree,
 	JOURNAL_WINDOWS,
 	type JournalWindowId,
 	journalWindowMs,
 	type MaintenanceReport,
 	parseDebugEvent,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
 import BleHealthRunner from "./BleHealthRunner.tsx";
 import CopyBlock from "./CopyBlock.tsx";
@@ -45,6 +46,7 @@ export default function DeviceDebugPanel({
 	loadLogs: (uuid: string) => Promise<ActionResult<{ text: string }>>;
 	startUpdate: (uuid: string) => Promise<ActionResult<{ started: boolean }>>;
 }) {
+	const t = useT();
 	const [uuid, setUuid] = useState(devices[0]?.uuid ?? "");
 	const [connection, setConnection] = useState<Connection>("idle");
 	const [error, setError] = useState("");
@@ -85,9 +87,9 @@ export default function DeviceDebugPanel({
 		}
 		return (
 			filterJournalByAge(journal, journalWindowMs(journalWindow)) ||
-			`No journal lines in the last ${journalWindow}.`
+			t("debug.noJournalWindow", { window: journalWindow })
 		);
-	}, [journal, journalWindow]);
+	}, [journal, journalWindow, t]);
 
 	const visible = useMemo(() => {
 		if (filter === "all") {
@@ -125,9 +127,14 @@ export default function DeviceDebugPanel({
 		setError("");
 		try {
 			const next = unwrapAction(await loadLogs(uuid));
-			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
+			setJournal(next.text.trim() || t("debug.noJournal24h"));
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "logs failed");
+			setError(
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "logs failed",
+				),
+			);
 		} finally {
 			setJournalBusy(false);
 		}
@@ -146,13 +153,18 @@ export default function DeviceDebugPanel({
 		setUpdateNote("");
 		try {
 			unwrapAction(await startUpdate(uuid));
-			setUpdateNote("Update started. The board may restart.");
+			setUpdateNote(t("debug.updateStarted"));
 			updateLockRef.current = setTimeout(() => {
 				setUpdateBusy(false);
 				updateLockRef.current = null;
 			}, 120_000);
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "update failed");
+			setError(
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "update failed",
+				),
+			);
 			setUpdateBusy(false);
 		}
 	}
@@ -195,7 +207,7 @@ export default function DeviceDebugPanel({
 			socket.addEventListener("error", () => {
 				if (socketRef.current === socket) {
 					setConnection("error");
-					setError("debug socket failed");
+					setError(t("errors.debugWsFailed"));
 				}
 			});
 			socket.addEventListener("close", () => {
@@ -209,7 +221,10 @@ export default function DeviceDebugPanel({
 		} catch (caught) {
 			setConnection("error");
 			setError(
-				caught instanceof Error ? caught.message : "debug connect failed",
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "debug connect failed",
+				),
 			);
 		}
 	}
@@ -232,16 +247,24 @@ export default function DeviceDebugPanel({
 						setUuid(next);
 					}}
 					disabled={connection === "connecting"}
-					label="Board"
+					label={t("docs.board")}
 				/>
 				{maintenance ? (
 					<Typography color="secondary" variant="body2">
-						{formatDiskFree({
-							totalMb: maintenance.diskTotalMb,
-							availMb: maintenance.diskAvailMb,
+						{t("debug.diskFree", {
+							n: maintenance.diskAvailMb,
+							pct: Math.max(
+								0,
+								Math.min(
+									100,
+									Math.round(
+										(maintenance.diskAvailMb / maintenance.diskTotalMb) * 100,
+									),
+								),
+							),
 						})}
 						{maintenance.reclaimedBytes
-							? ` · last cleanup reclaimed ${maintenance.reclaimedBytes} B`
+							? t("debug.reclaimed", { n: maintenance.reclaimedBytes })
 							: ""}
 						{maintenance.at
 							? ` · ${new Date(maintenance.at).toISOString()}`
@@ -249,7 +272,7 @@ export default function DeviceDebugPanel({
 					</Typography>
 				) : (
 					<Typography color="secondary" variant="body2">
-						Disk snapshot appears after the hourly cleanup runs.
+						{t("debug.diskSnapshot")}
 					</Typography>
 				)}
 				<Stack direction="row" spacing={1} className="flex-wrap">
@@ -258,14 +281,14 @@ export default function DeviceDebugPanel({
 						disabled={!uuid || journalBusy}
 						onClick={() => void fetchLogs()}
 					>
-						{journalBusy ? "Loading" : "Last 24h"}
+						{journalBusy ? t("debug.loading") : t("debug.last24h")}
 					</Button>
 					<Button
 						variant="outlined"
 						disabled={!uuid || updateBusy}
 						onClick={() => void runUpdate()}
 					>
-						{updateBusy ? "Updating…" : "Update companion"}
+						{updateBusy ? t("debug.updating") : t("debug.updateCompanion")}
 					</Button>
 				</Stack>
 				{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
@@ -295,12 +318,20 @@ export default function DeviceDebugPanel({
 								{journalView}
 							</pre>
 						</Paper>
-						<CopyBlock label="Journal excerpt" value={journalView} />
+						<CopyBlock label={t("debug.journalExcerpt")} value={journalView} />
 					</>
 				) : null}
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					<Chip
-						label={connection}
+						label={
+							connection === "live"
+								? t("gpio.liveChip")
+								: connection === "connecting"
+									? t("gpio.connecting")
+									: connection === "error"
+										? t("debug.filterError")
+										: t("debug.idle")
+						}
 						color={
 							connection === "live"
 								? "success"
@@ -317,35 +348,43 @@ export default function DeviceDebugPanel({
 						}
 						onClick={() => void connect()}
 					>
-						{connection === "live" ? "Connected" : "Connect"}
+						{connection === "live" ? t("debug.connected") : t("debug.connect")}
 					</Button>
 					<Button
 						variant="outlined"
 						disabled={connection === "idle"}
 						onClick={disconnect}
 					>
-						Disconnect
+						{t("debug.disconnect")}
 					</Button>
 					<Button
 						variant="outlined"
 						disabled={events.length === 0}
 						onClick={() => setEvents([])}
 					>
-						Clear
+						{t("debug.clear")}
 					</Button>
 					<Button
 						variant="outlined"
 						disabled={!logText}
 						onClick={() => void copyLive()}
 					>
-						{liveCopied ? "Copied" : "Copy live debug"}
+						{liveCopied ? t("common.copied") : t("debug.copyLive")}
 					</Button>
 				</Stack>
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{(["all", "error", "warning", "info"] as const).map((item) => (
 						<Chip
 							key={item}
-							label={item}
+							label={
+								item === "all"
+									? t("debug.filterAll")
+									: item === "error"
+										? t("debug.filterError")
+										: item === "warning"
+											? t("debug.filterWarning")
+											: t("debug.filterInfo")
+							}
 							color={filter === item ? "primary" : "secondary"}
 							variant={filter === item ? "filled" : "outlined"}
 							onClick={() => setFilter(item)}
@@ -358,12 +397,11 @@ export default function DeviceDebugPanel({
 						ref={logRef}
 						className="m-0 max-h-80 overflow-auto whitespace-pre-wrap break-all font-mono text-xs"
 					>
-						{visible.length === 0 ? "No events yet." : logText}
+						{visible.length === 0 ? t("debug.noEvents") : logText}
 					</pre>
 				</Paper>
 				<Typography color="secondary" variant="body2">
-					Live companion API errors, warnings, and Bluetooth request/response.
-					Secrets are not included.
+					{t("debug.liveHint")}
 				</Typography>
 				<BleHealthRunner uuid={uuid} />
 			</Stack>

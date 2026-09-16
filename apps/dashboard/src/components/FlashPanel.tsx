@@ -22,9 +22,11 @@ import {
 	type FlashStatus,
 	parseFlashPut,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConsoleTunnel } from "../hooks/useConsoleTunnel.ts";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -43,6 +45,7 @@ export default function FlashPanel({
 	uuid: string;
 	project?: string;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
@@ -106,7 +109,12 @@ export default function FlashPanel({
 				if (bluetoothChooserCancelled(caught)) {
 					return;
 				}
-				setError(caught instanceof Error ? caught.message : "request failed");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "request failed",
+					),
+				);
 			})
 			.finally(() => setBusy(false));
 	}
@@ -123,10 +131,9 @@ export default function FlashPanel({
 
 	return (
 		<Stack spacing={1}>
-			<Typography variant="subtitle1">Arduino flash</Typography>
+			<Typography variant="subtitle1">{t("flash.arduinoFlash")}</Typography>
 			<Typography variant="body2" color="secondary">
-				Flashing a project sketch replaces Arduino proxy firmware until you
-				flash the proxy again from Devices.
+				{t("flash.replacesProxy")}
 			</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
@@ -154,7 +161,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					{busy ? "Loading…" : "Load ports"}
+					{busy ? t("common.loading") : t("flash.loadPorts")}
 				</Button>
 				<Button
 					type="button"
@@ -186,34 +193,33 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					{supported ? "Ports over Bluetooth" : "Sign ports for Bluetooth"}
+					{supported ? t("flash.portsOverBle") : t("flash.signPorts")}
 				</Button>
 			</Stack>
 			<TextField
-				label="FQBN"
+				label={t("flash.fqbn")}
 				value={fqbn}
 				onChange={(event) => setFqbn(event.target.value)}
 			/>
 			{legacy ? (
 				<TextField
-					label="Sketch dir on the Pi"
+					label={t("flash.sketchDir")}
 					placeholder="/home/gpio/blink"
 					value={dir}
 					onChange={(event) => setDir(event.target.value)}
 				/>
 			) : !project ? (
 				<Typography color="secondary" variant="body2">
-					Select a project to see firmware sketches on this board.
+					{t("flash.selectProject")}
 				</Typography>
 			) : listed.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					No USB sketches on this board for this project. Ask Code to write them
-					under firmware/.
+					{t("flash.noSketches")}
 				</Typography>
 			) : (
 				<Select
 					name="firmware-sketch"
-					label="Sketch"
+					label={t("flash.sketch")}
 					value={dir}
 					onSelect={setDir}
 					className="w-full"
@@ -226,14 +232,14 @@ export default function FlashPanel({
 				</Select>
 			)}
 			<TextField
-				label="Port (optional)"
+				label={t("flash.portOptional")}
 				placeholder="/dev/ttyUSB0"
 				value={port}
 				onChange={(event) => setPort(event.target.value)}
 			/>
 			<Select
 				name="usb-baud"
-				label="Serial baud"
+				label={t("flash.serialBaud")}
 				value={baud}
 				onSelect={setBaud}
 				className="w-full"
@@ -262,7 +268,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Open serial
+					{t("flash.openSerial")}
 				</Button>
 				<Button
 					type="button"
@@ -275,7 +281,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Close serial
+					{t("flash.closeSerial")}
 				</Button>
 			</Stack>
 			<Stack direction="row" spacing={1} className="flex-wrap">
@@ -298,7 +304,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Flash
+					{t("flash.flash")}
 				</Button>
 				<Button
 					type="button"
@@ -339,33 +345,36 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					{supported ? "Flash over Bluetooth" : "Sign flash for Bluetooth"}
+					{supported ? t("flash.overBle") : t("flash.signFlash")}
 				</Button>
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{supported ? null : pasteText ? (
 				<>
-					<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-					<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+					<CopyBlock label={t("ble.bluetoothName")} value={BLE_DEVICE_NAME} />
+					<CopyBlock
+						label={t("ble.writeCharacteristic")}
+						value={BLE_CMD_UUID}
+					/>
+					<CopyBlock label={t("ble.signedCommand")} value={pasteText} />
 				</>
 			) : null}
 			<Typography color="secondary" variant="body2">
 				{status?.running
-					? "Flashing…"
+					? t("flash.flashing")
 					: last
 						? last.ok
-							? `Last flash ok · ${last.fqbn}`
-							: `Last flash failed · ${last.fqbn}`
+							? t("flash.lastOk", { fqbn: last.fqbn })
+							: t("flash.lastFailed", { fqbn: last.fqbn })
 						: ports.length
-							? `${ports.length} USB port(s)`
-							: "C sketch on the Pi, then flash."}
+							? t("flash.nPorts", { n: ports.length })
+							: t("flash.thenFlash")}
 			</Typography>
 			{last?.log ? (
-				<CopyBlock label="arduino-cli log" value={last.log} />
+				<CopyBlock label={t("flash.cliLog")} value={last.log} />
 			) : null}
 			<LiveConsole
-				label="Serial (USB)"
+				label={t("flash.serialUsb")}
 				value={serial.snapshot.usb.log}
 				status={serial.status}
 			/>

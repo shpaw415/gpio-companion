@@ -2,19 +2,25 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useState } from "react";
 import { bleInfo, loadDeviceInfo } from "../api";
+import { flattenDeviceInfo } from "../device-info";
 import { useSavedBleId } from "../hooks/useApiCache";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
-import { flattenDeviceInfo } from "../device-info";
+import { useT } from "../locale";
 
 export default function CompanionInfo({ uuid }: { uuid: string }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [info, setInfo] = useState<unknown>(null);
 	const offline = useOfflineBleKey(uuid);
 	const bleId = useSavedBleId(uuid);
-	const rows = info ? flattenDeviceInfo(info) : [];
+	const rows = info
+		? flattenDeviceInfo(info, "", t("common.yes"), t("common.no"))
+		: [];
+	const shown = translateError(t, error);
 
 	function start(task: () => Promise<unknown>) {
 		setBusy(true);
@@ -46,7 +52,7 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 						start(async () => (await loadDeviceInfo(uuid)).info);
 					}}
 				>
-					{busy ? "Loading…" : "Load companion info"}
+					{busy ? t("common.loading") : t("ble.loadInfo")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -56,10 +62,10 @@ export default function CompanionInfo({ uuid }: { uuid: string }) {
 						start(() => bleInfo({ uuid, id: bleId }));
 					}}
 				>
-					Load over Bluetooth
+					{t("ble.loadOverBle")}
 				</Button>
 			</Stack>
-			{error ? <Alert severity="error">{error}</Alert> : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{rows.map((row) => (
 				<Typography
 					key={row.key}

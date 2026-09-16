@@ -3,6 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useRef, useState } from "react";
 import {
 	bleGpio,
@@ -15,6 +16,8 @@ import {
 import { useSavedBleId } from "../hooks/useApiCache";
 import { useGpioTunnel } from "../hooks/useGpioTunnel";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import { gpioPinStatusLabel } from "../lib/i18n-labels";
+import { useT } from "../locale";
 import ArduinoProxyPins from "./ArduinoProxyPins";
 import GpioHeader from "./GpioHeader";
 
@@ -108,6 +111,7 @@ export default function GpioPanel({
 	poll?: boolean;
 	onLivePins?: (pins: Record<number, 0 | 1>, target?: GpioTarget) => void;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [snapshot, setSnapshot] = useState<GpioSnapshot | null>(null);
@@ -177,8 +181,8 @@ export default function GpioPanel({
 	if (!available) {
 		return (
 			<Stack spacing={1} sx={{ mt: 1 }}>
-				<Typography variant="subtitle2">GPIO</Typography>
-				<Alert severity="info">Board not connected</Alert>
+				<Typography variant="subtitle2">{t("gpio.title")}</Typography>
+				<Alert severity="info">{t("gpio.notConnected")}</Alert>
 			</Stack>
 		);
 	}
@@ -195,7 +199,7 @@ export default function GpioPanel({
 				}}
 			>
 				<Typography variant="subtitle2">
-					{poll ? "Live GPIO" : "GPIO"}
+					{poll ? t("gpio.live") : t("gpio.title")}
 				</Typography>
 				{poll ? (
 					<LiveChip status={tunnel.status} ready={Boolean(snapshot)} />
@@ -218,7 +222,7 @@ export default function GpioPanel({
 							tunnel.refresh("header");
 						}}
 					>
-						Companion
+						{t("gpio.companion")}
 					</Button>
 					<Button
 						type="button"
@@ -230,7 +234,7 @@ export default function GpioPanel({
 							tunnel.refresh("arduino-proxy");
 						}}
 					>
-						Arduino
+						{t("gpio.arduino")}
 					</Button>
 				</Stack>
 			) : null}
@@ -238,9 +242,9 @@ export default function GpioPanel({
 				<Typography variant="body2" color="secondary">
 					{snapshot
 						? target === "arduino-proxy"
-							? "Arduino proxy pins. 5V AVR boards must not jumper to the 3.3V header."
-							: "Tap a GPIO pin, then set In, high, or low."
-						: "Waiting for live pin state from the board."}
+							? t("gpio.proxyHint")
+							: t("gpio.tapHint")
+						: t("gpio.waiting")}
 				</Typography>
 			) : null}
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
@@ -259,7 +263,11 @@ export default function GpioPanel({
 						start(() => loadGpio(uuid));
 					}}
 				>
-					{busy ? "Loading…" : snapshot || poll ? "Refresh" : "Load GPIO"}
+					{busy
+						? t("common.loading")
+						: snapshot || poll
+							? t("gpio.refresh")
+							: t("gpio.load")}
 				</Button>
 				{poll ? null : (
 					<Button
@@ -270,11 +278,13 @@ export default function GpioPanel({
 							start(() => bleGpio({ uuid, id: bleId }));
 						}}
 					>
-						Load over Bluetooth
+						{t("gpio.loadOverBle")}
 					</Button>
 				)}
 			</Stack>
-			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? (
+				<Alert severity="error">{translateError(t, error)}</Alert>
+			) : null}
 			{poll || snapshot ? (
 				target === "arduino-proxy" ? (
 					<ArduinoProxyPins
@@ -295,7 +305,7 @@ export default function GpioPanel({
 				)
 			) : (
 				<Typography color="secondary" variant="body2">
-					Load GPIO to see live pin status.
+					{t("gpio.loadToSee")}
 				</Typography>
 			)}
 			{snapshot ? (
@@ -339,10 +349,11 @@ function LiveChip({
 	status: "idle" | "connecting" | "live" | "reconnecting";
 	ready: boolean;
 }) {
+	const t = useT();
 	if (status === "reconnecting") {
 		return (
 			<Chip
-				label="Reconnecting"
+				label={t("gpio.reconnecting")}
 				size="small"
 				color="warning"
 				variant="outlined"
@@ -352,14 +363,23 @@ function LiveChip({
 	if (status === "connecting" || !ready) {
 		return (
 			<Chip
-				label={status === "connecting" ? "Connecting" : "Waiting"}
+				label={
+					status === "connecting" ? t("gpio.connecting") : t("gpio.waitingChip")
+				}
 				size="small"
 				color="secondary"
 				variant="outlined"
 			/>
 		);
 	}
-	return <Chip label="Live" size="small" color="success" variant="outlined" />;
+	return (
+		<Chip
+			label={t("gpio.liveChip")}
+			size="small"
+			color="success"
+			variant="outlined"
+		/>
+	);
 }
 
 function GpioPinActions({
@@ -373,10 +393,11 @@ function GpioPinActions({
 	onDrive: (command: GpioCommand) => void;
 	onPwm: (physical: number, analog: number) => void;
 }) {
+	const t = useT();
 	if (!pin) {
 		return (
 			<Typography color="secondary" variant="body2">
-				Tap a GPIO pin to drive it.
+				{t("gpio.tapToDrive")}
 			</Typography>
 		);
 	}
@@ -390,7 +411,7 @@ function GpioPinActions({
 				sx={{ flexWrap: "wrap", alignItems: "center" }}
 			>
 				<Typography variant="body2">
-					Pin {pin.physical} {pin.name}
+					{t("gpio.pin", { n: pin.physical, name: pin.name })}
 				</Typography>
 				<PinStatusChip pin={pin} />
 			</Stack>
@@ -401,7 +422,7 @@ function GpioPinActions({
 					disabled={busy || locked}
 					onClick={() => onDrive({ physical: pin.physical, dir: "in" })}
 				>
-					In
+					{t("gpio.in")}
 				</Button>
 				<Button
 					size="small"
@@ -411,7 +432,7 @@ function GpioPinActions({
 						onDrive({ physical: pin.physical, dir: "out", value: 1 })
 					}
 				>
-					Set high
+					{t("gpio.setHigh")}
 				</Button>
 				<Button
 					size="small"
@@ -421,7 +442,7 @@ function GpioPinActions({
 						onDrive({ physical: pin.physical, dir: "out", value: 0 })
 					}
 				>
-					Set low
+					{t("gpio.setLow")}
 				</Button>
 				<Button
 					size="small"
@@ -431,7 +452,7 @@ function GpioPinActions({
 						onDrive({ physical: pin.physical, dir: "pwm", analog })
 					}
 				>
-					PWM
+					{t("gpio.pwm")}
 				</Button>
 				<Button
 					size="small"
@@ -445,7 +466,7 @@ function GpioPinActions({
 						)
 					}
 				>
-					{typeof pin.hz === "number" ? "Stop tone" : "Tone"}
+					{typeof pin.hz === "number" ? t("gpio.stopTone") : t("gpio.tone")}
 				</Button>
 			</Stack>
 			{typeof pin.analog === "number" ? (
@@ -472,6 +493,7 @@ function PwmDutyControl({
 	disabled: boolean;
 	onPwm: (physical: number, analog: number) => void;
 }) {
+	const t = useT();
 	const [draft, setDraft] = useState<string | null>(null);
 	return (
 		<Stack
@@ -485,7 +507,7 @@ function PwmDutyControl({
 				max={255}
 				value={analog}
 				disabled={disabled}
-				aria-label={`Pin ${physical} PWM`}
+				aria-label={t("gpio.pinPwmAria", { n: physical })}
 				style={{ flex: 1, minWidth: 0 }}
 				onChange={(event) => {
 					const next = parsePwmAnalog(event.target.value);
@@ -504,7 +526,7 @@ function PwmDutyControl({
 				inputMode="numeric"
 				value={draft ?? analog}
 				disabled={disabled}
-				aria-label={`Pin ${physical} PWM value`}
+				aria-label={t("gpio.pinPwmValueAria", { n: physical })}
 				style={{ width: "4rem" }}
 				onChange={(event) => {
 					const raw = event.target.value;
@@ -533,7 +555,8 @@ function parsePwmAnalog(raw: string): number | undefined {
 }
 
 function PinStatusChip({ pin }: { pin: GpioPinState }) {
-	const label = pinStatus(pin);
+	const t = useT();
+	const label = gpioPinStatusLabel(pin, t);
 	if (pin.reserved || pin.unresolved || label === "—") {
 		return <Chip label={label} size="small" variant="outlined" />;
 	}
@@ -550,27 +573,4 @@ function PinStatusChip({ pin }: { pin: GpioPinState }) {
 	return (
 		<Chip label={label} size="small" color="secondary" variant="outlined" />
 	);
-}
-
-function pinStatus(pin: GpioPinState): string {
-	if (pin.reserved) {
-		return "Reserved";
-	}
-	if (pin.unresolved) {
-		return "Unresolved";
-	}
-	if (typeof pin.hz === "number") {
-		return `tone ${Math.round(pin.hz)} Hz`;
-	}
-	if (typeof pin.analog === "number") {
-		return `PWM ${Math.round(pin.analog)}/255`;
-	}
-	if (typeof pin.pwm === "number") {
-		return `PWM ${Math.round(pin.pwm)}%`;
-	}
-	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
-	if (pin.dir === "in" || pin.dir === "out") {
-		return level ? `${pin.dir} · ${level}` : pin.dir;
-	}
-	return level ?? "—";
 }

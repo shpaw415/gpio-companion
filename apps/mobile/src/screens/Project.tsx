@@ -48,6 +48,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 import { storageGet, storageSet } from "../lib/storage.ts";
 import { useDeviceHub as useRunHub } from "../lib/use-device-hub.ts";
 
@@ -92,11 +93,12 @@ function BoardSketchGroup({
 	busy: boolean;
 	onLaunch: (dir: string) => void;
 }) {
+	const t = useT();
 	return (
 		<Paper>
 			<Body>{title}</Body>
 			{sketches.length === 0 ? (
-				<Muted>None on this board for this project.</Muted>
+				<Muted>{t("project.noneOnBoard")}</Muted>
 			) : (
 				sketches.map((item) => (
 					<View
@@ -127,6 +129,7 @@ function FileGroup({
 	title: string;
 	files: GithubContent[];
 }) {
+	const t = useT();
 	return (
 		<Paper>
 			<View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -134,9 +137,7 @@ function FileGroup({
 				<Chip label={`${files.length}`} />
 			</View>
 			{files.length === 0 ? (
-				<Muted>
-					Nothing in this folder yet. The agent will push files here.
-				</Muted>
+				<Muted>{t("project.emptyFolder")}</Muted>
 			) : (
 				files.map((file) =>
 					file.download_url ? (
@@ -156,6 +157,7 @@ function FileGroup({
 
 export default function Project() {
 	const auth = useAuth();
+	const t = useT();
 	const colors = useColors();
 	const token = auth.token;
 	const { cache } = useApiCache();
@@ -387,8 +389,8 @@ export default function Project() {
 			setBundle(result.bundle);
 			setSaveHint(
 				result.board.committed
-					? "Saved and pushed from the board."
-					: "Already up to date on GitHub.",
+					? t("project.savedPushed")
+					: t("project.alreadyUpToDate"),
 			);
 		} catch (caught) {
 			setError(
@@ -486,14 +488,20 @@ export default function Project() {
 
 	return (
 		<Screen>
-			<Title>Project</Title>
-			<Muted>
-				Create a project, then open Code to talk to the agent on the board.
-			</Muted>
+			<Title>{t("project.title")}</Title>
+			<Muted>{t("project.subtitle")}</Muted>
 			{paired && activeUuid ? (
-				<TextButton label="Open Code" onPress={() => setTab("t3")} />
+				<TextButton
+					label={t("project.openCode")}
+					onPress={() => setTab("t3")}
+				/>
 			) : null}
-			<ErrorText>{error || githubQuery.error || projectsQuery.error}</ErrorText>
+			<ErrorText>
+				{translateError(
+					t,
+					error || githubQuery.error || projectsQuery.error || "",
+				)}
+			</ErrorText>
 			{loading ? (
 				<>
 					<Skeleton />
@@ -502,20 +510,14 @@ export default function Project() {
 			) : null}
 			{loading || app?.connected ? null : (
 				<Paper>
-					<Body>Connect GitHub to see your bench</Body>
-					<Muted>
-						Install the gpio-companion GitHub App. The Pi pushes pcb/,
-						breadboard/, and technical/ here. This page updates when the install
-						finishes.
-					</Muted>
+					<Body>{t("project.connectGithubNative")}</Body>
+					<Muted>{t("project.connectGithubNativeHint")}</Muted>
 					<PrimaryButton
-						label="Connect GitHub App"
+						label={t("github.connect")}
 						disabled={!app?.installUrl}
 						onPress={() => void Linking.openURL(app?.installUrl ?? "")}
 					/>
-					{paired ? null : (
-						<Muted>Pair a board in Devices when you are ready.</Muted>
-					)}
+					{paired ? null : <Muted>{t("project.pairWhenReady")}</Muted>}
 				</Paper>
 			)}
 			{loading || !configured ? null : (
@@ -524,32 +526,28 @@ export default function Project() {
 						<>
 							{empty ? (
 								<>
-									<Body>Create your first project</Body>
-									<Muted>
-										Name it like blink-led. Then open Code to talk to the agent.
-									</Muted>
+									<Body>{t("project.createFirst")}</Body>
+									<Muted>{t("project.createHint")}</Muted>
 								</>
 							) : null}
 							<Field
-								label="New project"
+								label={t("project.newProject")}
 								value={createName}
 								onChangeText={setCreateName}
-								placeholder="blink-led"
+								placeholder={t("project.placeholderName")}
 							/>
 							<PrimaryButton
-								label={creating ? "Creating…" : "Create"}
+								label={creating ? t("project.creating") : t("project.create")}
 								disabled={creating || !createName.trim()}
 								onPress={() => void makeProject()}
 							/>
 						</>
 					) : (
 						<>
-							{empty ? <Body>Create your first project</Body> : null}
-							<Muted>
-								Authorize GitHub so this dashboard can create repositories.
-							</Muted>
+							{empty ? <Body>{t("project.createFirst")}</Body> : null}
+							<Muted>{t("project.authorizeHint")}</Muted>
 							<PrimaryButton
-								label="Authorize creating repositories"
+								label={t("project.authorizeRepos")}
 								disabled={!app?.installUrl}
 								onPress={() => void Linking.openURL(app?.installUrl ?? "")}
 							/>
@@ -558,10 +556,10 @@ export default function Project() {
 					{empty ? null : (
 						<>
 							<Field
-								label="Filter"
+								label={t("project.filter")}
 								value={query}
 								onChangeText={setQuery}
-								placeholder="Name or owner/repo"
+								placeholder={t("project.filterPlaceholder")}
 							/>
 							<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 								<Pressable
@@ -580,7 +578,7 @@ export default function Project() {
 											color: owner === "all" ? colors.primary : colors.text,
 										}}
 									>
-										All owners
+										{t("project.allOwners")}
 									</Text>
 								</Pressable>
 								{owners.map((login) => (
@@ -629,14 +627,14 @@ export default function Project() {
 										</Text>
 										<Muted>{repo.owner}</Muted>
 										<TextButton
-											label="GitHub"
+											label={t("nav.github")}
 											onPress={() => void Linking.openURL(repo.html_url)}
 										/>
 									</Pressable>
 								);
 							})}
 							{filtered.length === 0 ? (
-								<Muted>No matching gpio-companion projects.</Muted>
+								<Muted>{t("project.noMatch")}</Muted>
 							) : null}
 						</>
 					)}
@@ -658,7 +656,7 @@ export default function Project() {
 								const selected = branch.name === bundle.ref;
 								const label =
 									branch.name === bundle.defaultBranch
-										? `${branch.name} (default)`
+										? t("project.defaultBranch", { name: branch.name })
 										: branch.name;
 								return (
 									<Pressable
@@ -685,7 +683,7 @@ export default function Project() {
 						</View>
 					) : null}
 					<TextButton
-						label="Open on GitHub"
+						label={t("project.openOnGithub")}
 						onPress={() =>
 							void Linking.openURL(
 								`https://github.com/${bundle.owner}/${bundle.repo}`,
@@ -693,46 +691,49 @@ export default function Project() {
 						}
 					/>
 					<TextButton
-						label={stopping ? "Stopping…" : "Stop sketch"}
+						label={stopping ? t("project.stopping") : t("project.stopSketch")}
 						danger={runRunning}
 						disabled={stopping || !activeUuid}
 						onPress={() => void stopSketch()}
 					/>
 					<PrimaryButton
-						label={saving ? "Saving…" : "Save to GitHub"}
+						label={saving ? t("project.saving") : t("project.saveToGithub")}
 						disabled={saving || !activeUuid}
 						onPress={() => void saveFromBoard()}
 					/>
 					{justCreated === bundle.repo ? (
 						<Paper>
-							<Body>
-								{bundle.repo} is ready. Open Code to start chatting with the
-								agent.
-							</Body>
+							<Body>{t("project.readyChat", { repo: bundle.repo })}</Body>
 							{paired && activeUuid ? (
-								<PrimaryButton label="Open Code" onPress={() => setTab("t3")} />
+								<PrimaryButton
+									label={t("project.openCode")}
+									onPress={() => setTab("t3")}
+								/>
 							) : (
-								<Muted>Pair a board in Devices so Code can open.</Muted>
+								<Muted>{t("project.pairSoCodeOpens")}</Muted>
 							)}
 						</Paper>
 					) : null}
 					{saveHint ? <Muted>{saveHint}</Muted> : null}
 					<PreviewCard
-						title="PCB"
-						hint="No pcb/preview.svg yet. Ask the agent to design a PCB."
+						title={t("project.pcb")}
+						hint={t("project.noPcbHintDesktop")}
 						url={bundle.pcbPreviewUrl}
 					/>
 					<PreviewCard
-						title="Breadboard"
-						hint="No breadboard/preview.svg yet. Ask the agent to wire a breadboard."
+						title={t("project.breadboard")}
+						hint={t("project.noBreadboardPreview")}
 						url={bundle.breadboardPreviewUrl}
 					/>
-					<FileGroup title="PCB" files={bundle.pcb} />
-					<FileGroup title="Breadboard" files={bundle.breadboard} />
-					<FileGroup title="Technical" files={bundle.technical} />
+					<FileGroup title={t("project.pcb")} files={bundle.pcb} />
+					<FileGroup
+						title={t("project.breadboard")}
+						files={bundle.breadboard}
+					/>
+					<FileGroup title={t("project.technical")} files={bundle.technical} />
 					<BoardSketchGroup
-						title="Host sketches"
-						action="Run"
+						title={t("project.hostSketches")}
+						action={t("project.run")}
 						sketches={hostSketches.filter(
 							(item) => item.project === bundle.repo,
 						)}
@@ -748,8 +749,8 @@ export default function Project() {
 						}}
 					/>
 					<BoardSketchGroup
-						title="Arduino firmware"
-						action="Flash"
+						title={t("project.arduinoFirmware")}
+						action={t("flash.flash")}
 						sketches={firmwareSketches.filter(
 							(item) => item.project === bundle.repo,
 						)}
@@ -770,19 +771,19 @@ export default function Project() {
 					/>
 				</>
 			) : loading || !configured || empty ? null : (
-				<Muted>Select a project to see the PCB and breadboard.</Muted>
+				<Muted>{t("project.selectToSee")}</Muted>
 			)}
 			{paired && activeUuid && bundle ? (
 				<Paper>
-					<Body>Board tools</Body>
-					<Muted>Live GPIO, Flash Arduino, Run on board, Verify circuit</Muted>
+					<Body>{t("project.boardTools")}</Body>
+					<Muted>{t("project.boardToolsHint")}</Muted>
 					<TextButton
-						label={boardToolsOpen ? "Hide" : "Show"}
+						label={boardToolsOpen ? t("project.hide") : t("project.show")}
 						onPress={() => setBoardToolsOpen((open) => !open)}
 					/>
 					{boardToolsOpen ? (
 						<>
-							<Body>Board</Body>
+							<Body>{t("docs.board")}</Body>
 							<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 								{boards.map((board) => (
 									<Pressable
@@ -812,19 +813,16 @@ export default function Project() {
 									</Pressable>
 								))}
 							</View>
-							<Body>Live GPIO</Body>
-							<Muted>
-								Watch header pins and PWM from the board over the companion API
-								websocket. Tap a GPIO to drive it high or low on that socket.
-							</Muted>
+							<Body>{t("gpio.live")}</Body>
+							<Muted>{t("project.liveGpioHint")}</Muted>
 							<GpioPanel
 								uuid={activeUuid}
 								connected={Boolean(activeBoard?.status)}
 								poll
 							/>
-							<Body>Flash Arduino</Body>
+							<Body>{t("flash.title")}</Body>
 							<FlashPanel uuid={activeUuid} project={bundle.repo} />
-							<Body>Run on board</Body>
+							<Body>{t("run.title")}</Body>
 							<RunPanel uuid={activeUuid} project={bundle.repo} />
 							<VerifyPanel uuid={activeUuid} project={bundle.repo} />
 						</>

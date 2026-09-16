@@ -7,6 +7,7 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
 import { type BoardView, deviceDisplayName, patchDeviceLabel } from "../api";
 import { formatNetworkLabel } from "../device-info";
+import { useT } from "../locale";
 import CompanionInfo from "./CompanionInfo";
 import FlashProxyButton from "./FlashProxyButton";
 import GpioPanel from "./GpioPanel";
@@ -25,9 +26,10 @@ export default function BoardCard({
 	onUnpair?: (uuid: string) => void;
 	onLabelSaved?: (uuid: string, label: string) => void;
 }) {
+	const t = useT();
 	const { device, status } = board;
 	const online = Boolean(status);
-	const networkLabel = formatNetworkLabel(status?.network);
+	const networkLabel = formatNetworkLabel(status?.network, t);
 	const [label, setLabel] = useState(device.label ?? "");
 	const [saving, setSaving] = useState(false);
 
@@ -59,8 +61,8 @@ export default function BoardCard({
 					sx={{ alignItems: "flex-end", flexWrap: "wrap" }}
 				>
 					<TextField
-						label="Label"
-						placeholder="Optional name"
+						label={t("devices.label")}
+						placeholder={t("devices.optionalName")}
 						value={label}
 						onChange={(event) => setLabel(event.target.value)}
 						sx={{ flex: 1, minWidth: 180 }}
@@ -71,17 +73,21 @@ export default function BoardCard({
 						disabled={saving}
 						onClick={() => void saveLabel()}
 					>
-						Save
+						{t("devices.save")}
 					</Button>
 				</Stack>
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
 					<Chip
-						label={online ? "Online" : "Offline"}
+						label={online ? t("devices.online") : t("devices.offline")}
 						color={online ? "success" : "secondary"}
 						variant="outlined"
 					/>
 					{selected ? (
-						<Chip label="Selected" color="primary" variant="outlined" />
+						<Chip
+							label={t("devices.selected")}
+							color="primary"
+							variant="outlined"
+						/>
 					) : null}
 					{status?.model || status?.hardware ? (
 						<Chip
@@ -96,7 +102,9 @@ export default function BoardCard({
 						<>
 							<Chip
 								label={
-									status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
+									status.tunnel?.configured
+										? t("devices.tunnelReady")
+										: t("devices.tunnelPending")
 								}
 								color={status.tunnel?.configured ? "success" : "secondary"}
 								variant="outlined"
@@ -104,8 +112,8 @@ export default function BoardCard({
 							<Chip
 								label={
 									status.secrets?.githubReady
-										? "GitHub ready"
-										: "GitHub keys pending"
+										? t("devices.githubReady")
+										: t("devices.githubKeysPending")
 								}
 								color={status.secrets?.githubReady ? "success" : "warning"}
 								variant="outlined"
@@ -113,10 +121,10 @@ export default function BoardCard({
 							<Chip
 								label={
 									status.t3?.paired
-										? "T3 Code paired"
+										? t("devices.t3Paired")
 										: status.t3?.running
-											? "T3 Code running"
-											: "T3 Code idle"
+											? t("devices.t3Running")
+											: t("devices.t3Idle")
 								}
 								color={status.t3?.paired ? "success" : "secondary"}
 								variant="outlined"
@@ -140,7 +148,7 @@ export default function BoardCard({
 							disabled={selected}
 							onClick={() => onSelect(device.uuid)}
 						>
-							{selected ? "Selected" : "Select board"}
+							{selected ? t("devices.selected") : t("devices.selectBoard")}
 						</Button>
 					) : null}
 					{onUnpair ? (
@@ -149,13 +157,13 @@ export default function BoardCard({
 							variant="text"
 							size="small"
 							onClick={() => {
-								if (!window.confirm("Remove this board from your account?")) {
+								if (!window.confirm(t("devices.unpairConfirm"))) {
 									return;
 								}
 								onUnpair(device.uuid);
 							}}
 						>
-							Unpair
+							{t("devices.unpair")}
 						</Button>
 					) : null}
 				</Stack>

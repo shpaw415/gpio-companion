@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ensureOfflineKey } from "./api.ts";
 import { useAuth } from "./auth.tsx";
-import { offlineKeyLabel, type StoredOfflineKey } from "./offline-keys.ts";
+import { useT } from "./locale.tsx";
+import { liveOfflineKey, type StoredOfflineKey } from "./offline-keys.ts";
 
 export function useOfflineBleKey(uuid: string) {
 	const auth = useAuth();
+	const t = useT();
 	const [record, setRecord] = useState<StoredOfflineKey | null>(null);
 
 	useEffect(() => {
@@ -24,5 +26,19 @@ export function useOfflineBleKey(uuid: string) {
 		};
 	}, [uuid, auth.token]);
 
-	return { record, label: offlineKeyLabel(record) };
+	const label = useMemo(() => {
+		if (!record) {
+			return t("ble.offlineNotIssued");
+		}
+		if (!liveOfflineKey(record)) {
+			return t("ble.offlineExpired");
+		}
+		const hours = Math.max(
+			0,
+			Math.floor((record.grant.exp - Date.now()) / 3_600_000),
+		);
+		return t("ble.offlineLeft", { hours });
+	}, [record, t]);
+
+	return { record, label };
 }

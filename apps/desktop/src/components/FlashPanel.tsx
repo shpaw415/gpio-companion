@@ -4,6 +4,7 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
@@ -20,6 +21,8 @@ import { useSavedBleId } from "../hooks/useApiCache";
 import { useConsoleTunnel } from "../hooks/useConsoleTunnel";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import { consoleStatusLabel } from "../lib/i18n-labels";
+import { useT } from "../locale";
 
 export default function FlashPanel({
 	uuid,
@@ -28,6 +31,7 @@ export default function FlashPanel({
 	uuid: string;
 	project?: string;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
@@ -98,7 +102,7 @@ export default function FlashPanel({
 
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
-			<Typography variant="subtitle2">Arduino flash</Typography>
+			<Typography variant="subtitle2">{t("flash.arduinoFlash")}</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
@@ -122,32 +126,31 @@ export default function FlashPanel({
 					});
 				}}
 			>
-				{busy ? "Loading…" : "Load ports"}
+				{busy ? t("common.loading") : t("flash.loadPorts")}
 			</Button>
 			<TextField
-				label="FQBN"
+				label={t("flash.fqbn")}
 				value={fqbn}
 				onChange={(event) => setFqbn(event.target.value)}
 			/>
 			{legacy ? (
 				<TextField
-					label="Sketch dir on the Pi"
+					label={t("flash.sketchDir")}
 					value={dir}
 					onChange={(event) => setDir(event.target.value)}
 				/>
 			) : !project ? (
 				<Typography color="secondary" variant="body2">
-					Select a project to see firmware sketches on this board.
+					{t("flash.selectProject")}
 				</Typography>
 			) : listed.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					No USB sketches on this board for this project. Ask Code to write them
-					under firmware/.
+					{t("flash.noSketches")}
 				</Typography>
 			) : (
 				<Select
 					name="firmware-sketch"
-					label="Sketch"
+					label={t("flash.sketch")}
 					value={dir}
 					onSelect={setDir}
 				>
@@ -159,7 +162,7 @@ export default function FlashPanel({
 				</Select>
 			)}
 			<TextField
-				label="Port (optional)"
+				label={t("flash.portOptional")}
 				value={port}
 				onChange={(event) => setPort(event.target.value)}
 			/>
@@ -174,7 +177,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Open serial
+					{t("flash.openSerial")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -186,7 +189,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Close serial
+					{t("flash.closeSerial")}
 				</Button>
 			</Stack>
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
@@ -206,7 +209,7 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Flash
+					{t("flash.flash")}
 				</Button>
 				<Button
 					variant="outlined"
@@ -224,21 +227,23 @@ export default function FlashPanel({
 						});
 					}}
 				>
-					Flash over Bluetooth
+					{t("flash.overBle")}
 				</Button>
 			</Stack>
-			{error ? <Alert severity="error">{error}</Alert> : null}
+			{error ? (
+				<Alert severity="error">{translateError(t, error)}</Alert>
+			) : null}
 			<Typography color="secondary" variant="body2">
 				{status?.running
-					? "Flashing…"
+					? t("flash.flashing")
 					: status?.last
 						? status.last.ok
-							? `Last flash ok · ${status.last.fqbn}`
-							: `Last flash failed · ${status.last.fqbn}`
-						: "C sketch on the Pi, then flash."}
+							? t("flash.lastOk", { fqbn: status.last.fqbn })
+							: t("flash.lastFailed", { fqbn: status.last.fqbn })
+						: t("flash.thenFlash")}
 			</Typography>
 			<Typography variant="caption" color="secondary">
-				Serial {serial.status}
+				{t("common.serial", { status: consoleStatusLabel(serial.status, t) })}
 			</Typography>
 			{serial.snapshot.usb.log ? (
 				<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>

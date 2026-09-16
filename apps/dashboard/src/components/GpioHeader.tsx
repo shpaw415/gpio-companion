@@ -7,12 +7,56 @@ import {
 	type GpioPinState,
 	type GpioPinTone,
 	gpioPinStatusKey,
-	gpioPinStatusLabel,
 	gpioPinTone,
 	HEADER_PIN_PAIRS,
 	pinByPhysical,
 } from "gpio-companion";
+import type { Messages, Translate } from "gpio-companion/i18n";
 import { memo } from "react";
+import { useT } from "../hooks/useLocale.tsx";
+
+export function gpioStatusText(
+	t: Translate<Messages>,
+	pin: GpioPinState,
+): string {
+	if (pin.reserved) {
+		return t("gpio.reserved");
+	}
+	if (pin.unresolved) {
+		return t("gpio.unresolved");
+	}
+	if (typeof pin.hz === "number") {
+		return t("gpio.toneHz", { n: Math.round(pin.hz) });
+	}
+	if (typeof pin.analog === "number") {
+		return t("gpio.pwmDuty", { n: Math.round(pin.analog) });
+	}
+	if (typeof pin.pwm === "number") {
+		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
+	}
+	if (pin.dir === "in" && pin.value === 1) {
+		return t("gpio.inHigh");
+	}
+	if (pin.dir === "in" && pin.value === 0) {
+		return t("gpio.inLow");
+	}
+	if (pin.dir === "out" && pin.value === 1) {
+		return t("gpio.outHigh");
+	}
+	if (pin.dir === "out" && pin.value === 0) {
+		return t("gpio.outLow");
+	}
+	if (pin.value === 1) {
+		return t("gpio.high");
+	}
+	if (pin.value === 0) {
+		return t("gpio.low");
+	}
+	if (typeof pin.adc === "number") {
+		return t("gpio.adc", { n: pin.adc });
+	}
+	return "—";
+}
 
 const TONE_BG: Record<GpioPinTone, string> = {
 	power: "bg-warning",
@@ -47,6 +91,7 @@ export default function GpioHeader({
 	selected?: number;
 	onSelect?: (pin: GpioPinState) => void;
 }) {
+	const t = useT();
 	const source = pins.length > 0 ? pins : placeholderPins();
 	return (
 		<Stack spacing={0.5} className="font-mono">
@@ -70,6 +115,12 @@ export default function GpioHeader({
 							interactive={interactive}
 							selected={selected === odd.physical}
 							onSelect={onSelect}
+							status={gpioStatusText(t, odd)}
+							ariaLabel={t("gpio.pinAria", {
+								physical: odd.physical,
+								label: odd.name || "GPIO",
+								tone: gpioPinTone(odd),
+							})}
 						/>
 						<HeaderPin
 							pin={even}
@@ -78,6 +129,12 @@ export default function GpioHeader({
 							interactive={interactive}
 							selected={selected === even.physical}
 							onSelect={onSelect}
+							status={gpioStatusText(t, even)}
+							ariaLabel={t("gpio.pinAria", {
+								physical: even.physical,
+								label: even.name || "GPIO",
+								tone: gpioPinTone(even),
+							})}
 						/>
 					</Stack>
 				);
@@ -93,6 +150,8 @@ const HeaderPin = memo(function HeaderPin({
 	interactive,
 	selected,
 	onSelect,
+	status,
+	ariaLabel,
 }: {
 	pin: GpioPinState;
 	align: "left" | "right";
@@ -100,10 +159,11 @@ const HeaderPin = memo(function HeaderPin({
 	interactive: boolean;
 	selected: boolean;
 	onSelect?: (pin: GpioPinState) => void;
+	status: string;
+	ariaLabel: string;
 }) {
 	const selectable = interactive && canDriveGpio(pin);
 	const tone = gpioPinTone(pin);
-	const status = gpioPinStatusLabel(pin);
 	const label =
 		pin.type === "gpio" && status !== "—"
 			? `${pin.name || "GPIO"}  ${status}`
@@ -150,7 +210,7 @@ const HeaderPin = memo(function HeaderPin({
 			variant="text"
 			size="small"
 			disabled={busy}
-			aria-label={`Pin ${pin.physical} ${label} ${tone}`}
+			aria-label={ariaLabel}
 			aria-pressed={selected}
 			onClick={() => onSelect?.(pin)}
 			className="min-w-0 flex-1"
@@ -173,6 +233,8 @@ function headerPinEqual(
 		interactive: boolean;
 		selected: boolean;
 		onSelect?: (pin: GpioPinState) => void;
+		status: string;
+		ariaLabel: string;
 	},
 	next: {
 		pin: GpioPinState;
@@ -180,6 +242,8 @@ function headerPinEqual(
 		interactive: boolean;
 		selected: boolean;
 		onSelect?: (pin: GpioPinState) => void;
+		status: string;
+		ariaLabel: string;
 	},
 ) {
 	return (
@@ -187,6 +251,8 @@ function headerPinEqual(
 		prev.interactive === next.interactive &&
 		prev.selected === next.selected &&
 		prev.onSelect === next.onSelect &&
+		prev.status === next.status &&
+		prev.ariaLabel === next.ariaLabel &&
 		gpioPinStatusKey(prev.pin) === gpioPinStatusKey(next.pin) &&
 		prev.pin.name === next.pin.name &&
 		prev.pin.type === next.pin.type

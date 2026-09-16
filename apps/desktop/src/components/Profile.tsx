@@ -3,6 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useState } from "react";
 import { DASHBOARD_URL, getCredits, openExternal, type Session } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
@@ -33,10 +34,12 @@ export default function Profile({
 				{t("profile.title")}
 			</Typography>
 			{error || creditsQuery.error ? (
-				<Alert severity="error">{error || creditsQuery.error}</Alert>
+				<Alert severity="error">
+					{translateError(t, error || creditsQuery.error)}
+				</Alert>
 			) : null}
 			{error || creditsQuery.error ? (
-				<DebugLog error={error || creditsQuery.error} />
+				<DebugLog error={translateError(t, error || creditsQuery.error)} />
 			) : null}
 			<LanguageCard />
 			<Paper sx={{ p: 3 }} elevation={1}>

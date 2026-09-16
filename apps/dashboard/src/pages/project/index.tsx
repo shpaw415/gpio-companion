@@ -20,32 +20,9 @@ import { LinesSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
+import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
-
-const STEPS = ["Sign in", "Pair board", "GitHub", "Ready"] as const;
-
-const NEXT: Record<
-	number,
-	{ href: string; label: string; hint: string } | undefined
-> = {
-	0: {
-		href: "/profile",
-		label: "Sign in",
-		hint: "Sign in with GitHub to start.",
-	},
-	1: {
-		href: "/devices",
-		label: "Pair a board",
-		hint: "Pair your board from Devices so you can flash sketches and see circuits.",
-	},
-	2: {
-		href: "/profile/github",
-		label: "Connect GitHub",
-		hint: "Connect GitHub once so project files can appear here.",
-	},
-	3: undefined,
-};
 
 function needsWifi(status: DeviceStatus | null | undefined): boolean {
 	const type = status?.network?.type;
@@ -55,7 +32,35 @@ function needsWifi(status: DeviceStatus | null | undefined): boolean {
 export default function ProjectPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
+	const t = useT();
 	const mobile = useMobile();
+	const steps = [
+		t("project.stepSignIn"),
+		t("project.stepPair"),
+		t("project.stepGithub"),
+		t("project.stepReady"),
+	];
+	const nextFor: Record<
+		number,
+		{ href: string; label: string; hint: string } | undefined
+	> = {
+		0: {
+			href: "/profile",
+			label: t("project.stepSignIn"),
+			hint: t("project.hintSignIn"),
+		},
+		1: {
+			href: "/devices",
+			label: t("project.pairABoard"),
+			hint: t("project.hintPair"),
+		},
+		2: {
+			href: "/profile/github",
+			label: t("project.connectGithub"),
+			hint: t("project.hintGithub"),
+		},
+		3: undefined,
+	};
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [paired, setPaired] = useState(false);
@@ -115,7 +120,7 @@ export default function ProjectPage() {
 	}, [session.data?.id, run, selectBoard]);
 
 	const step = !loggedIn ? 0 : !paired ? 1 : !githubReady ? 2 : 3;
-	const next = NEXT[step] ?? undefined;
+	const next = nextFor[step] ?? undefined;
 	const activeUuid = selectedUuid || devices[0]?.uuid || "";
 	const wifiHint = paired && needsWifi(statuses[activeUuid]);
 	const hasProject = Boolean(project);
@@ -133,10 +138,8 @@ export default function ProjectPage() {
 				spacing={2}
 				className="min-[900px]:items-start min-[900px]:justify-between"
 			>
-				<SectionHeader title="Project">
-					<Typography color="secondary">
-						Create a project, then open Code to talk to the agent on the board.
-					</Typography>
+				<SectionHeader title={t("project.title")}>
+					<Typography color="secondary">{t("project.subtitle")}</Typography>
 				</SectionHeader>
 				{paired ? (
 					<Button
@@ -144,7 +147,7 @@ export default function ProjectPage() {
 						variant="outlined"
 						className={mobile ? "w-full" : undefined}
 					>
-						Open Code
+						{t("project.openCode")}
 					</Button>
 				) : null}
 			</Stack>
@@ -152,7 +155,7 @@ export default function ProjectPage() {
 			{step < 3 || pairingLoading ? (
 				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
 					<Stack spacing={3}>
-						<Typography variant="h6">Set up your board</Typography>
+						<Typography variant="h6">{t("project.setup")}</Typography>
 						{pairingLoading ? (
 							<LinesSkeleton lines={2} />
 						) : (
@@ -162,7 +165,7 @@ export default function ProjectPage() {
 									alternativeLabel={!mobile}
 									orientation={mobile ? "vertical" : "horizontal"}
 								>
-									{STEPS.map((label, index) => (
+									{steps.map((label, index) => (
 										<Step key={label} completed={step > index}>
 											<StepLabel>{label}</StepLabel>
 										</Step>
@@ -189,12 +192,9 @@ export default function ProjectPage() {
 						spacing={2}
 						className="min-[900px]:items-center min-[900px]:justify-between"
 					>
-						<Typography color="secondary">
-							This board is not on Wi‑Fi or Ethernet yet. Put it on your network
-							from this computer.
-						</Typography>
+						<Typography color="secondary">{t("project.wifiHint")}</Typography>
 						<Button href="/devices/wifi" variant="outlined">
-							Set WiFi
+							{t("project.setWifi")}
 						</Button>
 					</Stack>
 				</Paper>
@@ -202,7 +202,7 @@ export default function ProjectPage() {
 
 			<div>
 				<Typography variant="h5" className="mb-3">
-					Your projects
+					{t("project.yourProjects")}
 				</Typography>
 				<ProjectBrowser
 					onConfigured={setGithubReady}
@@ -228,9 +228,9 @@ export default function ProjectPage() {
 							className="min-[900px]:items-center min-[900px]:justify-between"
 						>
 							<Stack spacing={0.5}>
-								<Typography variant="h6">Board tools</Typography>
+								<Typography variant="h6">{t("project.boardTools")}</Typography>
 								<Typography color="secondary">
-									Live GPIO, Flash Arduino, Run on board, Verify circuit
+									{t("project.boardToolsHint")}
 								</Typography>
 							</Stack>
 							<Button
@@ -238,7 +238,7 @@ export default function ProjectPage() {
 								onClick={() => setBoardToolsOpen((open) => !open)}
 								className={mobile ? "w-full" : undefined}
 							>
-								{boardToolsOpen ? "Hide" : "Show"}
+								{boardToolsOpen ? t("project.hide") : t("project.show")}
 							</Button>
 						</Stack>
 						{boardToolsOpen ? (
@@ -248,11 +248,9 @@ export default function ProjectPage() {
 									value={activeUuid}
 									onChange={selectBoard}
 								/>
-								<Typography variant="h6">Live GPIO</Typography>
+								<Typography variant="h6">{t("gpio.live")}</Typography>
 								<Typography color="secondary">
-									Watch header pins and PWM from the board over the companion
-									API websocket. Tap a GPIO to drive it high or low on that
-									socket.
+									{t("project.liveGpioHint")}
 								</Typography>
 								{pairingLoading ? (
 									<LinesSkeleton lines={3} />
@@ -274,15 +272,14 @@ export default function ProjectPage() {
 										}}
 									/>
 								)}
-								<Typography variant="h6">Flash Arduino</Typography>
+								<Typography variant="h6">{t("flash.title")}</Typography>
 								<Typography color="secondary">
-									Compile C firmware on the board and upload it over USB.
+									{t("project.flashHint")}
 								</Typography>
 								<FlashPanel uuid={activeUuid} project={project} />
-								<Typography variant="h6">Run on board</Typography>
+								<Typography variant="h6">{t("run.title")}</Typography>
 								<Typography color="secondary">
-									Compile C on the board and run it on this header for GPIO
-									tests.
+									{t("project.runHint")}
 								</Typography>
 								<RunPanel uuid={activeUuid} project={project} />
 								<VerifyPanel

@@ -3,6 +3,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useState } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 
 export default function CopyBlock({
 	value,
@@ -11,6 +12,7 @@ export default function CopyBlock({
 	value: string;
 	label?: string;
 }) {
+	const t = useT();
 	const [copied, setCopied] = useState(false);
 
 	async function copy() {
@@ -36,7 +38,7 @@ export default function CopyBlock({
 					size="small"
 					onClick={() => void copy()}
 				>
-					{copied ? "Copied" : "Copy to clipboard"}
+					{copied ? t("common.copied") : t("common.copy")}
 				</Button>
 			</Stack>
 		</Paper>

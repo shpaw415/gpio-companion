@@ -55,6 +55,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 import {
 	fitContain,
 	fitRect,
@@ -100,6 +101,7 @@ export default function BreadboardViewer({
 	verifyOverlay,
 	boardModel,
 }: Props) {
+	const t = useT();
 	const parsed = useMemo(() => parseDiagram(diagramText), [diagramText]);
 	const diagram = parsed.diagram;
 	if (diagram) {
@@ -122,7 +124,7 @@ export default function BreadboardViewer({
 		return (
 			<Paper className="p-4" elevation={1}>
 				<Typography variant="subtitle1" className="mb-2">
-					Breadboard
+					{t("board.breadboard")}
 				</Typography>
 				{parsed.error ? (
 					<Typography color="error" className="mb-2">
@@ -138,9 +140,7 @@ export default function BreadboardViewer({
 
 	return (
 		<Paper className="p-4 min-[900px]:p-6" elevation={1}>
-			<Typography color="secondary">
-				No breadboard/diagram.json on GitHub yet.
-			</Typography>
+			<Typography color="secondary">{t("project.noBreadboard")}</Typography>
 		</Paper>
 	);
 }
@@ -158,6 +158,7 @@ function DiagramBoard({
 	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
 }) {
+	const t = useT();
 	const [activeStep, setActiveStep] = useState(0);
 	const [expanded, setExpanded] = useState(false);
 	const [seed, setSeed] = useState<string[] | null>(null);
@@ -256,7 +257,7 @@ function DiagramBoard({
 						.filter((part) => isBreadboardType(part.type))
 						.map(partNode)}
 					<svg
-						aria-label="Breadboard wiring"
+						aria-label={t("board.wiring")}
 						className="pointer-events-none absolute left-0 top-0"
 						height={bounds.height * camera.view.scale}
 						key={elementsReady}
@@ -264,7 +265,7 @@ function DiagramBoard({
 						viewBox={`0 0 ${bounds.width} ${bounds.height}`}
 						width={bounds.width * camera.view.scale}
 					>
-						<title>Breadboard wiring</title>
+						<title>{t("board.wiring")}</title>
 						{diagram.connections.map((connection) => {
 							const [from, to, color, instructions] = connection;
 							const start = endpointPoint(diagram, from, pins);
@@ -341,6 +342,7 @@ function DiagramBoard({
 }
 
 function PreviewBoard({ previewUrl }: { previewUrl: string }) {
+	const t = useT();
 	const [expanded, setExpanded] = useState(false);
 	const [natural, setNatural] = useState({ width: 800, height: 600 });
 	const camera = useZoomCamera(natural.width, natural.height, expanded);
@@ -366,7 +368,7 @@ function PreviewBoard({ previewUrl }: { previewUrl: string }) {
 		>
 			<ZoomSurface camera={camera} expanded={expanded}>
 				<img
-					alt="Breadboard preview"
+					alt={t("board.previewAlt")}
 					height={natural.height * camera.view.scale}
 					onLoad={(event) => {
 						const image = event.currentTarget;
@@ -396,6 +398,7 @@ function BoardShell({
 	onToggleExpand: () => void;
 	children: ReactNode;
 }) {
+	const t = useT();
 	return (
 		<Paper
 			className={
@@ -415,13 +418,13 @@ function BoardShell({
 		>
 			<Stack direction="row" spacing={0.5} className="mb-2 items-center">
 				<Typography variant="subtitle1" className="min-w-0 flex-1">
-					Breadboard
+					{t("board.breadboard")}
 				</Typography>
 				<Typography color="secondary" variant="caption">
 					{camera.percent}%
 				</Typography>
 				<IconButton
-					aria-label="Zoom out"
+					aria-label={t("board.zoomOut")}
 					color="secondary"
 					onClick={() => camera.zoomBy(1 / 1.25)}
 					size="small"
@@ -429,7 +432,7 @@ function BoardShell({
 					<ZoomOutIcon fill="currentColor" />
 				</IconButton>
 				<IconButton
-					aria-label="Zoom in"
+					aria-label={t("board.zoomIn")}
 					color="secondary"
 					onClick={() => camera.zoomBy(1.25)}
 					size="small"
@@ -437,7 +440,7 @@ function BoardShell({
 					<ZoomInIcon fill="currentColor" />
 				</IconButton>
 				<IconButton
-					aria-label="Fit to view"
+					aria-label={t("board.fit")}
 					color="secondary"
 					onClick={() => camera.fit()}
 					size="small"
@@ -445,7 +448,9 @@ function BoardShell({
 					<FitScreenIcon fill="currentColor" />
 				</IconButton>
 				<IconButton
-					aria-label={expanded ? "Exit full screen" : "Full screen"}
+					aria-label={
+						expanded ? t("board.exitFullScreen") : t("board.fullScreen")
+					}
 					color="secondary"
 					onClick={onToggleExpand}
 					size="small"
@@ -471,6 +476,7 @@ function ZoomSurface({
 	expanded: boolean;
 	children: ReactNode;
 }) {
+	const t = useT();
 	useEffect(() => {
 		const el = camera.viewportRef.current;
 		if (!el) {
@@ -497,7 +503,7 @@ function ZoomSurface({
 
 	return (
 		<div
-			aria-label="Breadboard canvas"
+			aria-label={t("board.canvas")}
 			className={`relative min-h-0 touch-none overflow-hidden bg-slate-950 ${
 				expanded ? "flex-1" : "h-[320px] min-[900px]:h-[520px]"
 			}`}
@@ -823,6 +829,7 @@ function renderPart(
 }
 
 function BreadboardSvg({ type, scale = 1 }: { type: string; scale?: number }) {
+	const t = useT();
 	const { width, height } = breadboardSize(type);
 	const rows = breadboardRows(type);
 	const holes: Point[] = [];
@@ -842,13 +849,13 @@ function BreadboardSvg({ type, scale = 1 }: { type: string; scale?: number }) {
 	const labelY = BREADBOARD_PITCH * 1.15;
 	return (
 		<svg
-			aria-label="Breadboard"
+			aria-label={t("board.breadboard")}
 			height={height * scale}
 			role="img"
 			viewBox={`0 0 ${width} ${height}`}
 			width={width * scale}
 		>
-			<title>Breadboard</title>
+			<title>{t("board.breadboard")}</title>
 			<rect width={width} height={height} fill="#d6c7a1" rx={6} />
 			{grooveRight > grooveLeft ? (
 				<rect
@@ -1005,17 +1012,18 @@ function HeaderSvg({
 	livePins?: Record<number, 0 | 1>;
 	scale?: number;
 }) {
+	const t = useT();
 	const pins = headerDefs(hardware, boardModel);
 	const { width, height } = headerSize(pins.length);
 	return (
 		<svg
-			aria-label={`${hardware} GPIO header`}
+			aria-label={t("gpio.headerAria", { hardware })}
 			height={height * scale}
 			role="img"
 			viewBox={`0 0 ${width} ${height}`}
 			width={width * scale}
 		>
-			<title>{hardware} GPIO header</title>
+			<title>{t("gpio.headerAria", { hardware })}</title>
 			<rect width={width} height={height} fill="#111827" rx={4} />
 			<text x={4} y={10} fill="#94a3b8" fontSize={8}>
 				{hardware === "orangepi" ? "Orange Pi" : "Raspberry Pi"}
@@ -1084,11 +1092,12 @@ function ArduinoProxySvg({
 	livePins?: Record<number, 0 | 1>;
 	scale?: number;
 }) {
+	const t = useT();
 	const layout = arduinoProxyBoardLayout(board);
 	const title = arduinoProxyBoardTitle(board);
 	return (
 		<svg
-			aria-label={`${title} header`}
+			aria-label={t("board.headerAria", { title })}
 			height={layout.height * scale}
 			role="img"
 			viewBox={`0 0 ${layout.width} ${layout.height}`}

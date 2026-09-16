@@ -1,4 +1,5 @@
 import Select from "@shpaw415/mui-lite/Select";
+import { useT } from "../hooks/useLocale.tsx";
 
 export type DeviceOption = {
 	uuid: string;
@@ -11,7 +12,7 @@ export default function DeviceSelect({
 	value,
 	onChange,
 	disabled,
-	label = "Paired device",
+	label,
 }: {
 	devices: DeviceOption[];
 	value: string;
@@ -19,10 +20,11 @@ export default function DeviceSelect({
 	disabled?: boolean;
 	label?: string;
 }) {
+	const t = useT();
 	return (
 		<Select
 			name="uuid"
-			label={label}
+			label={label ?? t("devices.pairedDevice")}
 			value={value}
 			onSelect={(next) => onChange(next)}
 			className="w-full"

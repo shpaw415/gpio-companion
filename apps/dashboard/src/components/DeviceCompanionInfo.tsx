@@ -10,7 +10,9 @@ import {
 	flattenDeviceInfo,
 	INFO_PATH,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useState } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -46,6 +48,7 @@ export default function DeviceCompanionInfo({
 	uuid: string;
 	loadInfo: (uuid: string) => Promise<ActionResult<{ info: unknown }>>;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [info, setInfo] = useState<unknown>(null);
@@ -63,7 +66,12 @@ export default function DeviceCompanionInfo({
 				if (bluetoothChooserCancelled(caught)) {
 					return;
 				}
-				setError(caught instanceof Error ? caught.message : "request failed");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "request failed",
+					),
+				);
 				setInfo(null);
 			})
 			.finally(() => setBusy(false));
@@ -88,7 +96,7 @@ export default function DeviceCompanionInfo({
 						});
 					}}
 				>
-					{busy ? "Loading…" : "Load companion info"}
+					{busy ? t("common.loading") : t("ble.loadInfo")}
 				</Button>
 				<Button
 					type="button"
@@ -124,24 +132,35 @@ export default function DeviceCompanionInfo({
 						});
 					}}
 				>
-					{supported ? "Load over Bluetooth" : "Sign for Bluetooth"}
+					{supported ? t("ble.loadOverBle") : t("ble.signForBle")}
 				</Button>
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{supported ? null : pasteText ? (
 				<>
-					<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-					<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+					<CopyBlock label={t("ble.bluetoothName")} value={BLE_DEVICE_NAME} />
+					<CopyBlock
+						label={t("ble.writeCharacteristic")}
+						value={BLE_CMD_UUID}
+					/>
+					<CopyBlock label={t("ble.signedCommand")} value={pasteText} />
 				</>
 			) : null}
 			{rows.map((row) => (
 				<Typography key={row.key} variant="body2" className="break-all">
-					{row.key}: {row.value}
+					{row.key}:{" "}
+					{row.value === "yes"
+						? t("common.yes")
+						: row.value === "no"
+							? t("common.no")
+							: row.value}
 				</Typography>
 			))}
 			{info ? (
-				<CopyBlock label="JSON" value={JSON.stringify(info, null, 2)} />
+				<CopyBlock
+					label={t("companion.json")}
+					value={JSON.stringify(info, null, 2)}
+				/>
 			) : null}
 		</Stack>
 	);

@@ -3,13 +3,14 @@ import { useEffect, useState } from "react";
 import { unwrapAction } from "../lib/action.ts";
 import {
 	loadOfflineKey,
-	offlineKeyLabel,
 	type StoredOfflineKey,
 	saveOfflineKey,
 	shouldMintOfflineKey,
 } from "../lib/offline-keys.ts";
+import { useT } from "./useLocale.tsx";
 
 export function useOfflineBleKey(uuid: string) {
+	const t = useT();
 	const [record, setRecord] = useState<StoredOfflineKey | null>(null);
 	const [error, setError] = useState("");
 
@@ -57,9 +58,19 @@ export function useOfflineBleKey(uuid: string) {
 		};
 	}, [uuid]);
 
+	const grant = record?.grant;
+	const now = Date.now();
+	const label = !grant
+		? t("ble.offlineNotIssued")
+		: grant.exp <= now
+			? t("ble.offlineExpired")
+			: t("ble.offlineLeft", {
+					hours: Math.max(0, Math.floor((grant.exp - now) / 3_600_000)),
+				});
+
 	return {
 		record,
-		label: offlineKeyLabel(record?.grant),
+		label,
 		error,
 	};
 }

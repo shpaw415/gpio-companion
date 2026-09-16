@@ -7,7 +7,7 @@ import {
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
-import { formatNetworkLabel } from "../lib/device-info.ts";
+import { useT } from "../lib/locale.tsx";
 import CompanionInfo from "./CompanionInfo.tsx";
 import FlashProxyButton from "./FlashProxyButton.tsx";
 import GpioPanel from "./GpioPanel.tsx";
@@ -28,10 +28,18 @@ export default function BoardCard({
 	onLabelSaved?: (uuid: string, label: string) => void;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const colors = useColors();
 	const { device, status } = board;
 	const online = Boolean(status);
-	const networkLabel = formatNetworkLabel(status?.network);
+	const networkLabel =
+		status?.network?.type === "ethernet"
+			? t("devices.ethernet")
+			: status?.network?.type === "wifi"
+				? status.network.ssid?.trim()
+					? t("devices.wifiSsid", { ssid: status.network.ssid.trim() })
+					: t("nav.wifi")
+				: "";
 	const [label, setLabel] = useState(device.label ?? "");
 	const [saving, setSaving] = useState(false);
 
@@ -62,22 +70,24 @@ export default function BoardCard({
 				</Text>
 			) : null}
 			<Field
-				label="Label"
+				label={t("devices.label")}
 				value={label}
 				onChangeText={setLabel}
-				placeholder="Optional name"
+				placeholder={t("devices.optionalName")}
 			/>
 			<TextButton
-				label={saving ? "Saving…" : "Save"}
+				label={saving ? t("project.saving") : t("devices.save")}
 				disabled={saving}
 				onPress={() => void saveLabel()}
 			/>
 			<Row>
 				<Chip
-					label={online ? "Online" : "Offline"}
+					label={online ? t("devices.online") : t("devices.offline")}
 					tone={online ? "success" : "muted"}
 				/>
-				{selected ? <Chip label="Selected" tone="primary" filled /> : null}
+				{selected ? (
+					<Chip label={t("devices.selected")} tone="primary" filled />
+				) : null}
 				{status?.model || status?.hardware ? (
 					<Chip label={status?.model || status?.hardware || ""} />
 				) : null}
@@ -86,25 +96,27 @@ export default function BoardCard({
 					<>
 						<Chip
 							label={
-								status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
+								status.tunnel?.configured
+									? t("devices.tunnelReady")
+									: t("devices.tunnelPending")
 							}
 							tone={status.tunnel?.configured ? "success" : "muted"}
 						/>
 						<Chip
 							label={
 								status.secrets?.githubReady
-									? "GitHub ready"
-									: "GitHub keys pending"
+									? t("devices.githubReady")
+									: t("devices.githubKeysPending")
 							}
 							tone={status.secrets?.githubReady ? "success" : "warning"}
 						/>
 						<Chip
 							label={
 								status.t3?.paired
-									? "T3 Code paired"
+									? t("devices.t3Paired")
 									: status.t3?.running
-										? "T3 Code running"
-										: "T3 Code idle"
+										? t("devices.t3Running")
+										: t("devices.t3Idle")
 							}
 							tone={status.t3?.paired ? "success" : "muted"}
 						/>
@@ -122,7 +134,7 @@ export default function BoardCard({
 			<Row>
 				{onSelect ? (
 					<TextButton
-						label={selected ? "Selected" : "Select board"}
+						label={selected ? t("devices.selected") : t("devices.selectBoard")}
 						disabled={selected}
 						onPress={() => onSelect(device.uuid)}
 					/>
@@ -130,16 +142,20 @@ export default function BoardCard({
 				{onUnpair ? (
 					<TextButton
 						danger
-						label="Unpair"
+						label={t("devices.unpair")}
 						onPress={() => {
-							Alert.alert("Unpair", "Remove this board from your account?", [
-								{ text: "Cancel", style: "cancel" },
-								{
-									text: "Unpair",
-									style: "destructive",
-									onPress: () => onUnpair(device.uuid),
-								},
-							]);
+							Alert.alert(
+								t("devices.unpairTitle"),
+								t("devices.unpairConfirm"),
+								[
+									{ text: t("admin.cancel"), style: "cancel" },
+									{
+										text: t("devices.unpair"),
+										style: "destructive",
+										onPress: () => onUnpair(device.uuid),
+									},
+								],
+							);
 						}}
 					/>
 				) : null}

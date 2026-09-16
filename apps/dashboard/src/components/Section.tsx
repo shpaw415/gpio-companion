@@ -1,7 +1,7 @@
 import Box from "@shpaw415/mui-lite/Box";
 import Card, { CardActionArea, CardContent } from "@shpaw415/mui-lite/Card";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import useMobile from "../hooks/useMobile.ts";
 
 export type SectionItem = {

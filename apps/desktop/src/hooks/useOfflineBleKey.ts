@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { ensureOfflineKey } from "../api";
-import {
-	type OfflineGrantBundle,
-	offlineKeyLabel,
-} from "../offline-sign";
+import { useT } from "../locale";
+import { type OfflineGrantBundle, offlineKeyLabel } from "../offline-sign";
 
 export function useOfflineBleKey(uuid: string) {
+	const t = useT();
 	const [record, setRecord] = useState<OfflineGrantBundle | null>(null);
 
 	useEffect(() => {
@@ -25,5 +24,5 @@ export function useOfflineBleKey(uuid: string) {
 		};
 	}, [uuid]);
 
-	return { record, label: offlineKeyLabel(record) };
+	return { record, label: offlineKeyLabel(record, Date.now(), t) };
 }

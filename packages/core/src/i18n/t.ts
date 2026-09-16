@@ -1,9 +1,6 @@
 import type { MessageKey, Translate, TranslateVars } from "./types.ts";
 
-export function interpolate(
-	template: string,
-	vars?: TranslateVars,
-): string {
+export function interpolate(template: string, vars?: TranslateVars): string {
 	if (!vars) {
 		return template;
 	}
@@ -24,10 +21,7 @@ export function lookup(messages: unknown, key: string): string | undefined {
 	return typeof current === "string" ? current : undefined;
 }
 
-export function createTranslator<T>(
-	messages: T,
-	fallback?: T,
-): Translate<T> {
+export function createTranslator<T>(messages: T, fallback?: T): Translate<T> {
 	return (key: MessageKey<T>, vars?: TranslateVars) => {
 		const path = String(key);
 		const value =

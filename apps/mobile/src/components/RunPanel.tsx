@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useConsoleTunnel } from "../lib/use-console-tunnel.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
@@ -26,6 +27,7 @@ export default function RunPanel({
 	project?: string;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const token = auth.token;
 	const colors = useColors();
 	const [busy, setBusy] = useState(false);
@@ -97,22 +99,19 @@ export default function RunPanel({
 
 	return (
 		<View style={{ gap: 8, marginTop: 8 }}>
-			<Body>Run on board</Body>
+			<Body>{t("run.title")}</Body>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
 			{legacy ? (
 				<Field
-					label="Sketch dir on the Pi"
+					label={t("flash.sketchDir")}
 					value={dir}
 					onChangeText={setDir}
 					placeholder="/home/gpio/blink"
 				/>
 			) : !project ? (
-				<Muted>Select a project to see host sketches on this board.</Muted>
+				<Muted>{t("run.selectProject")}</Muted>
 			) : listed.length === 0 ? (
-				<Muted>
-					No host sketches on this board for this project. Ask Code to write
-					them under host/.
-				</Muted>
+				<Muted>{t("run.noSketches")}</Muted>
 			) : (
 				listed.map((item) => (
 					<Pressable
@@ -137,7 +136,7 @@ export default function RunPanel({
 				))
 			)}
 			<TextButton
-				label="Start"
+				label={t("run.start")}
 				disabled={busy || !token || !canStart}
 				onPress={() => {
 					if (!token) {
@@ -150,7 +149,7 @@ export default function RunPanel({
 				}}
 			/>
 			<TextButton
-				label="Stop"
+				label={t("run.stop")}
 				disabled={busy || !token}
 				onPress={() => {
 					if (!token) {
@@ -163,7 +162,7 @@ export default function RunPanel({
 				}}
 			/>
 			<TextButton
-				label="Start over Bluetooth"
+				label={t("run.startBle")}
 				disabled={busy || !token || !canStart}
 				onPress={() => {
 					if (!token) {
@@ -185,7 +184,7 @@ export default function RunPanel({
 				}}
 			/>
 			<TextButton
-				label="Stop over Bluetooth"
+				label={t("run.stopBle")}
 				disabled={busy || !token}
 				onPress={() => {
 					if (!token) {
@@ -206,17 +205,17 @@ export default function RunPanel({
 					});
 				}}
 			/>
-			{error ? <ErrorText>{error}</ErrorText> : null}
+			{error ? <ErrorText>{translateError(t, error)}</ErrorText> : null}
 			<Muted>
 				{status?.running
-					? "Running on companion GPIO…"
+					? t("run.running")
 					: status?.last
 						? status.last.ok
-							? "Last run exited 0"
-							: "Last run failed"
-						: "C sketch on the Pi, then run on this header."}
+							? t("run.lastOk")
+							: t("run.lastFailed")
+						: t("run.thenRun")}
 			</Muted>
-			<Muted>Serial {serial.status}</Muted>
+			<Muted>{t("run.serialStatus", { status: serial.status })}</Muted>
 			{log ? <Muted>{log}</Muted> : null}
 		</View>
 	);

@@ -4,6 +4,7 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	bleScan,
@@ -22,6 +23,7 @@ import {
 import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
+import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 import { SelectSkeleton } from "./skeletons";
 
@@ -32,6 +34,7 @@ function networkValue(ssid: string) {
 }
 
 export default function Wifi({ onBack }: { onBack: () => void }) {
+	const t = useT();
 	const {
 		devices,
 		loading: devicesLoading,
@@ -52,6 +55,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const scanRef = useRef(0);
+	const shown = translateError(t, error || devicesError);
 
 	useEffect(() => {
 		setUuid((current) => {
@@ -137,11 +141,11 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	useEffect(() => {
 		if (savedId) {
 			setBoardId(savedId);
-			setStatus("Using saved Bluetooth link");
+			setStatus(t("wifi.usingSavedLink"));
 			return;
 		}
 		void scan();
-	}, [scan, savedId]);
+	}, [scan, savedId, t]);
 
 	async function pickNetwork(next: string) {
 		setNetworkId(next);
@@ -177,7 +181,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			if (boardId !== "auto") {
 				void rememberBleMac(uuid, boardId);
 			}
-			setStatus(raw || "sent");
+			setStatus(raw || t("wifi.sent"));
 			try {
 				await wifiRememberNetwork(trimmedSsid, psk);
 				const next = await wifiKnownNetworks();
@@ -198,13 +202,9 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				WiFi over Bluetooth
+				{t("wifi.title")}
 			</Typography>
-			<Typography color="secondary">
-				Pick the Pi in Nearby Bluetooth device, or leave Auto-detect and hold it
-				close. Choose a known network to fill SSID and password, or enter them
-				manually.
-			</Typography>
+			<Typography color="secondary">{t("wifi.desktopHint")}</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
@@ -215,7 +215,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			) : (
 				<Select
 					name="uuid"
-					label="Paired device"
+					label={t("devices.pairedDevice")}
 					value={uuid}
 					onSelect={(next) => setUuid(next)}
 					sx={{ width: "100%" }}
@@ -232,7 +232,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			)}
 			<Select
 				name="board"
-				label="Nearby Bluetooth device"
+				label={t("ble.nearbyDevice")}
 				value={boardId}
 				onSelect={(next) => setBoardId(next)}
 				sx={{ width: "100%" }}
@@ -241,28 +241,28 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				{[
 					<option key="auto" value="auto">
 						{scanning
-							? "Scanning…"
+							? t("ble.scanning")
 							: boards.length === 0 && !savedId
-								? "No nearby devices — scan again"
-								: "Auto-detect gpio-companion"}
+								? t("ble.noNearby")
+								: t("ble.autoDetect")}
 					</option>,
 					...(savedId && !boards.some((board) => board.id === savedId)
 						? [
 								<option key={savedId} value={savedId}>
-									Saved gpio-companion
+									{t("ble.savedCompanion")}
 								</option>,
 							]
 						: []),
 					...boards.map((board) => (
 						<option key={board.id} value={board.id}>
-							{nearbyBoardLabel(board)}
+							{nearbyBoardLabel(board, t)}
 						</option>
 					)),
 				]}
 			</Select>
 			<Select
 				name="network"
-				label="Saved network"
+				label={t("wifi.savedNetwork")}
 				value={networkId}
 				onSelect={(next) => void pickNetwork(next)}
 				sx={{ width: "100%" }}
@@ -270,22 +270,22 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 			>
 				{[
 					<option key={MANUAL} value={MANUAL}>
-						Enter manually
+						{t("wifi.enterManually")}
 					</option>,
 					...networks.map((network) => (
 						<option key={network.ssid} value={networkValue(network.ssid)}>
-							{knownNetworkLabel(network)}
+							{knownNetworkLabel(network, t)}
 						</option>
 					)),
 				]}
 			</Select>
 			<TextField
-				label="SSID"
+				label={t("wifi.ssid")}
 				value={ssid}
 				onChange={(event) => setSsid(event.target.value)}
 			/>
 			<TextField
-				label="Password"
+				label={t("wifi.password")}
 				type={showPassword ? "text" : "password"}
 				value={psk}
 				onChange={(event) => setPsk(event.target.value)}
@@ -294,31 +294,27 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 				variant="text"
 				onClick={() => setShowPassword((current) => !current)}
 			>
-				{showPassword ? "Hide password" : "Show password"}
+				{showPassword ? t("wifi.hidePassword") : t("wifi.showPassword")}
 			</Button>
 			{status ? <Typography>{status}</Typography> : null}
-			{error || devicesError ? (
-				<Alert severity="error">{error || devicesError}</Alert>
-			) : null}
-			{error || devicesError ? (
-				<DebugLog error={error || devicesError} />
-			) : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			<Button
 				variant="contained"
 				disabled={busy || scanning || !uuid}
 				onClick={() => void send()}
 			>
-				Send to board
+				{t("wifi.send")}
 			</Button>
 			<Button
 				variant="text"
 				disabled={busy || scanning}
 				onClick={() => void scan()}
 			>
-				Scan nearby
+				{t("pair.scanNearby")}
 			</Button>
 			<Button variant="text" onClick={onBack}>
-				Back
+				{t("pair.back")}
 			</Button>
 		</Stack>
 	);

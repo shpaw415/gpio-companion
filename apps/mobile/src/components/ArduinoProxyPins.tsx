@@ -1,11 +1,12 @@
 import { Pressable, Text, View } from "react-native";
+import type { GpioPinState } from "../lib/api.ts";
 import {
 	type ArduinoLayoutSeat,
 	arduinoProxyHeaderLayout,
 	pinByPhysical,
 } from "../lib/arduino-layout.ts";
-import type { GpioPinState } from "../lib/api.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { type Messages, type Translate, useT } from "../lib/locale.tsx";
 
 function canDriveGpio(pin: GpioPinState): boolean {
 	return pin.type === "gpio" && !pin.reserved && !pin.unresolved;
@@ -30,27 +31,43 @@ function gpioPinTone(pin: GpioPinState): string {
 	return "idle";
 }
 
-function pinStatus(pin: GpioPinState): string {
+function pinStatus(pin: GpioPinState, t: Translate<Messages>): string {
 	if (pin.reserved) {
-		return "Reserved";
+		return t("gpio.reserved");
 	}
 	if (pin.unresolved) {
-		return "Unresolved";
+		return t("gpio.unresolved");
 	}
 	if (typeof pin.hz === "number") {
-		return `tone ${Math.round(pin.hz)} Hz`;
+		return t("gpio.toneHz", { n: Math.round(pin.hz) });
 	}
 	if (typeof pin.analog === "number") {
-		return `PWM ${Math.round(pin.analog)}/255`;
+		return t("gpio.pwmDuty", { n: Math.round(pin.analog) });
 	}
 	if (typeof pin.pwm === "number") {
-		return `PWM ${Math.round(pin.pwm)}%`;
+		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
-	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
-	if (pin.dir === "in" || pin.dir === "out") {
-		return level ? `${pin.dir} · ${level}` : pin.dir;
+	if (pin.dir === "in") {
+		return pin.value === 1
+			? t("gpio.inHigh")
+			: pin.value === 0
+				? t("gpio.inLow")
+				: pin.dir;
 	}
-	return level ?? "—";
+	if (pin.dir === "out") {
+		return pin.value === 1
+			? t("gpio.outHigh")
+			: pin.value === 0
+				? t("gpio.outLow")
+				: pin.dir;
+	}
+	if (pin.value === 1) {
+		return t("gpio.high");
+	}
+	if (pin.value === 0) {
+		return t("gpio.low");
+	}
+	return "—";
 }
 
 export default function ArduinoProxyPins({
@@ -67,9 +84,10 @@ export default function ArduinoProxyPins({
 	fqbn?: string;
 }) {
 	const colors = useColors();
+	const t = useT();
 	if (pins.length === 0) {
 		return (
-			<Text style={{ color: colors.muted }}>Waiting for Arduino proxy pins.</Text>
+			<Text style={{ color: colors.muted }}>{t("gpio.waitingProxy")}</Text>
 		);
 	}
 	const layout = arduinoProxyHeaderLayout(pins, fqbn);
@@ -115,7 +133,9 @@ export default function ArduinoProxyPins({
 			))}
 			{layout.extra.length > 0 ? (
 				<View style={{ gap: 6, paddingTop: 8 }}>
-					<Text style={{ color: colors.muted, fontSize: 12 }}>More pins</Text>
+					<Text style={{ color: colors.muted, fontSize: 12 }}>
+						{t("gpio.morePins")}
+					</Text>
 					<View
 						style={{
 							flexDirection: "row",
@@ -214,9 +234,10 @@ function PinButton({
 	onSelect?: (pin: GpioPinState) => void;
 }) {
 	const colors = useColors();
+	const t = useT();
 	const tone = gpioPinTone(pin);
 	const locked = busy || !canDriveGpio(pin);
-	const status = pinStatus(pin);
+	const status = pinStatus(pin, t);
 	const toneColor: Record<string, string> = {
 		reserved: colors.border,
 		pwm: colors.primary,

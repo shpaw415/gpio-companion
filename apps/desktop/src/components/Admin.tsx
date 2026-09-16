@@ -4,6 +4,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useState } from "react";
 import {
 	adminTransfer,
@@ -18,12 +19,14 @@ import {
 	useCachedQuery,
 	useUserBoards,
 } from "../hooks/useApiCache";
+import { useT } from "../locale";
 import CompanionInfo from "./CompanionInfo";
-import GpioPanel from "./GpioPanel";
 import DebugLog from "./DebugLog";
+import GpioPanel from "./GpioPanel";
 import { ListSkeleton } from "./skeletons";
 
 export default function Admin() {
+	const t = useT();
 	const query = useCachedQuery(CACHE_KEYS.adminDevices, listAdminDevices);
 	const { refetch: refetchBoards } = useUserBoards();
 	const devices = query.data?.devices ?? [];
@@ -33,6 +36,7 @@ export default function Admin() {
 	const [error, setError] = useState("");
 	const [updateNote, setUpdateNote] = useState("");
 	const loading = query.loading;
+	const shown = translateError(t, error || query.error);
 
 	const visible = devices.filter((item) => {
 		const hay =
@@ -44,15 +48,13 @@ export default function Admin() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Admin
+				{t("admin.title")}
 			</Typography>
-			{error || query.error ? (
-				<Alert severity="error">{error || query.error}</Alert>
-			) : null}
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
-			{error || query.error ? <DebugLog error={error || query.error} /> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			<TextField
-				label="Filter"
+				label={t("admin.filter")}
 				value={filter}
 				onChange={(event) => setFilter(event.target.value)}
 			/>
@@ -71,7 +73,7 @@ export default function Admin() {
 						>
 							<Typography>{deviceDisplayName(item.device)}</Typography>
 							<Typography color="secondary">
-								{item.status ? "Online" : "Offline"}
+								{item.status ? t("devices.online") : t("devices.offline")}
 								{item.device.email ? ` · ${item.device.email}` : ""}
 							</Typography>
 						</Paper>
@@ -90,7 +92,7 @@ export default function Admin() {
 						sx={{ mt: 2, alignItems: "flex-end" }}
 					>
 						<TextField
-							label="Label"
+							label={t("devices.label")}
 							value={label}
 							onChange={(event) => setLabel(event.target.value)}
 							sx={{ flex: 1 }}
@@ -119,7 +121,7 @@ export default function Admin() {
 									});
 							}}
 						>
-							Save
+							{t("devices.save")}
 						</Button>
 					</Stack>
 					<Stack direction="row" spacing={1} sx={{ mt: 2 }}>
@@ -130,7 +132,7 @@ export default function Admin() {
 								setUpdateNote("");
 								void startDeviceUpdate(current.device.uuid)
 									.then(() => {
-										setUpdateNote("Update started. The board may restart.");
+										setUpdateNote(t("debug.updateStarted"));
 									})
 									.catch((caught) => {
 										setError(
@@ -141,7 +143,7 @@ export default function Admin() {
 									});
 							}}
 						>
-							Update companion
+							{t("debug.updateCompanion")}
 						</Button>
 					</Stack>
 					<CompanionInfo key={current.device.uuid} uuid={current.device.uuid} />
@@ -173,13 +175,13 @@ export default function Admin() {
 									});
 							}}
 						>
-							Force transfer to me
+							{t("admin.forceTransferToMe")}
 						</Button>
 						<Button
 							color="error"
 							variant="text"
 							onClick={() => {
-								if (!window.confirm("Unpair this board from its owner?")) {
+								if (!window.confirm(t("admin.unpairConfirm"))) {
 									return;
 								}
 								void adminUnpair(current.device.uuid)
@@ -201,7 +203,7 @@ export default function Admin() {
 									});
 							}}
 						>
-							Unpair from owner
+							{t("admin.unpairFromOwner")}
 						</Button>
 					</Stack>
 				</Paper>

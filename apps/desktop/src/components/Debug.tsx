@@ -5,6 +5,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	connectDebug,
@@ -24,6 +25,7 @@ import {
 	type JournalWindowId,
 	journalWindowMs,
 } from "../lib/journal";
+import { useT } from "../locale";
 import BleHealthRunner from "./BleHealthRunner";
 import DebugLog from "./DebugLog";
 import { SelectSkeleton } from "./skeletons";
@@ -38,11 +40,15 @@ type LogLine = {
 	via?: string;
 };
 
-function debugBoardOptionLabel(board: DebugBoard): string {
+function debugBoardOptionLabel(
+	board: DebugBoard,
+	live: string,
+	unpaired: string,
+): string {
 	const bits = [
 		board.label?.trim() || null,
-		board.live ? "live" : null,
-		board.paired === false ? "unpaired" : null,
+		board.live ? live : null,
+		board.paired === false ? unpaired : null,
 		board.email || board.login || null,
 	].filter(Boolean);
 	const prefix = bits.join(" · ");
@@ -64,6 +70,7 @@ function pickDebugUuid(
 }
 
 export default function Debug() {
+	const t = useT();
 	const query = useCachedQuery(CACHE_KEYS.debugBoards, listDebugBoards);
 	const { uuid: preferredUuid } = useBoardSelection();
 	const [uuidState, setUuidState] = useState("");
@@ -89,6 +96,7 @@ export default function Debug() {
 	const client = useRef<ReconnectSocket | null>(null);
 	const updateLock = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refetch = query.refetch;
+	const shown = translateError(t, error || query.error);
 
 	useEffect(() => {
 		void refetch({ force: true }).catch(() => undefined);
@@ -109,9 +117,9 @@ export default function Debug() {
 		}
 		return (
 			filterJournalByAge(journal, journalWindowMs(journalWindow)) ||
-			`No journal lines in the last ${journalWindow}.`
+			t("debug.noJournalWindow", { window: journalWindow })
 		);
-	}, [journal, journalWindow]);
+	}, [journal, journalWindow, t]);
 
 	const liveText = useMemo(
 		() =>
@@ -158,7 +166,7 @@ export default function Debug() {
 		try {
 			const next = await loadDeviceLogs(nextUuid);
 			setJournalFor(nextUuid);
-			setJournal(next.text.trim() || "No journal lines in the last 24 hours.");
+			setJournal(next.text.trim() || t("debug.noJournal24h"));
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "logs failed");
 		} finally {
@@ -179,7 +187,7 @@ export default function Debug() {
 		setUpdateBusy(nextUuid);
 		try {
 			await startDeviceUpdate(nextUuid);
-			setUpdateNote("Update started. The board may restart.");
+			setUpdateNote(t("debug.updateStarted"));
 			updateLock.current = setTimeout(() => {
 				setUpdateBusy("");
 				updateLock.current = null;
@@ -217,26 +225,19 @@ export default function Debug() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Debug
+				{t("debug.title")}
 			</Typography>
-			<Typography color="secondary">
-				Live companion API errors over WebSocket. Pick an online Pi to connect.
-			</Typography>
-			{error || query.error ? (
-				<Alert severity="error">{error || query.error}</Alert>
-			) : null}
+			<Typography color="secondary">{t("debug.nativeHint")}</Typography>
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
-			{error || query.error ? <DebugLog error={error || query.error} /> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			{loading ? <SelectSkeleton height={56} width="100%" /> : null}
 			{loading ? null : boards.length === 0 ? (
-				<Alert severity="info">
-					Pair a board, or wait until your companion is live and websocket
-					debuggable.
-				</Alert>
+				<Alert severity="info">{t("debug.noLiveNative")}</Alert>
 			) : (
 				<Select
 					name="board"
-					label="Board"
+					label={t("docs.board")}
 					value={uuid}
 					onSelect={pickBoard}
 					sx={{ width: "100%" }}
@@ -244,7 +245,11 @@ export default function Debug() {
 				>
 					{boards.map((board) => (
 						<option key={board.uuid} value={board.uuid}>
-							{debugBoardOptionLabel(board)}
+							{debugBoardOptionLabel(
+								board,
+								t("debug.live"),
+								t("debug.unpaired"),
+							)}
 						</option>
 					))}
 				</Select>
@@ -253,29 +258,38 @@ export default function Debug() {
 				<Paper sx={{ p: 2 }} elevation={1}>
 					<Typography>{deviceDisplayName(selected)}</Typography>
 					<Typography color="secondary">
-						{selected.live ? "live · websocket debug" : "offline"}
+						{selected.live ? t("debug.liveWs") : t("debug.offline")}
 						{selected.email ? ` · ${selected.email}` : ""}
 						{selected.maintenance?.diskAvailMb != null &&
 						selected.maintenance.diskTotalMb
-							? ` · ${selected.maintenance.diskAvailMb} MB free of ${selected.maintenance.diskTotalMb} MB`
+							? t("debug.mbFreeOf", {
+									avail: selected.maintenance.diskAvailMb,
+									total: selected.maintenance.diskTotalMb,
+								})
 							: ""}
 					</Typography>
 					<Button variant="text" onClick={() => void connect(selected.uuid)}>
-						{active === selected.uuid ? "Reconnect" : "Connect"}
+						{active === selected.uuid
+							? t("debug.reconnect")
+							: t("debug.connect")}
 					</Button>
 					<Button
 						variant="text"
 						disabled={journalBusy === selected.uuid}
 						onClick={() => void fetchLogs(selected.uuid)}
 					>
-						{journalBusy === selected.uuid ? "Loading…" : "Last 24h"}
+						{journalBusy === selected.uuid
+							? t("debug.loading")
+							: t("debug.last24h")}
 					</Button>
 					<Button
 						variant="text"
 						disabled={Boolean(updateBusy)}
 						onClick={() => void runUpdate(selected.uuid)}
 					>
-						{updateBusy === selected.uuid ? "Updating…" : "Update companion"}
+						{updateBusy === selected.uuid
+							? t("debug.updating")
+							: t("debug.updateCompanion")}
 					</Button>
 					<BleHealthRunner uuid={selected.uuid} />
 				</Paper>
@@ -318,7 +332,7 @@ export default function Debug() {
 			{lines.length > 0 ? (
 				<Stack spacing={1}>
 					<Button variant="outlined" onClick={() => void copyLive()}>
-						{liveCopied ? "Copied" : "Copy live debug"}
+						{liveCopied ? t("common.copied") : t("debug.copyLive")}
 					</Button>
 					<Typography
 						Element="pre"

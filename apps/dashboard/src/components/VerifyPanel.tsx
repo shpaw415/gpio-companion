@@ -11,12 +11,13 @@ import {
 	BLE_DEVICE_NAME,
 	type CircuitVerifyItem,
 	type CircuitVerifyState,
-	circuitVerifyLabel,
 	envelopeToPasteText,
 	parseVerifyPut,
 	VERIFY_PATH,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -36,6 +37,7 @@ export default function VerifyPanel({
 	project?: string;
 	onResults?: (results: CircuitVerifyItem[]) => void;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<CircuitVerifyState | null>(null);
@@ -77,7 +79,12 @@ export default function VerifyPanel({
 				if (bluetoothChooserCancelled(caught)) {
 					return;
 				}
-				setError(caught instanceof Error ? caught.message : "request failed");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "request failed",
+					),
+				);
 			})
 			.finally(() => setBusy(false));
 	}
@@ -86,10 +93,9 @@ export default function VerifyPanel({
 
 	return (
 		<Stack spacing={1}>
-			<Typography variant="subtitle1">Verify circuit</Typography>
+			<Typography variant="subtitle1">{t("verify.title")}</Typography>
 			<Typography variant="body2" color="secondary">
-				Pulse declared jumpers on the board. LED on/off needs a second GPIO or
-				ADC (not on this header).
+				{t("verify.hint")}
 			</Typography>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
@@ -98,7 +104,7 @@ export default function VerifyPanel({
 			) : null}
 			{!project ? (
 				<Typography color="secondary" variant="body2">
-					Select a project with breadboard/diagram.json.
+					{t("verify.selectProject")}
 				</Typography>
 			) : null}
 			<Stack direction="row" spacing={1} className="flex-wrap">
@@ -116,7 +122,7 @@ export default function VerifyPanel({
 						});
 					}}
 				>
-					Verify
+					{t("verify.verify")}
 				</Button>
 				<Button
 					type="button"
@@ -130,7 +136,7 @@ export default function VerifyPanel({
 						});
 					}}
 				>
-					Stop
+					{t("verify.stop")}
 				</Button>
 				<Button
 					type="button"
@@ -169,32 +175,45 @@ export default function VerifyPanel({
 						});
 					}}
 				>
-					{supported ? "Verify over Bluetooth" : "Sign verify for Bluetooth"}
+					{supported ? t("verify.overBle") : t("verify.sign")}
 				</Button>
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{supported ? null : pasteText ? (
 				<>
-					<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-					<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+					<CopyBlock label={t("ble.bluetoothName")} value={BLE_DEVICE_NAME} />
+					<CopyBlock
+						label={t("ble.writeCharacteristic")}
+						value={BLE_CMD_UUID}
+					/>
+					<CopyBlock label={t("ble.signedCommand")} value={pasteText} />
 				</>
 			) : null}
 			<Typography color="secondary" variant="body2">
 				{status?.running
-					? "Probing jumpers…"
+					? t("verify.probing")
 					: status?.last
 						? status.last.ok
-							? "Last verify had no fails"
-							: "Last verify found a problem"
-						: "Uses breadboard/diagram.json on the board."}
+							? t("verify.lastOk")
+							: t("verify.lastFail")
+						: t("verify.usesDiagram")}
 			</Typography>
 			{results.length ? (
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{results.map((item) => (
 						<Chip
 							key={item.id}
-							label={`${circuitVerifyLabel(item.status)} · ${item.detail}`}
+							label={`${
+								item.status === "pass"
+									? t("verify.pass")
+									: item.status === "fail"
+										? t("verify.fail")
+										: item.status === "needs-press"
+											? t("verify.press")
+											: item.status === "unsafe"
+												? t("verify.unsafe")
+												: t("verify.unknown")
+							} · ${item.detail}`}
 							size="small"
 							variant="outlined"
 							color={

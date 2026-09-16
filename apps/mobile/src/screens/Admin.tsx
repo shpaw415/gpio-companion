@@ -27,9 +27,11 @@ import {
 	useUserBoards,
 } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 
 export default function Admin() {
 	const auth = useAuth();
+	const t = useT();
 	const token = auth.token;
 	const query = useCachedQuery(CACHE_KEYS.adminDevices, () => {
 		if (!token) {
@@ -54,14 +56,14 @@ export default function Admin() {
 
 	return (
 		<Screen>
-			<Title>Admin</Title>
-			<ErrorText>{error || query.error}</ErrorText>
+			<Title>{t("admin.title")}</Title>
+			<ErrorText>{translateError(t, error || query.error || "")}</ErrorText>
 			{updateNote ? <Muted>{updateNote}</Muted> : null}
 			<Field
-				label="Filter"
+				label={t("admin.filter")}
 				value={filter}
 				onChangeText={setFilter}
-				placeholder="Name, uuid, email"
+				placeholder={t("admin.filterPlaceholder")}
 			/>
 			{query.loading ? (
 				<>
@@ -80,7 +82,7 @@ export default function Admin() {
 					>
 						<Body>{deviceDisplayName(item.device)}</Body>
 						<Muted>
-							{item.status ? "Online" : "Offline"}
+							{item.status ? t("devices.online") : t("devices.offline")}
 							{item.device.email ? ` · ${item.device.email}` : ""}
 						</Muted>
 					</Paper>
@@ -90,9 +92,13 @@ export default function Admin() {
 				<Paper>
 					<Body>{deviceDisplayName(current.device)}</Body>
 					<Muted>{current.device.uuid}</Muted>
-					<Field label="Label" value={label} onChangeText={setLabel} />
+					<Field
+						label={t("devices.label")}
+						value={label}
+						onChangeText={setLabel}
+					/>
 					<TextButton
-						label="Save"
+						label={t("devices.save")}
 						onPress={() => {
 							void patchAdminLabel(token, current.device.uuid, label)
 								.then(() => {
@@ -118,13 +124,13 @@ export default function Admin() {
 						uuid={current.device.uuid}
 					/>
 					<TextButton
-						label="Update companion"
+						label={t("debug.updateCompanion")}
 						onPress={() => {
 							setError("");
 							setUpdateNote("");
 							void startDeviceUpdate(token, current.device.uuid)
 								.then(() => {
-									setUpdateNote("Update started. The board may restart.");
+									setUpdateNote(t("debug.updateStarted"));
 								})
 								.catch((caught) => {
 									setError(
@@ -134,7 +140,7 @@ export default function Admin() {
 						}}
 					/>
 					<TextButton
-						label="Force transfer to me"
+						label={t("admin.forceTransferToMe")}
 						onPress={() => {
 							void adminTransfer(token, current.device.uuid)
 								.then((result) => {
@@ -158,12 +164,12 @@ export default function Admin() {
 					/>
 					<TextButton
 						danger
-						label="Unpair from owner"
+						label={t("admin.unpairFromOwner")}
 						onPress={() => {
-							Alert.alert("Unpair", "Unpair this board from its owner?", [
-								{ text: "Cancel", style: "cancel" },
+							Alert.alert(t("devices.unpairTitle"), t("admin.unpairConfirm"), [
+								{ text: t("admin.cancel"), style: "cancel" },
 								{
-									text: "Unpair",
+									text: t("devices.unpair"),
 									style: "destructive",
 									onPress: () => {
 										void adminUnpair(token, current.device.uuid)

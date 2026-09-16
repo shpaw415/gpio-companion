@@ -4,6 +4,7 @@ import {
 	DOC_HARDWARE_LABELS,
 	DOCS,
 	docSections,
+	docsForLocale,
 	docUrl,
 	findDoc,
 	rewriteDocLinks,
@@ -37,6 +38,15 @@ describe("docs registry", () => {
 	test("hardware labels cover both families", () => {
 		expect(DOC_HARDWARE_LABELS.raspberrypi).toBe("Raspberry Pi");
 		expect(DOC_HARDWARE_LABELS.orangepi).toBe("Orange Pi");
+	});
+
+	test("french locale loads translated bodies and falls back ids", () => {
+		const fr = docsForLocale("fr");
+		expect(findDoc("getting-started", fr)?.content).toContain("# Démarrage");
+		expect(findDoc("pinout-orangepi", fr)?.content).toContain(
+			"# Brochage GPIO Orange Pi",
+		);
+		expect(findDoc("getting-started", fr)?.id).toBe("getting-started");
 	});
 });
 

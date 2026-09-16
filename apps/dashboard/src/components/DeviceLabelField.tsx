@@ -3,7 +3,9 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
+import { translateError } from "gpio-companion/i18n";
 import { useEffect, useState } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 import { unwrapAction } from "../lib/action.ts";
 
 export default function DeviceLabelField({
@@ -20,6 +22,7 @@ export default function DeviceLabelField({
 		label: string;
 	}) => Promise<{ device: { label: string } }>;
 }) {
+	const t = useT();
 	const [value, setValue] = useState(label);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -38,7 +41,12 @@ export default function DeviceLabelField({
 			setValue(result.device.label);
 			onSaved?.(result.device.label);
 		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : "save failed");
+			setError(
+				translateError(
+					t,
+					caught instanceof Error ? caught.message : "save failed",
+				),
+			);
 		} finally {
 			setBusy(false);
 		}
@@ -48,8 +56,8 @@ export default function DeviceLabelField({
 		<Stack spacing={1}>
 			<Stack direction="row" spacing={1} className="flex-wrap items-end">
 				<TextField
-					label="Label"
-					placeholder="Optional name"
+					label={t("devices.label")}
+					placeholder={t("devices.optionalName")}
 					value={value}
 					onChange={(event) => setValue(event.target.value)}
 					className="min-w-0 w-full flex-1"
@@ -60,7 +68,7 @@ export default function DeviceLabelField({
 					disabled={busy}
 					onClick={() => void save()}
 				>
-					Save
+					{t("devices.save")}
 				</Button>
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}

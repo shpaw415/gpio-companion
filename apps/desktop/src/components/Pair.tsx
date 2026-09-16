@@ -3,6 +3,7 @@ import Button from "@shpaw415/mui-lite/Button";
 import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
+import { translateError } from "gpio-companion-i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	blePair,
@@ -13,18 +14,25 @@ import {
 	rememberBleMac,
 } from "../api";
 import { useUserBoards } from "../hooks/useApiCache";
+import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 
 export default function Pair({ onBack }: { onBack: () => void }) {
+	const t = useT();
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
 	const [selected, setSelected] = useState("");
-	const [status, setStatus] = useState("Ready to scan");
+	const [status, setStatus] = useState("");
 	const [error, setError] = useState("");
 	const [scanning, setScanning] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [paired, setPaired] = useState(false);
 	const scanRef = useRef(0);
 	const { refetch: refetchBoards } = useUserBoards();
+	const shown = translateError(t, error);
+
+	useEffect(() => {
+		setStatus(t("pair.readyToScan"));
+	}, [t]);
 
 	useEffect(() => {
 		let unlisten: (() => void) | undefined;
@@ -84,7 +92,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 				void rememberBleMac(pairedUuid, selected);
 			}
 			setPaired(true);
-			setStatus("Paired");
+			setStatus(t("pair.paired"));
 			void refetchBoards({ force: true }).catch(() => undefined);
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : "pair failed";
@@ -98,15 +106,12 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h5" Element="h1">
-				Pair a board
+				{t("pair.title")}
 			</Typography>
-			<Typography color="secondary">
-				Hold the Pi close. Unnamed radios are checked over GATT so
-				gpio-companion shows up by name, not as a MAC address.
-			</Typography>
+			<Typography color="secondary">{t("pair.desktopHint")}</Typography>
 			<Select
 				name="board"
-				label="Select device to pair with"
+				label={t("pair.selectDevice")}
 				value={selected}
 				onSelect={(next) => setSelected(next)}
 				sx={{ width: "100%" }}
@@ -114,23 +119,23 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 			>
 				{boards.map((board) => (
 					<option key={board.id} value={board.id}>
-						{nearbyBoardLabel(board)}
+						{nearbyBoardLabel(board, t)}
 					</option>
 				))}
 			</Select>
-			<Typography>{status}</Typography>
-			{error ? <Alert severity="error">{error}</Alert> : null}
-			{error ? <DebugLog error={error} /> : null}
+			<Typography>{status || t("pair.readyToScan")}</Typography>
+			{shown ? <Alert severity="error">{shown}</Alert> : null}
+			{shown ? <DebugLog error={shown} /> : null}
 			<Button
 				variant="contained"
 				disabled={busy || scanning || !selected || paired}
 				onClick={() => void pair()}
 			>
-				Pair selected device
+				{t("pair.pairSelected")}
 			</Button>
 			{paired ? (
 				<Button variant="contained" color="secondary" onClick={onBack}>
-					Back to Devices
+					{t("pair.backToDevices")}
 				</Button>
 			) : null}
 			<Button
@@ -138,10 +143,10 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 				disabled={busy || scanning}
 				onClick={() => void scan()}
 			>
-				Scan nearby
+				{t("pair.scanNearby")}
 			</Button>
 			<Button variant="text" onClick={onBack}>
-				Back
+				{t("pair.back")}
 			</Button>
 		</Stack>
 	);

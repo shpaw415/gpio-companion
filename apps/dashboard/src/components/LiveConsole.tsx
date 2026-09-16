@@ -2,6 +2,7 @@ import Chip from "@shpaw415/mui-lite/Chip";
 import Stack from "@shpaw415/mui-lite/Stack";
 import { useEffect, useRef } from "react";
 import type { ConsoleTunnelStatus } from "../hooks/useConsoleTunnel.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import CopyBlock from "./CopyBlock.tsx";
 
 export default function LiveConsole({
@@ -42,10 +43,11 @@ function LiveChip({
 	status: ConsoleTunnelStatus;
 	ready: boolean;
 }) {
+	const t = useT();
 	if (status === "reconnecting") {
 		return (
 			<Chip
-				label="Reconnecting"
+				label={t("gpio.reconnecting")}
 				size="small"
 				color="warning"
 				variant="outlined"
@@ -55,12 +57,21 @@ function LiveChip({
 	if (status === "connecting" || !ready) {
 		return (
 			<Chip
-				label={status === "connecting" ? "Connecting" : "Waiting"}
+				label={
+					status === "connecting" ? t("gpio.connecting") : t("gpio.waitingChip")
+				}
 				size="small"
 				color="secondary"
 				variant="outlined"
 			/>
 		);
 	}
-	return <Chip label="Live" size="small" color="success" variant="outlined" />;
+	return (
+		<Chip
+			label={t("gpio.liveChip")}
+			size="small"
+			color="success"
+			variant="outlined"
+		/>
+	);
 }

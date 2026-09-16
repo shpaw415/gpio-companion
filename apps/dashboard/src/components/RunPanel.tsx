@@ -18,9 +18,11 @@ import {
 	RUN_STOP_PATH,
 	type RunStatus,
 } from "gpio-companion";
+import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConsoleTunnel } from "../hooks/useConsoleTunnel.ts";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
+import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
@@ -39,6 +41,7 @@ export default function RunPanel({
 	uuid: string;
 	project?: string;
 }) {
+	const t = useT();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<RunStatus | null>(null);
@@ -54,7 +57,10 @@ export default function RunPanel({
 		);
 		const proxy = scoped.filter((item) => item.target === "arduino-proxy");
 		if (proxy.length) {
-			return [...proxy, ...scoped.filter((item) => item.target !== "arduino-proxy")];
+			return [
+				...proxy,
+				...scoped.filter((item) => item.target !== "arduino-proxy"),
+			];
 		}
 		return scoped;
 	}, [sketches, project]);
@@ -104,7 +110,12 @@ export default function RunPanel({
 				if (bluetoothChooserCancelled(caught)) {
 					return;
 				}
-				setError(caught instanceof Error ? caught.message : "request failed");
+				setError(
+					translateError(
+						t,
+						caught instanceof Error ? caught.message : "request failed",
+					),
+				);
 			})
 			.finally(() => setBusy(false));
 	}
@@ -121,11 +132,10 @@ export default function RunPanel({
 
 	return (
 		<Stack spacing={1}>
-			<Typography variant="subtitle1">Run on board</Typography>
+			<Typography variant="subtitle1">{t("run.title")}</Typography>
 			{listed.some((item) => item.target === "arduino-proxy") ? (
 				<Typography variant="body2" color="secondary">
-					arduino-proxy-* sketches drive the USB Arduino. Header sketches stay
-					on this companion.
+					{t("run.proxyHint")}
 				</Typography>
 			) : null}
 			{uuid ? (
@@ -135,24 +145,23 @@ export default function RunPanel({
 			) : null}
 			{legacy ? (
 				<TextField
-					label="Sketch dir on the Pi"
+					label={t("flash.sketchDir")}
 					placeholder="/home/gpio/blink"
 					value={dir}
 					onChange={(event) => setDir(event.target.value)}
 				/>
 			) : !project ? (
 				<Typography color="secondary" variant="body2">
-					Select a project to see host sketches on this board.
+					{t("run.selectProject")}
 				</Typography>
 			) : listed.length === 0 ? (
 				<Typography color="secondary" variant="body2">
-					No host sketches on this board for this project. Ask Code to write
-					them under host/.
+					{t("run.noSketches")}
 				</Typography>
 			) : (
 				<Select
 					name="host-sketch"
-					label="Sketch"
+					label={t("flash.sketch")}
 					value={dir}
 					onSelect={setDir}
 					className="w-full"
@@ -177,7 +186,7 @@ export default function RunPanel({
 						});
 					}}
 				>
-					Start
+					{t("run.start")}
 				</Button>
 				<Button
 					type="button"
@@ -191,7 +200,7 @@ export default function RunPanel({
 						});
 					}}
 				>
-					Stop
+					{t("run.stop")}
 				</Button>
 				<Button
 					type="button"
@@ -223,7 +232,7 @@ export default function RunPanel({
 						});
 					}}
 				>
-					{supported ? "Start over Bluetooth" : "Sign start for Bluetooth"}
+					{supported ? t("run.startBle") : t("run.signStart")}
 				</Button>
 				<Button
 					type="button"
@@ -245,27 +254,34 @@ export default function RunPanel({
 						});
 					}}
 				>
-					{supported ? "Stop over Bluetooth" : "Sign stop for Bluetooth"}
+					{supported ? t("run.stopBle") : t("run.signStop")}
 				</Button>
 			</Stack>
 			{error ? <Alert severity="error">{error}</Alert> : null}
 			{supported ? null : pasteText ? (
 				<>
-					<CopyBlock label="Bluetooth name" value={BLE_DEVICE_NAME} />
-					<CopyBlock label="Write characteristic" value={BLE_CMD_UUID} />
-					<CopyBlock label="Signed Bluetooth command" value={pasteText} />
+					<CopyBlock label={t("ble.bluetoothName")} value={BLE_DEVICE_NAME} />
+					<CopyBlock
+						label={t("ble.writeCharacteristic")}
+						value={BLE_CMD_UUID}
+					/>
+					<CopyBlock label={t("ble.signedCommand")} value={pasteText} />
 				</>
 			) : null}
 			<Typography color="secondary" variant="body2">
 				{status?.running
-					? "Running on companion GPIO…"
+					? t("run.running")
 					: last
 						? last.ok
-							? "Last run exited 0"
-							: "Last run failed"
-						: "C sketch on the Pi, then run on this header."}
+							? t("run.lastOk")
+							: t("run.lastFailed")
+						: t("run.thenRun")}
 			</Typography>
-			<LiveConsole label="Serial (host)" value={log} status={console.status} />
+			<LiveConsole
+				label={t("run.serialHost")}
+				value={log}
+				status={console.status}
+			/>
 		</Stack>
 	);
 }

@@ -20,6 +20,7 @@ import {
 	type SignedDeviceEnvelope,
 } from "gpio-companion";
 import { useState } from "react";
+import { useT } from "../hooks/useLocale.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import {
 	bluetoothChooserCancelled,
@@ -46,6 +47,7 @@ function emptyRows(): Row[] {
 }
 
 export default function BleHealthRunner({ uuid }: { uuid: string }) {
+	const t = useT();
 	const supported = bluetoothSupported();
 	const [rows, setRows] = useState<Row[]>(emptyRows);
 	const [busy, setBusy] = useState(false);
@@ -148,7 +150,7 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 				return {
 					...row,
 					state: "skipped",
-					log: `Skipped: ${reason}`,
+					log: t("debug.skipped", { reason }),
 				};
 			}),
 		);
@@ -156,17 +158,12 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 
 	return (
 		<Stack spacing={1}>
-			<Typography variant="subtitle1">Bluetooth endpoints</Typography>
+			<Typography variant="subtitle1">{t("debug.bleTitle")}</Typography>
 			<Typography color="secondary" variant="body2">
-				Runtime healthcheck of GATT info plus each companion route the Pi
-				accepts over Bluetooth. WiFi uses a probe SSID that should not exist.
-				GPIO write targets physical pin 1 (power) and must be refused.
+				{t("debug.bleHint")}
 			</Typography>
 			{supported ? null : (
-				<Alert severity="warning">
-					Web Bluetooth is not available here. Use Chrome or Edge, or the native
-					app.
-				</Alert>
+				<Alert severity="warning">{t("debug.bleUnavailable")}</Alert>
 			)}
 			<Stack direction="row" spacing={1} className="flex-wrap">
 				<Button
@@ -174,14 +171,14 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 					disabled={!uuid || busy || !supported}
 					onClick={() => void run()}
 				>
-					{busy ? "Testing…" : "Test Bluetooth"}
+					{busy ? t("debug.testing") : t("debug.testBluetooth")}
 				</Button>
 				<Button
 					variant="outlined"
 					disabled={!hasResults}
 					onClick={() => void copyResults()}
 				>
-					{copied ? "Copied" : "Copy results"}
+					{copied ? t("common.copied") : t("debug.copyResults")}
 				</Button>
 			</Stack>
 			<Stack spacing={1}>
@@ -218,32 +215,41 @@ export default function BleHealthRunner({ uuid }: { uuid: string }) {
 }
 
 function StatusMark({ state }: { state: RowState }) {
+	const t = useT();
 	if (state === "running") {
 		return <CircularProgress size="16px" />;
 	}
 	if (state === "pass") {
 		return (
-			<Typography color="success" variant="body2" aria-label="passed">
+			<Typography
+				color="success"
+				variant="body2"
+				aria-label={t("debug.passed")}
+			>
 				✓
 			</Typography>
 		);
 	}
 	if (state === "fail") {
 		return (
-			<Typography color="error" variant="body2" aria-label="failed">
+			<Typography color="error" variant="body2" aria-label={t("debug.failed")}>
 				✕
 			</Typography>
 		);
 	}
 	if (state === "skipped") {
 		return (
-			<Typography color="secondary" variant="body2" aria-label="skipped">
+			<Typography
+				color="secondary"
+				variant="body2"
+				aria-label={t("debug.skipped", { reason: "—" })}
+			>
 				–
 			</Typography>
 		);
 	}
 	return (
-		<Typography color="secondary" variant="body2" aria-label="idle">
+		<Typography color="secondary" variant="body2" aria-label={t("debug.idle")}>
 			○
 		</Typography>
 	);

@@ -9,6 +9,7 @@ import {
 } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
+import { translateError, useT } from "../lib/locale.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
 import { Body, Chip, ErrorText, Muted, TextButton } from "./ui.tsx";
@@ -21,6 +22,7 @@ export default function VerifyPanel({
 	project?: string;
 }) {
 	const auth = useAuth();
+	const t = useT();
 	const token = auth.token;
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -56,17 +58,12 @@ export default function VerifyPanel({
 
 	return (
 		<View style={{ gap: 8 }}>
-			<Body>Verify circuit</Body>
-			<Muted>
-				Pulse declared jumpers on the board. LED on/off needs a second GPIO or
-				ADC (not on this header).
-			</Muted>
+			<Body>{t("verify.title")}</Body>
+			<Muted>{t("verify.hint")}</Muted>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
-			{!project ? (
-				<Muted>Select a project with breadboard/diagram.json.</Muted>
-			) : null}
+			{!project ? <Muted>{t("verify.selectProject")}</Muted> : null}
 			<TextButton
-				label="Verify"
+				label={t("verify.verify")}
 				disabled={busy || !token || !canStart}
 				onPress={() => {
 					if (!token) {
@@ -79,7 +76,7 @@ export default function VerifyPanel({
 				}}
 			/>
 			<TextButton
-				label="Stop"
+				label={t("verify.stop")}
 				disabled={busy || !token}
 				onPress={() => {
 					if (!token) {
@@ -92,7 +89,7 @@ export default function VerifyPanel({
 				}}
 			/>
 			<TextButton
-				label="Verify over Bluetooth"
+				label={t("verify.overBle")}
 				disabled={busy || !token || !canStart}
 				onPress={() => {
 					if (!token) {
@@ -118,21 +115,31 @@ export default function VerifyPanel({
 					});
 				}}
 			/>
-			{error ? <ErrorText>{error}</ErrorText> : null}
+			{error ? <ErrorText>{translateError(t, error)}</ErrorText> : null}
 			<Muted>
 				{status?.running
-					? "Probing jumpers…"
+					? t("verify.probing")
 					: status?.last
 						? status.last.ok
-							? "Last verify had no fails"
-							: "Last verify found a problem"
-						: "Uses breadboard/diagram.json on the board."}
+							? t("verify.lastOk")
+							: t("verify.lastFail")
+						: t("verify.usesDiagram")}
 			</Muted>
 			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 				{results.map((item) => (
 					<Chip
 						key={item.id}
-						label={`${item.status} · ${item.detail}`}
+						label={`${
+							item.status === "pass"
+								? t("verify.pass")
+								: item.status === "fail"
+									? t("verify.fail")
+									: item.status === "needs-press"
+										? t("verify.press")
+										: item.status === "unsafe"
+											? t("verify.unsafe")
+											: t("verify.unknown")
+						} · ${item.detail}`}
 						tone={
 							item.status === "pass"
 								? "success"

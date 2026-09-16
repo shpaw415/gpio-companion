@@ -3,8 +3,9 @@ import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { formatNetworkLabel, type NetworkStatus } from "gpio-companion";
+import type { NetworkStatus } from "gpio-companion";
 import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
+import { useT } from "../hooks/useLocale.tsx";
 import type { ActionResult } from "../lib/action.ts";
 import { deviceDisplayName, type StoredPairing } from "../lib/pairing-store.ts";
 import DeviceCompanionInfo from "./DeviceCompanionInfo.tsx";
@@ -55,8 +56,16 @@ export default function DeviceBoardCard({
 	loadInfo?: (uuid: string) => Promise<ActionResult<{ info: unknown }>>;
 }) {
 	const { isEasy } = useDashboardMode();
+	const t = useT();
 	const online = Boolean(status);
-	const networkLabel = formatNetworkLabel(status?.network);
+	const networkLabel =
+		status?.network?.type === "ethernet"
+			? t("devices.ethernet")
+			: status?.network?.type === "wifi"
+				? status.network.ssid.trim()
+					? t("devices.wifiSsid", { ssid: status.network.ssid.trim() })
+					: t("nav.wifi")
+				: "";
 	const codeReady = Boolean(status?.t3?.paired);
 	const showCodePair = !isEasy || t3AutoStart || !codeReady;
 
@@ -84,12 +93,16 @@ export default function DeviceBoardCard({
 				/>
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					<Chip
-						label={online ? "Online" : "Offline"}
+						label={online ? t("devices.online") : t("devices.offline")}
 						color={online ? "success" : "secondary"}
 						variant="outlined"
 					/>
 					{selected ? (
-						<Chip label="Selected" color="primary" variant="outlined" />
+						<Chip
+							label={t("devices.selected")}
+							color="primary"
+							variant="outlined"
+						/>
 					) : null}
 					{status?.model || status?.hardware ? (
 						<Chip
@@ -103,7 +116,9 @@ export default function DeviceBoardCard({
 					{status && !isEasy ? (
 						<Chip
 							label={
-								status.tunnel?.configured ? "tunnel ready" : "tunnel pending"
+								status.tunnel?.configured
+									? t("devices.tunnelReady")
+									: t("devices.tunnelPending")
 							}
 							color={status.tunnel?.configured ? "success" : "secondary"}
 							variant="outlined"
@@ -114,8 +129,8 @@ export default function DeviceBoardCard({
 							<Chip
 								label={
 									status.secrets?.githubReady
-										? "Projects connected"
-										: "Connect GitHub"
+										? t("devices.projectsConnected")
+										: t("devices.connectGithubChip")
 								}
 								color={status.secrets?.githubReady ? "success" : "warning"}
 								variant="outlined"
@@ -123,10 +138,10 @@ export default function DeviceBoardCard({
 							<Chip
 								label={
 									codeReady
-										? "Code ready"
+										? t("devices.codeReady")
 										: status.t3?.running
-											? "Code running"
-											: "Code idle"
+											? t("devices.codeRunning")
+											: t("devices.codeIdle")
 								}
 								color={codeReady ? "success" : "secondary"}
 								variant="outlined"
@@ -155,7 +170,7 @@ export default function DeviceBoardCard({
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{isEasy ? (
 						<Button href="/devices/t3" variant="contained" size="small">
-							Open Code
+							{t("project.openCode")}
 						</Button>
 					) : null}
 					{onSelect ? (
@@ -166,7 +181,7 @@ export default function DeviceBoardCard({
 							disabled={selected}
 							onClick={() => onSelect(device.uuid)}
 						>
-							{selected ? "Selected board" : "Select board"}
+							{selected ? t("devices.selectedBoard") : t("devices.selectBoard")}
 						</Button>
 					) : null}
 					{!isEasy && onUnpair ? (
@@ -177,7 +192,7 @@ export default function DeviceBoardCard({
 							disabled={unpairing}
 							onClick={() => onUnpair(device.uuid)}
 						>
-							Unpair (revokes T3 Code)
+							{t("devices.unpairRevokes")}
 						</Button>
 					) : null}
 				</Stack>

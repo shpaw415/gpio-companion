@@ -12,10 +12,14 @@ import { unpairDevice } from "../lib/api.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
+import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
+import { translateError, useT } from "../lib/locale.tsx";
 
 export default function Overview() {
 	const auth = useAuth();
+	const t = useT();
+	const { isEasy } = useDashboardMode();
 	const { setTab } = useDeviceHub();
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
@@ -40,8 +44,10 @@ export default function Overview() {
 
 	return (
 		<Screen>
-			<Title>Devices</Title>
-			<ErrorText>{error || loadError}</ErrorText>
+			<Title>
+				{isEasy ? t("devices.titleEasy") : t("devices.titleExpert")}
+			</Title>
+			<ErrorText>{translateError(t, error || loadError || "")}</ErrorText>
 			{loading ? (
 				<>
 					<Skeleton />
@@ -49,12 +55,18 @@ export default function Overview() {
 				</>
 			) : boards.length === 0 ? (
 				<>
-					<Muted>No boards yet. Pair one nearby over Bluetooth.</Muted>
-					<PrimaryButton label="Pair a device" onPress={() => setTab("pair")} />
+					<Muted>{t("devices.noBoardsYetBle")}</Muted>
+					<PrimaryButton
+						label={t("devices.pairADevice")}
+						onPress={() => setTab("pair")}
+					/>
 				</>
 			) : (
 				<>
-					<PrimaryButton label="Add board" onPress={() => setTab("pair")} />
+					<PrimaryButton
+						label={t("devices.addBoard")}
+						onPress={() => setTab("pair")}
+					/>
 					{boards.map((board) => (
 						<BoardCard
 							key={board.device.uuid}
