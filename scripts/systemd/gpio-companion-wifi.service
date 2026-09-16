@@ -1,0 +1,9 @@
+[Unit]
+Description=gpio-companion WiFi reconnect
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/usr/local/lib/gpio-companion/wifi-keep.sh

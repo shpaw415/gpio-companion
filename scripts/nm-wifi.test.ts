@@ -89,6 +89,7 @@ ensure_networkmanager_wifi
 			).text();
 			expect(dropIn).toContain("managed=true");
 			expect(dropIn).toContain("wifi.scan-rand-mac-address=no");
+			expect(dropIn).toContain("wifi.powersave=2");
 			const calls = await Bun.file(log).text();
 			expect(calls).toContain("unblock wifi");
 			expect(calls).toContain("radio wifi on");
@@ -165,6 +166,56 @@ ensure_networkmanager_wifi
 		expect(
 			await Bun.file(join(netplan, "90-gpio-companion-wifi.yaml")).text(),
 		).toContain("renderer: NetworkManager");
+	});
+
+	test("persists wifi connections and skips ethernet", async () => {
+		const dir = await tempDir();
+		const bin = join(dir, "bin");
+		const conf = join(dir, "nm");
+		const log = join(dir, "nmcli.log");
+		await mkdir(bin, { recursive: true });
+		await writeFile(
+			join(bin, "systemctl"),
+			`#!/usr/bin/env bash
+exit 0
+`,
+		);
+		await writeFile(
+			join(bin, "nmcli"),
+			`#!/usr/bin/env bash
+set -euo pipefail
+echo "nmcli $*" >> "${log}"
+if [[ "$*" == *connection*show* ]]; then
+	printf '%s\\n' "bench:802-11-wireless" "Wired connection 1:802-3-ethernet"
+	exit 0
+fi
+if [[ "\${1:-}" == "-t" ]]; then
+	printf '%s\\n' "eth0:ethernet:connected" "wlan0:wifi:disconnected"
+	exit 0
+fi
+exit 0
+`,
+		);
+		await chmod(join(bin, "systemctl"), 0o755);
+		await chmod(join(bin, "nmcli"), 0o755);
+		const result = await bash(
+			`
+PATH="${bin}:$PATH"
+source "${libSh}"
+ensure_networkmanager_wifi
+`,
+			{
+				GPIO_COMPANION_NM_CONF_D: conf,
+				GPIO_COMPANION_NETPLAN_DIR: join(dir, "netplan-missing"),
+			},
+		);
+		expect(result.exit).toBe(0);
+		const calls = await Bun.file(log).text();
+		expect(calls).toContain(
+			"connection modify bench connection.autoconnect yes connection.autoconnect-retries -1 802-11-wireless.powersave 2",
+		);
+		expect(calls).not.toContain("connection modify Wired connection 1");
+		expect(calls).not.toContain("connection modify eth0");
 	});
 
 	test("skips claim when nmcli is missing", async () => {

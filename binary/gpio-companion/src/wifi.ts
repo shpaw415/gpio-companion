@@ -1,4 +1,5 @@
 import {
+	BLE_HEALTH_WIFI_SSID,
 	classifyWifiConnectError,
 	type WifiConfig,
 	WifiConnectError,
@@ -7,6 +8,10 @@ import {
 import { privileged } from "./priv.ts";
 
 export type ApplyWifi = (config: WifiConfig) => Promise<{ ssid: string }>;
+
+export type PrivilegedRun = (
+	cmd: string[],
+) => Promise<{ stdout: string; stderr: string; code: number }>;
 
 async function readPipe(
 	stream: ReadableStream<Uint8Array> | number | undefined,
@@ -29,11 +34,11 @@ async function runPrivileged(
 	return { stdout, stderr, code };
 }
 
-async function claimUnmanagedWifi(): Promise<void> {
-	await runPrivileged(["rfkill", "unblock", "wifi"]);
-	await runPrivileged(["nmcli", "networking", "on"]);
-	await runPrivileged(["nmcli", "radio", "wifi", "on"]);
-	const status = await runPrivileged([
+async function claimUnmanagedWifi(run: PrivilegedRun): Promise<void> {
+	await run(["rfkill", "unblock", "wifi"]);
+	await run(["nmcli", "networking", "on"]);
+	await run(["nmcli", "radio", "wifi", "on"]);
+	const status = await run([
 		"nmcli",
 		"-t",
 		"-f",
@@ -44,16 +49,64 @@ async function claimUnmanagedWifi(): Promise<void> {
 	for (const device of wifiDevicesToClaim(
 		`${status.stdout}\n${status.stderr}`,
 	)) {
-		await runPrivileged(["nmcli", "device", "set", device, "managed", "yes"]);
-		await runPrivileged(["ip", "link", "set", device, "down"]);
-		await runPrivileged(["ip", "link", "set", device, "up"]);
+		await run(["nmcli", "device", "set", device, "managed", "yes"]);
 	}
 }
 
-export function applyNetworkManagerWifi(): ApplyWifi {
+function activeWifiConnectionName(text: string, ssid: string): string {
+	for (const line of text.replace(/\r\n/g, "\n").split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed) {
+			continue;
+		}
+		const [name, type] = trimmed.split(":");
+		if (name && (type === "802-11-wireless" || type === "wifi")) {
+			return name;
+		}
+	}
+	return ssid;
+}
+
+async function persistWifiConnection(
+	run: PrivilegedRun,
+	ssid: string,
+): Promise<void> {
+	const active = await run([
+		"nmcli",
+		"-t",
+		"-f",
+		"NAME,TYPE,DEVICE",
+		"connection",
+		"show",
+		"--active",
+	]);
+	const name = activeWifiConnectionName(
+		`${active.stdout}\n${active.stderr}`,
+		ssid,
+	);
+	await run([
+		"nmcli",
+		"connection",
+		"modify",
+		name,
+		"connection.autoconnect",
+		"yes",
+		"connection.autoconnect-retries",
+		"-1",
+		"802-11-wireless.powersave",
+		"2",
+	]);
+}
+
+export function applyNetworkManagerWifi(
+	run: PrivilegedRun = runPrivileged,
+): ApplyWifi {
 	return async (config) => {
-		await claimUnmanagedWifi();
-		const { stdout, stderr, code } = await runPrivileged([
+		if (config.ssid === BLE_HEALTH_WIFI_SSID) {
+			throw new WifiConnectError("ssid-not-found");
+		}
+		await claimUnmanagedWifi(run);
+		const { stdout, stderr, code } = await run([
 			"nmcli",
 			"device",
 			"wifi",
@@ -67,6 +120,7 @@ export function applyNetworkManagerWifi(): ApplyWifi {
 				classifyWifiConnectError(`${stdout}\n${stderr}`),
 			);
 		}
+		await persistWifiConnection(run, config.ssid);
 		return { ssid: config.ssid };
 	};
 }

@@ -173,6 +173,9 @@ managed=true
 
 [device]
 wifi.scan-rand-mac-address=no
+
+[connection]
+wifi.powersave=2
 EOF
 	chmod 0644 "$drop_in"
 
@@ -220,6 +223,7 @@ EOF
 		nmcli radio wifi on >/dev/null 2>&1 || true
 		claim_nm_wifi_devices
 	fi
+	persist_nm_wifi_connections
 	echo "gpio-companion: NetworkManager wifi managed"
 }
 
@@ -236,6 +240,22 @@ claim_nm_wifi_devices() {
 			nmcli device set "$dev" managed yes >/dev/null 2>&1 || true
 		fi
 	done < <(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null || true)
+}
+
+persist_nm_wifi_connections() {
+	local line name type
+	while IFS= read -r line; do
+		[[ -n "$line" ]] || continue
+		name="${line%%:*}"
+		type="${line#*:}"
+		type="${type%%:*}"
+		if [[ "$type" == "802-11-wireless" ]]; then
+			nmcli connection modify "$name" \
+				connection.autoconnect yes \
+				connection.autoconnect-retries -1 \
+				802-11-wireless.powersave 2 >/dev/null 2>&1 || true
+		fi
+	done < <(nmcli -t -f NAME,TYPE connection show 2>/dev/null || true)
 }
 
 install_node() {
@@ -1688,6 +1708,15 @@ install_cleanup_units() {
 	systemctl enable --now gpio-companion-cleanup.timer
 }
 
+install_wifi_keep_units() {
+	install -d -m 0755 "$LIB_DIR"
+	install -m 0755 "$SCRIPT_DIR/wifi-keep.sh" "$LIB_DIR/wifi-keep.sh"
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-wifi.service" /etc/systemd/system/gpio-companion-wifi.service
+	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-wifi.timer" /etc/systemd/system/gpio-companion-wifi.timer
+	systemctl daemon-reload
+	systemctl enable --now gpio-companion-wifi.timer
+}
+
 write_gpio_companion_service() {
 	local hardware="$1"
 	local dest="${GPIO_COMPANION_SERVICE_UNIT:-/etc/systemd/system/gpio-companion.service}"
@@ -1713,6 +1742,7 @@ install_systemd_units() {
 	install -m 0644 "$SCRIPT_DIR/systemd/gpio-companion-update.timer" /etc/systemd/system/gpio-companion-update.timer
 	install_update_wrapper
 	install_cleanup_units
+	install_wifi_keep_units
 	chown_gpio_config
 	systemctl daemon-reload
 	systemctl enable --now gpio-companion.service
