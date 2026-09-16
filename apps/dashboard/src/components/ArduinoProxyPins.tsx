@@ -130,7 +130,7 @@ function LayoutSeat({
 	onSelect?: (pin: GpioPinState) => void;
 }) {
 	if (seat.kind === "gap") {
-		return <Box className="min-w-0 flex-1" />;
+		return <Box className="min-w-0" sx={{ flex: 1, minWidth: 0 }} />;
 	}
 	if (seat.kind === "label") {
 		return (
@@ -140,9 +140,10 @@ function LayoutSeat({
 				noWrap
 				className={
 					align === "left"
-						? "min-w-0 flex-1 px-1 py-0.5 text-right"
-						: "min-w-0 flex-1 px-1 py-0.5 text-left"
+						? "min-w-0 px-1 py-0.5 text-right"
+						: "min-w-0 px-1 py-0.5 text-left"
 				}
+				sx={{ flex: 1, minWidth: 0 }}
 			>
 				{seat.name}
 			</Typography>
@@ -150,7 +151,7 @@ function LayoutSeat({
 	}
 	const pin = pinByPhysical(pins, seat.physical);
 	if (!pin) {
-		return <Box className="min-w-0 flex-1" />;
+		return <Box className="min-w-0" sx={{ flex: 1, minWidth: 0 }} />;
 	}
 	return (
 		<PinButton
@@ -183,11 +184,9 @@ function PinButton({
 		<Stack
 			direction="row"
 			spacing={0.5}
-			className={
-				align === "left"
-					? "w-full min-w-0 items-center justify-end"
-					: "w-full min-w-0 items-center"
-			}
+			alignItems="center"
+			justifyContent={align === "left" ? "flex-end" : "flex-start"}
+			sx={{ width: "100%", minWidth: 0 }}
 		>
 			{align === "right" ? (
 				<Box
@@ -212,8 +211,10 @@ function PinButton({
 	if (!selectable) {
 		return (
 			<Box
-				className="min-w-0 flex-1 px-1 py-0.5"
+				className="min-w-0 px-1 py-0.5"
 				sx={{
+					flex: 1,
+					minWidth: 0,
 					opacity: 0.85,
 					borderRadius: 1,
 					outline: selected
@@ -234,8 +235,9 @@ function PinButton({
 			aria-label={`Pin ${pin.name || pin.physical} ${status}`}
 			aria-pressed={selected}
 			onClick={() => onSelect?.(pin)}
-			className="min-w-0 flex-1"
+			className="min-w-0"
 			sx={{
+				flex: 1,
 				minWidth: 0,
 				textTransform: "none",
 				justifyContent: align === "left" ? "flex-end" : "flex-start",
