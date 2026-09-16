@@ -8,6 +8,7 @@ export type ProjectFileDir = (typeof PROJECT_FILE_DIRS)[number];
 export const PROJECT_WATERMARK_PATH = ".gpio-companion";
 export const PROJECT_WATERMARK_BODY = "gpio-companion\n";
 export const PROJECTS_SYNC_PATH = "/v1/projects/sync";
+export const PROJECTS_REMOVE_PATH = "/v1/projects/remove";
 export const PROJECTS_PUSH_PATH = "/v1/projects/push";
 export const PROJECT_PUSH_MESSAGE = "Save project from board";
 export const PROJECT_PUSH_MESSAGE_MAX = 200;
@@ -101,6 +102,19 @@ export function parseProjectSyncPut(input: unknown): ProjectSyncPut {
 		owner: parseGithubRepoName(ownerRaw),
 		name: parseGithubRepoName(nameRaw),
 	};
+}
+
+export type ProjectRemovePut = {
+	owner: string;
+	name: string;
+};
+
+export function parseProjectRemovePut(input: unknown): ProjectRemovePut {
+	const parsed = parseProjectSyncPut(input);
+	if (!parsed.owner || !parsed.name) {
+		throw new Error("owner and name are required");
+	}
+	return { owner: parsed.owner, name: parsed.name };
 }
 
 export type ProjectPushPut = {

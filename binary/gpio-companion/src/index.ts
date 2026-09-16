@@ -20,7 +20,12 @@ import {
 import { createLibgpiodGpio } from "./gpio.ts";
 import { startHubClient } from "./hub-client.ts";
 import { DEFAULT_PAIRING_PATH, filePairingStore } from "./pairing.ts";
-import { projectsRoot, pushProject, syncProjects } from "./projects.ts";
+import {
+	projectsRoot,
+	pushProject,
+	removeProject,
+	syncProjects,
+} from "./projects.ts";
 import { createHostRun } from "./run.ts";
 import { DEFAULT_SECRETS_PATH, fileSecretsStore } from "./secrets.ts";
 import { startDeviceApi } from "./serve.ts";
@@ -149,6 +154,14 @@ const server = startDeviceApi({
 		void syncGithubProjects(target);
 	},
 	applyProjectPush: (put) => pushProject({ destRoot: projectsRoot() }, put),
+	applyProjectRemove: (put) =>
+		removeProject(
+			{
+				destRoot: projectsRoot(),
+				t3Remove: (path) => t3.removeProject(path),
+			},
+			put,
+		),
 	t3,
 	gpio,
 	flash,

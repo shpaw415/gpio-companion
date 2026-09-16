@@ -21,6 +21,7 @@ const ERROR_KEYS = {
 	"could not open credits": "errors.couldNotOpenCredits",
 	"failed to list project": "errors.failedListProject",
 	"failed to create project": "errors.failedCreateProject",
+	"failed to delete project": "errors.failedDeleteProject",
 	"failed to load project": "errors.failedLoadProject",
 	"failed to save project": "errors.failedSaveProject",
 	"failed to load branch": "errors.failedLoadBranch",

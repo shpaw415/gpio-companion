@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
 	createGpioCompanionRepo,
+	deleteGpioCompanionRepo,
 	indexProject,
 	listRepos,
 	loadIndexedProjects,
 	parseRepoName,
+	unindexProject,
 } from "./github.ts";
 
 describe("parseRepoName", () => {
@@ -163,6 +165,95 @@ describe("createGpioCompanionRepo", () => {
 			"blink",
 		);
 		expect(paths).toContain("POST /user/repos");
+	});
+});
+
+describe("deleteGpioCompanionRepo", () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	function json(body: unknown, status = 200) {
+		return new Response(JSON.stringify(body), {
+			status,
+			headers: { "content-type": "application/json" },
+		});
+	}
+
+	test("user tokens DELETE watermarked repos", async () => {
+		const paths: string[] = [];
+		const auths: string[] = [];
+		globalThis.fetch = (async (
+			input: RequestInfo | URL,
+			init?: RequestInit,
+		) => {
+			const url = String(input);
+			const path = url.replace("https://api.github.com", "");
+			paths.push(`${init?.method ?? "GET"} ${path}`);
+			const headers = new Headers(init?.headers);
+			auths.push(headers.get("authorization") ?? "");
+			if (path === "/repos/ada/blink" && (init?.method ?? "GET") === "GET") {
+				return json({ full_name: "ada/blink" });
+			}
+			if (path === "/repos/ada/blink/contents/.gpio-companion") {
+				return json({});
+			}
+			if (path === "/repos/ada/blink" && init?.method === "DELETE") {
+				return new Response(null, { status: 204 });
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		await deleteGpioCompanionRepo(
+			{
+				username: "ada",
+				token: "ghs_install",
+				createToken: "ghu_user",
+			},
+			"ada",
+			"blink",
+		);
+		expect(paths).toContain("DELETE /repos/ada/blink");
+		expect(auths.some((item) => item.includes("ghu_user"))).toBe(true);
+	});
+
+	test("treats github 404 as already deleted", async () => {
+		globalThis.fetch = (async (input: RequestInfo | URL) => {
+			const path = String(input).replace("https://api.github.com", "");
+			if (path === "/repos/ada/gone") {
+				return json({ message: "Not Found" }, 404);
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		await deleteGpioCompanionRepo(
+			{ username: "ada", token: "ghs_install", createToken: "ghu_user" },
+			"ada",
+			"gone",
+		);
+	});
+
+	test("refuses repos without the watermark", async () => {
+		globalThis.fetch = (async (
+			input: RequestInfo | URL,
+			init?: RequestInit,
+		) => {
+			const path = String(input).replace("https://api.github.com", "");
+			if (path === "/repos/ada/notes" && (init?.method ?? "GET") === "GET") {
+				return json({ full_name: "ada/notes" });
+			}
+			if (path === "/repos/ada/notes/contents/.gpio-companion") {
+				return json({ message: "Not Found" }, 404);
+			}
+			return json({ message: `unexpected ${path}` }, 500);
+		}) as typeof fetch;
+		await expect(
+			deleteGpioCompanionRepo(
+				{ username: "ada", token: "ghp_pat" },
+				"ada",
+				"notes",
+			),
+		).rejects.toThrow("not a gpio-companion project");
 	});
 });
 
@@ -332,5 +423,7 @@ describe("indexed projects", () => {
 		await indexProject(kv, "user-1", repo);
 		await indexProject(kv, "user-1", repo);
 		expect(await loadIndexedProjects(kv, "user-1")).toEqual([repo]);
+		await unindexProject(kv, "user-1", "ada", "blink");
+		expect(await loadIndexedProjects(kv, "user-1")).toEqual([]);
 	});
 });

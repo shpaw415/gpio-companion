@@ -1,4 +1,4 @@
-import { PROJECTS_SYNC_PATH } from "gpio-companion";
+import { PROJECTS_REMOVE_PATH, PROJECTS_SYNC_PATH } from "gpio-companion";
 import { getLiveBoard } from "./debug-live.ts";
 import {
 	type DeviceSigningEnv,
@@ -18,10 +18,11 @@ export type ProjectPushRepo = {
 	name: string;
 };
 
-export async function pushProjectToLiveBoards(
+async function postProjectToLiveBoards(
 	env: ProjectPushEnv,
 	userId: string,
 	repo: ProjectPushRepo,
+	path: string,
 	options?: {
 		now?: number;
 		timeoutMs?: number;
@@ -48,7 +49,7 @@ export async function pushProjectToLiveBoards(
 					env,
 					deviceUrl,
 					"POST",
-					PROJECTS_SYNC_PATH,
+					path,
 					{ owner: repo.owner, name: repo.name },
 					{
 						timeoutMs: options?.timeoutMs ?? PROJECT_PUSH_TIMEOUT_MS,
@@ -59,5 +60,37 @@ export async function pushProjectToLiveBoards(
 				undefined;
 			}
 		}),
+	);
+}
+
+export async function pushProjectToLiveBoards(
+	env: ProjectPushEnv,
+	userId: string,
+	repo: ProjectPushRepo,
+	options?: {
+		now?: number;
+		timeoutMs?: number;
+		fetchImpl?: FetchLike;
+	},
+): Promise<void> {
+	await postProjectToLiveBoards(env, userId, repo, PROJECTS_SYNC_PATH, options);
+}
+
+export async function removeProjectFromLiveBoards(
+	env: ProjectPushEnv,
+	userId: string,
+	repo: ProjectPushRepo,
+	options?: {
+		now?: number;
+		timeoutMs?: number;
+		fetchImpl?: FetchLike;
+	},
+): Promise<void> {
+	await postProjectToLiveBoards(
+		env,
+		userId,
+		repo,
+		PROJECTS_REMOVE_PATH,
+		options,
 	);
 }

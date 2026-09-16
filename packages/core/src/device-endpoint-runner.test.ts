@@ -51,6 +51,7 @@ describe("device-endpoint-runner", () => {
 			"POST /v1/debug/event",
 			"GET /v1/github-token",
 			"POST /v1/projects/sync",
+			"POST /v1/projects/remove",
 			"POST /v1/projects/push",
 			"GET /v1/ai",
 			"offline GET /v1/info",
@@ -75,6 +76,7 @@ describe("device-endpoint-runner", () => {
 			"offline deny GET /v1/status",
 			"offline deny POST /v1/update",
 			"offline deny POST /v1/projects/sync",
+			"offline deny POST /v1/projects/remove",
 			"offline deny POST /v1/projects/push",
 			"offline deny POST /v1/t3/pair",
 		]) {

@@ -11,9 +11,11 @@ import {
 	PROJECT_WATERMARK_BODY,
 	PROJECT_WATERMARK_PATH,
 	PROJECTS_PUSH_PATH,
+	PROJECTS_REMOVE_PATH,
 	PROJECTS_SYNC_PATH,
 	parseGithubRepoName,
 	parseProjectPushPut,
+	parseProjectRemovePut,
 	parseProjectSyncPut,
 	pickProjectWatermarkCandidates,
 } from "./project-files.ts";
@@ -28,6 +30,7 @@ describe("project files", () => {
 		expect(PROJECT_WATERMARK_PATH).toBe(".gpio-companion");
 		expect(PROJECT_WATERMARK_BODY.trim()).toBe("gpio-companion");
 		expect(PROJECTS_SYNC_PATH).toBe("/v1/projects/sync");
+		expect(PROJECTS_REMOVE_PATH).toBe("/v1/projects/remove");
 		expect(PROJECTS_PUSH_PATH).toBe("/v1/projects/push");
 	});
 
@@ -61,6 +64,19 @@ describe("project files", () => {
 			"owner and name are required",
 		);
 		expect(() => parseProjectSyncPut([])).toThrow("body must be an object");
+	});
+
+	test("parses project remove bodies", () => {
+		expect(parseProjectRemovePut({ owner: "ada", name: "blink-led" })).toEqual({
+			owner: "ada",
+			name: "blink-led",
+		});
+		expect(() => parseProjectRemovePut({})).toThrow(
+			"owner and name are required",
+		);
+		expect(() => parseProjectRemovePut(null)).toThrow(
+			"owner and name are required",
+		);
 	});
 
 	test("parses project push bodies", () => {

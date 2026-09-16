@@ -2,6 +2,7 @@ import { getContext } from "frame-master-plugin-cloudflare-pages-functions-actio
 import { wrapAction } from "../../lib/action.ts";
 import {
 	createGpioCompanionRepo,
+	deleteGpioCompanionRepo,
 	githubAccountForUser,
 	githubConfigured,
 	indexProject,
@@ -10,9 +11,13 @@ import {
 	loadProjectBundle,
 	parseProjectRef,
 	readRepoFile,
+	unindexProject,
 } from "../../lib/github.ts";
 import type { GithubAppEnv } from "../../lib/github-app.ts";
-import { pushProjectToLiveBoards } from "../../lib/projects-push.ts";
+import {
+	pushProjectToLiveBoards,
+	removeProjectFromLiveBoards,
+} from "../../lib/projects-push.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
 type PagesEnv = GithubAppEnv & {
@@ -97,4 +102,23 @@ export const PATCH = wrapAction(async function PATCH(name: string) {
 	await indexProject(ctx.env.DYNAMIC_PAGE_KV, identity.id, repo);
 	await pushProjectToLiveBoards(ctx.env, identity.id, repo);
 	return repo;
+});
+
+export const DELETE = wrapAction(async function DELETE(
+	owner: string,
+	name: string,
+) {
+	const ctx = getContext<PagesEnv, never, never>(arguments);
+	const identity = await requireIdentity(ctx);
+	if (!identity.id) {
+		throw new Error("sign in first");
+	}
+	const account = await accountForUser(ctx.env, identity.id);
+	if (!githubConfigured(account)) {
+		throw new Error("github is not configured");
+	}
+	await deleteGpioCompanionRepo(account, owner, name);
+	await unindexProject(ctx.env.DYNAMIC_PAGE_KV, identity.id, owner, name);
+	await removeProjectFromLiveBoards(ctx.env, identity.id, { owner, name });
+	return { deleted: true as const, owner, name };
 });

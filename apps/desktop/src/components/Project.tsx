@@ -2,6 +2,11 @@ import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
+import Dialog, {
+	DialogActions,
+	DialogContent,
+	DialogTitle,
+} from "@shpaw415/mui-lite/Dialog";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
@@ -24,6 +29,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
 	createProject,
+	deleteProject,
 	type GithubContent,
 	type GithubRepo,
 	type GpioTarget,
@@ -267,6 +273,9 @@ export default function Project() {
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [deleteName, setDeleteName] = useState("");
+	const [deleting, setDeleting] = useState(false);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
@@ -393,6 +402,42 @@ export default function Project() {
 			);
 		} finally {
 			setCreating(false);
+		}
+	}
+
+	async function removeOpenedProject() {
+		if (!bundle || deleting) {
+			return;
+		}
+		if (deleteName.trim() !== bundle.repo) {
+			return;
+		}
+		setError("");
+		setDeleting(true);
+		try {
+			await deleteProject(bundle.owner, bundle.repo);
+			projectsQuery.setData((current) => ({
+				configured: current?.configured ?? true,
+				repos: (current?.repos ?? []).filter(
+					(item) => !(item.owner === bundle.owner && item.name === bundle.repo),
+				),
+			}));
+			setBundle(null);
+			setJustCreated("");
+			setSaveHint("");
+			setDeleteOpen(false);
+			setDeleteName("");
+			try {
+				window.localStorage.removeItem(LAST_REPO_KEY);
+			} catch {
+				undefined;
+			}
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to delete project",
+			);
+		} finally {
+			setDeleting(false);
 		}
 	}
 
@@ -887,6 +932,18 @@ export default function Project() {
 						>
 							{saving ? t("project.saving") : t("project.saveToGithub")}
 						</Button>
+						<Button
+							variant="outlined"
+							size="small"
+							color="error"
+							disabled={deleting}
+							onClick={() => {
+								setDeleteName("");
+								setDeleteOpen(true);
+							}}
+						>
+							{t("project.delete")}
+						</Button>
 					</Stack>
 					{justCreated === bundle.repo ? (
 						<Alert severity="success">
@@ -1069,6 +1126,55 @@ export default function Project() {
 					</Stack>
 				</Paper>
 			) : null}
+			<Dialog
+				open={deleteOpen}
+				onClose={() => {
+					if (!deleting) {
+						setDeleteOpen(false);
+					}
+				}}
+				fullWidth
+				scroll="paper"
+				sx={{ zIndex: 1300 }}
+				slotProps={{ paper: { className: "max-w-xl w-full" } }}
+			>
+				<DialogTitle>{t("project.deleteTitle")}</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2}>
+						<Typography>
+							{t("project.deleteConfirmHint", {
+								name: bundle?.repo ?? "",
+							})}
+						</Typography>
+						<TextField
+							label={t("project.colName")}
+							value={deleteName}
+							onChange={(event) => setDeleteName(event.target.value)}
+							autoComplete="off"
+							disabled={deleting}
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button
+						type="button"
+						variant="text"
+						disabled={deleting}
+						onClick={() => setDeleteOpen(false)}
+					>
+						{t("project.cancel")}
+					</Button>
+					<Button
+						type="button"
+						variant="contained"
+						color="error"
+						disabled={deleting || !bundle || deleteName.trim() !== bundle.repo}
+						onClick={() => void removeOpenedProject()}
+					>
+						{deleting ? t("project.deleting") : t("project.deleteConfirm")}
+					</Button>
+				</DialogActions>
+			</Dialog>
 		</Stack>
 	);
 }

@@ -39,6 +39,7 @@ import {
 	mergeDeviceSecrets,
 	type NetworkStatus,
 	PROJECTS_PUSH_PATH,
+	PROJECTS_REMOVE_PATH,
 	PROJECTS_SYNC_PATH,
 	pairingCredentials,
 	parseDebugEventInput,
@@ -48,6 +49,7 @@ import {
 	parsePairingClaim,
 	parsePairingUnpair,
 	parseProjectPushPut,
+	parseProjectRemovePut,
 	parseProjectSyncPut,
 	parseTunnelConfig,
 	parseWifiConfig,
@@ -97,6 +99,7 @@ import {
 import { privileged } from "./priv.ts";
 import {
 	type ApplyProjectPush,
+	type ApplyProjectRemove,
 	type ApplyProjects,
 	projectsRoot,
 } from "./projects.ts";
@@ -128,6 +131,7 @@ export type ServeOptions = {
 	applyUpdate?: ApplyUpdate;
 	applyProjects?: ApplyProjects;
 	applyProjectPush?: ApplyProjectPush;
+	applyProjectRemove?: ApplyProjectRemove;
 	revokeT3?: () => Promise<void>;
 	t3?: T3Controller;
 	deviceAuth: DeviceAuthConfig;
@@ -170,6 +174,7 @@ export type DeviceRequestExtras = {
 	applyUpdate?: ApplyUpdate;
 	applyProjects?: ApplyProjects;
 	applyProjectPush?: ApplyProjectPush;
+	applyProjectRemove?: ApplyProjectRemove;
 	dashboardUrl?: string;
 	fetchImpl?: FetchLike;
 	debug?: { publish(event: DebugEvent): void };
@@ -268,6 +273,7 @@ export function startDeviceApi(options: ServeOptions) {
 		applyUpdate: options.applyUpdate,
 		applyProjects: options.applyProjects,
 		applyProjectPush: options.applyProjectPush,
+		applyProjectRemove: options.applyProjectRemove,
 		dashboardUrl:
 			options.dashboardUrl ?? process.env.GPIO_COMPANION_DASHBOARD_URL,
 		fetchImpl: options.fetchImpl,
@@ -765,6 +771,17 @@ export async function handleDeviceRequest(
 			: {};
 		await extras.applyProjects(target);
 		return json({ started: true });
+	}
+
+	if (method === "POST" && path === PROJECTS_REMOVE_PATH) {
+		if (!extras?.applyProjectRemove) {
+			throw new Error("projects remove is not configured");
+		}
+		return json(
+			await extras.applyProjectRemove(
+				parseProjectRemovePut(parseJson(bodyText)),
+			),
+		);
 	}
 
 	if (method === "POST" && path === PROJECTS_PUSH_PATH) {

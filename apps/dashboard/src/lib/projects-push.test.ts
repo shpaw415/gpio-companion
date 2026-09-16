@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { generateDeviceKeyPair } from "gpio-companion";
 import { markDeviceLive } from "./debug-live.ts";
 import { type StoredPairing, upsertDevice } from "./pairing-store.ts";
-import { pushProjectToLiveBoards } from "./projects-push.ts";
+import {
+	pushProjectToLiveBoards,
+	removeProjectFromLiveBoards,
+} from "./projects-push.ts";
 
 function memoryKv() {
 	const data = new Map<string, string>();
@@ -112,5 +115,34 @@ describe("pushProjectToLiveBoards", () => {
 				},
 			},
 		);
+	});
+});
+
+describe("removeProjectFromLiveBoards", () => {
+	test("posts remove to live boards only", async () => {
+		const keys = await generateDeviceKeyPair();
+		const kv = memoryKv();
+		await upsertDevice(kv, board("live-board"));
+		await upsertDevice(kv, board("offline-board"));
+		await markDeviceLive(kv, "live-board", 1_000);
+		const calls: string[] = [];
+		await removeProjectFromLiveBoards(
+			{
+				DYNAMIC_PAGE_KV: kv,
+				GPIO_COMPANION_DEVICE_PRIVATE_KEY: keys.privateKeyPem,
+			},
+			"user-1",
+			{ owner: "ada", name: "blink" },
+			{
+				now: 1_000,
+				fetchImpl: async (input, init) => {
+					calls.push(`${init?.method} ${String(input)}`);
+					return Response.json({ removed: true, t3: "removed" });
+				},
+			},
+		);
+		expect(calls).toEqual([
+			"POST https://api-liveboard.gpio-companion.com/v1/projects/remove",
+		]);
 	});
 });

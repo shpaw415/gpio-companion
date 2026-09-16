@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { PROJECT_PUSH_MESSAGE } from "gpio-companion";
-import { projectsRoot, pushProject, syncProjects } from "./projects.ts";
+import {
+	projectsRoot,
+	pushProject,
+	removeProject,
+	syncProjects,
+} from "./projects.ts";
 
 describe("projectsRoot", () => {
 	test("uses GPIO_COMPANION_PROJECTS_DIR", () => {
@@ -146,6 +151,78 @@ describe("syncProjects", () => {
 		expect(cloned).toEqual([
 			"https://github.com/ada/new-board.git /home/companion/projects/new-board",
 		]);
+	});
+});
+
+describe("removeProject", () => {
+	test("unregisters t3 and removes a matching clone", async () => {
+		const removed: string[] = [];
+		const t3: string[] = [];
+		const result = await removeProject(
+			{
+				destRoot: "/home/companion/projects",
+				exists: (path) => path === "/home/companion/projects/blink",
+				t3Remove: async (path) => {
+					t3.push(path);
+					return "removed";
+				},
+				rm: (path) => {
+					removed.push(path);
+				},
+				git: async (args) => {
+					if (args[0] === "remote") {
+						return {
+							stdout: "https://github.com/ada/blink.git\n",
+							stderr: "",
+							code: 0,
+						};
+					}
+					return { stdout: "", stderr: "", code: 1 };
+				},
+			},
+			{ owner: "ada", name: "blink" },
+		);
+		expect(t3).toEqual(["/home/companion/projects/blink"]);
+		expect(removed).toEqual(["/home/companion/projects/blink"]);
+		expect(result).toEqual({ removed: true, t3: "removed" });
+	});
+
+	test("does not rm when origin does not match", async () => {
+		const removed: string[] = [];
+		await expect(
+			removeProject(
+				{
+					destRoot: "/home/companion/projects",
+					exists: (path) => path === "/home/companion/projects/blink",
+					t3Remove: async () => "removed",
+					rm: (path) => {
+						removed.push(path);
+					},
+					git: async () => ({
+						stdout: "https://github.com/ada/other.git\n",
+						stderr: "",
+						code: 0,
+					}),
+				},
+				{ owner: "ada", name: "blink" },
+			),
+		).rejects.toThrow("project origin does not match GitHub");
+		expect(removed).toEqual([]);
+	});
+
+	test("unregisters t3 when the clone is already gone", async () => {
+		const result = await removeProject(
+			{
+				destRoot: "/home/companion/projects",
+				exists: () => false,
+				t3Remove: async () => "missing",
+				rm: () => {
+					throw new Error("should not rm");
+				},
+			},
+			{ owner: "ada", name: "blink" },
+		);
+		expect(result).toEqual({ removed: false, t3: "missing" });
 	});
 });
 

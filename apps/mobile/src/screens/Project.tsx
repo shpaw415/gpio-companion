@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Modal, Pressable, Text, View } from "react-native";
 import FlashPanel from "../components/FlashPanel.tsx";
 import GpioPanel from "../components/GpioPanel.tsx";
 import RunPanel from "../components/RunPanel.tsx";
@@ -22,6 +22,7 @@ import ZoomableImage from "../components/ZoomableImage.tsx";
 import {
 	type BoardSketch,
 	createProject,
+	deleteProject,
 	type GithubContent,
 	type GithubRepo,
 	getGithubApp,
@@ -49,7 +50,7 @@ import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
-import { storageGet, storageSet } from "../lib/storage.ts";
+import { storageGet, storageRemove, storageSet } from "../lib/storage.ts";
 import { useDeviceHub as useRunHub } from "../lib/use-device-hub.ts";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
@@ -196,6 +197,9 @@ export default function Project() {
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [deleteName, setDeleteName] = useState("");
+	const [deleting, setDeleting] = useState(false);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
@@ -338,6 +342,38 @@ export default function Project() {
 			);
 		} finally {
 			setCreating(false);
+		}
+	}
+
+	async function removeOpenedProject() {
+		if (!token || !bundle || deleting) {
+			return;
+		}
+		if (deleteName.trim() !== bundle.repo) {
+			return;
+		}
+		setError("");
+		setDeleting(true);
+		try {
+			await deleteProject(token, bundle.owner, bundle.repo);
+			projectsQuery.setData((current) => ({
+				configured: current?.configured ?? true,
+				repos: (current?.repos ?? []).filter(
+					(item) => !(item.owner === bundle.owner && item.name === bundle.repo),
+				),
+			}));
+			setBundle(null);
+			setJustCreated("");
+			setSaveHint("");
+			setDeleteOpen(false);
+			setDeleteName("");
+			void storageRemove(LAST_REPO_KEY);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to delete project",
+			);
+		} finally {
+			setDeleting(false);
 		}
 	}
 
@@ -701,6 +737,15 @@ export default function Project() {
 						disabled={saving || !activeUuid}
 						onPress={() => void saveFromBoard()}
 					/>
+					<TextButton
+						label={t("project.delete")}
+						danger
+						disabled={deleting}
+						onPress={() => {
+							setDeleteName("");
+							setDeleteOpen(true);
+						}}
+					/>
 					{justCreated === bundle.repo ? (
 						<Paper>
 							<Body>{t("project.readyChat", { repo: bundle.repo })}</Body>
@@ -829,6 +874,61 @@ export default function Project() {
 					) : null}
 				</Paper>
 			) : null}
+			<Modal
+				visible={deleteOpen}
+				animationType="fade"
+				transparent
+				onRequestClose={() => {
+					if (!deleting) {
+						setDeleteOpen(false);
+					}
+				}}
+			>
+				<View
+					style={{
+						flex: 1,
+						backgroundColor: "rgba(0,0,0,0.5)",
+						justifyContent: "center",
+						padding: 24,
+					}}
+				>
+					<View
+						style={{
+							backgroundColor: colors.surface,
+							borderRadius: 16,
+							padding: 16,
+							gap: 12,
+						}}
+					>
+						<Title>{t("project.deleteTitle")}</Title>
+						<Body>
+							{t("project.deleteConfirmHint", {
+								name: bundle?.repo ?? "",
+							})}
+						</Body>
+						<Field
+							label={t("project.colName")}
+							value={deleteName}
+							onChangeText={setDeleteName}
+							placeholder={bundle?.repo}
+						/>
+						<PrimaryButton
+							label={
+								deleting ? t("project.deleting") : t("project.deleteConfirm")
+							}
+							disabled={
+								deleting || !bundle || deleteName.trim() !== bundle.repo
+							}
+							onPress={() => void removeOpenedProject()}
+						/>
+						<TextButton
+							label={t("project.cancel")}
+							disabled={deleting}
+							onPress={() => setDeleteOpen(false)}
+						/>
+					</View>
+				</View>
+			</Modal>
 		</Screen>
 	);
 }

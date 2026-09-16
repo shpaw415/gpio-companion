@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
 	PROJECTS_DIR_NAME,
 	type ProjectPushPut,
 	type ProjectPushResult,
+	type ProjectRemovePut,
 	type ProjectSyncPut,
 	pickProjectWatermarkCandidates,
 } from "gpio-companion";
@@ -26,6 +27,10 @@ export type ApplyProjectPush = (
 	put: ProjectPushPut,
 ) => Promise<ProjectPushResult>;
 
+export type ApplyProjectRemove = (
+	put: ProjectRemovePut,
+) => Promise<ProjectRemoveResult>;
+
 export type GitResult = {
 	stdout: string;
 	stderr: string;
@@ -38,6 +43,19 @@ export type ProjectPushOptions = {
 	destRoot: string;
 	exists?: (path: string) => boolean;
 	git?: GitRunner;
+};
+
+export type ProjectRemoveResult = {
+	removed: boolean;
+	t3: "removed" | "missing";
+};
+
+export type ProjectRemoveOptions = {
+	destRoot: string;
+	t3Remove: (path: string) => Promise<"removed" | "missing">;
+	exists?: (path: string) => boolean;
+	git?: GitRunner;
+	rm?: (path: string) => void;
 };
 
 export type GithubProject = {
@@ -217,6 +235,37 @@ export async function pushProject(
 		sha: rev.stdout.trim(),
 		message: put.message,
 	};
+}
+
+export async function removeProject(
+	options: ProjectRemoveOptions,
+	put: ProjectRemovePut,
+): Promise<ProjectRemoveResult> {
+	const dest = join(options.destRoot, put.name);
+	const exists = options.exists ?? existsSync;
+	const git = options.git ?? defaultGit;
+	if (exists(dest)) {
+		const origin = await gitOk(
+			git,
+			["remote", "get-url", "origin"],
+			dest,
+			"project origin is missing",
+		);
+		if (!githubOriginMatches(origin.stdout, put.owner, put.name)) {
+			throw new Error("project origin does not match GitHub");
+		}
+	}
+	const t3 = await options.t3Remove(dest);
+	if (exists(dest)) {
+		const rm =
+			options.rm ??
+			((path: string) => {
+				rmSync(path, { recursive: true, force: true });
+			});
+		rm(dest);
+		return { removed: true, t3 };
+	}
+	return { removed: false, t3 };
 }
 
 async function gitOk(

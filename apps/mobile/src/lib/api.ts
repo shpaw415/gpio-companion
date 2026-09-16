@@ -455,6 +455,17 @@ export function createProject(token: string, name: string) {
 	});
 }
 
+export function deleteProject(token: string, owner: string, name: string) {
+	return request<{ deleted: boolean; owner: string; name: string }>(
+		token,
+		"/api/mobile/projects",
+		{
+			method: "DELETE",
+			body: JSON.stringify({ owner, name }),
+		},
+	);
+}
+
 export type ProjectPushResponse = {
 	board: {
 		committed: boolean;

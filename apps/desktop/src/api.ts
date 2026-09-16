@@ -607,6 +607,14 @@ export function createProject(name: string) {
 	return apiRequest<GithubRepo>("PATCH", "/api/mobile/projects", { name });
 }
 
+export function deleteProject(owner: string, name: string) {
+	return apiRequest<{ deleted: boolean; owner: string; name: string }>(
+		"DELETE",
+		"/api/mobile/projects",
+		{ owner, name },
+	);
+}
+
 export type ProjectPushResponse = {
 	board: {
 		committed: boolean;

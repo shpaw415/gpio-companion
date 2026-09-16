@@ -2,7 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { addT3Project, pairT3, resetT3Runtime, t3Status } from "./t3.ts";
+import {
+	addT3Project,
+	pairT3,
+	removeT3Project,
+	resetT3Runtime,
+	t3Status,
+} from "./t3.ts";
 
 const previousT3 = process.env.GPIO_COMPANION_T3;
 const previousUser = process.env.GPIO_USER;
@@ -202,5 +208,31 @@ echo "An active project already exists for '/tmp/blink'." >&2
 exit 1
 `);
 		expect(await addT3Project("/tmp/blink")).toBe("exists");
+	});
+});
+
+describe("t3 project remove", () => {
+	test("removes a workspace root", async () => {
+		const logPath = await fakeT3();
+		expect(await removeT3Project("/home/companion/projects/blink")).toBe(
+			"removed",
+		);
+		const calls = invocations(await readFile(logPath, "utf8"));
+		expect(
+			calls.some(
+				(line) =>
+					line.includes("project remove") &&
+					line.includes("/home/companion/projects/blink"),
+			),
+		).toBe(true);
+	});
+
+	test("treats missing project as success", async () => {
+		await fakeT3(`#!/bin/sh
+printf '%s\\n' "$*" >> "$GPIO_T3_LOG"
+echo "No project found for '/tmp/blink'." >&2
+exit 1
+`);
+		expect(await removeT3Project("/tmp/blink")).toBe("missing");
 	});
 });

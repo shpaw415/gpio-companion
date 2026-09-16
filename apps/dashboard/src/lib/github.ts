@@ -212,6 +212,21 @@ export async function indexProject(
 	);
 }
 
+export async function unindexProject(
+	kv: KVNamespace,
+	userId: string,
+	owner: string,
+	name: string,
+): Promise<void> {
+	const current = await loadIndexedProjects(kv, userId);
+	const full = `${owner}/${name}`.toLowerCase();
+	const next = current.filter((item) => item.full_name.toLowerCase() !== full);
+	if (next.length === current.length) {
+		return;
+	}
+	await kv.put(githubProjectsKey(userId), JSON.stringify(next.map(publicRepo)));
+}
+
 function isGithubRepo(value: unknown): value is GithubRepo {
 	if (!value || typeof value !== "object") {
 		return false;
@@ -518,6 +533,41 @@ export async function createGpioCompanionRepo(
 		owner: created.owner.login,
 		html_url: created.html_url,
 	};
+}
+
+export async function deleteGpioCompanionRepo(
+	account: GithubAccount,
+	owner: string,
+	name: string,
+): Promise<void> {
+	const repoOwner = parseGithubRepoName(owner);
+	const repoName = parseRepoName(name);
+	const writer = readerAccount(account);
+	const path = `/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}`;
+	const repo = await githubFetch(writer, path);
+	if (repo.status === 404) {
+		return;
+	}
+	if (!repo.ok) {
+		throw new Error(`github ${repo.status}`);
+	}
+	if (!(await repoHasWatermark(writer, repoOwner, repoName))) {
+		throw new Error("not a gpio-companion project");
+	}
+	const response = await githubFetch(writer, path, { method: "DELETE" });
+	if (response.status === 204 || response.status === 404) {
+		return;
+	}
+	if (!response.ok) {
+		let detail = "";
+		try {
+			const payload = (await response.json()) as { message?: string };
+			detail = payload.message ? `: ${payload.message}` : "";
+		} catch {
+			detail = "";
+		}
+		throw new Error(`github ${response.status}${detail}`);
+	}
 }
 
 export async function putRepoFile(

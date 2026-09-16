@@ -111,5 +111,6 @@ Script path, first existing file: env `GPIO_COMPANION_BLE_SCRIPT` (unit default 
 - Force rebuild even when HEAD did not move: `sudo ./scripts/force-update.sh` or `sudo gpio-companion-force-update` (`--force` / `GPIO_COMPANION_UPDATE_FORCE=1`)
 - Dashboard owner or admin can start the same timer job remotely: signed `POST /v1/update` → `systemctl start --no-block gpio-companion-update.service` (HTTP returns immediately; the board may restart)
 - Dashboard project create signs `POST /v1/projects/sync` `{ owner, name }` to each hub-live paired board (clone `~/projects/<name>`, `t3 project add`). Offline boards are skipped. Serve also lists watermarked installation repos at start and every 15 min.
+- Dashboard project delete signs `POST /v1/projects/remove` `{ owner, name }` to each hub-live paired board (`t3 project remove`, delete `~/projects/<name>` when origin matches). Offline boards are skipped. GitHub delete still works without a live board. Board must Update companion.
 
 Public-key rotations are **dashboard-only** (new Pages secret); Pis pick them up on the next updater run without a git commit. Fetch failure keeps the current file.

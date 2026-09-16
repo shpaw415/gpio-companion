@@ -2,6 +2,7 @@
 
 import {
 	createGpioCompanionRepo,
+	deleteGpioCompanionRepo,
 	githubAccountForUser,
 	githubConfigured,
 	indexProject,
@@ -10,6 +11,7 @@ import {
 	loadProjectBundle,
 	parseProjectRef,
 	readRepoFile,
+	unindexProject,
 } from "../../../lib/github.ts";
 import type { GithubAppEnv } from "../../../lib/github-app.ts";
 import {
@@ -18,7 +20,10 @@ import {
 	readJsonBody,
 	runMobile,
 } from "../../../lib/mobile-http.ts";
-import { pushProjectToLiveBoards } from "../../../lib/projects-push.ts";
+import {
+	pushProjectToLiveBoards,
+	removeProjectFromLiveBoards,
+} from "../../../lib/projects-push.ts";
 
 function env(ctx: MobileContext): GithubAppEnv & {
 	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
@@ -105,5 +110,24 @@ export async function onRequestPatch(ctx: MobileContext) {
 		await indexProject(env(ctx).DYNAMIC_PAGE_KV, identity.id, repo);
 		await pushProjectToLiveBoards(env(ctx), identity.id, repo);
 		return repo;
+	});
+}
+
+export async function onRequestDelete(ctx: MobileContext) {
+	return runMobile(ctx, async (identity) => {
+		const body = await readJsonBody(ctx.request);
+		const owner = asString(body.owner).trim();
+		const name = asString(body.name).trim() || asString(body.repo).trim();
+		if (!owner || !name) {
+			throw new Error("owner and name are required");
+		}
+		const account = await githubAccountForUser(env(ctx), identity.id);
+		if (!githubConfigured(account)) {
+			throw new Error("github is not configured");
+		}
+		await deleteGpioCompanionRepo(account, owner, name);
+		await unindexProject(env(ctx).DYNAMIC_PAGE_KV, identity.id, owner, name);
+		await removeProjectFromLiveBoards(env(ctx), identity.id, { owner, name });
+		return { deleted: true, owner, name };
 	});
 }

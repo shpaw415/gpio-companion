@@ -20,12 +20,14 @@ export type T3Status = {
 };
 
 export type T3AddResult = "added" | "exists";
+export type T3RemoveResult = "removed" | "missing";
 
 export type T3Controller = {
 	pair(t3Hostname: string): Promise<T3Pairing>;
 	status(): Promise<T3Status>;
 	revoke(): Promise<void>;
 	addProject(workspaceRoot: string, title?: string): Promise<T3AddResult>;
+	removeProject(workspaceRoot: string): Promise<T3RemoveResult>;
 };
 
 const PAIR_WAIT_MS = 25_000;
@@ -48,6 +50,7 @@ export function liveT3Controller(): T3Controller {
 		status: t3Status,
 		revoke: revokeT3Authorization,
 		addProject: addT3Project,
+		removeProject: removeT3Project,
 	};
 }
 
@@ -108,6 +111,32 @@ export async function addT3Project(
 		const message = caught instanceof Error ? caught.message : "";
 		if (/already exists/i.test(message)) {
 			return "exists";
+		}
+		throw caught;
+	}
+}
+
+export async function removeT3Project(
+	workspaceRoot: string,
+): Promise<T3RemoveResult> {
+	const user = gpioUser();
+	const args = ["project", "remove"];
+	const baseDir = t3BaseDir(user);
+	if (baseDir) {
+		args.push("--base-dir", baseDir);
+	}
+	args.push(workspaceRoot);
+	try {
+		await spawnT3(user, args, PAIR_WAIT_MS);
+		return "removed";
+	} catch (caught) {
+		const message = caught instanceof Error ? caught.message : "";
+		if (
+			/not found|does not exist|no (active )?project|unknown project/i.test(
+				message,
+			)
+		) {
+			return "missing";
 		}
 		throw caught;
 	}

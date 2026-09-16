@@ -33,6 +33,7 @@ let t3PairingUrl = "";
 const clockSets: number[] = [];
 let updateStarts = 0;
 const projectSyncs: Array<{ owner?: string; name?: string }> = [];
+const projectRemoves: Array<{ owner: string; name: string }> = [];
 const projectPushes: Array<{ owner: string; name: string; message: string }> =
 	[];
 
@@ -50,6 +51,10 @@ const server = startDeviceApi({
 	},
 	applyProjects: async (target) => {
 		projectSyncs.push(target);
+	},
+	applyProjectRemove: async (put) => {
+		projectRemoves.push(put);
+		return { removed: true, t3: "removed" as const };
 	},
 	applyProjectPush: async (put) => {
 		projectPushes.push(put);
@@ -100,6 +105,9 @@ const server = startDeviceApi({
 		},
 		async addProject() {
 			return "added";
+		},
+		async removeProject() {
+			return "removed";
 		},
 	},
 	revokeT3: async () => {
@@ -313,6 +321,25 @@ describe("gpio-companion-bin", () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ started: true });
 		expect(projectSyncs).toEqual([{ owner: "ada", name: "blink" }]);
+	});
+
+	test("removes project when signed", async () => {
+		const denied = await deviceFetch(
+			"v1/projects/remove",
+			{ method: "POST" },
+			false,
+		);
+		expect(denied.status).toBe(401);
+		const response = await deviceFetch("v1/projects/remove", {
+			method: "POST",
+			body: JSON.stringify({ owner: "ada", name: "blink" }),
+		});
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			removed: true,
+			t3: "removed",
+		});
+		expect(projectRemoves).toEqual([{ owner: "ada", name: "blink" }]);
 	});
 
 	test("pushes project when signed", async () => {

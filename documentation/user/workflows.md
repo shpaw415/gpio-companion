@@ -23,6 +23,8 @@ One git repo per electronics project. The dashboard only lists repos with a `.gp
 
 The board clones those repos to `~/projects/<name>` and adds them to T3 Code. If the board is online when you create a project, it happens immediately. If it is offline, nothing is queued — the clone runs the next time gpio-companion starts (and every 15 minutes while it is up). Existing folders are left alone.
 
+Delete a project from Project after typing its name. That removes the GitHub repo and, if the board is online and updated, unregisters it in T3 Code and deletes `~/projects/<name>`. Offline boards are not queued.
+
 While a PCB, breadboard, technical-sheet, or C-sketch feature is in progress, the agent **pushes a feature branch** (`feat/<kebab>`), then asks if you want to **save** (merge to `main`). It merges `main` only when you say yes:
 
 | Directory | Expected files |

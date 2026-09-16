@@ -23,6 +23,8 @@ Un dépôt git par projet électronique. Le tableau de bord ne liste que les dé
 
 La carte clone ces dépôts dans `~/projects/<name>` et les ajoute à T3 Code. Si la carte est en ligne quand vous créez un projet, c’est immédiat. Si elle est hors ligne, rien n’est mis en file — le clone s’exécute au prochain démarrage de gpio-companion (et toutes les 15 minutes tant qu’il tourne). Les dossiers existants sont laissés tels quels.
 
+Supprimez un projet depuis Projet après avoir saisi son nom. Cela retire le dépôt GitHub et, si la carte est en ligne et à jour, le désinscrit de T3 Code et supprime `~/projects/<name>`. Les cartes hors ligne ne sont pas mises en file.
+
 Pendant qu’une fonctionnalité PCB, breadboard, fiche technique ou croquis C est en cours, l’agent **pousse une branche de fonctionnalité** (`feat/<kebab>`), puis demande si vous voulez **enregistrer** (fusionner dans `main`). Il fusionne `main` seulement si vous dites oui :
 
 | Dossier | Fichiers attendus |

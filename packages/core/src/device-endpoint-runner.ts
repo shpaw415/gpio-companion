@@ -1,3 +1,4 @@
+import { ARDUINO_PROXY_PATH } from "./arduino-proxy.ts";
 import { BLE_HEALTH_WIFI_PSK, BLE_HEALTH_WIFI_SSID } from "./ble-health.ts";
 import {
 	CONSOLE_PATH,
@@ -6,7 +7,6 @@ import {
 } from "./console.ts";
 import { DEBUG_EVENT_PATH, DEBUG_PATH, DEBUG_UPGRADE_FAILED } from "./debug.ts";
 import { INFO_PATH } from "./device-info.ts";
-import { ARDUINO_PROXY_PATH } from "./arduino-proxy.ts";
 import {
 	FLASH_PATH,
 	FLASH_PORTS_PATH,
@@ -16,7 +16,11 @@ import {
 import { GPIO_PATH } from "./gpio.ts";
 import { LOGS_PATH, UPDATE_PATH } from "./maintenance.ts";
 import { isOfflineGrantScope, WIFI_PATH } from "./offline-grant.ts";
-import { PROJECTS_PUSH_PATH, PROJECTS_SYNC_PATH } from "./project-files.ts";
+import {
+	PROJECTS_PUSH_PATH,
+	PROJECTS_REMOVE_PATH,
+	PROJECTS_SYNC_PATH,
+} from "./project-files.ts";
 import { RUN_PATH, RUN_SKETCHES_PATH, RUN_STOP_PATH } from "./run.ts";
 import { VERIFY_PATH, VERIFY_STOP_PATH } from "./verify.ts";
 
@@ -445,6 +449,16 @@ export function deviceEndpointProbes(): DeviceEndpointProbe[] {
 			name: "POST /v1/projects/sync",
 			method: "POST",
 			path: PROJECTS_SYNC_PATH,
+			auth: "master",
+			via: "http",
+			body: INVALID_JSON,
+			expect: { kind: "error", includes: ["invalid json"] },
+		}),
+		probe({
+			id: "post-projects-remove",
+			name: "POST /v1/projects/remove",
+			method: "POST",
+			path: PROJECTS_REMOVE_PATH,
 			auth: "master",
 			via: "http",
 			body: INVALID_JSON,
