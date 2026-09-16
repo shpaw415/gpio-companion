@@ -1,5 +1,6 @@
 export const BREADBOARD_DIAGRAM_JSON = "breadboard/diagram.json";
 export const GPIO_COMPANION_HEADER_TYPE = "gpio-companion-header";
+export const GPIO_ARDUINO_PROXY_TYPE = "gpio-arduino-proxy";
 export const WOKWI_BREADBOARD_TYPES = [
 	"wokwi-breadboard",
 	"wokwi-breadboard-half",
@@ -131,6 +132,17 @@ function parsePart(input: unknown, index: number): WokwiPart {
 		if (hardware !== "raspberrypi" && hardware !== "orangepi") {
 			throw new BreadboardError(
 				`${GPIO_COMPANION_HEADER_TYPE} ${raw.id} needs attrs.hardware raspberrypi or orangepi`,
+			);
+		}
+	}
+	if (raw.type === GPIO_ARDUINO_PROXY_TYPE) {
+		const board =
+			raw.attrs && typeof raw.attrs === "object"
+				? (raw.attrs as Record<string, unknown>).board
+				: undefined;
+		if (typeof board !== "string" || !board.trim()) {
+			throw new BreadboardError(
+				`${GPIO_ARDUINO_PROXY_TYPE} ${raw.id} needs attrs.board`,
 			);
 		}
 	}
@@ -459,7 +471,10 @@ export function snapPartPlacement(
 	diagram: WokwiDiagram,
 	pinInfo?: PartPinInfo[],
 ): PartPlacement {
-	if (part.type === GPIO_COMPANION_HEADER_TYPE) {
+	if (
+		part.type === GPIO_COMPANION_HEADER_TYPE ||
+		part.type === GPIO_ARDUINO_PROXY_TYPE
+	) {
 		return { origin: partOrigin(part), rotate: part.rotate ?? 0 };
 	}
 	if (isBreadboardType(part.type)) {

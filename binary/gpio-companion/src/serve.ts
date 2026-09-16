@@ -217,6 +217,7 @@ export function startDeviceApi(options: ServeOptions) {
 		createCircuitVerify({
 			hardware: async () => (await options.store.read()).hardware,
 			gpio,
+			proxy,
 			projectsDir: options.projectsDir,
 			isRunBusy: () => jobs.run?.status().running ?? false,
 		});

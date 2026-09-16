@@ -22,6 +22,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
+	type GpioTarget,
 	createProject,
 	type GithubContent,
 	type GithubRepo,
@@ -239,6 +240,9 @@ export default function Project() {
 	const [saveHint, setSaveHint] = useState("");
 	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
 	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
+	const [arduinoLivePins, setArduinoLivePins] = useState<Record<number, 0 | 1>>(
+		{},
+	);
 	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
@@ -540,7 +544,16 @@ export default function Project() {
 							uuid={activeUuid}
 							connected={Boolean(activeBoard?.status)}
 							poll
-							onLivePins={setLivePins}
+							onLivePins={(
+								pins: Record<number, 0 | 1>,
+								target?: GpioTarget,
+							) => {
+								if (target === "arduino-proxy") {
+									setArduinoLivePins(pins);
+								} else {
+									setLivePins(pins);
+								}
+							}}
 						/>
 						<Typography variant="subtitle1">Flash Arduino</Typography>
 						<FlashPanel uuid={activeUuid} project={bundle?.repo} />
@@ -756,6 +769,7 @@ export default function Project() {
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
 							livePins={livePins}
+							arduinoLivePins={arduinoLivePins}
 							verifyOverlay={overlay}
 							boardModel={activeBoard?.status?.model}
 						/>

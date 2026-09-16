@@ -43,6 +43,7 @@ export default function ProjectBrowser({
 	onProject,
 	uuid,
 	livePins,
+	arduinoLivePins,
 	verifyResults,
 	boardModel,
 }: {
@@ -50,6 +51,7 @@ export default function ProjectBrowser({
 	onProject?: (name: string) => void;
 	uuid?: string;
 	livePins?: Record<number, 0 | 1>;
+	arduinoLivePins?: Record<number, 0 | 1>;
 	verifyResults?: CircuitVerifyItem[];
 	boardModel?: string | null;
 }) {
@@ -432,6 +434,7 @@ export default function ProjectBrowser({
 							diagramText={breadboardJson}
 							previewUrl={bundle.breadboardPreviewUrl}
 							livePins={livePins}
+							arduinoLivePins={arduinoLivePins}
 							verifyOverlay={overlay}
 							boardModel={boardModel}
 						/>

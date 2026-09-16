@@ -107,6 +107,7 @@ export {
 	breadboardPinOffset,
 	breadboardRows,
 	breadboardSize,
+	GPIO_ARDUINO_PROXY_TYPE,
 	GPIO_COMPANION_HEADER_TYPE,
 	HEADER_EVEN_X,
 	HEADER_ODD_X,
@@ -132,6 +133,19 @@ export {
 	type WokwiPart,
 	wirePath,
 } from "./breadboard.ts";
+export {
+	type ArduinoProxyBoardLayout,
+	type ArduinoProxyPad,
+	type ArduinoProxyPadKind,
+	arduinoProxyBoardLayout,
+	arduinoProxyBoardSize,
+	arduinoProxyBoardTitle,
+	arduinoProxyPadOffset,
+	arduinoProxyPads,
+	arduinoProxyPinOffset,
+	arduinoProxyResolvePad,
+	isArduinoProxyPartType,
+} from "./breadboard-arduino.ts";
 export {
 	type DeviceConfig,
 	emptyDeviceConfig,

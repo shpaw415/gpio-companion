@@ -3,6 +3,10 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
+	arduinoProxyBoardLayout,
+	arduinoProxyBoardSize,
+	arduinoProxyBoardTitle,
+	arduinoProxyPadOffset,
 	BREADBOARD_LEFT_COLS,
 	BREADBOARD_PITCH,
 	BREADBOARD_RAILS,
@@ -20,6 +24,7 @@ import {
 	headerPinOffset,
 	headerPinsForBoard,
 	headerSize,
+	isArduinoProxyPartType,
 	isBreadboardType,
 	isHardwareId,
 	type PartPinInfo,
@@ -57,6 +62,7 @@ type Props = {
 	diagramText?: string | null;
 	previewUrl?: string | null;
 	livePins?: Record<number, 0 | 1>;
+	arduinoLivePins?: Record<number, 0 | 1>;
 	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
 };
@@ -140,6 +146,7 @@ export default function BreadboardViewer({
 	diagramText,
 	previewUrl,
 	livePins,
+	arduinoLivePins,
 	verifyOverlay,
 	boardModel,
 }: Props) {
@@ -150,6 +157,7 @@ export default function BreadboardViewer({
 			<DiagramBoard
 				diagram={diagram}
 				livePins={livePins}
+				arduinoLivePins={arduinoLivePins}
 				verifyOverlay={verifyOverlay}
 				boardModel={boardModel}
 			/>
@@ -190,11 +198,13 @@ export default function BreadboardViewer({
 function DiagramBoard({
 	diagram,
 	livePins,
+	arduinoLivePins,
 	verifyOverlay,
 	boardModel,
 }: {
 	diagram: WokwiDiagram;
 	livePins?: Record<number, 0 | 1>;
+	arduinoLivePins?: Record<number, 0 | 1>;
 	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
 }) {
@@ -275,6 +285,7 @@ function DiagramBoard({
 									part,
 									partHot(part, highlight),
 									livePins,
+									arduinoLivePins,
 									verifyOverlay?.parts[part.id],
 									boardModel,
 									partRefs.current.get(part.id),
@@ -779,6 +790,7 @@ function renderPart(
 	part: WokwiPart,
 	hot: boolean,
 	livePins: Record<number, 0 | 1> | undefined,
+	arduinoLivePins: Record<number, 0 | 1> | undefined,
 	verifyStatus: CircuitVerifyStatus | undefined,
 	boardModel: string | null | undefined,
 	el: HTMLElement | undefined,
@@ -822,6 +834,25 @@ function renderPart(
 					boardModel={boardModel}
 					hardware={part.attrs?.hardware ?? "raspberrypi"}
 					livePins={livePins}
+					scale={scale}
+				/>
+			</button>
+		);
+	}
+	if (isArduinoProxyPartType(part.type)) {
+		return (
+			<button
+				key={part.id}
+				onClick={(event) => {
+					event.stopPropagation();
+					onSelect();
+				}}
+				style={{ ...style, border: 0, background: "transparent", padding: 0 }}
+				type="button"
+			>
+				<ArduinoProxySvg
+					board={part.attrs?.board ?? "uno"}
+					livePins={arduinoLivePins}
 					scale={scale}
 				/>
 			</button>
@@ -1085,6 +1116,97 @@ function HeaderSvg({
 	);
 }
 
+function arduinoPadFill(
+	kind: string,
+	label: string,
+	physical: number | undefined,
+	livePins?: Record<number, 0 | 1>,
+): string {
+	if (kind === "power") {
+		return /5v|vin/i.test(label) ? "#ef4444" : "#fbbf24";
+	}
+	if (kind === "gnd") {
+		return "#334155";
+	}
+	if (typeof physical === "number" && livePins?.[physical] === 1) {
+		return "#22c55e";
+	}
+	if (typeof physical === "number" && livePins?.[physical] === 0) {
+		return "#475569";
+	}
+	return "#e2e8f0";
+}
+
+function ArduinoProxySvg({
+	board,
+	livePins,
+	scale = 1,
+}: {
+	board: string;
+	livePins?: Record<number, 0 | 1>;
+	scale?: number;
+}) {
+	const layout = arduinoProxyBoardLayout(board);
+	const title = arduinoProxyBoardTitle(board);
+	return (
+		<svg
+			aria-label={`${title} header`}
+			height={layout.height * scale}
+			role="img"
+			viewBox={`0 0 ${layout.width} ${layout.height}`}
+			width={layout.width * scale}
+		>
+			<title>{title}</title>
+			<rect width={layout.width} height={layout.height} fill="#111827" rx={4} />
+			<text
+				x={layout.width / 2}
+				y={10}
+				fill="#94a3b8"
+				fontSize={8}
+				textAnchor="middle"
+			>
+				USB
+			</text>
+			<text x={4} y={20} fill="#94a3b8" fontSize={7}>
+				{title}
+			</text>
+			{layout.pads.map((pad) => {
+				const point = arduinoProxyPadOffset(board, pad);
+				const left = pad.column === "left";
+				return (
+					<g key={`${pad.column}-${pad.row}-${pad.name}`}>
+						<circle
+							cx={point.x}
+							cy={point.y}
+							r={2.2}
+							fill={arduinoPadFill(pad.kind, pad.label, pad.physical, livePins)}
+							stroke={pad.kind === "gnd" ? "#94a3b8" : "none"}
+							strokeWidth={0.6}
+						/>
+						<text
+							x={left ? point.x - 5 : point.x + 5}
+							y={point.y + 2.4}
+							fill={
+								pad.kind === "power"
+									? /5v|vin/i.test(pad.label)
+										? "#fca5a5"
+										: "#fcd34d"
+									: pad.kind === "gnd"
+										? "#94a3b8"
+										: "#cbd5e1"
+							}
+							fontSize={6}
+							textAnchor={left ? "end" : "start"}
+						>
+							{pad.label}
+						</text>
+					</g>
+				);
+			})}
+		</svg>
+	);
+}
+
 function collectPins(
 	diagram: WokwiDiagram,
 	refs: Map<string, HTMLElement>,
@@ -1116,6 +1238,22 @@ function collectPins(
 				addOffsetPin(pins, part, String(pin), origin, rotate, (name) =>
 					headerPinOffset(name, count),
 				);
+			}
+			continue;
+		}
+		if (isArduinoProxyPartType(part.type)) {
+			const board = part.attrs?.board ?? "uno";
+			const layout = arduinoProxyBoardLayout(board);
+			for (const pad of layout.pads) {
+				const offset = arduinoProxyPadOffset(board, pad);
+				const rotated = rotatePoint(offset, rotate);
+				const point = {
+					x: origin.x + rotated.x,
+					y: origin.y + rotated.y,
+				};
+				for (const name of [pad.name, ...pad.aliases]) {
+					pins.set(`${part.id}:${name}`, point);
+				}
 			}
 			continue;
 		}
@@ -1177,6 +1315,9 @@ function partSize(
 		return headerSize(
 			headerDefs(part.attrs?.hardware ?? "raspberrypi", boardModel).length,
 		);
+	}
+	if (isArduinoProxyPartType(part.type)) {
+		return arduinoProxyBoardSize(part.attrs?.board ?? "uno");
 	}
 	return { width: 80, height: 80 };
 }

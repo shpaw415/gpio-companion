@@ -128,6 +128,74 @@ describe("circuit verify plan", () => {
 		expect(plan.some((item) => item.kind === "unsafe")).toBe(true);
 	});
 
+	test("namespaces arduino proxy pins away from companion header", () => {
+		const diagram = parseWokwiDiagram({
+			version: 1,
+			parts: [
+				{ id: "bb1", type: "wokwi-breadboard-half" },
+				{
+					id: "uno",
+					type: "gpio-arduino-proxy",
+					attrs: { board: "uno" },
+				},
+			],
+			connections: [
+				["uno:13", "bb1:12a", "orange", []],
+				["uno:12", "bb1:12e", "orange", []],
+			],
+		});
+		const nets = expandCircuitNets(diagram);
+		expect(nets.some((net) => net.pins.includes(13))).toBe(false);
+		expect(
+			nets.some(
+				(net) => net.arduinoPins.includes(13) && net.arduinoPins.includes(12),
+			),
+		).toBe(true);
+		const plan = circuitVerifyPlan(diagram, snapshot, {
+			hardware: "raspberrypi",
+			target: "arduino-proxy",
+			pins: [
+				{ physical: 12, name: "D12", type: "gpio" },
+				{ physical: 13, name: "D13", type: "gpio" },
+			],
+		});
+		const continuity = plan.find((item) => item.kind === "continuity");
+		expect(continuity?.target).toBe("arduino-proxy");
+		expect(continuity?.pins).toEqual([12, 13]);
+	});
+
+	test("refuses mixing companion header gpio with arduino gpio", () => {
+		const plan = circuitVerifyPlan(
+			{
+				version: 1,
+				parts: [
+					{ id: "bb1", type: "wokwi-breadboard-half" },
+					{
+						id: "header",
+						type: "gpio-companion-header",
+						attrs: { hardware: "raspberrypi" },
+					},
+					{
+						id: "uno",
+						type: "gpio-arduino-proxy",
+						attrs: { board: "uno" },
+					},
+				],
+				connections: [
+					["header:11", "bb1:10a", "yellow", []],
+					["uno:13", "bb1:10e", "orange", []],
+				],
+			},
+			snapshot,
+			{
+				hardware: "raspberrypi",
+				target: "arduino-proxy",
+				pins: [{ physical: 13, name: "D13", type: "gpio" }],
+			},
+		);
+		expect(plan.some((item) => item.kind === "unsafe")).toBe(true);
+	});
+
 	test("paints overlay from results", () => {
 		const diagram = parseWokwiDiagram(sample);
 		const overlay = circuitVerifyOverlay(diagram, [

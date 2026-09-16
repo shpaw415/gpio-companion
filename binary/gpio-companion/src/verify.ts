@@ -7,12 +7,14 @@ import {
 	type CircuitVerifyResult,
 	type CircuitVerifyState,
 	circuitVerifyPlan,
+	type GpioApply,
 	type GpioSnapshot,
 	parseVerifyPut,
 	parseWokwiDiagram,
 	VERIFY_PULSE_MS,
 	VerifyError,
 } from "gpio-companion";
+import type { ArduinoProxyController } from "./arduino-proxy.ts";
 import type { GpioController } from "./gpio.ts";
 import { projectsRoot } from "./projects.ts";
 
@@ -25,6 +27,7 @@ export type VerifyController = {
 export type CircuitVerifyOptions = {
 	hardware: () => GpioSnapshot["hardware"] | Promise<GpioSnapshot["hardware"]>;
 	gpio: GpioController;
+	proxy?: ArduinoProxyController;
 	projectsDir?: string;
 	readDiagram?: (repo: string) => string;
 	isRunBusy?: () => boolean;
@@ -111,6 +114,7 @@ export function memoryVerify(
 	return createCircuitVerify({
 		hardware: options.hardware ?? (() => "raspberrypi"),
 		gpio: options.gpio,
+		proxy: options.proxy,
 		readDiagram: options.readDiagram ?? (() => options.diagram ?? ""),
 		isRunBusy: options.isRunBusy,
 		sleep: options.sleep ?? (async () => undefined),
@@ -131,7 +135,8 @@ async function runVerify(
 		: readDiagram(options.projectsDir ?? projectsRoot(), put.repo);
 	const diagram = parseWokwiDiagram(text);
 	const snapshot = await options.gpio.snapshot(hardware);
-	const plan = circuitVerifyPlan(diagram, snapshot);
+	const proxySnapshot = options.proxy?.snapshot(hardware) ?? null;
+	const plan = circuitVerifyPlan(diagram, snapshot, proxySnapshot);
 	const sleep = options.sleep ?? ((ms: number) => Bun.sleep(ms));
 	const results: CircuitVerifyItem[] = [];
 	for (const item of plan) {
@@ -140,6 +145,21 @@ async function runVerify(
 		}
 		if (item.kind !== "continuity") {
 			results.push(item);
+			continue;
+		}
+		if (item.target === "arduino-proxy") {
+			const proxy = options.proxy;
+			if (!proxy?.status().connected) {
+				results.push({
+					...item,
+					status: "unknown",
+					detail: "arduino-proxy not connected",
+				});
+				continue;
+			}
+			results.push(
+				await probeContinuity(item, proxyGpio(proxy), hardware, sleep),
+			);
 			continue;
 		}
 		results.push(await probeContinuity(item, options.gpio, hardware, sleep));
@@ -209,6 +229,17 @@ async function probeContinuity(
 			detail: caught instanceof Error ? caught.message : "probe failed",
 		};
 	}
+}
+
+function proxyGpio(proxy: ArduinoProxyController): GpioController {
+	return {
+		async snapshot(hardware) {
+			return proxy.snapshot(hardware);
+		},
+		async apply(hardware, put: GpioApply) {
+			return proxy.apply(hardware, { ...put, target: "arduino-proxy" });
+		},
+	};
 }
 
 function readDiagram(root: string, repo: string): string {

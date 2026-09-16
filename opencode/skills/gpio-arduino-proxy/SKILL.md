@@ -50,5 +50,8 @@ install cores during companion update. Supported FQBNs: `arduino:avr:uno`,
   `i2c-scan` / `i2c-read` / `i2c-write` / `spi-xfer` / `uart-write`
 - User UI: **Devices → Flash Arduino as proxy**, **Project → Live GPIO**
   (Companion | Arduino), **Project → Run on board** (`arduino-proxy-*`)
+- Breadboard: when the proxy is connected, add `gpio-arduino-proxy` to
+  `breadboard/diagram.json` (`attrs.board` = `uno` / FQBN). Wires use Arduino
+  pin numbers (`uno:13`, `uno:A0`, `uno:GND`). Skill `gpio-breadboard`.
 
 Project git: same feature-branch flow; push `host/arduino-proxy-<name>/`.

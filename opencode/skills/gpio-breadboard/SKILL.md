@@ -10,7 +10,7 @@ description: >-
 
 Write a plug map the dashboard can render. Do **not** use tscircuit for this file (tscircuit is for `pcb/`).
 
-Driving the wired circuit on this board's header is C-first (skill `gpio-host`, `POST /v1/run`). `PUT /v1/gpio` is one-shot testing only. Project **Verify circuit** (`POST /v1/verify` `{ repo }`) treats this diagram as a wiring contract: breadboard rows `a–e` / `f–j` and each rail polarity are nets. Continuity needs two header GPIOs on one net. A lone GPIO (typical LED) is unknown electrically. Do not mix 3V3 and 5V on a net.
+Driving the wired circuit on this board's header is C-first (skill `gpio-host`, `POST /v1/run`). `PUT /v1/gpio` is one-shot testing only. When a USB Arduino proxy is connected, add a `gpio-arduino-proxy` part and drive MCU pins with skill `gpio-arduino-proxy`. Project **Verify circuit** (`POST /v1/verify` `{ repo }`) treats this diagram as a wiring contract: breadboard rows `a–e` / `f–j` and each rail polarity are nets. Continuity needs two GPIOs on one net (companion header **or** Arduino, not mixed). A lone GPIO (typical LED) is unknown electrically. Do not mix 3V3 and 5V on a net. AVR 5V must not jumper to this companion's 3.3V header.
 
 ## Output
 
@@ -35,6 +35,13 @@ When a breadboard wiring task is done, write these files on a **feature branch**
       "attrs": { "hardware": "raspberrypi" }
     },
     {
+      "id": "uno",
+      "type": "gpio-arduino-proxy",
+      "left": 420,
+      "top": 40,
+      "attrs": { "board": "uno" }
+    },
+    {
       "id": "led1",
       "type": "wokwi-led",
       "attrs": { "color": "red" }
@@ -44,7 +51,9 @@ When a breadboard wiring task is done, write these files on a **feature branch**
     ["header:11", "bb1:10a", "yellow", ["h20"]],
     ["led1:A", "bb1:10e", "green", []],
     ["led1:C", "bb1:11e", "green", []],
-    ["header:6", "bb1:tn.1", "black", []]
+    ["header:6", "bb1:tn.1", "black", []],
+    ["uno:13", "bb1:12a", "orange", []],
+    ["uno:GND", "bb1:tn.3", "black", []]
   ],
   "steps": [
     { "text": "LED anode in row 10 column e, cathode in row 11", "highlight": ["led1"] }
@@ -56,6 +65,7 @@ When a breadboard wiring task is done, write these files on a **feature branch**
 
 - Load `gpio-pinout-raspberrypi` or `gpio-pinout-orangepi` from `/etc/gpio-companion/config.json` `hardware` before placing jumpers.
 - `gpio-companion-header` pins are **physical** 1–40. `attrs.hardware` must be `raspberrypi` or `orangepi`.
+- `gpio-arduino-proxy` is the USB Arduino (Uno/Nano/Mega/MKR/Zero/ESP32). `attrs.board` is `uno`, `nano`, `mega`, `nano_33_iot`, `mkrwifi1010`, `mkrzero`, `mzero`, `esp32`, `esp32s3`, `esp32c3`, or an FQBN. Pins are Arduino numbers: `uno:13`, `uno:D13`, `uno:A0`, plus `5V` / `3V3` / `GND` / `VIN`. Place it beside the breadboard like the companion header. Do not mix AVR 5V with companion 3V3.
 - Always include one `wokwi-breadboard-half` (30 rows), `wokwi-breadboard` (63), or `wokwi-breadboard-mini`.
 - Portrait plug map: columns `a`–`e` then `f`–`j` on X, rows `1`–`30` down Y. Power rails are vertical on both long sides. Left: `tp.*` (+) then `tn.*` (−). Right: `bn.*` (−) then `bp.*` (+). Rail index matches the row (`tn.10` is beside `10a`). Mini has no rails.
 - Breadboard holes: `{row}{column}` such as `10a` … `10e` / `10f` … `10j`. Rails: `tp.1`, `tn.1`, `bp.1`, `bn.1`.

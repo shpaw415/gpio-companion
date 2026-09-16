@@ -57,7 +57,7 @@ Electronics clones live in `~/projects/<name>` (`https://github.com/<user>/<proj
 1. New feature: `git checkout -b feat/<kebab>` (reuse that branch if you are already on it for this work).
 2. Write the usual folders:
    - `pcb/circuit.json` + `pcb/preview.svg` (and tscircuit source)
-   - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; see skill `gpio-breadboard`) and optional `preview.svg`
+    - `breadboard/diagram.json` (Wokwi diagram + `gpio-companion-header`; add `gpio-arduino-proxy` when USB proxy is live; see skill `gpio-breadboard`) and optional `preview.svg`
    - `technical/` sheets
     - `host/<name>/` gpio-host C (`host/arduino-proxy-<name>/` when USB proxy is live)
     - `firmware/<name>/` USB Arduino C

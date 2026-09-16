@@ -8,6 +8,7 @@ import {
 	generateDeviceKeyPair,
 	signDeviceRequest,
 } from "gpio-companion";
+import { memoryArduinoProxy } from "./arduino-proxy.ts";
 import type { GpioController } from "./gpio.ts";
 import { filePairingStore } from "./pairing.ts";
 import { fileSecretsStore } from "./secrets.ts";
@@ -113,6 +114,59 @@ describe("verify controller", () => {
 		);
 		release();
 		await Bun.sleep(20);
+	});
+
+	test("pulses arduino-proxy jumpers when connected", async () => {
+		const values = new Map<number, 0 | 1>();
+		const base = memoryArduinoProxy({ connected: true });
+		const proxy = {
+			...base,
+			snapshot(hardware: "raspberrypi") {
+				return {
+					...base.snapshot(hardware),
+					pins: [12, 13].map((physical) => ({
+						physical,
+						name: `D${physical}`,
+						type: "gpio" as const,
+						dir: "in" as const,
+						value: values.get(physical) ?? 0,
+					})),
+				};
+			},
+			apply(hardware: "raspberrypi", put: GpioApply) {
+				if ("dir" in put && put.dir === "out") {
+					const value = put.value === 1 ? 1 : 0;
+					values.set(12, value);
+					values.set(13, value);
+				}
+				return proxy.snapshot(hardware);
+			},
+		};
+		const verify = memoryVerify({
+			gpio: memoryGpio(false),
+			proxy,
+			diagram: JSON.stringify({
+				version: 1,
+				parts: [
+					{ id: "bb1", type: "wokwi-breadboard-half" },
+					{
+						id: "uno",
+						type: "gpio-arduino-proxy",
+						attrs: { board: "uno" },
+					},
+				],
+				connections: [
+					["uno:13", "bb1:12a", "orange", []],
+					["uno:12", "bb1:12e", "orange", []],
+				],
+			}),
+		});
+		verify.start({ repo: "blink-led" });
+		await Bun.sleep(20);
+		expect(
+			verify.status().last?.results.find((item) => item.kind === "continuity")
+				?.status,
+		).toBe("pass");
 	});
 });
 

@@ -1,4 +1,16 @@
 export * from "./breadboard.ts";
+export {
+	type ArduinoProxyBoardLayout,
+	type ArduinoProxyPad,
+	arduinoProxyBoardLayout,
+	arduinoProxyBoardSize,
+	arduinoProxyBoardTitle,
+	arduinoProxyPadOffset,
+	arduinoProxyPads,
+	arduinoProxyPinOffset,
+	arduinoProxyResolvePad,
+	isArduinoProxyPartType,
+} from "./breadboard-arduino.ts";
 export { isHardwareId } from "./config.ts";
 export {
 	gpioLiveValues,

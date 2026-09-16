@@ -3,7 +3,6 @@ import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { gpioLiveValues } from "gpio-companion";
 import { useCallback, useRef, useState } from "react";
 import {
 	bleGpio,
@@ -21,6 +20,16 @@ import GpioHeader from "./GpioHeader";
 
 function canDriveGpio(pin: GpioPinState): boolean {
 	return pin.type === "gpio" && !pin.reserved && !pin.unresolved;
+}
+
+function liveValues(snapshot: GpioSnapshot | null): Record<number, 0 | 1> {
+	const pins: Record<number, 0 | 1> = {};
+	for (const pin of snapshot?.pins ?? []) {
+		if (pin.type === "gpio" && (pin.value === 0 || pin.value === 1)) {
+			pins[pin.physical] = pin.value;
+		}
+	}
+	return pins;
 }
 
 type GpioCommand = {
@@ -97,7 +106,7 @@ export default function GpioPanel({
 	uuid: string;
 	connected?: boolean;
 	poll?: boolean;
-	onLivePins?: (pins: Record<number, 0 | 1>) => void;
+	onLivePins?: (pins: Record<number, 0 | 1>, target?: GpioTarget) => void;
 }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -116,11 +125,11 @@ export default function GpioPanel({
 		(next: GpioSnapshot) => {
 			snapshotRef.current = next;
 			setSnapshot(next);
-			const live = gpioLiveValues(next);
-			const key = JSON.stringify(live);
+			const live = liveValues(next);
+			const key = `${next?.target ?? "header"}:${JSON.stringify(live)}`;
 			if (key !== livePinsRef.current) {
 				livePinsRef.current = key;
-				onLivePins?.(live);
+				onLivePins?.(live, next?.target ?? "header");
 			}
 		},
 		[onLivePins],
@@ -130,11 +139,11 @@ export default function GpioPanel({
 	function applySnapshot(next: GpioSnapshot | null) {
 		snapshotRef.current = next;
 		setSnapshot(next);
-		const live = gpioLiveValues(next);
-		const key = JSON.stringify(live);
+		const live = liveValues(next);
+		const key = `${next?.target ?? "header"}:${JSON.stringify(live)}`;
 		if (key !== livePinsRef.current) {
 			livePinsRef.current = key;
-			onLivePins?.(live);
+			onLivePins?.(live, next?.target ?? "header");
 		}
 	}
 

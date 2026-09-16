@@ -12,7 +12,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Stepper, { Step, StepLabel } from "@shpaw415/mui-lite/Stepper";
 import Typography from "@shpaw415/mui-lite/Typography";
-import type { CircuitVerifyItem } from "gpio-companion";
+import type { CircuitVerifyItem, GpioTarget } from "gpio-companion";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceStatus } from "../../components/DeviceBoardCard.tsx";
 import { SectionHeader } from "../../components/Section.tsx";
@@ -66,6 +66,9 @@ export default function ProjectPage() {
 	const [githubReady, setGithubReady] = useState(false);
 	const [pairingLoading, setPairingLoading] = useState(true);
 	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
+	const [arduinoLivePins, setArduinoLivePins] = useState<Record<number, 0 | 1>>(
+		{},
+	);
 	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
 	const [project, setProject] = useState("");
 	const selectedUuidRef = useRef(selectedUuid);
@@ -214,7 +217,16 @@ export default function ProjectPage() {
 								uuid={activeUuid}
 								poll
 								connected={Boolean(statuses[activeUuid])}
-								onLivePins={setLivePins}
+								onLivePins={(
+									pins: Record<number, 0 | 1>,
+									target?: GpioTarget,
+								) => {
+									if (target === "arduino-proxy") {
+										setArduinoLivePins(pins);
+									} else {
+										setLivePins(pins);
+									}
+								}}
 							/>
 						)}
 					</Stack>
@@ -252,6 +264,7 @@ export default function ProjectPage() {
 					onProject={setProject}
 					uuid={activeUuid}
 					livePins={livePins}
+					arduinoLivePins={arduinoLivePins}
 					verifyResults={verifyResults}
 					boardModel={statuses[activeUuid]?.model}
 				/>

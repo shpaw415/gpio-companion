@@ -44,7 +44,7 @@ export default function GpioPanel({
 	poll?: boolean;
 	connected?: boolean;
 	onSnapshot?: (snapshot: GpioSnapshot | null) => void;
-	onLivePins?: (pins: Record<number, 0 | 1>) => void;
+	onLivePins?: (pins: Record<number, 0 | 1>, target?: GpioTarget) => void;
 }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
@@ -65,10 +65,10 @@ export default function GpioPanel({
 			setSnapshot(next);
 			onSnapshot?.(next);
 			const live = gpioLiveValues(next);
-			const key = JSON.stringify(live);
+			const key = `${next?.target ?? "header"}:${JSON.stringify(live)}`;
 			if (key !== livePinsRef.current) {
 				livePinsRef.current = key;
-				onLivePins?.(live);
+				onLivePins?.(live, next?.target ?? "header");
 			}
 		},
 		[onSnapshot, onLivePins],
@@ -98,8 +98,7 @@ export default function GpioPanel({
 	const selectedPin = pins.find((pin) => pin.physical === selected);
 
 	function drive(command: GpioApply) {
-		const next =
-			target === "arduino-proxy" ? { ...command, target } : command;
+		const next = target === "arduino-proxy" ? { ...command, target } : command;
 		const current = snapshotRef.current;
 		if (current) {
 			applySnapshot(applyGpioApply(current, next));
