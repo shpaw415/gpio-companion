@@ -19,7 +19,7 @@ import {
 	circuitVerifyOverlay,
 	parseWokwiDiagram,
 } from "gpio-companion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	type BoardSketch,
 	createProject,
@@ -36,9 +36,11 @@ import {
 	openExternal,
 	type ProjectBundle,
 	pushProject,
+	type RunStatus,
 	readProjectFile,
 	startFlash,
 	startRun,
+	stopRun,
 	t3AppUrl,
 } from "../api";
 import {
@@ -48,6 +50,7 @@ import {
 	useUserBoards,
 } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useT3Window } from "../hooks/useT3Window";
 import BreadboardViewer from "./BreadboardViewer";
 import DebugLog from "./DebugLog";
@@ -247,6 +250,8 @@ export default function Project() {
 	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
+	const [stopping, setStopping] = useState(false);
+	const [runRunning, setRunRunning] = useState(false);
 	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
 	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
 	const [arduinoLivePins, setArduinoLivePins] = useState<Record<number, 0 | 1>>(
@@ -382,6 +387,24 @@ export default function Project() {
 			);
 		} finally {
 			setCreating(false);
+		}
+	}
+
+	async function stopSketch() {
+		if (!activeUuid || stopping) {
+			return;
+		}
+		setError("");
+		setStopping(true);
+		try {
+			await stopRun(activeUuid);
+			setRunRunning((await loadRun(activeUuid)).running);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to stop sketch",
+			);
+		} finally {
+			setStopping(false);
 		}
 	}
 
@@ -535,6 +558,7 @@ export default function Project() {
 		if (!activeUuid) {
 			setHostSketches([]);
 			setFirmwareSketches([]);
+			setRunRunning(false);
 			return;
 		}
 		let cancelled = false;
@@ -553,10 +577,26 @@ export default function Project() {
 				setHostSketches([]);
 				setFirmwareSketches([]);
 			});
+		loadRun(activeUuid)
+			.then((status) => {
+				if (!cancelled) {
+					setRunRunning(status.running);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setRunRunning(false);
+				}
+			});
 		return () => {
 			cancelled = true;
 		};
 	}, [activeUuid]);
+
+	const onRun = useCallback((next: RunStatus) => {
+		setRunRunning(next.running);
+	}, []);
+	useDeviceHub(activeUuid, { onRun });
 
 	function launchSketch(task: () => Promise<void>) {
 		setSketchBusy(true);
@@ -827,6 +867,15 @@ export default function Project() {
 							Open on GitHub
 						</Button>
 						<Button
+							variant="outlined"
+							size="small"
+							color={runRunning ? "error" : "primary"}
+							disabled={stopping || !activeUuid}
+							onClick={() => void stopSketch()}
+						>
+							{stopping ? "Stopping…" : "Stop sketch"}
+						</Button>
+						<Button
 							variant="contained"
 							size="small"
 							disabled={saving || !activeUuid}
@@ -908,7 +957,7 @@ export default function Project() {
 							onLaunch={(dir) => {
 								launchSketch(async () => {
 									await startRun({ uuid: activeUuid, dir });
-									await loadRun(activeUuid);
+									setRunRunning((await loadRun(activeUuid)).running);
 								});
 							}}
 						/>

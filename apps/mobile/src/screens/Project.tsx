@@ -33,8 +33,10 @@ import {
 	loadRunSketches,
 	type ProjectBundle,
 	pushProject,
+	type RunStatus,
 	startFlash,
 	startRun,
+	stopRun,
 } from "../lib/api.ts";
 import {
 	CACHE_KEYS,
@@ -47,6 +49,7 @@ import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { storageGet, storageSet } from "../lib/storage.ts";
+import { useDeviceHub as useRunHub } from "../lib/use-device-hub.ts";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
 
@@ -186,6 +189,8 @@ export default function Project() {
 	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
+	const [stopping, setStopping] = useState(false);
+	const [runRunning, setRunRunning] = useState(false);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
@@ -197,6 +202,7 @@ export default function Project() {
 		if (!activeUuid || !token) {
 			setHostSketches([]);
 			setFirmwareSketches([]);
+			setRunRunning(false);
 			return;
 		}
 		let cancelled = false;
@@ -218,10 +224,26 @@ export default function Project() {
 				setHostSketches([]);
 				setFirmwareSketches([]);
 			});
+		loadRun(token, activeUuid)
+			.then((status) => {
+				if (!cancelled) {
+					setRunRunning(status.running);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setRunRunning(false);
+				}
+			});
 		return () => {
 			cancelled = true;
 		};
 	}, [activeUuid, token]);
+
+	const onRun = useCallback((next: RunStatus) => {
+		setRunRunning(next.running);
+	}, []);
+	useRunHub(activeUuid, token, { onRun });
 
 	function launchSketch(task: () => Promise<void>) {
 		setSketchBusy(true);
@@ -314,6 +336,24 @@ export default function Project() {
 			);
 		} finally {
 			setCreating(false);
+		}
+	}
+
+	async function stopSketch() {
+		if (!token || !activeUuid || stopping) {
+			return;
+		}
+		setError("");
+		setStopping(true);
+		try {
+			await stopRun(token, activeUuid);
+			setRunRunning((await loadRun(token, activeUuid)).running);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to stop sketch",
+			);
+		} finally {
+			setStopping(false);
 		}
 	}
 
@@ -652,6 +692,12 @@ export default function Project() {
 							)
 						}
 					/>
+					<TextButton
+						label={stopping ? "Stopping…" : "Stop sketch"}
+						danger={runRunning}
+						disabled={stopping || !activeUuid}
+						onPress={() => void stopSketch()}
+					/>
 					<PrimaryButton
 						label={saving ? "Saving…" : "Save to GitHub"}
 						disabled={saving || !activeUuid}
@@ -697,7 +743,7 @@ export default function Project() {
 							}
 							launchSketch(async () => {
 								await startRun(token, { uuid: activeUuid, dir });
-								await loadRun(token, activeUuid);
+								setRunRunning((await loadRun(token, activeUuid)).running);
 							});
 						}}
 					/>

@@ -10,6 +10,7 @@ import {
 import { POST as saveProject } from "@api/projects/push";
 import { GET as loadRun, POST as startRun } from "@api/run";
 import { GET as loadRunSketches } from "@api/run/sketches";
+import { POST as stopRun } from "@api/run/stop";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import { TablePagination } from "@shpaw415/mui-lite/Pagination";
@@ -30,8 +31,10 @@ import {
 	type CircuitVerifyItem,
 	circuitVerifyOverlay,
 	parseWokwiDiagram,
+	type RunStatus,
 } from "gpio-companion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
@@ -83,6 +86,8 @@ export default function ProjectBrowser({
 	const [justCreated, setJustCreated] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
+	const [stopping, setStopping] = useState(false);
+	const [runRunning, setRunRunning] = useState(false);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
 	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
@@ -133,6 +138,7 @@ export default function ProjectBrowser({
 		if (!uuid) {
 			setHostSketches([]);
 			setFirmwareSketches([]);
+			setRunRunning(false);
 			return;
 		}
 		let cancelled = false;
@@ -151,10 +157,26 @@ export default function ProjectBrowser({
 				setHostSketches([]);
 				setFirmwareSketches([]);
 			});
+		loadRun(uuid)
+			.then((result) => {
+				if (!cancelled) {
+					setRunRunning(unwrapAction(result).running);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setRunRunning(false);
+				}
+			});
 		return () => {
 			cancelled = true;
 		};
 	}, [uuid]);
+
+	const onRun = useCallback((next: RunStatus) => {
+		setRunRunning(next.running);
+	}, []);
+	useDeviceHub(uuid ?? "", { onRun });
 
 	const owners = useMemo(() => {
 		return [...new Set(repos.map((repo) => repo.owner))].sort();
@@ -287,6 +309,22 @@ export default function ProjectBrowser({
 			setError(err instanceof Error ? err.message : "failed to load branch");
 		} finally {
 			setLoadingRepo(false);
+		}
+	}
+
+	async function stopSketch() {
+		if (!uuid || stopping) {
+			return;
+		}
+		setError("");
+		setStopping(true);
+		try {
+			unwrapAction(await stopRun(uuid));
+			setRunRunning(unwrapAction(await loadRun(uuid)).running);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "failed to stop sketch");
+		} finally {
+			setStopping(false);
 		}
 	}
 
@@ -552,13 +590,32 @@ export default function ProjectBrowser({
 									))}
 								</Select>
 							) : null}
-							<Button
-								variant="contained"
-								disabled={saving || !uuid}
-								onClick={() => void saveFromBoard()}
+							<Stack
+								direction="row"
+								spacing={1}
+								sx={{
+									flexWrap: "wrap",
+									alignItems: "center",
+								}}
 							>
-								{saving ? "Saving…" : "Save to GitHub"}
-							</Button>
+								<Button
+									variant="outlined"
+									color={runRunning ? "error" : "primary"}
+									disabled={stopping || !uuid}
+									onClick={() => void stopSketch()}
+									className={mobile ? "flex-1" : undefined}
+								>
+									{stopping ? "Stopping…" : "Stop sketch"}
+								</Button>
+								<Button
+									variant="contained"
+									disabled={saving || !uuid}
+									onClick={() => void saveFromBoard()}
+									className={mobile ? "flex-1" : undefined}
+								>
+									{saving ? "Saving…" : "Save to GitHub"}
+								</Button>
+							</Stack>
 						</Stack>
 						{justCreated === bundle.repo ? (
 							<Alert severity="success">
@@ -630,7 +687,7 @@ export default function ProjectBrowser({
 								}
 								launch(async () => {
 									unwrapAction(await startRun({ uuid, dir }));
-									unwrapAction(await loadRun(uuid));
+									setRunRunning(unwrapAction(await loadRun(uuid)).running);
 								});
 							}}
 						/>
