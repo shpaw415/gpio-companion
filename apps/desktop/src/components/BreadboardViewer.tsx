@@ -313,6 +313,7 @@ function DiagramBoard({
 							position: "absolute",
 							left: 0,
 							top: 0,
+							zIndex: 1,
 						}}
 						height={bounds.height * camera.view.scale}
 						key={elementsReady}
@@ -817,6 +818,7 @@ function renderPart(
 		position: "absolute",
 		left: placement.origin.x * scale,
 		top: placement.origin.y * scale,
+		zIndex: isBreadboardType(part.type) ? 0 : 2,
 		transform: placement.rotate ? `rotate(${placement.rotate}deg)` : undefined,
 		transformOrigin: "top left",
 		opacity: hot ? 1 : 0.35,
@@ -1119,6 +1121,10 @@ function HeaderSvg({
 							y={point.y + 2.4}
 							fill={headerLabelFill(pin)}
 							fontSize={6}
+							paintOrder="stroke"
+							stroke="#111827"
+							strokeLinejoin="round"
+							strokeWidth={2.4}
 							textAnchor={odd ? "end" : "start"}
 						>
 							{odd
@@ -1213,6 +1219,10 @@ function ArduinoProxySvg({
 										: "#cbd5e1"
 							}
 							fontSize={6}
+							paintOrder="stroke"
+							stroke="#111827"
+							strokeLinejoin="round"
+							strokeWidth={2.4}
 							textAnchor={left ? "end" : "start"}
 						>
 							{pad.label}
