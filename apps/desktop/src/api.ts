@@ -609,8 +609,8 @@ export function createProject(name: string) {
 
 export function deleteProject(owner: string, name: string) {
 	return apiRequest<{ deleted: boolean; owner: string; name: string }>(
-		"DELETE",
-		"/api/mobile/projects",
+		"POST",
+		"/api/mobile/projects/remove",
 		{ owner, name },
 	);
 }

@@ -2,7 +2,6 @@ import { getContext } from "frame-master-plugin-cloudflare-pages-functions-actio
 import { wrapAction } from "../../lib/action.ts";
 import {
 	createGpioCompanionRepo,
-	deleteGpioCompanionRepo,
 	githubAccountForUser,
 	githubConfigured,
 	indexProject,
@@ -11,12 +10,11 @@ import {
 	loadProjectBundle,
 	parseProjectRef,
 	readRepoFile,
-	unindexProject,
 } from "../../lib/github.ts";
 import type { GithubAppEnv } from "../../lib/github-app.ts";
 import {
+	deleteProjectForUser,
 	pushProjectToLiveBoards,
-	removeProjectFromLiveBoards,
 } from "../../lib/projects-push.ts";
 import { requireIdentity } from "../../lib/session.ts";
 
@@ -117,8 +115,11 @@ export const DELETE = wrapAction(async function DELETE(
 	if (!githubConfigured(account)) {
 		throw new Error("github is not configured");
 	}
-	await deleteGpioCompanionRepo(account, owner, name);
-	await unindexProject(ctx.env.DYNAMIC_PAGE_KV, identity.id, owner, name);
-	await removeProjectFromLiveBoards(ctx.env, identity.id, { owner, name });
-	return { deleted: true as const, owner, name };
+	return deleteProjectForUser(
+		ctx.env,
+		identity.id,
+		owner,
+		name,
+		account,
+	);
 });

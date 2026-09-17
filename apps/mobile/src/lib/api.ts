@@ -458,9 +458,9 @@ export function createProject(token: string, name: string) {
 export function deleteProject(token: string, owner: string, name: string) {
 	return request<{ deleted: boolean; owner: string; name: string }>(
 		token,
-		"/api/mobile/projects",
+		"/api/mobile/projects/remove",
 		{
-			method: "DELETE",
+			method: "POST",
 			body: JSON.stringify({ owner, name }),
 		},
 	);
