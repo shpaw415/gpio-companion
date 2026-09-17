@@ -200,6 +200,10 @@ export default function Project() {
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [deleteName, setDeleteName] = useState("");
 	const [deleting, setDeleting] = useState(false);
+	const [pendingDelete, setPendingDelete] = useState<{
+		owner: string;
+		name: string;
+	} | null>(null);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
@@ -345,29 +349,45 @@ export default function Project() {
 		}
 	}
 
+	function openDelete(owner: string, name: string) {
+		setPendingDelete({ owner, name });
+		setDeleteName("");
+		setDeleteOpen(true);
+	}
+
 	async function removeOpenedProject() {
-		if (!token || !bundle || deleting) {
+		if (!token || !pendingDelete || deleting) {
 			return;
 		}
-		if (deleteName.trim() !== bundle.repo) {
+		if (deleteName.trim() !== pendingDelete.name) {
 			return;
 		}
 		setError("");
 		setDeleting(true);
 		try {
-			await deleteProject(token, bundle.owner, bundle.repo);
+			await deleteProject(token, pendingDelete.owner, pendingDelete.name);
 			projectsQuery.setData((current) => ({
 				configured: current?.configured ?? true,
 				repos: (current?.repos ?? []).filter(
-					(item) => !(item.owner === bundle.owner && item.name === bundle.repo),
+					(item) =>
+						!(
+							item.owner === pendingDelete.owner &&
+							item.name === pendingDelete.name
+						),
 				),
 			}));
-			setBundle(null);
+			if (
+				bundle?.owner === pendingDelete.owner &&
+				bundle.repo === pendingDelete.name
+			) {
+				setBundle(null);
+				void storageRemove(LAST_REPO_KEY);
+			}
 			setJustCreated("");
 			setSaveHint("");
 			setDeleteOpen(false);
 			setDeleteName("");
-			void storageRemove(LAST_REPO_KEY);
+			setPendingDelete(null);
 		} catch (caught) {
 			setError(
 				caught instanceof Error ? caught.message : "failed to delete project",
@@ -666,6 +686,11 @@ export default function Project() {
 											label={t("nav.github")}
 											onPress={() => void Linking.openURL(repo.html_url)}
 										/>
+										<TextButton
+											label={t("project.delete")}
+											danger
+											onPress={() => openDelete(repo.owner, repo.name)}
+										/>
 									</Pressable>
 								);
 							})}
@@ -741,10 +766,7 @@ export default function Project() {
 						label={t("project.delete")}
 						danger
 						disabled={deleting}
-						onPress={() => {
-							setDeleteName("");
-							setDeleteOpen(true);
-						}}
+						onPress={() => openDelete(bundle.owner, bundle.repo)}
 					/>
 					{justCreated === bundle.repo ? (
 						<Paper>
@@ -903,21 +925,23 @@ export default function Project() {
 						<Title>{t("project.deleteTitle")}</Title>
 						<Body>
 							{t("project.deleteConfirmHint", {
-								name: bundle?.repo ?? "",
+								name: pendingDelete?.name ?? "",
 							})}
 						</Body>
 						<Field
 							label={t("project.colName")}
 							value={deleteName}
 							onChangeText={setDeleteName}
-							placeholder={bundle?.repo}
+							placeholder={pendingDelete?.name}
 						/>
 						<PrimaryButton
 							label={
 								deleting ? t("project.deleting") : t("project.deleteConfirm")
 							}
 							disabled={
-								deleting || !bundle || deleteName.trim() !== bundle.repo
+								deleting ||
+								!pendingDelete ||
+								deleteName.trim() !== pendingDelete.name
 							}
 							onPress={() => void removeOpenedProject()}
 						/>

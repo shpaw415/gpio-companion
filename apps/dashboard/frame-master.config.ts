@@ -25,6 +25,7 @@ import SEOPlugin from "frame-master-plugin-seo";
 import ServeFromBuild from "frame-master-plugin-serve-from-build";
 import TailwindPlugin from "frame-master-plugin-tailwind";
 import SVGLoader from "frame-master-svg-to-jsx-loader";
+import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import {
 	addStaticRoute,
@@ -37,6 +38,7 @@ import {
 import SiteConfig from "./site.config";
 import NotFound from "./src/components/404";
 import AsyncFallback from "./src/components/loading";
+import { LocaleProvider } from "./src/hooks/useLocale.tsx";
 
 const WranglerServerPort = Number(process.env.WRANGLER_PORT);
 
@@ -346,7 +348,9 @@ export default {
 			},
 			virtualModules: {
 				"404.html": {
-					contents: renderToString(NotFound()),
+					contents: renderToString(
+						createElement(LocaleProvider, null, createElement(NotFound)),
+					),
 					loader: "html",
 					injectRuntime: false,
 				},
