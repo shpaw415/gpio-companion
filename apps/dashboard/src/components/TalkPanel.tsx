@@ -1,3 +1,4 @@
+import MicIcon from "@material-design-icons/svg/filled/mic.svg";
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -49,7 +50,7 @@ export default function TalkPanel({
 	>("idle");
 	const [billed, setBilled] = useState(false);
 	const [error, setError] = useState("");
-	const [transcript, setTranscript] = useState("");
+	const [heard, setHeard] = useState("");
 	const socketRef = useRef<WebSocket | null>(null);
 	const audioRef = useRef<AudioContext | null>(null);
 	const playRef = useRef<number>(0);
@@ -125,6 +126,7 @@ export default function TalkPanel({
 			return;
 		}
 		setError("");
+		setHeard("");
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 		const socket = new WebSocket(
 			`${protocol}//${window.location.host}${VOICE_PATH}?uuid=${encodeURIComponent(uuid)}`,
@@ -140,8 +142,8 @@ export default function TalkPanel({
 			if (!message) {
 				return;
 			}
-			if (message.type === "transcript" && message.text) {
-				setTranscript((prev) => `${prev}${message.text}`.slice(-4000));
+			if (message.type === "heard" && message.text) {
+				setHeard(message.text.trim());
 			}
 			if (message.state) {
 				setState(message.state);
@@ -251,8 +253,15 @@ export default function TalkPanel({
 		void audioRef.current?.close();
 		audioRef.current = null;
 		setBilled(false);
+		setHeard("");
 		setState("idle");
 	}
+
+	const live =
+		billed ||
+		state === "talking" ||
+		state === "listening" ||
+		state === "working";
 
 	const chip =
 		state === "working"
@@ -292,41 +301,51 @@ export default function TalkPanel({
 					))}
 				</Select>
 				{error ? <Typography color="error">{error}</Typography> : null}
-				<Stack direction="row" spacing={1} className="flex-wrap">
-					{mode === "hold" ? (
-						<Button
-							variant="contained"
-							size="small"
-							onPointerDown={() => void startSession()}
-							onPointerUp={() => stopAll()}
-							onPointerLeave={() => stopAll()}
+				{live ? (
+					<Stack spacing={1} className="items-center pt-2">
+						{heard ? (
+							<div className="talk-heard">{heard}</div>
+						) : (
+							<Typography color="secondary" className="text-sm">
+								{t("talk.listening")}
+							</Typography>
+						)}
+						<button
+							type="button"
+							className="talk-mic"
+							onClick={() => stopAll()}
+							aria-label={t("talk.stop")}
 						>
-							{t("talk.press")}
-						</Button>
-					) : (
-						<Button
-							variant={billed ? "outlined" : "contained"}
-							size="small"
-							onClick={() => {
-								if (billed) {
-									stopAll();
-									return;
-								}
-								void startSession();
-							}}
-						>
-							{billed ? t("talk.stop") : t("talk.title")}
-						</Button>
-					)}
-				</Stack>
-				{transcript ? (
-					<Typography
-						color="secondary"
-						className="max-h-48 overflow-auto whitespace-pre-wrap break-all"
-					>
-						{transcript}
-					</Typography>
-				) : null}
+							<span className="talk-mic-pulse" />
+							<MicIcon
+								className="relative h-7 w-7"
+								style={{ fill: "currentColor" }}
+							/>
+						</button>
+					</Stack>
+				) : (
+					<Stack direction="row" spacing={1} className="flex-wrap">
+						{mode === "hold" ? (
+							<Button
+								variant="contained"
+								size="small"
+								onPointerDown={() => void startSession()}
+								onPointerUp={() => stopAll()}
+								onPointerLeave={() => stopAll()}
+							>
+								{t("talk.press")}
+							</Button>
+						) : (
+							<Button
+								variant="contained"
+								size="small"
+								onClick={() => void startSession()}
+							>
+								{t("talk.title")}
+							</Button>
+						)}
+					</Stack>
+				)}
 			</Stack>
 		</Paper>
 	);

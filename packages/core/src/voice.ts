@@ -49,7 +49,12 @@ export type VoiceTicket = {
 
 export type VoiceClientType = "hello" | "start" | "stop" | "ping";
 
-export type VoiceServerType = "transcript" | "status" | "error" | "agent";
+export type VoiceServerType =
+	| "transcript"
+	| "heard"
+	| "status"
+	| "error"
+	| "agent";
 
 export type VoiceClientMessage = {
 	v: 1;
@@ -89,6 +94,7 @@ const CLIENT_TYPES = new Set<VoiceClientType>([
 ]);
 const SERVER_TYPES = new Set<VoiceServerType>([
 	"transcript",
+	"heard",
 	"status",
 	"error",
 	"agent",

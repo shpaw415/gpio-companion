@@ -146,3 +146,51 @@ body {
 .docs-markdown img {
 	max-width: 100%;
 }
+
+.talk-heard {
+	max-width: 20rem;
+	max-height: 4.5rem;
+	overflow: auto;
+	border-radius: 0.75rem;
+	padding: 0.4rem 0.75rem;
+	background: rgba(var(--text-main), 0.06);
+	color: rgb(var(--text-secondary));
+	font-size: 0.85rem;
+	line-height: 1.35;
+	text-align: center;
+}
+
+.talk-mic {
+	position: relative;
+	display: flex;
+	width: 4rem;
+	height: 4rem;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: 999px;
+	background: rgb(var(--bg-surface));
+	color: rgb(var(--text-primary));
+	cursor: pointer;
+}
+
+.talk-mic-pulse {
+	position: absolute;
+	inset: 0;
+	border-radius: 999px;
+	background: rgb(var(--text-primary));
+	opacity: 0.28;
+	animation: talk-mic-pulse 1.6s ease-out infinite;
+	pointer-events: none;
+}
+
+@keyframes talk-mic-pulse {
+	0% {
+		transform: scale(1);
+		opacity: 0.32;
+	}
+	100% {
+		transform: scale(1.55);
+		opacity: 0;
+	}
+}

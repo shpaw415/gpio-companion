@@ -16,7 +16,7 @@ export type VoiceMicMode = "hold" | "always" | "wake";
 
 export type VoiceServerMessage = {
 	v: 1;
-	type: "transcript" | "status" | "error" | "agent";
+	type: "transcript" | "heard" | "status" | "error" | "agent";
 	text?: string;
 	state?: "idle" | "listening" | "talking" | "working";
 	billed?: boolean;
@@ -58,6 +58,7 @@ export function parseVoiceServerMessage(
 	}
 	if (
 		record.type !== "transcript" &&
+		record.type !== "heard" &&
 		record.type !== "status" &&
 		record.type !== "error" &&
 		record.type !== "agent"

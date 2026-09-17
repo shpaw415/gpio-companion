@@ -48,7 +48,7 @@ export default function TalkPanel({
 	>("idle");
 	const [billed, setBilled] = useState(false);
 	const [error, setError] = useState("");
-	const [transcript, setTranscript] = useState("");
+	const [heard, setHeard] = useState("");
 	const socketRef = useRef<WebSocket | null>(null);
 	const audioRef = useRef<AudioContext | null>(null);
 	const streamRef = useRef<MediaStream | null>(null);
@@ -121,6 +121,7 @@ export default function TalkPanel({
 			return;
 		}
 		setError("");
+		setHeard("");
 		const ticket = await mintVoiceTicket(uuid);
 		const socket = new WebSocket(ticket.wsUrl);
 		socket.binaryType = "arraybuffer";
@@ -134,8 +135,8 @@ export default function TalkPanel({
 			if (!message) {
 				return;
 			}
-			if (message.type === "transcript" && message.text) {
-				setTranscript((prev) => `${prev}${message.text}`.slice(-4000));
+			if (message.type === "heard" && message.text) {
+				setHeard(message.text.trim());
 			}
 			if (message.state) {
 				setState(message.state);
@@ -249,8 +250,15 @@ export default function TalkPanel({
 		void audioRef.current?.close();
 		audioRef.current = null;
 		setBilled(false);
+		setHeard("");
 		setState("idle");
 	}
+
+	const live =
+		billed ||
+		state === "talking" ||
+		state === "listening" ||
+		state === "working";
 
 	const chip =
 		state === "working"
@@ -298,41 +306,56 @@ export default function TalkPanel({
 					))}
 				</Select>
 				{error ? <Typography color="error">{error}</Typography> : null}
-				<Stack direction="row" spacing={1}>
-					{mode === "hold" ? (
-						<Button
-							variant="contained"
-							size="small"
-							onPointerDown={() => void startSession()}
-							onPointerUp={() => stopAll()}
-							onPointerLeave={() => stopAll()}
+				{live ? (
+					<Stack spacing={1} sx={{ alignItems: "center", pt: 1 }}>
+						{heard ? (
+							<div className="talk-heard">{heard}</div>
+						) : (
+							<Typography color="secondary" sx={{ fontSize: "0.85rem" }}>
+								{t("talk.listening")}
+							</Typography>
+						)}
+						<button
+							type="button"
+							className="talk-mic"
+							onClick={() => stopAll()}
+							aria-label={t("talk.stop")}
 						>
-							{t("talk.press")}
-						</Button>
-					) : (
-						<Button
-							variant={billed ? "outlined" : "contained"}
-							size="small"
-							onClick={() => {
-								if (billed) {
-									stopAll();
-									return;
-								}
-								void startSession();
-							}}
-						>
-							{billed ? t("talk.stop") : t("talk.title")}
-						</Button>
-					)}
-				</Stack>
-				{transcript ? (
-					<Typography
-						color="secondary"
-						sx={{ maxHeight: 192, overflow: "auto", whiteSpace: "pre-wrap" }}
-					>
-						{transcript}
-					</Typography>
-				) : null}
+							<span className="talk-mic-pulse" />
+							<svg
+								width="28"
+								height="28"
+								viewBox="0 0 24 24"
+								aria-hidden
+								style={{ position: "relative", fill: "currentColor" }}
+							>
+								<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+							</svg>
+						</button>
+					</Stack>
+				) : (
+					<Stack direction="row" spacing={1}>
+						{mode === "hold" ? (
+							<Button
+								variant="contained"
+								size="small"
+								onPointerDown={() => void startSession()}
+								onPointerUp={() => stopAll()}
+								onPointerLeave={() => stopAll()}
+							>
+								{t("talk.press")}
+							</Button>
+						) : (
+							<Button
+								variant="contained"
+								size="small"
+								onClick={() => void startSession()}
+							>
+								{t("talk.title")}
+							</Button>
+						)}
+					</Stack>
+				)}
 			</Stack>
 		</Paper>
 	);

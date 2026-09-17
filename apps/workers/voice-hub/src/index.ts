@@ -310,7 +310,7 @@ export class VoiceHub extends DurableObject<Env> {
 			event.type === "conversation.item.input_audio_transcription.completed" &&
 			typeof event.transcript === "string"
 		) {
-			this.send({ v: 1, type: "transcript", text: event.transcript });
+			this.send({ v: 1, type: "heard", text: event.transcript });
 			return;
 		}
 		if (event.type === "response.function_call_arguments.done") {
@@ -448,7 +448,7 @@ export class VoiceHub extends DurableObject<Env> {
 
 	private send(message: {
 		v: 1;
-		type: "transcript" | "status" | "error" | "agent";
+		type: "transcript" | "heard" | "status" | "error" | "agent";
 		text?: string;
 		state?: "idle" | "listening" | "talking" | "working";
 		billed?: boolean;
