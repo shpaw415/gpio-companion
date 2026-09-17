@@ -1005,6 +1005,7 @@ export type GpioPinState = {
 	pwm?: number;
 	analog?: number;
 	hz?: number;
+	adc?: number;
 	reserved?: boolean;
 	unresolved?: boolean;
 };

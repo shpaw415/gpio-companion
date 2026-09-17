@@ -80,6 +80,9 @@ function pinStatusLabel(pin: GpioPinState, t: Translate<Messages>): string {
 	if (typeof pin.pwm === "number") {
 		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
+	if (pin.dir === "in" && typeof pin.adc === "number") {
+		return t("gpio.adc", { n: pin.adc });
+	}
 	if (pin.dir === "in") {
 		return pin.value === 1
 			? t("gpio.inHigh")
@@ -104,7 +107,7 @@ function pinStatusLabel(pin: GpioPinState, t: Translate<Messages>): string {
 }
 
 function pinStatusKey(pin: GpioPinState): string {
-	return `${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}:${pin.name}:${pin.type}`;
+	return `${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}:${pin.adc ?? ""}:${pin.name}:${pin.type}`;
 }
 
 function placeholderPins(): GpioPinState[] {

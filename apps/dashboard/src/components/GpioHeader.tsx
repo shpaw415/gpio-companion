@@ -34,6 +34,9 @@ export function gpioStatusText(
 	if (typeof pin.pwm === "number") {
 		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
+	if (pin.dir === "in" && typeof pin.adc === "number") {
+		return t("gpio.adc", { n: pin.adc });
+	}
 	if (pin.dir === "in" && pin.value === 1) {
 		return t("gpio.inHigh");
 	}
@@ -51,9 +54,6 @@ export function gpioStatusText(
 	}
 	if (pin.value === 0) {
 		return t("gpio.low");
-	}
-	if (typeof pin.adc === "number") {
-		return t("gpio.adc", { n: pin.adc });
 	}
 	return "—";
 }

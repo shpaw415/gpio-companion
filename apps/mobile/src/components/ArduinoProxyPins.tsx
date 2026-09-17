@@ -47,6 +47,9 @@ function pinStatus(pin: GpioPinState, t: Translate<Messages>): string {
 	if (typeof pin.pwm === "number") {
 		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
+	if (pin.dir === "in" && typeof pin.adc === "number") {
+		return t("gpio.adc", { n: pin.adc });
+	}
 	if (pin.dir === "in") {
 		return pin.value === 1
 			? t("gpio.inHigh")

@@ -560,7 +560,11 @@ function PinStatusChip({ pin }: { pin: GpioPinState }) {
 	if (pin.reserved || pin.unresolved || label === "—") {
 		return <Chip label={label} size="small" variant="outlined" />;
 	}
-	if (typeof pin.hz === "number" || typeof pin.analog === "number") {
+	if (
+		typeof pin.hz === "number" ||
+		typeof pin.analog === "number" ||
+		(pin.dir === "in" && typeof pin.adc === "number")
+	) {
 		return (
 			<Chip label={label} size="small" color="primary" variant="outlined" />
 		);

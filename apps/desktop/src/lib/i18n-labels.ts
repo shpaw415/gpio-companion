@@ -19,6 +19,9 @@ export function gpioPinStatusLabel(pin: GpioPinState, t: CopyT): string {
 	if (typeof pin.pwm === "number") {
 		return t("gpio.pwmPct", { n: Math.round(pin.pwm) });
 	}
+	if (pin.dir === "in" && typeof pin.adc === "number") {
+		return t("gpio.adc", { n: pin.adc });
+	}
 	const high = pin.value === 1;
 	const low = pin.value === 0;
 	if (pin.dir === "in") {

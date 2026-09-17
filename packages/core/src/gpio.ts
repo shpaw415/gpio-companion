@@ -414,15 +414,15 @@ export function gpioPinStatusLabel(pin: GpioPinState): string {
 	if (typeof pin.pwm === "number") {
 		return `PWM ${Math.round(pin.pwm)}%`;
 	}
+	if (pin.dir === "in" && typeof pin.adc === "number") {
+		return `adc ${pin.adc}`;
+	}
 	const level = pin.value === 1 ? "high" : pin.value === 0 ? "low" : undefined;
 	if (pin.dir === "in" || pin.dir === "out") {
 		return level ? `${pin.dir} · ${level}` : pin.dir;
 	}
 	if (level) {
 		return level;
-	}
-	if (typeof pin.adc === "number") {
-		return `adc ${pin.adc}`;
 	}
 	return "—";
 }

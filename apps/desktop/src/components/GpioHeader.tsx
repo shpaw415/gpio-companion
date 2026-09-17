@@ -75,7 +75,7 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 }
 
 function pinStatusKey(pin: GpioPinState): string {
-	return `${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}:${pin.name}:${pin.type}`;
+	return `${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}:${pin.adc ?? ""}:${pin.name}:${pin.type}`;
 }
 
 function placeholderPins(): GpioPinState[] {

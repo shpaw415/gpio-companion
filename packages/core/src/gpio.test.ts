@@ -194,10 +194,18 @@ describe("header", () => {
 			gpioPinStatusLabel({
 				...gpio,
 				adc: 507,
-				value: undefined,
-				dir: undefined,
+				dir: "in",
+				value: 0,
 			}),
 		).toBe("adc 507");
+		expect(
+			gpioPinStatusLabel({
+				...gpio,
+				adc: 0,
+				dir: "out",
+				value: 1,
+			}),
+		).toBe("out · high");
 		expect(gpioPinStatusKey({ ...gpio, adc: 0 })).not.toBe(
 			gpioPinStatusKey({ ...gpio, adc: 507 }),
 		);
