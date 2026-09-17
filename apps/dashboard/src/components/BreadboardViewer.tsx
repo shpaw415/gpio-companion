@@ -165,6 +165,7 @@ function DiagramBoard({
 	const [wireKey, setWireKey] = useState<string | null>(null);
 	const [elementsReady, setElementsReady] = useState(0);
 	const partRefs = useRef(new Map<string, HTMLElement>());
+	const stepRefs = useRef<(HTMLButtonElement | null)[]>([]);
 	const pins = collectPins(diagram, partRefs.current, boardModel);
 	const bounds = canvasBounds(diagram, partRefs.current, boardModel);
 	const camera = useZoomCamera(bounds.width, bounds.height, expanded, () => {
@@ -212,6 +213,10 @@ function DiagramBoard({
 		} else {
 			camera.fit();
 		}
+		stepRefs.current[index]?.scrollIntoView({
+			block: "nearest",
+			inline: "nearest",
+		});
 	}
 
 	function partNode(part: WokwiPart) {
@@ -317,25 +322,33 @@ function DiagramBoard({
 				</div>
 			</ZoomSurface>
 			{diagram.steps?.length ? (
-				<Stack
-					spacing={1}
-					className={expanded ? "mt-3 max-h-40 overflow-auto" : "mt-3"}
+				<div
+					className={
+						expanded
+							? "mt-3 min-h-0 max-h-[min(40vh,16rem)] shrink-0 overflow-y-auto overscroll-contain"
+							: "mt-3"
+					}
 				>
-					{diagram.steps.map((step, index) => (
-						<button
-							key={step.text}
-							className={`rounded px-3 py-2 text-left text-sm ${
-								index === activeStep
-									? "bg-slate-800 text-white"
-									: "text-slate-300"
-							}`}
-							onClick={() => selectStep(index)}
-							type="button"
-						>
-							{index + 1}. {step.text}
-						</button>
-					))}
-				</Stack>
+					<Stack spacing={1}>
+						{diagram.steps.map((step, index) => (
+							<button
+								key={step.text}
+								className={`whitespace-normal rounded px-3 py-2 text-left text-sm [overflow-wrap:anywhere] ${
+									index === activeStep
+										? "bg-slate-800 text-white"
+										: "text-slate-300"
+								}`}
+								onClick={() => selectStep(index)}
+								ref={(el) => {
+									stepRefs.current[index] = el;
+								}}
+								type="button"
+							>
+								{index + 1}. {step.text}
+							</button>
+						))}
+					</Stack>
+				</div>
 			) : null}
 		</BoardShell>
 	);

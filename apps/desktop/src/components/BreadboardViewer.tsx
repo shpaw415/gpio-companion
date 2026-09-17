@@ -215,6 +215,7 @@ function DiagramBoard({
 	const [wireKey, setWireKey] = useState<string | null>(null);
 	const [elementsReady, setElementsReady] = useState(0);
 	const partRefs = useRef(new Map<string, HTMLElement>());
+	const stepRefs = useRef<(HTMLButtonElement | null)[]>([]);
 	const pins = collectPins(diagram, partRefs.current, boardModel);
 	const bounds = canvasBounds(diagram, partRefs.current, boardModel);
 	const camera = useZoomCamera(bounds.width, bounds.height, expanded, () => {
@@ -262,6 +263,10 @@ function DiagramBoard({
 		} else {
 			camera.fit();
 		}
+		stepRefs.current[index]?.scrollIntoView({
+			block: "nearest",
+			inline: "nearest",
+		});
 	}
 
 	function partNode(part: WokwiPart) {
@@ -372,34 +377,47 @@ function DiagramBoard({
 				</div>
 			</ZoomSurface>
 			{diagram.steps?.length ? (
-				<Stack
-					spacing={1}
-					sx={
+				<div
+					style={
 						expanded
-							? { mt: 1.5, maxHeight: 160, overflow: "auto" }
-							: { mt: 1.5 }
+							? {
+									marginTop: 12,
+									minHeight: 0,
+									maxHeight: "min(40vh, 16rem)",
+									flexShrink: 0,
+									overflowY: "auto",
+									overscrollBehavior: "contain",
+								}
+							: { marginTop: 12 }
 					}
 				>
-					{diagram.steps.map((step, index) => (
-						<button
-							key={step.text}
-							onClick={() => selectStep(index)}
-							style={{
-								border: 0,
-								borderRadius: 8,
-								padding: "8px 12px",
-								textAlign: "left",
-								fontSize: 14,
-								cursor: "pointer",
-								background: index === activeStep ? "#1e293b" : "transparent",
-								color: index === activeStep ? "#fff" : "#cbd5e1",
-							}}
-							type="button"
-						>
-							{index + 1}. {step.text}
-						</button>
-					))}
-				</Stack>
+					<Stack spacing={1}>
+						{diagram.steps.map((step, index) => (
+							<button
+								key={step.text}
+								onClick={() => selectStep(index)}
+								ref={(el) => {
+									stepRefs.current[index] = el;
+								}}
+								style={{
+									border: 0,
+									borderRadius: 8,
+									padding: "8px 12px",
+									textAlign: "left",
+									fontSize: 14,
+									cursor: "pointer",
+									whiteSpace: "normal",
+									overflowWrap: "anywhere",
+									background: index === activeStep ? "#1e293b" : "transparent",
+									color: index === activeStep ? "#fff" : "#cbd5e1",
+								}}
+								type="button"
+							>
+								{index + 1}. {step.text}
+							</button>
+						))}
+					</Stack>
+				</div>
 			) : null}
 		</BoardShell>
 	);
