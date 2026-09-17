@@ -12,7 +12,6 @@ import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 import Keys from "./Keys";
 import LanguageCard from "./LanguageCard";
-import VoiceMicCard from "./VoiceMicCard";
 import { LinesSkeleton } from "./skeletons";
 
 export default function Profile({
@@ -40,7 +39,6 @@ export default function Profile({
 				<DebugLog error={translateError(t, error || creditsQuery.error)} />
 			) : null}
 			<LanguageCard />
-			<VoiceMicCard />
 			<Paper sx={{ p: 1.5 }} elevation={1}>
 				<Stack spacing={0.5}>
 					<Typography variant="subtitle1">{t("profile.account")}</Typography>

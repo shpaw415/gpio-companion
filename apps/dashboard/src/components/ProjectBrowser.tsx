@@ -49,7 +49,6 @@ import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
 import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
-import TalkPanel from "./TalkPanel.tsx";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
 
@@ -808,9 +807,6 @@ export default function ProjectBrowser({
 								</Button>
 							</Stack>
 						</Stack>
-						{uuid && paired ? (
-							<TalkPanel uuid={uuid} repo={bundle.repo} owner={bundle.owner} />
-						) : null}
 						{justCreated === bundle.repo ? (
 							<Alert severity="success">
 								<Stack

@@ -1,11 +1,5 @@
 # User workflows
 
-## Daily: Talk to the companion agent
-
-On Project, **Talk** lets you speak while your hands are on the breadboard. Grok Voice replies out loud. Hold to talk is the default. Profile can switch to always listening or the wake phrase **Hey Companion**. Talk uses dashboard credits ($0.08/min × markup while Grok is connected). Local wake-word listening is not billed.
-
-Spoken actions can run, stop, verify, flash, or save the project, and **ask the on-device agent** to add a C sketch or feature. Lasting pin drive still goes through gpio-host / Arduino proxy, not a lasting GPIO PUT.
-
 ## Daily: work with the on-device agent
 
 Open T3 Code (tunneled) or OpenCode on the Pi. The agent loads:
