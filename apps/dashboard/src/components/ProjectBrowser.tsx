@@ -103,6 +103,10 @@ export default function ProjectBrowser({
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [deleteName, setDeleteName] = useState("");
 	const [deleting, setDeleting] = useState(false);
+	const [pendingDelete, setPendingDelete] = useState<{
+		owner: string;
+		name: string;
+	} | null>(null);
 	const mobile = useMobile();
 	const overlay = useMemo(() => {
 		if (!breadboardJson || !verifyResults?.length) {
@@ -247,35 +251,53 @@ export default function ProjectBrowser({
 		}
 	}
 
+	function openDelete(owner: string, name: string) {
+		setPendingDelete({ owner, name });
+		setDeleteName("");
+		setDeleteOpen(true);
+	}
+
 	async function removeOpenedProject() {
-		if (!bundle || deleting) {
+		if (!pendingDelete || deleting) {
 			return;
 		}
-		if (deleteName.trim() !== bundle.repo) {
+		if (deleteName.trim() !== pendingDelete.name) {
 			return;
 		}
 		setError("");
 		setDeleting(true);
 		try {
-			unwrapAction(await deleteProject(bundle.owner, bundle.repo));
+			unwrapAction(
+				await deleteProject(pendingDelete.owner, pendingDelete.name),
+			);
 			setRepos((current) =>
 				current.filter(
-					(item) => !(item.owner === bundle.owner && item.name === bundle.repo),
+					(item) =>
+						!(
+							item.owner === pendingDelete.owner &&
+							item.name === pendingDelete.name
+						),
 				),
 			);
-			setBundle(null);
-			setPcbJson(null);
-			setBreadboardJson(null);
+			if (
+				bundle?.owner === pendingDelete.owner &&
+				bundle.repo === pendingDelete.name
+			) {
+				setBundle(null);
+				setPcbJson(null);
+				setBreadboardJson(null);
+				onProject?.("");
+				try {
+					window.localStorage.removeItem(LAST_REPO_KEY);
+				} catch {
+					undefined;
+				}
+			}
 			setJustCreated("");
 			setSaveHint("");
 			setDeleteOpen(false);
 			setDeleteName("");
-			onProject?.("");
-			try {
-				window.localStorage.removeItem(LAST_REPO_KEY);
-			} catch {
-				undefined;
-			}
+			setPendingDelete(null);
 		} catch (err) {
 			setError(
 				translateError(
@@ -579,11 +601,12 @@ export default function ProjectBrowser({
 											{mobile ? null : (
 												<TableCell>{t("project.colRepo")}</TableCell>
 											)}
+											<TableCell />
 										</TableRow>
 									</TableHead>
 									<TableBody>
 										{loading ? (
-											<TableRowsSkeleton rows={5} columns={mobile ? 2 : 3} />
+											<TableRowsSkeleton rows={5} columns={mobile ? 3 : 4} />
 										) : (
 											paged.map((repo) => (
 												<TableRow
@@ -606,6 +629,19 @@ export default function ProjectBrowser({
 															{repo.full_name}
 														</TableCell>
 													)}
+													<TableCell>
+														<Button
+															type="button"
+															variant="text"
+															color="error"
+															onClick={(event) => {
+																event.stopPropagation();
+																openDelete(repo.owner, repo.name);
+															}}
+														>
+															{t("project.delete")}
+														</Button>
+													</TableCell>
 												</TableRow>
 											))
 										)}
@@ -701,10 +737,7 @@ export default function ProjectBrowser({
 									variant="outlined"
 									color="error"
 									disabled={deleting}
-									onClick={() => {
-										setDeleteName("");
-										setDeleteOpen(true);
-									}}
+									onClick={() => openDelete(bundle.owner, bundle.repo)}
 									className={mobile ? "flex-1" : undefined}
 								>
 									{t("project.delete")}
@@ -837,7 +870,7 @@ export default function ProjectBrowser({
 					<Stack spacing={2}>
 						<Typography>
 							{t("project.deleteConfirmHint", {
-								name: bundle?.repo ?? "",
+								name: pendingDelete?.name ?? "",
 							})}
 						</Typography>
 						<TextField
@@ -862,7 +895,11 @@ export default function ProjectBrowser({
 						type="button"
 						variant="contained"
 						color="error"
-						disabled={deleting || !bundle || deleteName.trim() !== bundle.repo}
+						disabled={
+							deleting ||
+							!pendingDelete ||
+							deleteName.trim() !== pendingDelete.name
+						}
 						onClick={() => void removeOpenedProject()}
 					>
 						{deleting ? t("project.deleting") : t("project.deleteConfirm")}

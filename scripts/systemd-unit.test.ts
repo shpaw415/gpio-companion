@@ -52,6 +52,7 @@ write_gpio_companion_service orangepi
 		expect(unit).toContain("SupplementaryGroups=gpio");
 		expect(unit).toContain("Environment=GPIO_USER=companion");
 		expect(unit).toContain("Environment=GPIO_COMPANION_HARDWARE=orangepi");
+		expect(unit).toContain("Restart=always");
 		expect(unit).not.toContain("__GPIO_USER__");
 	});
 });

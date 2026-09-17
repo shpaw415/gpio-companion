@@ -1,4 +1,4 @@
-import { createReadStream, type ReadStream } from "node:fs";
+import type { ReadStream } from "node:fs";
 import {
 	CONSOLE_DEFAULT_BAUD,
 	CONSOLE_FLUSH_MS,
@@ -12,6 +12,7 @@ import {
 	parseConsoleUsbPut,
 	parseConsoleWsCommand,
 } from "gpio-companion";
+import { openTtyReadStream } from "./arduino-proxy.ts";
 
 export type ConsoleSocket = {
 	send(data: string): void;
@@ -266,6 +267,7 @@ function liveOpenUsb(
 				"raw",
 				"-echo",
 				"-icrnl",
+				"-hupcl",
 				"clocal",
 				"cread",
 			],
@@ -280,7 +282,7 @@ function liveOpenUsb(
 			return;
 		}
 		try {
-			stream = createReadStream(port);
+			stream = openTtyReadStream(port);
 			stream.on("error", () => {
 				if (!closed) {
 					onClose();

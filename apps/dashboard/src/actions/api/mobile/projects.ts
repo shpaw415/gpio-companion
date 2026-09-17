@@ -18,7 +18,10 @@ import {
 	readJsonBody,
 	runMobile,
 } from "../../../lib/mobile-http.ts";
-import { pushProjectToLiveBoards } from "../../../lib/projects-push.ts";
+import {
+	deleteProjectForUser,
+	pushProjectToLiveBoards,
+} from "../../../lib/projects-push.ts";
 
 function env(ctx: MobileContext): GithubAppEnv & {
 	GPIO_COMPANION_DEVICE_PRIVATE_KEY?: string;
@@ -105,5 +108,23 @@ export async function onRequestPatch(ctx: MobileContext) {
 		await indexProject(env(ctx).DYNAMIC_PAGE_KV, identity.id, repo);
 		await pushProjectToLiveBoards(env(ctx), identity.id, repo);
 		return repo;
+	});
+}
+
+export async function onRequestDelete(ctx: MobileContext) {
+	return runMobile(ctx, async (identity) => {
+		const url = new URL(ctx.request.url);
+		const body = await readJsonBody(ctx.request);
+		const owner =
+			asString(body.owner).trim() || asString(url.searchParams.get("owner"));
+		const name =
+			asString(body.name).trim() ||
+			asString(body.repo).trim() ||
+			asString(url.searchParams.get("name")) ||
+			asString(url.searchParams.get("repo"));
+		if (!owner || !name) {
+			throw new Error("owner and name are required");
+		}
+		return deleteProjectForUser(env(ctx), identity.id, owner, name);
 	});
 }
