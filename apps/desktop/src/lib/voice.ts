@@ -6,6 +6,7 @@ export const VOICE_VOICE_ID = "eve";
 
 export const VOICE_SPEAKERS = [
 	{ id: "eve", name: "Eve" },
+	{ id: "altair", name: "Altair" },
 	{ id: "ara", name: "Ara" },
 	{ id: "rex", name: "Rex" },
 	{ id: "sal", name: "Sal" },

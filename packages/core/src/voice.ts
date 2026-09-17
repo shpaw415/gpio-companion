@@ -25,6 +25,7 @@ export type VoiceSpeaker = {
 
 export const VOICE_SPEAKERS: readonly VoiceSpeaker[] = [
 	{ id: "eve", name: "Eve" },
+	{ id: "altair", name: "Altair" },
 	{ id: "ara", name: "Ara" },
 	{ id: "rex", name: "Rex" },
 	{ id: "sal", name: "Sal" },
