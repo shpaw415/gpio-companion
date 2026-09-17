@@ -108,12 +108,12 @@ export default function App() {
 						bgcolor: "bg-main",
 						display: "flex",
 						flexDirection: "column",
-						overflow: onT3 ? "hidden" : undefined,
+						overflow: "hidden",
 					}}
 				>
 					<CssBaseline />
 					<AppBar position="sticky" color="default" sx={{ flexShrink: 0 }}>
-						<Toolbar sx={{ gap: 1 }}>
+						<Toolbar sx={{ gap: 1, minHeight: 48 }}>
 							<Box
 								sx={{
 									display: "flex",
@@ -183,10 +183,11 @@ export default function App() {
 					</AppBar>
 					<Box
 						sx={{
+							flex: 1,
+							minHeight: 0,
+							width: "100%",
 							...(onT3
 								? {
-										flex: 1,
-										minHeight: 0,
 										display: "flex",
 										flexDirection: "column",
 										overflow: "hidden",
@@ -195,10 +196,8 @@ export default function App() {
 										pb: 0,
 									}
 								: {
-										mx: "auto",
-										width: "100%",
-										maxWidth: 1024,
-										p: 3,
+										overflow: "auto",
+										p: 1.5,
 									}),
 						}}
 					>

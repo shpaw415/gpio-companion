@@ -28,7 +28,6 @@ import CopyBlock from "../../components/CopyBlock.tsx";
 import DeviceCompanionInfo from "../../components/DeviceCompanionInfo.tsx";
 import DeviceLabelField from "../../components/DeviceLabelField.tsx";
 import ExpertGate from "../../components/ExpertGate.tsx";
-import { SectionHeader } from "../../components/Section.tsx";
 import { TableRowsSkeleton } from "../../components/skeletons.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
@@ -153,11 +152,7 @@ export default function AdminDevicesPage() {
 
 	return (
 		<ExpertGate>
-			<Stack spacing={3}>
-				<SectionHeader title={t("admin.title")}>
-					<Typography color="secondary">{t("admin.hint")}</Typography>
-				</SectionHeader>
-
+			<Stack spacing={1.5}>
 				{!session.data?.id && !session.data?.email ? (
 					<Alert severity="info">
 						<Button href="/login" variant="text">

@@ -200,11 +200,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	}
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("wifi.title")}
-			</Typography>
-			<Typography color="secondary">{t("wifi.desktopHint")}</Typography>
+		<Stack spacing={1.5}>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}

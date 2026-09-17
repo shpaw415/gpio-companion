@@ -55,7 +55,6 @@ export default function Docs() {
 
 	return (
 		<Screen>
-			<Title>{t("docs.docsTitle")}</Title>
 			<Row>
 				<Chip
 					label={t("docs.all")}

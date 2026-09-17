@@ -52,8 +52,8 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 		<ActionErrorProvider>
 			<Box
 				sx={{
-					minHeight: "100dvh",
-					...(onT3 ? { height: "100dvh", overflow: "hidden" } : undefined),
+					height: "100dvh",
+					overflow: "hidden",
 					bgcolor: "bg-main",
 					display: "flex",
 					flexDirection: "column",
@@ -62,9 +62,23 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 				<AppBar
 					position="sticky"
 					color="default"
-					sx={{ paddingTop: "env(safe-area-inset-top)" }}
+					sx={{ flexShrink: 0, paddingTop: "env(safe-area-inset-top)" }}
 				>
-					<Toolbar className="gap-2">
+					<Toolbar className="gap-2" sx={{ minHeight: 48 }}>
+						<img
+							src="/static/logo.png"
+							alt=""
+							width={28}
+							height={28}
+							style={{
+								width: 28,
+								height: 28,
+								borderRadius: 8,
+								objectFit: "cover",
+								flexShrink: 0,
+								display: "block",
+							}}
+						/>
 						<Typography
 							variant="h6"
 							Element="a"
@@ -80,7 +94,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 									<Button
 										key={item.href}
 										href={item.href}
-										variant="text"
+										variant={section === item.href ? "contained" : "text"}
 										size="small"
 									>
 										{item.label}
@@ -116,13 +130,13 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 					className={
 						onT3
 							? "flex min-h-0 w-full min-w-0 flex-1 flex-col"
-							: "mx-auto w-full min-w-0 max-w-5xl px-3 py-4 min-[900px]:px-4 min-[900px]:py-8"
+							: "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-auto px-2 py-2"
 					}
 					sx={{
+						flex: 1,
+						minHeight: 0,
 						...(onT3
 							? {
-									flex: 1,
-									minHeight: 0,
 									display: "flex",
 									flexDirection: "column",
 									overflow: "hidden",

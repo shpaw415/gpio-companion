@@ -9,10 +9,13 @@ export default function LanguageCard() {
 	const { locale, setLocale, t } = useLocale();
 
 	return (
-		<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
-			<Stack spacing={1}>
-				<Typography variant="h6">{t("language.title")}</Typography>
-				<Typography color="secondary">{t("language.hint")}</Typography>
+		<Paper className="w-full p-3" elevation={1}>
+			<Stack
+				direction="row"
+				spacing={1}
+				className="flex-wrap items-center justify-between"
+			>
+				<Typography variant="subtitle1">{t("language.title")}</Typography>
 				<Select
 					name="locale"
 					label={t("language.title")}

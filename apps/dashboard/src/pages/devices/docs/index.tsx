@@ -17,7 +17,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { DeviceStatus } from "../../../components/DeviceBoardCard.tsx";
 import DeviceSelect from "../../../components/DeviceSelect.tsx";
 import DocsMarkdown from "../../../components/DocsMarkdown.tsx";
-import SectionHub, { SectionHeader } from "../../../components/Section.tsx";
+import SectionHub from "../../../components/Section.tsx";
 import { SelectSkeleton } from "../../../components/skeletons.tsx";
 import { useActionError } from "../../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../../hooks/useAuth.ts";
@@ -247,14 +247,8 @@ export default function DocsPage() {
 			: null;
 
 	return (
-		<Stack spacing={3}>
-			<SectionHeader title={t("docs.title")}>
-				{mobile ? null : (
-					<Typography color="secondary">{t("docs.subtitle")}</Typography>
-				)}
-			</SectionHeader>
-
-			<Paper className="w-full p-3 min-[900px]:p-4" elevation={1}>
+		<Stack spacing={1.5}>
+			<Paper className="w-full p-3" elevation={1}>
 				<Stack
 					direction={mobile ? "column" : "row"}
 					spacing={1}
@@ -337,7 +331,7 @@ export default function DocsPage() {
 			</Box>
 
 			{query.trim() ? (
-				<Stack spacing={2}>
+				<Stack spacing={1.5}>
 					<Typography variant="h6">
 						{t("docs.resultsFor", {
 							n: results.length,
@@ -376,7 +370,7 @@ export default function DocsPage() {
 					) : null}
 				</Stack>
 			) : (
-				<Stack spacing={4}>
+				<Stack spacing={2}>
 					<SectionHub
 						description={t("docs.guidesDesc")}
 						items={guides.map((entry) => {
@@ -467,14 +461,14 @@ function DocReader({ doc }: { doc: DocEntry }) {
 	);
 
 	return (
-		<Stack spacing={3}>
+		<Stack spacing={1.5}>
 			<Stack spacing={1}>
 				<Breadcrumbs aria-label={t("docs.breadcrumb")}>
 					<Link href="/devices/docs">{t("docs.docsTitle")}</Link>
 					<Typography color="secondary">{copy.title}</Typography>
 				</Breadcrumbs>
 				<Stack direction="row" spacing={1} className="flex-wrap items-center">
-					<Typography variant={mobile ? "h5" : "h4"} Element="h1">
+					<Typography variant="h6" Element="h1">
 						{copy.title}
 					</Typography>
 					{doc.hardware ? (
@@ -510,7 +504,7 @@ function DocReader({ doc }: { doc: DocEntry }) {
 						</Box>
 					</Box>
 				</Box>
-				<Paper className="w-full p-3 min-[900px]:p-6" elevation={1}>
+				<Paper className="w-full p-3" elevation={1}>
 					<DocsMarkdown content={doc.content} />
 					<Box className="mt-6">
 						<Button href="/devices/docs" variant="text">

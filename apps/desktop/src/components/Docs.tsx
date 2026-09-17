@@ -56,10 +56,7 @@ export default function Docs() {
 	const docTitle = doc ? t(doc.titleKey) : "";
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("docs.docsTitle")}
-			</Typography>
+		<Stack spacing={1.5}>
 			<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
 				<Chip
 					label={t("docs.all")}
@@ -82,7 +79,7 @@ export default function Docs() {
 				onChange={(event) => setQuery(event.target.value)}
 			/>
 			{doc ? (
-				<Paper sx={{ p: 3 }} elevation={1}>
+				<Paper sx={{ p: 1.5 }} elevation={1}>
 					<Button variant="text" onClick={() => setDocId("")}>
 						{t("docs.backToCatalog")}
 					</Button>

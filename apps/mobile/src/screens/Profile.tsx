@@ -10,7 +10,6 @@ import {
 	Screen,
 	Skeleton,
 	TextButton,
-	Title,
 } from "../components/ui.tsx";
 import { getCredits } from "../lib/api.ts";
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
@@ -36,7 +35,6 @@ export default function Profile() {
 
 	return (
 		<Screen>
-			<Title>{t("profile.title")}</Title>
 			<ErrorText>
 				{translateError(t, error || creditsQuery.error || "")}
 			</ErrorText>

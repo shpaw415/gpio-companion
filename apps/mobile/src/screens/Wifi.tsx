@@ -10,7 +10,6 @@ import {
 	PrimaryButton,
 	Screen,
 	TextButton,
-	Title,
 } from "../components/ui.tsx";
 import { deviceDisplayName, signWifi } from "../lib/api.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
@@ -204,9 +203,7 @@ export default function Wifi() {
 
 	return (
 		<Screen>
-			<Title>{t("wifi.title")}</Title>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
-			<Muted>{t("wifi.mobileHint")}</Muted>
 			<Muted>{t("wifi.pairedBoard")}</Muted>
 			{devices.length === 0 ? (
 				<Muted>{t("wifi.noPaired")}</Muted>

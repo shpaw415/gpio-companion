@@ -4,11 +4,9 @@ import { POST as startDeviceUpdate } from "@api/update";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Stack from "@shpaw415/mui-lite/Stack";
-import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useMemo, useState } from "react";
 import DeviceDebugPanel from "../../components/DeviceDebugPanel.tsx";
 import ExpertGate from "../../components/ExpertGate.tsx";
-import { SectionHeader } from "../../components/Section.tsx";
 import { SelectSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
@@ -62,11 +60,7 @@ export default function DeviceDebugPage() {
 
 	return (
 		<ExpertGate>
-			<Stack spacing={3}>
-				<SectionHeader title={t("debug.title")}>
-					<Typography color="secondary">{t("debug.webHint")}</Typography>
-				</SectionHeader>
-
+			<Stack spacing={1.5}>
 				{!loggedIn ? (
 					<Alert severity="info">
 						<Button href="/login" variant="text">

@@ -57,17 +57,14 @@ export function SelectSkeleton({
 
 export function BoardCardSkeleton() {
 	return (
-		<Paper sx={{ p: 3 }} elevation={1} aria-busy="true">
-			<Stack spacing={2}>
-				<Skeleton variant="text" width="38%" />
-				<Skeleton variant="text" width="72%" />
-				<Skeleton variant="text" width="88%" />
-				<Skeleton variant="rounded" height={56} />
-				<ChipsSkeleton count={4} />
-				<Stack direction="row" spacing={1}>
-					<Skeleton variant="rounded" height={32} width={120} />
-					<Skeleton variant="rounded" height={32} width={88} />
-				</Stack>
+		<Paper sx={{ p: 1 }} elevation={1} aria-busy="true">
+			<Stack
+				direction="row"
+				spacing={1}
+				sx={{ alignItems: "center", minHeight: 48, px: 0.5 }}
+			>
+				<Skeleton variant="text" width="40%" />
+				<Skeleton variant="rounded" height={24} width={72} />
 			</Stack>
 		</Paper>
 	);

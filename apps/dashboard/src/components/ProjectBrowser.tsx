@@ -546,8 +546,8 @@ export default function ProjectBrowser({
 	}
 
 	return (
-		<Stack spacing={3}>
-			<Paper className="p-3 min-[900px]:p-4" elevation={1}>
+		<Stack spacing={1.5}>
+			<Paper className="p-3" elevation={1}>
 				<Stack spacing={2}>
 					{createFields(empty)}
 					{empty ? null : (

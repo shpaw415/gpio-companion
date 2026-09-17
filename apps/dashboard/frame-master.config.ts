@@ -225,6 +225,10 @@ export default {
 					dist: "favicon.ico",
 				},
 				{
+					src: "static/logo.png",
+					dist: "static/logo.png",
+				},
+				{
 					src: "assets",
 					dist: "assets",
 				},

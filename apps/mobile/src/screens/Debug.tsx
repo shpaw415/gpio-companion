@@ -17,7 +17,6 @@ import {
 	Screen,
 	Skeleton,
 	TextButton,
-	Title,
 } from "../components/ui.tsx";
 import {
 	connectDebug,
@@ -257,8 +256,6 @@ export default function Debug() {
 
 	return (
 		<Screen>
-			<Title>{t("debug.title")}</Title>
-			<Muted>{t("debug.nativeHint")}</Muted>
 			<ErrorText>{translateError(t, error || query.error || "")}</ErrorText>
 			{updateNote ? <Muted>{updateNote}</Muted> : null}
 			<Muted>{t("docs.board")}</Muted>

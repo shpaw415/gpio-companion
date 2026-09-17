@@ -4,7 +4,11 @@ import Button from "@shpaw415/mui-lite/Button";
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { useEffect } from "react";
 import { useDashboardMode } from "../hooks/useDashboardMode";
-import { type DeviceTabId, deviceTabs } from "../lib/dashboard-mode";
+import {
+	type DeviceTabId,
+	deviceTabs,
+	isAllowedDeviceTab,
+} from "../lib/dashboard-mode";
 import { useT } from "../locale";
 import Admin from "./Admin";
 import Debug from "./Debug";
@@ -30,7 +34,7 @@ export default function DevicesHub({
 	const t = useT();
 	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
-	const allowed = tabs.some((item) => item.id === tab);
+	const allowed = isAllowedDeviceTab(mode, admin, tab);
 
 	useEffect(() => {
 		if (!allowed) {
@@ -79,7 +83,7 @@ export default function DevicesHub({
 								flexDirection: "column",
 								overflow: "hidden",
 							}
-						: { mt: 3 }
+						: { mt: 1 }
 				}
 			>
 				{isEasy && expertOnly ? (
@@ -95,7 +99,9 @@ export default function DevicesHub({
 					</Alert>
 				) : (
 					<>
-						{tab === "overview" ? <Overview /> : null}
+						{tab === "overview" ? (
+							<Overview onAddBoard={() => onTab("pair")} />
+						) : null}
 						{tab === "docs" ? <Docs /> : null}
 						{tab === "t3" ? <T3 /> : null}
 						{tab === "pair" ? <Pair onBack={() => onTab("overview")} /> : null}

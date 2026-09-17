@@ -7,14 +7,9 @@ import {
 	Paper,
 	PrimaryButton,
 	Skeleton,
-	Title,
 } from "../components/ui.tsx";
 import { getGithubApp } from "../lib/api.ts";
-import {
-	CACHE_KEYS,
-	useCachedQuery,
-	useUserBoards,
-} from "../lib/api-cache.tsx";
+import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 
@@ -28,7 +23,6 @@ export default function Keys() {
 		}
 		return getGithubApp(token);
 	});
-	const { devices } = useUserBoards();
 	const status = github.data;
 	const fetcher = useCallback(() => {
 		if (!token) {
@@ -57,8 +51,6 @@ export default function Keys() {
 
 	return (
 		<View style={{ gap: 12 }}>
-			<Title>{t("github.title")}</Title>
-			<Muted>{t("github.nativeHint", { n: devices.length })}</Muted>
 			<ErrorText>{translateError(t, github.error || "")}</ErrorText>
 			<Paper>
 				{github.loading ? <Skeleton height={40} /> : null}

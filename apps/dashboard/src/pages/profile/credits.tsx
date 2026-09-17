@@ -12,7 +12,6 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { translateError } from "gpio-companion/i18n";
 import { useEffect, useRef, useState } from "react";
-import { SectionHeader } from "../../components/Section.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useColorMode } from "../../hooks/useColorMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
@@ -146,10 +145,8 @@ export default function CreditsPage() {
 	}
 
 	return (
-		<Stack spacing={3}>
-			<SectionHeader title={t("credits.title")} />
-			<Typography color="secondary">{t("credits.pageHint")}</Typography>
-			<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
+		<Stack spacing={1.5}>
+			<Paper className="w-full p-3" elevation={1}>
 				<Stack spacing={2}>
 					{creditsLoading ? (
 						<Skeleton variant="rounded" height={30} width={130} />

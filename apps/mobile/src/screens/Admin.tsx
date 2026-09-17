@@ -11,7 +11,6 @@ import {
 	Screen,
 	Skeleton,
 	TextButton,
-	Title,
 } from "../components/ui.tsx";
 import {
 	adminTransfer,
@@ -56,7 +55,6 @@ export default function Admin() {
 
 	return (
 		<Screen>
-			<Title>{t("admin.title")}</Title>
 			<ErrorText>{translateError(t, error || query.error || "")}</ErrorText>
 			{updateNote ? <Muted>{updateNote}</Muted> : null}
 			<Field

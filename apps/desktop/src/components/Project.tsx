@@ -680,24 +680,19 @@ export default function Project() {
 	}
 
 	return (
-		<Stack spacing={3}>
-			<Stack
-				direction="row"
-				spacing={2}
-				sx={{ alignItems: "flex-start", justifyContent: "space-between" }}
-			>
-				<Stack spacing={0.5}>
-					<Typography variant="h5" Element="h1">
-						{t("project.title")}
-					</Typography>
-					<Typography color="secondary">{t("project.subtitle")}</Typography>
-				</Stack>
-				{paired && activeUuid ? (
-					<Button variant="outlined" onClick={openCode} disabled={t3.busy}>
+		<Stack spacing={1.5}>
+			{paired && activeUuid ? (
+				<Stack direction="row" sx={{ justifyContent: "flex-end" }}>
+					<Button
+						variant="outlined"
+						size="small"
+						onClick={openCode}
+						disabled={t3.busy}
+					>
 						{t("project.openCode")}
 					</Button>
-				) : null}
-			</Stack>
+				</Stack>
+			) : null}
 			{error || githubQuery.error || projectsQuery.error ? (
 				<Alert severity="error">
 					{translateError(t, error || githubQuery.error || projectsQuery.error)}
@@ -715,7 +710,7 @@ export default function Project() {
 			{loading ? <ListSkeleton items={4} /> : null}
 
 			{loading || app?.connected ? null : (
-				<Paper sx={{ p: 4 }} elevation={1}>
+				<Paper sx={{ p: 2 }} elevation={1}>
 					<Stack spacing={2}>
 						<Typography variant="h6">
 							{t("project.connectGithubNative")}
@@ -1094,14 +1089,12 @@ export default function Project() {
 								flexWrap: "wrap",
 							}}
 						>
-							<Stack spacing={0.5}>
-								<Typography variant="h6">{t("project.boardTools")}</Typography>
-								<Typography color="secondary">
-									{t("project.boardToolsHint")}
-								</Typography>
-							</Stack>
+							<Typography variant="subtitle1">
+								{t("project.boardTools")}
+							</Typography>
 							<Button
 								variant="outlined"
+								size="small"
 								onClick={() => setBoardToolsOpen((open) => !open)}
 							>
 								{boardToolsOpen ? t("project.hide") : t("project.show")}

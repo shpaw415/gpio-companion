@@ -69,20 +69,15 @@ export function TableRowsSkeleton({
 
 export function BoardCardSkeleton() {
 	return (
-		<Paper
-			className="w-full max-w-2xl p-4 min-[900px]:p-6"
-			elevation={1}
-			aria-busy="true"
-		>
-			<Stack spacing={2}>
-				<Skeleton variant="text" width="38%" />
-				<Skeleton variant="text" width="72%" />
-				<ChipsSkeleton />
-				<Skeleton variant="rounded" height={56} />
-				<Stack direction="row" spacing={1}>
-					<Skeleton variant="rounded" height={32} width={120} />
-					<Skeleton variant="rounded" height={32} width={180} />
-				</Stack>
+		<Paper className="w-full p-2" elevation={1} aria-busy="true">
+			<Stack
+				direction="row"
+				spacing={1}
+				className="items-center"
+				sx={{ minHeight: 48, px: 0.5 }}
+			>
+				<Skeleton variant="text" width="40%" />
+				<Skeleton variant="rounded" height={24} width={72} />
 			</Stack>
 		</Paper>
 	);

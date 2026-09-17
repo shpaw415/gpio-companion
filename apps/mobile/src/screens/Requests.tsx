@@ -6,7 +6,6 @@ import {
 	Screen,
 	Skeleton,
 	TextButton,
-	Title,
 } from "../components/ui.tsx";
 import { listNotifications, resolveNotification } from "../lib/api.ts";
 import {
@@ -53,7 +52,6 @@ export default function Requests() {
 
 	return (
 		<Screen>
-			<Title>{t("requests.title")}</Title>
 			<ErrorText>{translateError(t, error || query.error || "")}</ErrorText>
 			{query.loading ? (
 				<>

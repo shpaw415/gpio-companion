@@ -223,11 +223,7 @@ export default function Debug() {
 	}
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("debug.title")}
-			</Typography>
-			<Typography color="secondary">{t("debug.nativeHint")}</Typography>
+		<Stack spacing={1.5}>
 			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
 			{shown ? <DebugLog error={shown} /> : null}

@@ -2,7 +2,7 @@ import { LOCALES } from "gpio-companion-i18n";
 import { Pressable, Text, View } from "react-native";
 import { useColors } from "../lib/color-mode.tsx";
 import { asLocale, useLocale } from "../lib/locale.tsx";
-import { Body, Muted, Paper } from "./ui.tsx";
+import { Body, Paper } from "./ui.tsx";
 
 export default function LanguageCard() {
 	const { locale, setLocale, t } = useLocale();
@@ -11,7 +11,6 @@ export default function LanguageCard() {
 	return (
 		<Paper>
 			<Body>{t("language.title")}</Body>
-			<Muted>{t("language.hint")}</Muted>
 			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 				{LOCALES.map((entry) => {
 					const selected = entry.code === locale;

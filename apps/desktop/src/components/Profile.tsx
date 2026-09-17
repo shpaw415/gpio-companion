@@ -29,10 +29,7 @@ export default function Profile({
 	const loading = creditsQuery.loading;
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("profile.title")}
-			</Typography>
+		<Stack spacing={1.5}>
 			{error || creditsQuery.error ? (
 				<Alert severity="error">
 					{translateError(t, error || creditsQuery.error)}
@@ -42,62 +39,83 @@ export default function Profile({
 				<DebugLog error={translateError(t, error || creditsQuery.error)} />
 			) : null}
 			<LanguageCard />
-			<Paper sx={{ p: 3 }} elevation={1}>
-				<Typography variant="subtitle1">{t("profile.account")}</Typography>
-				<Typography>{session?.name || t("auth.signedIn")}</Typography>
-				<Typography color="secondary">{session?.email}</Typography>
-				<Typography color="secondary">
-					{t("profile.role", { role: session?.role || t("profile.roleUser") })}
-				</Typography>
-				<Button
-					variant="text"
-					color="secondary"
-					sx={{ mt: 2 }}
-					onClick={onSignOut}
-				>
-					{t("auth.signOut")}
-				</Button>
+			<Paper sx={{ p: 1.5 }} elevation={1}>
+				<Stack spacing={0.5}>
+					<Typography variant="subtitle1">{t("profile.account")}</Typography>
+					<Typography>{session?.name || t("auth.signedIn")}</Typography>
+					<Typography color="secondary">{session?.email}</Typography>
+					<Typography color="secondary">
+						{t("profile.role", {
+							role: session?.role || t("profile.roleUser"),
+						})}
+					</Typography>
+					<Button
+						variant="text"
+						color="secondary"
+						size="small"
+						onClick={onSignOut}
+					>
+						{t("auth.signOut")}
+					</Button>
+				</Stack>
 			</Paper>
-			<Paper sx={{ p: 3 }} elevation={1}>
-				<Typography variant="subtitle1">{t("mode.title")}</Typography>
-				<Typography color="secondary">{t("mode.hint")}</Typography>
-				<Button variant="outlined" sx={{ mt: 2 }} onClick={toggleMode}>
-					{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
-				</Button>
+			<Paper sx={{ p: 1.5 }} elevation={1}>
+				<Stack
+					direction="row"
+					spacing={1}
+					sx={{ alignItems: "center", justifyContent: "space-between" }}
+				>
+					<Typography variant="subtitle1">{t("mode.title")}</Typography>
+					<Button variant="outlined" size="small" onClick={toggleMode}>
+						{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
+					</Button>
+				</Stack>
 			</Paper>
 			<Keys />
-			<Paper sx={{ p: 3 }} elevation={1}>
-				<Typography variant="subtitle1">{t("credits.title")}</Typography>
-				{loading ? (
-					<LinesSkeleton lines={1} />
-				) : (
-					<Typography color="secondary">
-						{credits
-							? t("credits.balance", {
-									usd: credits.usd.toFixed(2),
-									micros: credits.micros,
-								})
-							: t("credits.noCredits")}
-					</Typography>
-				)}
-				<Button
-					variant="contained"
-					sx={{ mt: 2 }}
-					onClick={() => {
-						setError("");
-						void openExternal(`${DASHBOARD_URL}/profile/credits`).catch(
-							(caught) => {
-								setError(
-									caught instanceof Error
-										? caught.message
-										: t("errors.couldNotOpenCredits"),
-								);
-							},
-						);
+			<Paper sx={{ p: 1.5 }} elevation={1}>
+				<Stack
+					direction="row"
+					spacing={1}
+					sx={{
+						alignItems: "center",
+						justifyContent: "space-between",
+						flexWrap: "wrap",
 					}}
 				>
-					{t("credits.add")}
-				</Button>
+					<Stack spacing={0.25}>
+						<Typography variant="subtitle1">{t("credits.title")}</Typography>
+						{loading ? (
+							<LinesSkeleton lines={1} />
+						) : (
+							<Typography color="secondary">
+								{credits
+									? t("credits.balance", {
+											usd: credits.usd.toFixed(2),
+											micros: credits.micros,
+										})
+									: t("credits.noCredits")}
+							</Typography>
+						)}
+					</Stack>
+					<Button
+						variant="contained"
+						size="small"
+						onClick={() => {
+							setError("");
+							void openExternal(`${DASHBOARD_URL}/profile/credits`).catch(
+								(caught) => {
+									setError(
+										caught instanceof Error
+											? caught.message
+											: t("errors.couldNotOpenCredits"),
+									);
+								},
+							);
+						}}
+					>
+						{t("credits.add")}
+					</Button>
+				</Stack>
 			</Paper>
 		</Stack>
 	);

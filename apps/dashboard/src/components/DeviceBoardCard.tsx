@@ -4,6 +4,7 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import type { NetworkStatus } from "gpio-companion";
+import { useState } from "react";
 import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
 import { useT } from "../hooks/useLocale.tsx";
 import type { ActionResult } from "../lib/action.ts";
@@ -57,6 +58,8 @@ export default function DeviceBoardCard({
 }) {
 	const { isEasy } = useDashboardMode();
 	const t = useT();
+	const [open, setOpen] = useState(Boolean(t3AutoStart));
+	const expanded = Boolean(t3AutoStart) || (onSelect ? selected : open);
 	const online = Boolean(status);
 	const networkLabel =
 		status?.network?.type === "ethernet"
@@ -69,133 +72,152 @@ export default function DeviceBoardCard({
 	const codeReady = Boolean(status?.t3?.paired);
 	const showCodePair = !isEasy || t3AutoStart || !codeReady;
 
+	function toggle() {
+		if (onSelect) {
+			onSelect(device.uuid);
+			return;
+		}
+		setOpen((current) => !current);
+	}
+
 	return (
-		<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
-			<Stack spacing={2}>
-				<Typography variant="h6">{deviceDisplayName(device)}</Typography>
-				{isEasy ? null : (
-					<>
-						<Typography color="secondary" className="break-all">
-							{device.uuid}
-						</Typography>
-						{device.deviceUrl ? (
-							<Typography color="secondary" className="break-all">
-								{device.deviceUrl}
-							</Typography>
-						) : null}
-					</>
-				)}
-				<DeviceLabelField
-					key={device.uuid}
-					uuid={device.uuid}
-					label={device.label}
-					onSaved={onLabelSaved}
-				/>
-				<Stack direction="row" spacing={1} className="flex-wrap">
+		<Paper className="w-full p-2" elevation={1}>
+			<Stack spacing={expanded ? 1.5 : 0}>
+				<Stack
+					direction="row"
+					spacing={1}
+					className="cursor-pointer items-center"
+					sx={{ minHeight: 48, px: 0.5 }}
+					onClick={toggle}
+				>
+					<Typography variant="subtitle1" className="min-w-0 flex-1" noWrap>
+						{deviceDisplayName(device)}
+					</Typography>
 					<Chip
 						label={online ? t("devices.online") : t("devices.offline")}
 						color={online ? "success" : "secondary"}
 						variant="outlined"
+						size="small"
 					/>
 					{selected ? (
 						<Chip
 							label={t("devices.selected")}
 							color="primary"
 							variant="outlined"
+							size="small"
 						/>
-					) : null}
-					{status?.model || status?.hardware ? (
-						<Chip
-							label={status?.model || status?.hardware}
-							variant="outlined"
-						/>
-					) : null}
-					{networkLabel ? (
-						<Chip label={networkLabel} variant="outlined" />
-					) : null}
-					{status && !isEasy ? (
-						<Chip
-							label={
-								status.tunnel?.configured
-									? t("devices.tunnelReady")
-									: t("devices.tunnelPending")
-							}
-							color={status.tunnel?.configured ? "success" : "secondary"}
-							variant="outlined"
-						/>
-					) : null}
-					{status ? (
-						<>
-							<Chip
-								label={
-									status.secrets?.githubReady
-										? t("devices.projectsConnected")
-										: t("devices.connectGithubChip")
-								}
-								color={status.secrets?.githubReady ? "success" : "warning"}
-								variant="outlined"
-							/>
-							<Chip
-								label={
-									codeReady
-										? t("devices.codeReady")
-										: status.t3?.running
-											? t("devices.codeRunning")
-											: t("devices.codeIdle")
-								}
-								color={codeReady ? "success" : "secondary"}
-								variant="outlined"
-							/>
-						</>
 					) : null}
 				</Stack>
-				{showCodePair ? (
-					<T3PairingPanel
-						devices={[device]}
-						uuid={device.uuid}
-						initialStatus={status?.t3}
-						skipFetch={!t3AutoStart}
-						autoStart={t3AutoStart}
-					/>
+				{expanded ? (
+					<>
+						{isEasy ? null : (
+							<>
+								<Typography color="secondary" className="break-all">
+									{device.uuid}
+								</Typography>
+								{device.deviceUrl ? (
+									<Typography color="secondary" className="break-all">
+										{device.deviceUrl}
+									</Typography>
+								) : null}
+							</>
+						)}
+						<DeviceLabelField
+							key={device.uuid}
+							uuid={device.uuid}
+							label={device.label}
+							onSaved={onLabelSaved}
+						/>
+						<Stack direction="row" spacing={1} className="flex-wrap">
+							{status?.model || status?.hardware ? (
+								<Chip
+									label={status?.model || status?.hardware}
+									variant="outlined"
+									size="small"
+								/>
+							) : null}
+							{networkLabel ? (
+								<Chip label={networkLabel} variant="outlined" size="small" />
+							) : null}
+							{status && !isEasy ? (
+								<Chip
+									label={
+										status.tunnel?.configured
+											? t("devices.tunnelReady")
+											: t("devices.tunnelPending")
+									}
+									color={status.tunnel?.configured ? "success" : "secondary"}
+									variant="outlined"
+									size="small"
+								/>
+							) : null}
+							{status ? (
+								<>
+									<Chip
+										label={
+											status.secrets?.githubReady
+												? t("devices.projectsConnected")
+												: t("devices.connectGithubChip")
+										}
+										color={status.secrets?.githubReady ? "success" : "warning"}
+										variant="outlined"
+										size="small"
+									/>
+									<Chip
+										label={
+											codeReady
+												? t("devices.codeReady")
+												: status.t3?.running
+													? t("devices.codeRunning")
+													: t("devices.codeIdle")
+										}
+										color={codeReady ? "success" : "secondary"}
+										variant="outlined"
+										size="small"
+									/>
+								</>
+							) : null}
+						</Stack>
+						{showCodePair ? (
+							<T3PairingPanel
+								devices={[device]}
+								uuid={device.uuid}
+								initialStatus={status?.t3}
+								skipFetch={!t3AutoStart}
+								autoStart={t3AutoStart}
+							/>
+						) : null}
+						{!isEasy && loadInfo ? (
+							<DeviceCompanionInfo
+								key={device.uuid}
+								uuid={device.uuid}
+								loadInfo={loadInfo}
+							/>
+						) : null}
+						<FlashProxyButton uuid={device.uuid} connected={online} />
+						{isEasy ? null : (
+							<GpioPanel uuid={device.uuid} connected={online} />
+						)}
+						<Stack direction="row" spacing={1} className="flex-wrap">
+							{isEasy ? (
+								<Button href="/devices/t3" variant="contained" size="small">
+									{t("project.openCode")}
+								</Button>
+							) : null}
+							{!isEasy && onUnpair ? (
+								<Button
+									type="button"
+									variant="outlined"
+									size="small"
+									disabled={unpairing}
+									onClick={() => onUnpair(device.uuid)}
+								>
+									{t("devices.unpairRevokes")}
+								</Button>
+							) : null}
+						</Stack>
+					</>
 				) : null}
-				{!isEasy && loadInfo ? (
-					<DeviceCompanionInfo
-						key={device.uuid}
-						uuid={device.uuid}
-						loadInfo={loadInfo}
-					/>
-				) : null}
-				<FlashProxyButton uuid={device.uuid} connected={online} />
-				{isEasy ? null : <GpioPanel uuid={device.uuid} connected={online} />}
-				<Stack direction="row" spacing={1} className="flex-wrap">
-					{isEasy ? (
-						<Button href="/devices/t3" variant="contained" size="small">
-							{t("project.openCode")}
-						</Button>
-					) : null}
-					{onSelect ? (
-						<Button
-							type="button"
-							variant={selected ? "contained" : "outlined"}
-							size="small"
-							disabled={selected}
-							onClick={() => onSelect(device.uuid)}
-						>
-							{selected ? t("devices.selectedBoard") : t("devices.selectBoard")}
-						</Button>
-					) : null}
-					{!isEasy && onUnpair ? (
-						<Button
-							type="button"
-							variant="outlined"
-							size="small"
-							disabled={unpairing}
-							onClick={() => onUnpair(device.uuid)}
-						>
-							{t("devices.unpairRevokes")}
-						</Button>
-					) : null}
-				</Stack>
 			</Stack>
 		</Paper>
 	);

@@ -104,11 +104,7 @@ export default function Pair({ onBack }: { onBack: () => void }) {
 	}
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("pair.title")}
-			</Typography>
-			<Typography color="secondary">{t("pair.desktopHint")}</Typography>
+		<Stack spacing={1.5}>
 			<Select
 				name="board"
 				label={t("pair.selectDevice")}

@@ -544,8 +544,6 @@ export default function Project() {
 
 	return (
 		<Screen>
-			<Title>{t("project.title")}</Title>
-			<Muted>{t("project.subtitle")}</Muted>
 			{paired && activeUuid ? (
 				<TextButton
 					label={t("project.openCode")}
@@ -843,7 +841,6 @@ export default function Project() {
 			{paired && activeUuid && bundle ? (
 				<Paper>
 					<Body>{t("project.boardTools")}</Body>
-					<Muted>{t("project.boardToolsHint")}</Muted>
 					<TextButton
 						label={boardToolsOpen ? t("project.hide") : t("project.show")}
 						onPress={() => setBoardToolsOpen((open) => !open)}

@@ -46,10 +46,7 @@ export default function Admin() {
 	const current = devices.find((item) => item.device.uuid === selected);
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("admin.title")}
-			</Typography>
+		<Stack spacing={1.5}>
 			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{updateNote ? <Alert severity="success">{updateNote}</Alert> : null}
 			{shown ? <DebugLog error={shown} /> : null}
@@ -79,7 +76,7 @@ export default function Admin() {
 						</Paper>
 					))}
 			{current ? (
-				<Paper sx={{ p: 3 }} elevation={1}>
+				<Paper sx={{ p: 1.5 }} elevation={1}>
 					<Typography variant="h6">
 						{deviceDisplayName(current.device)}
 					</Typography>

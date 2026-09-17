@@ -42,10 +42,7 @@ export default function Requests() {
 	}
 
 	return (
-		<Stack spacing={2}>
-			<Typography variant="h5" Element="h1">
-				{t("requests.title")}
-			</Typography>
+		<Stack spacing={1.5}>
 			{shown ? <Alert severity="error">{shown}</Alert> : null}
 			{shown ? <DebugLog error={shown} /> : null}
 			{loading ? <ListSkeleton items={2} /> : null}

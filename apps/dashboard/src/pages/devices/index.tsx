@@ -10,14 +10,12 @@ import Dialog, {
 	DialogTitle,
 } from "@shpaw415/mui-lite/Dialog";
 import Stack from "@shpaw415/mui-lite/Stack";
-import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
 import DeviceBoardCard, {
 	type BoardView,
 	type DeviceStatus,
 } from "../../components/DeviceBoardCard.tsx";
 import PairForm from "../../components/PairForm.tsx";
-import SectionHub, { SectionHeader } from "../../components/Section.tsx";
 import { BoardCardSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
@@ -93,30 +91,20 @@ export default function DevicesPage() {
 	const showForm = loggedIn && !loading && boards.length === 0;
 
 	return (
-		<Stack spacing={3}>
-			<Stack
-				direction={mobile ? "column" : "row"}
-				spacing={2}
-				className="min-[900px]:items-start min-[900px]:justify-between"
-			>
-				<SectionHeader
-					title={isEasy ? t("devices.titleEasy") : t("devices.titleExpert")}
-				>
-					<Typography color="secondary">
-						{isEasy ? t("devices.easyHint") : t("devices.expertHint")}
-					</Typography>
-				</SectionHeader>
-				{loggedIn && boards.length > 0 ? (
+		<Stack spacing={1.5}>
+			{loggedIn && boards.length > 0 ? (
+				<Stack direction="row" className="justify-end">
 					<Button
 						type="button"
 						variant="contained"
+						size="small"
 						className={mobile ? "w-full" : undefined}
 						onClick={() => setDialogOpen(true)}
 					>
 						{t("devices.addBoard")}
 					</Button>
-				) : null}
-			</Stack>
+				</Stack>
+			) : null}
 
 			{!loggedIn ? (
 				<Alert severity="info">
@@ -144,17 +132,12 @@ export default function DevicesPage() {
 			) : null}
 
 			{showForm ? (
-				<>
-					<Typography color="secondary">
-						{t("devices.emptyPairHint")}
-					</Typography>
-					<PairForm
-						onComplete={({ uuid }) => {
-							setT3AutoStartUuid(uuid);
-							void refresh();
-						}}
-					/>
-				</>
+				<PairForm
+					onComplete={({ uuid }) => {
+						setT3AutoStartUuid(uuid);
+						void refresh();
+					}}
+				/>
 			) : null}
 
 			{boards.map((board) => (
@@ -191,49 +174,6 @@ export default function DevicesPage() {
 					}}
 				/>
 			))}
-
-			{isEasy ? null : (
-				<SectionHub
-					description={t("devices.hubDescription")}
-					items={[
-						{
-							href: "/devices/docs",
-							title: t("nav.learn"),
-							description: t("devices.learnDesc"),
-						},
-						{
-							href: "/devices/t3",
-							title: t("nav.code"),
-							description: t("devices.codeDesc"),
-						},
-						{
-							href: "/devices/pair",
-							title: t("devices.pairHardware"),
-							description: t("devices.pairHardwareDesc"),
-						},
-						{
-							href: "/devices/wifi",
-							title: t("wifi.title"),
-							description: t("devices.wifiDesc"),
-						},
-						{
-							href: "/profile/github",
-							title: t("nav.github"),
-							description: t("devices.githubDesc"),
-						},
-						{
-							href: "/devices/notifications",
-							title: t("devices.pairingRequests"),
-							description: t("devices.pairingRequestsDesc"),
-						},
-						{
-							href: "/devices/debug",
-							title: t("devices.debugStream"),
-							description: t("devices.debugStreamDesc"),
-						},
-					]}
-				/>
-			)}
 
 			<Dialog
 				open={dialogOpen}

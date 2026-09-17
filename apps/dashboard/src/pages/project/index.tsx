@@ -6,6 +6,7 @@ import GpioPanel from "@components/GpioPanel";
 import ProjectBrowser from "@components/ProjectBrowser";
 import RunPanel from "@components/RunPanel";
 import VerifyPanel from "@components/VerifyPanel";
+import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -15,7 +16,6 @@ import Typography from "@shpaw415/mui-lite/Typography";
 import type { CircuitVerifyItem, GpioTarget } from "gpio-companion";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceStatus } from "../../components/DeviceBoardCard.tsx";
-import { SectionHeader } from "../../components/Section.tsx";
 import { LinesSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
@@ -132,30 +132,23 @@ export default function ProjectPage() {
 	}, [hasProject]);
 
 	return (
-		<Stack spacing={4}>
-			<Stack
-				direction={mobile ? "column" : "row"}
-				spacing={2}
-				className="min-[900px]:items-start min-[900px]:justify-between"
-			>
-				<SectionHeader title={t("project.title")}>
-					<Typography color="secondary">{t("project.subtitle")}</Typography>
-				</SectionHeader>
-				{paired ? (
+		<Stack spacing={1.5}>
+			{paired ? (
+				<Stack direction="row" className="justify-end">
 					<Button
 						href="/devices/t3"
 						variant="outlined"
+						size="small"
 						className={mobile ? "w-full" : undefined}
 					>
 						{t("project.openCode")}
 					</Button>
-				) : null}
-			</Stack>
+				</Stack>
+			) : null}
 
 			{step < 3 || pairingLoading ? (
-				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
-					<Stack spacing={3}>
-						<Typography variant="h6">{t("project.setup")}</Typography>
+				<Paper className="p-3" elevation={1}>
+					<Stack spacing={1.5}>
 						{pairingLoading ? (
 							<LinesSkeleton lines={2} />
 						) : (
@@ -186,24 +179,21 @@ export default function ProjectPage() {
 			) : null}
 
 			{wifiHint ? (
-				<Paper className="p-4 min-[900px]:p-6" elevation={1}>
+				<Alert severity="info">
 					<Stack
 						direction={mobile ? "column" : "row"}
-						spacing={2}
+						spacing={1}
 						className="min-[900px]:items-center min-[900px]:justify-between"
 					>
 						<Typography color="secondary">{t("project.wifiHint")}</Typography>
-						<Button href="/devices/wifi" variant="outlined">
+						<Button href="/devices/wifi" variant="outlined" size="small">
 							{t("project.setWifi")}
 						</Button>
 					</Stack>
-				</Paper>
+				</Alert>
 			) : null}
 
 			<div>
-				<Typography variant="h5" className="mb-3">
-					{t("project.yourProjects")}
-				</Typography>
 				<ProjectBrowser
 					onConfigured={setGithubReady}
 					onProject={setProject}
@@ -217,24 +207,19 @@ export default function ProjectPage() {
 			</div>
 
 			{paired && hasProject && activeUuid ? (
-				<Paper
-					className="min-w-0 overflow-x-hidden p-4 min-[900px]:p-6"
-					elevation={1}
-				>
-					<Stack spacing={2} className="min-w-0">
+				<Paper className="min-w-0 overflow-x-hidden p-3" elevation={1}>
+					<Stack spacing={1.5} className="min-w-0">
 						<Stack
 							direction={mobile ? "column" : "row"}
-							spacing={2}
+							spacing={1}
 							className="min-[900px]:items-center min-[900px]:justify-between"
 						>
-							<Stack spacing={0.5}>
-								<Typography variant="h6">{t("project.boardTools")}</Typography>
-								<Typography color="secondary">
-									{t("project.boardToolsHint")}
-								</Typography>
-							</Stack>
+							<Typography variant="subtitle1">
+								{t("project.boardTools")}
+							</Typography>
 							<Button
 								variant="outlined"
+								size="small"
 								onClick={() => setBoardToolsOpen((open) => !open)}
 								className={mobile ? "w-full" : undefined}
 							>
@@ -248,10 +233,6 @@ export default function ProjectPage() {
 									value={activeUuid}
 									onChange={selectBoard}
 								/>
-								<Typography variant="h6">{t("gpio.live")}</Typography>
-								<Typography color="secondary">
-									{t("project.liveGpioHint")}
-								</Typography>
 								{pairingLoading ? (
 									<LinesSkeleton lines={3} />
 								) : (
@@ -272,15 +253,7 @@ export default function ProjectPage() {
 										}}
 									/>
 								)}
-								<Typography variant="h6">{t("flash.title")}</Typography>
-								<Typography color="secondary">
-									{t("project.flashHint")}
-								</Typography>
 								<FlashPanel uuid={activeUuid} project={project} />
-								<Typography variant="h6">{t("run.title")}</Typography>
-								<Typography color="secondary">
-									{t("project.runHint")}
-								</Typography>
 								<RunPanel uuid={activeUuid} project={project} />
 								<VerifyPanel
 									uuid={activeUuid}

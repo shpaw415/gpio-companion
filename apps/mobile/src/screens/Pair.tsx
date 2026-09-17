@@ -7,7 +7,6 @@ import {
 	PrimaryButton,
 	Screen,
 	TextButton,
-	Title,
 } from "../components/ui.tsx";
 import { claimDevice, signCredentials } from "../lib/api.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
@@ -143,8 +142,6 @@ export default function Pair() {
 
 	return (
 		<Screen>
-			<Title>{t("pair.title")}</Title>
-			<Muted>{t("pair.mobileHint")}</Muted>
 			<NearbyPicker
 				boards={boards}
 				selectedId={boardId}

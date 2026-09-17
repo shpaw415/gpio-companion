@@ -12,9 +12,7 @@ import Dialog, {
 	DialogTitle,
 } from "@shpaw415/mui-lite/Dialog";
 import Stack from "@shpaw415/mui-lite/Stack";
-import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
-import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useT } from "../../hooks/useLocale.tsx";
@@ -68,31 +66,19 @@ export default function PairPage() {
 	const showCards = loggedIn && loaded && boards.length > 0;
 
 	return (
-		<Stack spacing={3}>
+		<Stack spacing={1.5}>
 			{showCards ? (
-				<Stack
-					direction={mobile ? "column" : "row"}
-					spacing={2}
-					className="min-[900px]:items-start min-[900px]:justify-between"
-				>
-					<SectionHeader title={t("pair.hardwareTitle")} />
+				<Stack direction="row" className="justify-end">
 					<Button
 						type="button"
 						variant="contained"
+						size="small"
 						className={mobile ? "w-full" : undefined}
 						onClick={() => setDialogOpen(true)}
 					>
 						{t("pair.another")}
 					</Button>
 				</Stack>
-			) : (
-				<SectionHeader title={t("pair.hardwareTitle")} />
-			)}
-			{showCards ? (
-				<Typography color="secondary">{t("pair.cardsHint")}</Typography>
-			) : null}
-			{showForm ? (
-				<Typography color="secondary">{t("pair.formHint")}</Typography>
 			) : null}
 			{showForm ? (
 				<PairForm

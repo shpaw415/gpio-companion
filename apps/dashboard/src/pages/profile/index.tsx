@@ -8,7 +8,6 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import LanguageCard from "../../components/LanguageCard.tsx";
-import { SectionHeader } from "../../components/Section.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuth, useAuthSession } from "../../hooks/useAuth.ts";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
@@ -36,7 +35,7 @@ export default function ProfilePage() {
 		void run(getCredits())
 			.then((result) => setMicros(result ? result.micros : null))
 			.finally(() => setCreditsLoading(false));
-	}, [session.data?.id]);
+	}, [session.data?.id, run]);
 
 	function signOut() {
 		void clearOfflineKeys();
@@ -46,20 +45,18 @@ export default function ProfilePage() {
 	}
 
 	return (
-		<Stack spacing={3}>
-			<SectionHeader title={t("profile.title")}>
-				<Typography color="secondary">{t("profile.subtitle")}</Typography>
-			</SectionHeader>
-
+		<Stack spacing={1.5}>
 			<LanguageCard />
 
 			{!loggedIn ? (
 				<LoginPanel />
 			) : (
 				<>
-					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
+					<Paper className="w-full p-3" elevation={1}>
 						<Stack spacing={1}>
-							<Typography variant="h6">{t("profile.account")}</Typography>
+							<Typography variant="subtitle1">
+								{t("profile.account")}
+							</Typography>
 							{session.data?.name ? (
 								<Typography className="break-all">
 									{session.data.name}
@@ -77,43 +74,52 @@ export default function ProfilePage() {
 										: t("profile.roleUser")
 								}
 								variant="outlined"
+								size="small"
 							/>
-							<Stack direction="row" spacing={2} className="mt-4 flex-wrap">
-								<Button href="/profile/github" variant="outlined">
+							<Stack direction="row" spacing={1} className="flex-wrap">
+								<Button href="/profile/github" variant="outlined" size="small">
 									{t("nav.github")}
 								</Button>
-								<Button href="/profile/credits" variant="outlined">
+								<Button href="/profile/credits" variant="outlined" size="small">
 									{t("nav.credits")}
 								</Button>
-								<Button variant="outlined" onClick={signOut}>
+								<Button variant="outlined" size="small" onClick={signOut}>
 									{t("auth.signOut")}
 								</Button>
 							</Stack>
 						</Stack>
 					</Paper>
-					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
-						<Stack spacing={1}>
-							<Typography variant="h6">{t("mode.title")}</Typography>
-							<Typography color="secondary">{t("mode.hint")}</Typography>
-							<Button variant="outlined" onClick={toggleMode}>
+					<Paper className="w-full p-3" elevation={1}>
+						<Stack
+							direction="row"
+							spacing={1}
+							className="flex-wrap items-center justify-between"
+						>
+							<Typography variant="subtitle1">{t("mode.title")}</Typography>
+							<Button variant="outlined" size="small" onClick={toggleMode}>
 								{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
 							</Button>
 						</Stack>
 					</Paper>
-					<Paper className="w-full max-w-2xl p-4 min-[900px]:p-6" elevation={1}>
-						<Stack spacing={1}>
-							<Typography variant="h6">{t("credits.aiTitle")}</Typography>
-							<Typography color="secondary">
-								{t("credits.profileHint")}
-							</Typography>
-							{creditsLoading ? (
-								<Skeleton variant="rounded" height={30} width={130} />
-							) : (
-								<Typography variant="h5">
-									{micros === null ? "…" : formatUsd(micros)}
+					<Paper className="w-full p-3" elevation={1}>
+						<Stack
+							direction="row"
+							spacing={1}
+							className="flex-wrap items-center justify-between"
+						>
+							<Stack spacing={0.25}>
+								<Typography variant="subtitle1">
+									{t("credits.aiTitle")}
 								</Typography>
-							)}
-							<Button href="/profile/credits" variant="outlined">
+								{creditsLoading ? (
+									<Skeleton variant="rounded" height={24} width={96} />
+								) : (
+									<Typography>
+										{micros === null ? "…" : formatUsd(micros)}
+									</Typography>
+								)}
+							</Stack>
+							<Button href="/profile/credits" variant="outlined" size="small">
 								{t("profile.manageCredits")}
 							</Button>
 						</Stack>

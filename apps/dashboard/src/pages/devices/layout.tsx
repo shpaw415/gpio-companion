@@ -62,7 +62,7 @@ export default function DevicesLayout({
 				))}
 			</Tabs>
 			<Box
-				className={onT3 ? undefined : "mt-3 min-[900px]:mt-6"}
+				className={onT3 ? undefined : "mt-1"}
 				sx={
 					onT3
 						? {

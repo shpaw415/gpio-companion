@@ -33,7 +33,7 @@ export default function ProfileLayout({
 					<Tab key={tab.href} value={tab.href} label={t(tab.labelKey)} />
 				))}
 			</Tabs>
-			<Box className="mt-3 min-[900px]:mt-6">{children}</Box>
+			<Box className="mt-1">{children}</Box>
 		</Box>
 	);
 }

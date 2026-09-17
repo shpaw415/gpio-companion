@@ -25,7 +25,7 @@ export function Screen({
 					flex: 1,
 					backgroundColor: colors.bg,
 					paddingHorizontal: 12,
-					paddingTop: 16,
+					paddingTop: 8,
 				}}
 			>
 				{children}
@@ -37,9 +37,9 @@ export function Screen({
 			style={{ flex: 1, backgroundColor: colors.bg }}
 			contentContainerStyle={{
 				paddingHorizontal: 12,
-				paddingTop: 16,
-				paddingBottom: 40,
-				gap: 12,
+				paddingTop: 8,
+				paddingBottom: 16,
+				gap: 10,
 			}}
 			bottomOffset={16}
 			keyboardShouldPersistTaps="handled"
@@ -89,7 +89,7 @@ export function Paper({
 	const style: ViewStyle = {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
-		padding: 16,
+		padding: 12,
 		borderWidth: selected ? 2 : 1,
 		borderColor: selected ? colors.primary : colors.border,
 		gap: 8,
