@@ -90,6 +90,8 @@ export const en = {
 		release: "Release",
 		stop: "Stop",
 		transcript: "Transcript",
+		voice: "Voice",
+		sayWake: "Say “{phrase}” to start",
 	},
 	project: {
 		title: "Project",
@@ -145,6 +147,8 @@ export const en = {
 		noMatch: "No matching gpio-companion projects.",
 		branch: "Branch",
 		defaultBranch: "{name} (default)",
+		reload: "Reload",
+		reloading: "Reloading…",
 		stopSketch: "Stop sketch",
 		stopping: "Stopping…",
 		saveToGithub: "Save to GitHub",

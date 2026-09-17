@@ -92,6 +92,8 @@ export const fr = {
 		release: "Relâcher",
 		stop: "Arrêter",
 		transcript: "Transcription",
+		voice: "Voix",
+		sayWake: "Dites « {phrase} » pour commencer",
 	},
 	project: {
 		title: "Projet",
@@ -150,6 +152,8 @@ export const fr = {
 		noMatch: "Aucun projet gpio-companion correspondant.",
 		branch: "Branche",
 		defaultBranch: "{name} (par défaut)",
+		reload: "Actualiser",
+		reloading: "Actualisation…",
 		stopSketch: "Arrêter le croquis",
 		stopping: "Arrêt…",
 		saveToGithub: "Enregistrer sur GitHub",

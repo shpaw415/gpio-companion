@@ -4,6 +4,7 @@ import {
 	encodeVoiceMessage,
 	matchesWakePhrase,
 	parseVoiceClientMessage,
+	parseVoiceId,
 	parseVoiceMicMode,
 	signVoiceTicket,
 	VOICE_PATH,
@@ -32,6 +33,15 @@ describe("voice protocol", () => {
 		expect(parseVoiceClientMessage({ v: 1, type: "secret" })).toBeNull();
 		expect(parseVoiceMicMode("always")).toBe("always");
 		expect(parseVoiceMicMode("nope")).toBe("hold");
+		expect(parseVoiceId("rex")).toBe("rex");
+		expect(parseVoiceId("nope")).toBe("eve");
+		expect(
+			parseVoiceClientMessage({
+				v: 1,
+				type: "hello",
+				voice: "Ara",
+			})?.voice,
+		).toBe("ara");
 	});
 
 	test("encodes a server status", () => {

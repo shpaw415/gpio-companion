@@ -83,6 +83,7 @@ describe("loadProjectBundle", () => {
 			const path = url.replace("https://api.github.com", "");
 			paths.push(`${init?.method ?? "GET"} ${path}`);
 			if (path === "/graphql") {
+				expect(init?.cache).toBe("no-store");
 				expect(graphqlBody(init).variables).toEqual({
 					owner: "ada",
 					name: "blink",

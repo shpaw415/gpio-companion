@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import {
 	parseMarkup,
 	parseVoiceClientMessage,
+	parseVoiceId,
 	VOICE_BILL_MS,
 	VOICE_GROK_TOOLS,
 	VOICE_MODEL,
@@ -32,6 +33,7 @@ type Session = {
 	owner: string;
 	locale: string;
 	mode: VoiceMicMode;
+	voice: string;
 };
 
 export class VoiceHub extends DurableObject<Env> {
@@ -80,6 +82,7 @@ export class VoiceHub extends DurableObject<Env> {
 			owner: url.searchParams.get("owner")?.trim() ?? "",
 			locale: url.searchParams.get("locale")?.trim() || "en",
 			mode: "hold",
+			voice: parseVoiceId(url.searchParams.get("voice")),
 		};
 		server.addEventListener("message", (event) => {
 			void this.onClient(event.data);
@@ -121,6 +124,12 @@ export class VoiceHub extends DurableObject<Env> {
 		}
 		if (message.mode) {
 			this.session.mode = message.mode;
+		}
+		if (message.voice) {
+			this.session.voice = parseVoiceId(message.voice);
+			if (this.xai) {
+				this.sendSessionUpdate();
+			}
 		}
 		if (message.type === "start") {
 			await this.openXai();
@@ -222,7 +231,7 @@ export class VoiceHub extends DurableObject<Env> {
 			JSON.stringify({
 				type: "session.update",
 				session: {
-					voice: VOICE_VOICE_ID,
+					voice: this.session.voice || VOICE_VOICE_ID,
 					instructions: voiceGrokInstructions(
 						this.session.locale,
 						this.session.repo,

@@ -1,6 +1,7 @@
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useRef, useState } from "react";
@@ -8,10 +9,14 @@ import { mintVoiceTicket } from "../api";
 import {
 	encodeVoiceClient,
 	matchesWakePhrase,
+	parseVoiceId,
 	parseVoiceMicMode,
 	parseVoiceServerMessage,
+	VOICE_ID_STORAGE_KEY,
 	VOICE_MIC_STORAGE_KEY,
 	VOICE_SAMPLE_RATE,
+	VOICE_SPEAKERS,
+	WAKE_PHRASE_LABEL,
 } from "../lib/voice";
 import { useLocale, useT } from "../locale";
 
@@ -30,6 +35,13 @@ export default function TalkPanel({
 		typeof window === "undefined"
 			? "hold"
 			: window.localStorage.getItem(VOICE_MIC_STORAGE_KEY),
+	);
+	const [voice, setVoiceState] = useState(() =>
+		parseVoiceId(
+			typeof window === "undefined"
+				? "eve"
+				: window.localStorage.getItem(VOICE_ID_STORAGE_KEY),
+		),
 	);
 	const [state, setState] = useState<
 		"idle" | "listening" | "talking" | "working"
@@ -150,10 +162,11 @@ export default function TalkPanel({
 				mode,
 				repo,
 				owner,
+				voice,
 			}),
 		);
 		socket.send(
-			encodeVoiceClient({ type: "start", repo, owner, locale, mode }),
+			encodeVoiceClient({ type: "start", repo, owner, locale, mode, voice }),
 		);
 		try {
 			await startMic(socket);
@@ -242,6 +255,30 @@ export default function TalkPanel({
 					<Chip label={chip} size="small" variant="outlined" />
 				</Stack>
 				<Typography color="secondary">{t("talk.hint")}</Typography>
+				<Typography>
+					{t("talk.sayWake", { phrase: WAKE_PHRASE_LABEL })}
+				</Typography>
+				<Select
+					name="talk-voice"
+					label={t("talk.voice")}
+					value={voice}
+					onSelect={(next) => {
+						const id = parseVoiceId(next);
+						setVoiceState(id);
+						try {
+							window.localStorage.setItem(VOICE_ID_STORAGE_KEY, id);
+						} catch {
+							undefined;
+						}
+					}}
+					sx={{ maxWidth: 280 }}
+				>
+					{VOICE_SPEAKERS.map((speaker) => (
+						<option key={speaker.id} value={speaker.id}>
+							{speaker.name}
+						</option>
+					))}
+				</Select>
 				{error ? <Typography color="error">{error}</Typography> : null}
 				<Stack direction="row" spacing={1}>
 					{mode === "hold" ? (

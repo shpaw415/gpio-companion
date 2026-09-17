@@ -444,6 +444,7 @@ export function loadProject(
 ) {
 	return request<ProjectBundle>(token, "/api/mobile/projects", {
 		method: "POST",
+		cache: "no-store",
 		body: JSON.stringify({ owner, repo, ...(ref ? { ref } : {}) }),
 	});
 }

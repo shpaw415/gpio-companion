@@ -1,14 +1,18 @@
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import {
 	encodeVoiceMessage,
 	matchesWakePhrase,
+	parseVoiceId,
 	parseVoiceServerMessage,
 	VOICE_PATH,
 	VOICE_SAMPLE_RATE,
+	VOICE_SPEAKERS,
+	WAKE_PHRASE_LABEL,
 } from "gpio-companion";
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useT } from "../hooks/useLocale.tsx";
@@ -39,7 +43,7 @@ export default function TalkPanel({
 }) {
 	const t = useT();
 	const { locale } = useLocale();
-	const { mode } = useVoiceMic();
+	const { mode, voice, setVoice } = useVoiceMic();
 	const [state, setState] = useState<
 		"idle" | "listening" | "talking" | "working"
 	>("idle");
@@ -168,10 +172,19 @@ export default function TalkPanel({
 				mode,
 				repo,
 				owner,
+				voice,
 			}),
 		);
 		socket.send(
-			encodeVoiceMessage({ v: 1, type: "start", repo, owner, locale, mode }),
+			encodeVoiceMessage({
+				v: 1,
+				type: "start",
+				repo,
+				owner,
+				locale,
+				mode,
+				voice,
+			}),
 		);
 		try {
 			await startMic(socket);
@@ -262,6 +275,22 @@ export default function TalkPanel({
 					<Chip label={chip} size="small" variant="outlined" />
 				</Stack>
 				<Typography color="secondary">{t("talk.hint")}</Typography>
+				<Typography>
+					{t("talk.sayWake", { phrase: WAKE_PHRASE_LABEL })}
+				</Typography>
+				<Select
+					name="talk-voice"
+					label={t("talk.voice")}
+					value={voice}
+					onSelect={(next) => setVoice(parseVoiceId(next))}
+					className="w-full max-w-xs"
+				>
+					{VOICE_SPEAKERS.map((speaker) => (
+						<option key={speaker.id} value={speaker.id}>
+							{speaker.name}
+						</option>
+					))}
+				</Select>
 				{error ? <Typography color="error">{error}</Typography> : null}
 				<Stack direction="row" spacing={1} className="flex-wrap">
 					{mode === "hold" ? (

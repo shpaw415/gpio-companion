@@ -13,8 +13,23 @@ export const VOICE_S2S_USD_PER_MIN = 0.08;
 export const VOICE_SAMPLE_RATE = 16_000;
 export const VOICE_MODEL = "grok-voice-latest";
 export const VOICE_VOICE_ID = "eve";
+export const VOICE_ID_STORAGE_KEY = "gpio-companion-voice-id";
 export const WAKE_PHRASE = "hey companion";
+export const WAKE_PHRASE_LABEL = "Hey Companion";
 export const VOICE_MIC_STORAGE_KEY = "gpio-companion-voice-mic";
+
+export type VoiceSpeaker = {
+	id: string;
+	name: string;
+};
+
+export const VOICE_SPEAKERS: readonly VoiceSpeaker[] = [
+	{ id: "eve", name: "Eve" },
+	{ id: "ara", name: "Ara" },
+	{ id: "rex", name: "Rex" },
+	{ id: "sal", name: "Sal" },
+	{ id: "leo", name: "Leo" },
+];
 
 export type VoiceMicMode = "hold" | "always" | "wake";
 
@@ -42,6 +57,7 @@ export type VoiceClientMessage = {
 	mode?: VoiceMicMode;
 	repo?: string;
 	owner?: string;
+	voice?: string;
 };
 
 export type VoiceServerMessage = {
@@ -83,6 +99,16 @@ export function isVoiceMicMode(value: unknown): value is VoiceMicMode {
 
 export function parseVoiceMicMode(value: unknown): VoiceMicMode {
 	return isVoiceMicMode(value) ? value : "hold";
+}
+
+export function parseVoiceId(value: unknown): string {
+	if (typeof value !== "string") {
+		return VOICE_VOICE_ID;
+	}
+	const id = value.trim().toLowerCase();
+	return VOICE_SPEAKERS.some((speaker) => speaker.id === id)
+		? id
+		: VOICE_VOICE_ID;
 }
 
 export function isVoiceAccessToken(token: string): boolean {
@@ -156,6 +182,9 @@ export function parseVoiceClientMessage(
 	}
 	if (typeof record.owner === "string" && record.owner.trim()) {
 		message.owner = record.owner.trim();
+	}
+	if (typeof record.voice === "string" && record.voice.trim()) {
+		message.voice = parseVoiceId(record.voice);
 	}
 	return message;
 }

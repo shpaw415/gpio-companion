@@ -1,5 +1,16 @@
 export const VOICE_MIC_STORAGE_KEY = "gpio-companion-voice-mic";
+export const VOICE_ID_STORAGE_KEY = "gpio-companion-voice-id";
 export const VOICE_SAMPLE_RATE = 16_000;
+export const WAKE_PHRASE_LABEL = "Hey Companion";
+export const VOICE_VOICE_ID = "eve";
+
+export const VOICE_SPEAKERS = [
+	{ id: "eve", name: "Eve" },
+	{ id: "ara", name: "Ara" },
+	{ id: "rex", name: "Rex" },
+	{ id: "sal", name: "Sal" },
+	{ id: "leo", name: "Leo" },
+] as const;
 
 export type VoiceMicMode = "hold" | "always" | "wake";
 
@@ -15,6 +26,16 @@ export function parseVoiceMicMode(value: unknown): VoiceMicMode {
 	return value === "always" || value === "wake" || value === "hold"
 		? value
 		: "hold";
+}
+
+export function parseVoiceId(value: unknown): string {
+	if (typeof value !== "string") {
+		return VOICE_VOICE_ID;
+	}
+	const id = value.trim().toLowerCase();
+	return VOICE_SPEAKERS.some((speaker) => speaker.id === id)
+		? id
+		: VOICE_VOICE_ID;
 }
 
 export function matchesWakePhrase(text: string): boolean {
@@ -63,6 +84,7 @@ export function encodeVoiceClient(message: {
 	mode?: VoiceMicMode;
 	repo?: string;
 	owner?: string;
+	voice?: string;
 }): string {
 	return JSON.stringify({ v: 1, ...message });
 }

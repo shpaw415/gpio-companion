@@ -40,16 +40,16 @@ import {
 	type RunStatus,
 } from "gpio-companion";
 import { translateError } from "gpio-companion/i18n";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
-import TalkPanel from "./TalkPanel.tsx";
 import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
 import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
+import TalkPanel from "./TalkPanel.tsx";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
 
@@ -95,6 +95,7 @@ export default function ProjectBrowser({
 	const [installUrl, setInstallUrl] = useState("");
 	const [justCreated, setJustCreated] = useState("");
 	const [saving, setSaving] = useState(false);
+	const [reloading, setReloading] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
 	const [stopping, setStopping] = useState(false);
 	const [runRunning, setRunRunning] = useState(false);
@@ -382,7 +383,7 @@ export default function ProjectBrowser({
 	}, [loading, repos]);
 
 	async function selectBranch(ref: string) {
-		if (!bundle || !ref || ref === bundle.ref || loadingRepo) {
+		if (!bundle || !ref || ref === bundle.ref || loadingRepo || reloading) {
 			return;
 		}
 		setError("");
@@ -405,6 +406,50 @@ export default function ProjectBrowser({
 			setLoadingRepo(false);
 		}
 	}
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: applyBundle is render-local and only uses setters
+	const reloadBundle = useCallback(async () => {
+		const current = bundle;
+		if (!current || loadingRepo || reloading || saving) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		setReloading(true);
+		try {
+			await applyBundle(
+				unwrapAction(await loadProject(current.owner, current.repo)),
+			);
+		} catch (err) {
+			setError(
+				translateError(
+					t,
+					err instanceof Error ? err.message : "failed to load project",
+				),
+			);
+		} finally {
+			setReloading(false);
+		}
+	}, [bundle, loadingRepo, reloading, saving, t]);
+
+	const reloadRef = useRef(reloadBundle);
+	reloadRef.current = reloadBundle;
+
+	useEffect(() => {
+		function onVisible() {
+			if (document.visibilityState === "hidden") {
+				return;
+			}
+			void reloadRef.current();
+		}
+		void reloadRef.current();
+		document.addEventListener("visibilitychange", onVisible);
+		window.addEventListener("focus", onVisible);
+		return () => {
+			document.removeEventListener("visibilitychange", onVisible);
+			window.removeEventListener("focus", onVisible);
+		};
+	}, []);
 
 	async function stopSketch() {
 		if (!uuid || stopping) {
@@ -690,25 +735,43 @@ export default function ProjectBrowser({
 							<Typography variant="h6" className="break-all">
 								{bundle.owner}/{bundle.repo}
 							</Typography>
-							{bundle.branches.length > 0 ? (
-								<Select
-									name="branch"
-									label={t("project.branch")}
-									value={bundle.ref}
-									onSelect={(next) => {
-										void selectBranch(next);
-									}}
-									className="min-w-0 w-full min-[900px]:w-auto min-[900px]:min-w-[12rem]"
+							<Stack
+								direction={mobile ? "column" : "row"}
+								spacing={1}
+								sx={{
+									alignItems: mobile ? "stretch" : "center",
+									minWidth: 0,
+									width: mobile ? "100%" : "auto",
+								}}
+							>
+								{bundle.branches.length > 0 ? (
+									<Select
+										name="branch"
+										label={t("project.branch")}
+										value={bundle.ref}
+										onSelect={(next) => {
+											void selectBranch(next);
+										}}
+										className="min-w-0 w-full min-[900px]:w-auto min-[900px]:min-w-[12rem]"
+									>
+										{bundle.branches.map((branch) => (
+											<option key={branch.name} value={branch.name}>
+												{branch.name === bundle.defaultBranch
+													? t("project.defaultBranch", { name: branch.name })
+													: branch.name}
+											</option>
+										))}
+									</Select>
+								) : null}
+								<Button
+									variant="outlined"
+									disabled={reloading || loadingRepo}
+									onClick={() => void reloadBundle()}
+									className={mobile ? "w-full" : undefined}
 								>
-									{bundle.branches.map((branch) => (
-										<option key={branch.name} value={branch.name}>
-											{branch.name === bundle.defaultBranch
-												? t("project.defaultBranch", { name: branch.name })
-												: branch.name}
-										</option>
-									))}
-								</Select>
-							) : null}
+									{reloading ? t("project.reloading") : t("project.reload")}
+								</Button>
+							</Stack>
 							<Stack
 								direction="row"
 								spacing={1}
@@ -746,11 +809,7 @@ export default function ProjectBrowser({
 							</Stack>
 						</Stack>
 						{uuid && paired ? (
-							<TalkPanel
-								uuid={uuid}
-								repo={bundle.repo}
-								owner={bundle.owner}
-							/>
+							<TalkPanel uuid={uuid} repo={bundle.repo} owner={bundle.owner} />
 						) : null}
 						{justCreated === bundle.repo ? (
 							<Alert severity="success">

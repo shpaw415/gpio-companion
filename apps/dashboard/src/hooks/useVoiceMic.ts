@@ -1,11 +1,13 @@
 import {
+	parseVoiceId,
 	parseVoiceMicMode,
+	VOICE_ID_STORAGE_KEY,
 	VOICE_MIC_STORAGE_KEY,
 	type VoiceMicMode,
 } from "gpio-companion";
 import { useCallback, useState } from "react";
 
-function readStored(): VoiceMicMode {
+function readStoredMode(): VoiceMicMode {
 	if (typeof window === "undefined") {
 		return "hold";
 	}
@@ -18,11 +20,25 @@ function readStored(): VoiceMicMode {
 	}
 }
 
+function readStoredVoice(): string {
+	if (typeof window === "undefined") {
+		return "eve";
+	}
+	try {
+		return parseVoiceId(window.localStorage.getItem(VOICE_ID_STORAGE_KEY));
+	} catch {
+		return "eve";
+	}
+}
+
 export function useVoiceMic(): {
 	mode: VoiceMicMode;
 	setMode: (mode: VoiceMicMode) => void;
+	voice: string;
+	setVoice: (voice: string) => void;
 } {
-	const [mode, setModeState] = useState<VoiceMicMode>(readStored);
+	const [mode, setModeState] = useState<VoiceMicMode>(readStoredMode);
+	const [voice, setVoiceState] = useState(readStoredVoice);
 	const setMode = useCallback((next: VoiceMicMode) => {
 		setModeState(next);
 		try {
@@ -31,5 +47,14 @@ export function useVoiceMic(): {
 			return;
 		}
 	}, []);
-	return { mode, setMode };
+	const setVoice = useCallback((next: string) => {
+		const id = parseVoiceId(next);
+		setVoiceState(id);
+		try {
+			window.localStorage.setItem(VOICE_ID_STORAGE_KEY, id);
+		} catch {
+			return;
+		}
+	}, []);
+	return { mode, setMode, voice, setVoice };
 }

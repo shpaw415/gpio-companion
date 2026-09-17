@@ -877,6 +877,7 @@ async function githubFetch(
 ): Promise<Response> {
 	return fetch(githubUrl(path), {
 		...init,
+		cache: "no-store",
 		headers: {
 			...githubHeaders(account),
 			...(init?.headers ?? {}),

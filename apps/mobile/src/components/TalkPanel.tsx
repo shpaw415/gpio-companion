@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import { mintVoiceTicket } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
+import { useColors } from "../lib/color-mode.tsx";
 import { useLocale, useT } from "../lib/locale.tsx";
-import { storageGet } from "../lib/storage.ts";
+import { storageGet, storageSet } from "../lib/storage.ts";
 import {
 	encodeVoiceClient,
+	parseVoiceId,
 	parseVoiceMicMode,
 	parseVoiceServerMessage,
+	VOICE_ID_STORAGE_KEY,
 	VOICE_MIC_STORAGE_KEY,
+	VOICE_SPEAKERS,
 	type VoiceMicMode,
+	WAKE_PHRASE_LABEL,
 } from "../lib/voice.ts";
 import { Body, ErrorText, Muted, Paper, PrimaryButton } from "./ui.tsx";
 
@@ -24,7 +30,9 @@ export default function TalkPanel({
 	const t = useT();
 	const { locale } = useLocale();
 	const auth = useAuth();
+	const colors = useColors();
 	const [mode, setMode] = useState<VoiceMicMode>("hold");
+	const [voice, setVoice] = useState("eve");
 	const [state, setState] = useState<
 		"idle" | "listening" | "talking" | "working"
 	>("idle");
@@ -36,6 +44,9 @@ export default function TalkPanel({
 	useEffect(() => {
 		void storageGet(VOICE_MIC_STORAGE_KEY).then((stored) => {
 			setMode(parseVoiceMicMode(stored));
+		});
+		void storageGet(VOICE_ID_STORAGE_KEY).then((stored) => {
+			setVoice(parseVoiceId(stored));
 		});
 	}, []);
 
@@ -97,10 +108,18 @@ export default function TalkPanel({
 					mode,
 					repo,
 					owner,
+					voice,
 				}),
 			);
 			socket.send(
-				encodeVoiceClient({ type: "start", repo, owner, locale, mode }),
+				encodeVoiceClient({
+					type: "start",
+					repo,
+					owner,
+					locale,
+					mode,
+					voice,
+				}),
 			);
 			setState("talking");
 			setBilled(true);
@@ -135,6 +154,39 @@ export default function TalkPanel({
 			<Body>{t("talk.title")}</Body>
 			<Muted>{chip}</Muted>
 			<Muted>{t("talk.hint")}</Muted>
+			<Body>{t("talk.sayWake", { phrase: WAKE_PHRASE_LABEL })}</Body>
+			<Muted>{t("talk.voice")}</Muted>
+			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+				{VOICE_SPEAKERS.map((speaker) => {
+					const selected = speaker.id === voice;
+					return (
+						<Pressable
+							key={speaker.id}
+							onPress={() => {
+								setVoice(speaker.id);
+								void storageSet(VOICE_ID_STORAGE_KEY, speaker.id);
+							}}
+							style={{
+								paddingVertical: 8,
+								paddingHorizontal: 14,
+								borderRadius: 999,
+								borderWidth: selected ? 2 : 1,
+								borderColor: selected ? colors.primary : colors.border,
+								backgroundColor: selected ? colors.primary : colors.surface,
+							}}
+						>
+							<Text
+								style={{
+									color: selected ? colors.primaryText : colors.text,
+									fontWeight: "600",
+								}}
+							>
+								{speaker.name}
+							</Text>
+						</Pressable>
+					);
+				})}
+			</View>
 			<ErrorText>{error}</ErrorText>
 			<PrimaryButton
 				label={billed ? t("talk.stop") : t("talk.press")}

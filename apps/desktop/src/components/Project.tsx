@@ -25,7 +25,7 @@ import {
 	parseWokwiDiagram,
 } from "gpio-companion";
 import { translateError } from "gpio-companion-i18n";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	type BoardSketch,
 	createProject,
@@ -77,6 +77,16 @@ function lastRepoKey(repo: GithubRepo) {
 
 function bundleReady(bundle: ProjectBundle): boolean {
 	return Boolean(bundle.ref && bundle.branches);
+}
+
+function rememberProjectBundle(
+	cache: { set: (key: string, value: ProjectBundle) => void },
+	next: ProjectBundle,
+) {
+	cache.set(CACHE_KEYS.projectBundle(next.owner, next.repo), next);
+	if (next.ref) {
+		cache.set(CACHE_KEYS.projectBundle(next.owner, next.repo, next.ref), next);
+	}
 }
 
 function PreviewCard({
@@ -262,6 +272,7 @@ export default function Project() {
 	const [justCreated, setJustCreated] = useState("");
 	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [reloading, setReloading] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
 	const [stopping, setStopping] = useState(false);
 	const [runRunning, setRunRunning] = useState(false);
@@ -493,20 +504,7 @@ export default function Project() {
 				owner: bundle.owner,
 				name: bundle.repo,
 			});
-			cache.set(
-				CACHE_KEYS.projectBundle(result.bundle.owner, result.bundle.repo),
-				result.bundle,
-			);
-			if (result.bundle.ref) {
-				cache.set(
-					CACHE_KEYS.projectBundle(
-						result.bundle.owner,
-						result.bundle.repo,
-						result.bundle.ref,
-					),
-					result.bundle,
-				);
-			}
+			rememberProjectBundle(cache, result.bundle);
 			setBundle(result.bundle);
 			setSaveHint(
 				result.board.committed
@@ -523,7 +521,7 @@ export default function Project() {
 	}
 
 	async function selectBranch(ref: string) {
-		if (!bundle || !ref || ref === bundle.ref || opening) {
+		if (!bundle || !ref || ref === bundle.ref || opening || reloading) {
 			return;
 		}
 		setError("");
@@ -549,6 +547,49 @@ export default function Project() {
 		}
 	}
 
+	const reloadBundle = useCallback(async () => {
+		if (!bundle || opening || reloading || saving) {
+			return;
+		}
+		setError("");
+		setSaveHint("");
+		setReloading(true);
+		try {
+			const next = await cache.get(
+				CACHE_KEYS.projectBundle(bundle.owner, bundle.repo),
+				() => loadProject(bundle.owner, bundle.repo),
+				true,
+			);
+			rememberProjectBundle(cache, next);
+			setBundle(next);
+		} catch (caught) {
+			setError(
+				caught instanceof Error ? caught.message : "failed to load project",
+			);
+		} finally {
+			setReloading(false);
+		}
+	}, [bundle, cache, opening, reloading, saving]);
+
+	const reloadRef = useRef(reloadBundle);
+	reloadRef.current = reloadBundle;
+
+	useEffect(() => {
+		function onVisible() {
+			if (document.visibilityState === "hidden") {
+				return;
+			}
+			void reloadRef.current();
+		}
+		void reloadRef.current();
+		document.addEventListener("visibilitychange", onVisible);
+		window.addEventListener("focus", onVisible);
+		return () => {
+			document.removeEventListener("visibilitychange", onVisible);
+			window.removeEventListener("focus", onVisible);
+		};
+	}, []);
+
 	async function openRepo(repo: GithubRepo, created = false) {
 		if (!created) {
 			setJustCreated("");
@@ -562,8 +603,15 @@ export default function Project() {
 			try {
 				window.localStorage.setItem(LAST_REPO_KEY, lastRepoKey(repo));
 			} catch {
-				return;
+				// ignore
 			}
+			void cache
+				.get(key, () => loadProject(repo.owner, repo.name), true)
+				.then((next) => {
+					rememberProjectBundle(cache, next);
+					setBundle(next);
+				})
+				.catch(() => undefined);
 			return;
 		}
 		setOpening(true);
@@ -573,6 +621,7 @@ export default function Project() {
 				() => loadProject(repo.owner, repo.name),
 				hit.hit,
 			);
+			rememberProjectBundle(cache, next);
 			setBundle(next);
 			try {
 				window.localStorage.setItem(LAST_REPO_KEY, lastRepoKey(repo));
@@ -931,6 +980,14 @@ export default function Project() {
 								))}
 							</Select>
 						) : null}
+						<Button
+							variant="outlined"
+							size="small"
+							disabled={reloading || opening}
+							onClick={() => void reloadBundle()}
+						>
+							{reloading ? t("project.reloading") : t("project.reload")}
+						</Button>
 						<Button
 							variant="text"
 							size="small"
