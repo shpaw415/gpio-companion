@@ -3,6 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateDeviceKeyPair, signDeviceRequest } from "gpio-companion";
+import { memoryArduinoProxy } from "./arduino-proxy.ts";
 import { filePairingStore } from "./pairing.ts";
 import {
 	createRunController,
@@ -120,6 +121,78 @@ describe("run controller", () => {
 		expect(chunks.join("")).toBe("LED fade\n");
 		expect(run.status().last?.log).toContain("warning");
 		expect(run.status().last?.log).toContain("LED fade");
+	});
+
+	test("proxy sketch restores serial after stop", async () => {
+		const proxy = memoryArduinoProxy({
+			connected: true,
+			port: "/dev/ttyACM0",
+		});
+		const holds: boolean[] = [];
+		const origHold = proxy.hold.bind(proxy);
+		proxy.hold = (next) => {
+			holds.push(next);
+			origHold(next);
+		};
+		let released = 0;
+		const origRelease = proxy.release.bind(proxy);
+		proxy.release = () => {
+			released += 1;
+			origRelease();
+		};
+		let attached = 0;
+		const origAttach = proxy.attach.bind(proxy);
+		proxy.attach = async (port, fqbn) => {
+			attached += 1;
+			return origAttach(port, fqbn);
+		};
+		let finish: () => void = () => undefined;
+		const hang = new Promise<void>((resolve) => {
+			finish = resolve;
+		});
+		const run = createRunController({
+			hardware: "raspberrypi",
+			proxy,
+			hasSketch: () => true,
+			proxyRestoreMs: { delay: 0, retry: 0 },
+			async compileAndRun() {
+				expect(() =>
+					proxy.apply("raspberrypi", { physical: 13, dir: "out", value: 1 }),
+				).toThrow("not connected");
+				await hang;
+				return {
+					ok: true,
+					log: "ok",
+					proc: { exited: Promise.resolve(0), kill() {} },
+				};
+			},
+		});
+		expect(run.start({ dir: "/tmp/arduino-proxy-blink" })).toEqual({
+			started: true,
+		});
+		const wait = Date.now();
+		while (released === 0 && Date.now() - wait < 1000) {
+			await Bun.sleep(10);
+		}
+		expect(released).toBe(1);
+		expect(holds).toEqual([true]);
+		finish();
+		const done = Date.now();
+		while (run.status().running && Date.now() - done < 1000) {
+			await Bun.sleep(10);
+		}
+		const restore = Date.now();
+		while (attached === 0 && Date.now() - restore < 1000) {
+			await Bun.sleep(10);
+		}
+		expect(holds).toEqual([true, false]);
+		expect(attached).toBe(1);
+		const snapshot = proxy.apply("raspberrypi", {
+			physical: 13,
+			dir: "out",
+			value: 1,
+		});
+		expect(snapshot.pins.find((pin) => pin.physical === 13)?.value).toBe(1);
 	});
 });
 

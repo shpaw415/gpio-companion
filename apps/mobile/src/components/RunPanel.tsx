@@ -17,6 +17,7 @@ import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useConsoleTunnel } from "../lib/use-console-tunnel.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
+import LiveConsole from "./LiveConsole.tsx";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
 
 export default function RunPanel({
@@ -216,7 +217,7 @@ export default function RunPanel({
 						: t("run.thenRun")}
 			</Muted>
 			<Muted>{t("run.serialStatus", { status: serial.status })}</Muted>
-			{log ? <Muted>{log}</Muted> : null}
+			<LiveConsole label={t("run.serialHost")} value={log} />
 		</View>
 	);
 }

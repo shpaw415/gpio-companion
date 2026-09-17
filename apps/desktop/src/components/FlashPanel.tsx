@@ -23,6 +23,7 @@ import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 import { consoleStatusLabel } from "../lib/i18n-labels";
 import { useT } from "../locale";
+import LiveConsole from "./LiveConsole";
 
 export default function FlashPanel({
 	uuid,
@@ -245,11 +246,10 @@ export default function FlashPanel({
 			<Typography variant="caption" color="secondary">
 				{t("common.serial", { status: consoleStatusLabel(serial.status, t) })}
 			</Typography>
-			{serial.snapshot.usb.log ? (
-				<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-					{serial.snapshot.usb.log}
-				</Typography>
-			) : null}
+			<LiveConsole
+				label={t("flash.serialUsb")}
+				value={serial.snapshot.usb.log}
+			/>
 		</Stack>
 	);
 }

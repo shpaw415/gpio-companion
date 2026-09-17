@@ -51,6 +51,7 @@ export type ArduinoProxyController = {
 	snapshot(hardware: HardwareId): GpioSnapshot;
 	apply(hardware: HardwareId, command: GpioApply): GpioSnapshot;
 	bus(command: GpioBusCommand): ArduinoProxyStatus;
+	hold(held: boolean): void;
 	release(): void;
 	attach(port: string, fqbn?: string): Promise<ArduinoProxyStatus>;
 	probe(): Promise<ArduinoProxyStatus>;
@@ -140,6 +141,7 @@ export function createArduinoProxy(
 ): ArduinoProxyController {
 	let status = emptyArduinoProxyStatus();
 	let serial: ProxySerial | null = null;
+	let held = false;
 	let probing: Promise<ArduinoProxyStatus> | null = null;
 	const parser = createFirmataParser();
 	const listPorts =
@@ -219,10 +221,20 @@ export function createArduinoProxy(
 		}
 	}
 
+	function requireSerial(): ProxySerial {
+		if (!status.connected || !serial) {
+			throw new ArduinoProxyError("arduino-proxy not connected");
+		}
+		return serial;
+	}
+
 	async function handshake(
 		port: string,
 		fqbn?: string,
 	): Promise<ArduinoProxyStatus> {
+		if (held) {
+			return status;
+		}
 		const board =
 			arduinoProxyBoard(fqbn || "") || arduinoProxyBoard("arduino:avr:uno");
 		if (!board) {
@@ -276,9 +288,7 @@ export function createArduinoProxy(
 			return arduinoProxySnapshot(hardware, status);
 		},
 		apply(hardware, command) {
-			if (!status.connected) {
-				throw new ArduinoProxyError("arduino-proxy not connected");
-			}
+			const open = requireSerial();
 			if (command.physical !== undefined) {
 				const pin = status.pins.find(
 					(item) => item.physical === command.physical,
@@ -291,30 +301,28 @@ export function createArduinoProxy(
 				}
 			}
 			if ("op" in command && command.op === "tone") {
-				serial?.write(encodeSetPinMode(command.physical, "pwm"));
+				open.write(encodeSetPinMode(command.physical, "pwm"));
 			} else if ("op" in command && command.op === "notone") {
-				serial?.write(encodeSetPinMode(command.physical, "output"));
-				serial?.write(encodeDigitalPin(command.physical, 0));
+				open.write(encodeSetPinMode(command.physical, "output"));
+				open.write(encodeDigitalPin(command.physical, 0));
 			} else if (command.dir === "pwm") {
-				serial?.write(encodeSetPinMode(command.physical, "pwm"));
-				serial?.write(
-					encodeAnalogWrite(command.physical, command.analog ?? 0),
-				);
+				open.write(encodeSetPinMode(command.physical, "pwm"));
+				open.write(encodeAnalogWrite(command.physical, command.analog ?? 0));
 			} else if (command.dir === "in") {
 				const pin = status.pins.find(
 					(item) => item.physical === command.physical,
 				);
 				if (pin && pin.adc !== undefined) {
-					serial?.write(encodeSetPinMode(command.physical, "analog"));
-					serial?.write(
+					open.write(encodeSetPinMode(command.physical, "analog"));
+					open.write(
 						encodeReportAnalog(analogChannel(status, command.physical), true),
 					);
 				} else {
-					serial?.write(encodeSetPinMode(command.physical, "input"));
+					open.write(encodeSetPinMode(command.physical, "input"));
 				}
 			} else {
-				serial?.write(encodeSetPinMode(command.physical, "output"));
-				serial?.write(
+				open.write(encodeSetPinMode(command.physical, "output"));
+				open.write(
 					encodeDigitalPin(command.physical, (command.value ?? 0) as 0 | 1),
 				);
 			}
@@ -326,11 +334,9 @@ export function createArduinoProxy(
 			return arduinoProxySnapshot(hardware, status);
 		},
 		bus(command) {
-			if (!status.connected) {
-				throw new ArduinoProxyError("arduino-proxy not connected");
-			}
+			const open = requireSerial();
 			if (command.op === "i2c-scan" || command.op === "i2c-read") {
-				serial?.write(
+				open.write(
 					encodeI2cRead(
 						command.op === "i2c-read" ? command.address : 0x08,
 						command.op === "i2c-read" ? (command.length ?? 1) : 1,
@@ -338,29 +344,41 @@ export function createArduinoProxy(
 				);
 			}
 			if (command.op === "i2c-write") {
-				serial?.write(encodeI2cWrite(command.address, command.data));
+				open.write(encodeI2cWrite(command.address, command.data));
 			}
 			if (command.op === "spi-xfer") {
-				serial?.write(encodeSpiTransfer(command.data));
+				open.write(encodeSpiTransfer(command.data));
 			}
 			if (command.op === "uart-write") {
 				const bytes = [...Buffer.from(command.data)];
-				serial?.write(encodeSerialWrite(0, bytes));
+				open.write(encodeSerialWrite(0, bytes));
 			}
 			return status;
+		},
+		hold(next) {
+			held = next;
 		},
 		release() {
 			serial?.close();
 			serial = null;
 		},
 		async attach(port, fqbn) {
+			if (held) {
+				return status;
+			}
 			return handshake(port, fqbn);
 		},
 		async probe() {
+			if (held) {
+				return status;
+			}
 			if (probing) {
 				return probing;
 			}
 			probing = (async () => {
+				if (held) {
+					return status;
+				}
 				let ports: FlashPort[] = [];
 				if (options.listPorts) {
 					try {
@@ -370,6 +388,9 @@ export function createArduinoProxy(
 					}
 				} else {
 					ports = listUsbSerialPorts().map((address) => ({ address }));
+				}
+				if (held) {
+					return status;
 				}
 				if (status.connected && serial) {
 					if (
@@ -381,6 +402,9 @@ export function createArduinoProxy(
 					disconnect();
 				}
 				for (const port of ports) {
+					if (held) {
+						return status;
+					}
 					if (!port.address) {
 						continue;
 					}
@@ -424,6 +448,13 @@ export function memoryArduinoProxy(
 			port: initial.port ?? "/dev/ttyACM0",
 		};
 	}
+	let open = Boolean(status.connected);
+	let held = false;
+	function requireOpen() {
+		if (!status.connected || !open) {
+			throw new ArduinoProxyError("arduino-proxy not connected");
+		}
+	}
 	return {
 		status() {
 			return status;
@@ -432,22 +463,24 @@ export function memoryArduinoProxy(
 			return arduinoProxySnapshot(hardware, status);
 		},
 		apply(hardware, command) {
-			if (!status.connected) {
-				throw new ArduinoProxyError("arduino-proxy not connected");
-			}
+			requireOpen();
 			status = { ...status, pins: patchPins(status.pins, command) };
 			return arduinoProxySnapshot(hardware, status);
 		},
 		bus() {
-			if (!status.connected) {
-				throw new ArduinoProxyError("arduino-proxy not connected");
-			}
+			requireOpen();
 			return status;
 		},
+		hold(next) {
+			held = next;
+		},
 		release() {
-			undefined;
+			open = false;
 		},
 		async attach(port, fqbn) {
+			if (held) {
+				return status;
+			}
 			if (fqbn && !isArduinoProxyFqbn(fqbn)) {
 				throw new ArduinoProxyError(`unsupported fqbn ${fqbn}`);
 			}
@@ -464,6 +497,7 @@ export function memoryArduinoProxy(
 				pins: arduinoProxyPins(board),
 				buses: { i2c: board.i2c, spi: board.spi, uart: [...board.uart] },
 			};
+			open = true;
 			return status;
 		},
 		async probe() {

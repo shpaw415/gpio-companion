@@ -40,6 +40,7 @@ export type HostRunOptions = {
 	onLog?: (chunk: string) => void;
 	onRunning?: (running: boolean) => void;
 	isBusy?: () => boolean;
+	proxyRestoreMs?: { delay?: number; retry?: number };
 };
 
 export type RunProcess = {
@@ -53,6 +54,8 @@ export type RunProcess = {
 const SKETCH_EXT = [".c", ".ino"];
 const COMPILE_MS = 60_000;
 const STOP_MS = 2_000;
+export const PROXY_RESTORE_MS = 400;
+export const PROXY_RESTORE_RETRY_MS = 1_500;
 
 export function createRunController(options: HostRunOptions): RunController {
 	let running = false;
@@ -211,75 +214,118 @@ async function runJob(
 	const pinmapPath = join(work, "pins.txt");
 	const outPath = join(work, "sketch");
 	const proxySketch = isArduinoProxySketchName(basename(put.dir));
-	if (proxySketch) {
-		const proxy = options.proxy;
-		if (!proxy?.status().connected) {
-			throw new RunError("arduino-proxy not connected");
+	let restore: { port: string; fqbn?: string } | null = null;
+	let restoreHeld = false;
+	try {
+		if (proxySketch) {
+			const proxy = options.proxy;
+			if (!proxy?.status().connected) {
+				throw new RunError("arduino-proxy not connected");
+			}
+			const port = proxy.status().port;
+			if (port) {
+				restore = { port, fqbn: proxy.status().fqbn };
+			}
+			proxy.hold(true);
+			restoreHeld = true;
+			proxy.release();
+			writeFileSync(pinmapPath, formatProxyPinmap(proxy.status()));
+		} else if (options.gpio?.releaseAll) {
+			await options.gpio.releaseAll();
 		}
-		proxy.release();
-		writeFileSync(pinmapPath, formatProxyPinmap(proxy.status()));
-	} else if (options.gpio?.releaseAll) {
-		await options.gpio.releaseAll();
-	}
-	const hardware =
-		typeof options.hardware === "function"
-			? await options.hardware()
-			: options.hardware;
-	if (!proxySketch && options.gpio) {
-		writeFileSync(
+		const hardware =
+			typeof options.hardware === "function"
+				? await options.hardware()
+				: options.hardware;
+		if (!proxySketch && options.gpio) {
+			writeFileSync(
+				pinmapPath,
+				formatPinmap(await options.gpio.snapshot(hardware)),
+			);
+		} else if (!proxySketch) {
+			writeFileSync(pinmapPath, `hardware ${hardware}\n`);
+		}
+		if (hooks.cancelled()) {
+			return stopped();
+		}
+		const compile = options.compileAndRun ?? liveCompileAndRun;
+		const result = await compile({
+			dir: put.dir,
 			pinmapPath,
-			formatPinmap(await options.gpio.snapshot(hardware)),
-		);
-	} else if (!proxySketch) {
-		writeFileSync(pinmapPath, `hardware ${hardware}\n`);
-	}
-	if (hooks.cancelled()) {
-		return stopped();
-	}
-	const compile = options.compileAndRun ?? liveCompileAndRun;
-	const result = await compile({
-		dir: put.dir,
-		pinmapPath,
-		outPath,
-		hostDir,
-		proxy: proxySketch,
-		setProc: hooks.setProc,
-		cancelled: hooks.cancelled,
-	});
-	if (hooks.cancelled()) {
-		if (result.proc) {
-			await killTree(result.proc);
+			outPath,
+			hostDir,
+			proxy: proxySketch,
+			setProc: hooks.setProc,
+			cancelled: hooks.cancelled,
+		});
+		if (hooks.cancelled()) {
+			if (result.proc) {
+				await killTree(result.proc);
+			}
+			return {
+				ok: true,
+				dir: put.dir,
+				log: capRunLog(result.log || "stopped"),
+				startedAt,
+				finishedAt: Date.now(),
+			};
 		}
+		if (!result.ok || !result.proc) {
+			return {
+				ok: result.ok,
+				dir: put.dir,
+				log: capRunLog(result.log),
+				startedAt,
+				finishedAt: Date.now(),
+			};
+		}
+		hooks.setProc(result.proc);
+		const [stdout, stderr] = await Promise.all([
+			readLive(result.proc.stdout, hooks.append),
+			readLive(result.proc.stderr, hooks.append),
+		]);
+		const code = await result.proc.exited;
 		return {
-			ok: true,
+			ok: code === 0,
 			dir: put.dir,
-			log: capRunLog(result.log || "stopped"),
+			log: capRunLog(`${result.log}\n${stdout}\n${stderr}`.trim()),
 			startedAt,
 			finishedAt: Date.now(),
 		};
+	} finally {
+		if (restoreHeld && options.proxy) {
+			options.proxy.hold(false);
+			if (restore) {
+				void restoreArduinoProxy(
+					options.proxy,
+					restore.port,
+					restore.fqbn,
+					options,
+				);
+			}
+		}
 	}
-	if (!result.ok || !result.proc) {
-		return {
-			ok: result.ok,
-			dir: put.dir,
-			log: capRunLog(result.log),
-			startedAt,
-			finishedAt: Date.now(),
-		};
+}
+
+async function restoreArduinoProxy(
+	proxy: ArduinoProxyController,
+	port: string,
+	fqbn: string | undefined,
+	options: HostRunOptions,
+): Promise<void> {
+	const delayMs = options.proxyRestoreMs?.delay ?? PROXY_RESTORE_MS;
+	const retryMs = options.proxyRestoreMs?.retry ?? PROXY_RESTORE_RETRY_MS;
+	if (delayMs > 0) {
+		await Bun.sleep(delayMs);
 	}
-	hooks.setProc(result.proc);
-	const [stdout, stderr] = await Promise.all([
-		readLive(result.proc.stdout, hooks.append),
-		readLive(result.proc.stderr, hooks.append),
-	]);
-	const code = await result.proc.exited;
-	return {
-		ok: code === 0,
-		dir: put.dir,
-		log: capRunLog(`${result.log}\n${stdout}\n${stderr}`.trim()),
-		startedAt,
-		finishedAt: Date.now(),
-	};
+	try {
+		await proxy.attach(port, fqbn);
+	} catch {
+		if (retryMs > 0) {
+			await Bun.sleep(retryMs);
+		}
+		await proxy.attach(port, fqbn).catch(() => undefined);
+	}
 }
 
 async function liveCompileAndRun(job: {

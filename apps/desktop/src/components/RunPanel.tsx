@@ -21,6 +21,7 @@ import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey";
 import { consoleStatusLabel } from "../lib/i18n-labels";
 import { useT } from "../locale";
+import LiveConsole from "./LiveConsole";
 
 export default function RunPanel({
 	uuid,
@@ -201,11 +202,7 @@ export default function RunPanel({
 			<Typography variant="caption" color="secondary">
 				{t("common.serial", { status: consoleStatusLabel(serial.status, t) })}
 			</Typography>
-			{log ? (
-				<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-					{log}
-				</Typography>
-			) : null}
+			<LiveConsole label={t("run.serialHost")} value={log} />
 		</Stack>
 	);
 }

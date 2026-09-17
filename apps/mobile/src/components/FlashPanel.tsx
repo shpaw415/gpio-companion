@@ -19,6 +19,7 @@ import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useConsoleTunnel } from "../lib/use-console-tunnel.ts";
 import { useDeviceHub } from "../lib/use-device-hub.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
+import LiveConsole from "./LiveConsole.tsx";
 import { Body, ErrorText, Field, Muted, TextButton } from "./ui.tsx";
 
 export default function FlashPanel({
@@ -240,9 +241,10 @@ export default function FlashPanel({
 						: t("flash.thenFlash")}
 			</Muted>
 			<Muted>{t("flash.serialStatus", { status: serial.status })}</Muted>
-			{serial.snapshot.usb.log ? (
-				<Muted>{serial.snapshot.usb.log}</Muted>
-			) : null}
+			<LiveConsole
+				label={t("flash.serialUsb")}
+				value={serial.snapshot.usb.log}
+			/>
 		</View>
 	);
 }

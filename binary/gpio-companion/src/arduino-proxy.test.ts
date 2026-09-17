@@ -37,6 +37,21 @@ describe("memory arduino proxy", () => {
 		).toThrow("not connected");
 	});
 
+	test("refuses writes after release until attach", async () => {
+		const proxy = memoryArduinoProxy({ connected: true });
+		proxy.release();
+		expect(() =>
+			proxy.apply("raspberrypi", { physical: 13, dir: "out", value: 1 }),
+		).toThrow("not connected");
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		const snapshot = proxy.apply("raspberrypi", {
+			physical: 13,
+			dir: "out",
+			value: 1,
+		});
+		expect(snapshot.pins.find((pin) => pin.physical === 13)?.value).toBe(1);
+	});
+
 	test("attach sets board from fqbn", async () => {
 		const proxy = memoryArduinoProxy();
 		const status = await proxy.attach("/dev/ttyACM0", "arduino:avr:mega");
@@ -197,6 +212,77 @@ describe("live handshake", () => {
 		expect(proxy.status().port).toBeUndefined();
 	});
 
+	test("apply throws after release until attach", async () => {
+		let opens = 0;
+		const proxy = createArduinoProxy({
+			probeMs: 200,
+			openSerial: (_port, _baud, onData) => {
+				opens += 1;
+				return {
+					write() {
+						onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		proxy.release();
+		expect(() =>
+			proxy.apply("orangepi", { physical: 13, dir: "out", value: 1 }),
+		).toThrow("not connected");
+		expect(proxy.status().connected).toBe(true);
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		expect(opens).toBe(2);
+		const snapshot = proxy.apply("orangepi", {
+			physical: 13,
+			dir: "out",
+			value: 1,
+		});
+		expect(snapshot.pins.find((pin) => pin.physical === 13)?.value).toBe(1);
+	});
+
+	test("probe skips handshake while held", async () => {
+		const listed = ["/dev/ttyACM0"];
+		let opens = 0;
+		const proxy = createArduinoProxy({
+			probeMs: 200,
+			listPorts: async () =>
+				JSON.stringify({
+					detected_ports: listed.map((address) => ({
+						port: { address, protocol: "serial" },
+					})),
+				}),
+			openSerial: (_port, _baud, onData) => {
+				opens += 1;
+				onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+				return {
+					write() {
+						undefined;
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		expect(opens).toBe(1);
+		proxy.hold(true);
+		proxy.release();
+		const held = await proxy.probe();
+		expect(held.connected).toBe(true);
+		expect(opens).toBe(1);
+		expect(() =>
+			proxy.apply("orangepi", { physical: 13, dir: "out", value: 1 }),
+		).toThrow("not connected");
+		proxy.hold(false);
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		expect(opens).toBe(2);
+	});
+
 	test("serial close does not throw while connected", async () => {
 		let onClose: () => void = () => undefined;
 		const proxy = createArduinoProxy({
@@ -352,6 +438,7 @@ describe("arduino-proxy http", () => {
 	});
 
 	test("PUT gpio target arduino-proxy", async () => {
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
 		const response = await fetch(`${server.url}v1/gpio`, {
 			method: "PUT",
 			headers: { "content-type": "application/json" },
