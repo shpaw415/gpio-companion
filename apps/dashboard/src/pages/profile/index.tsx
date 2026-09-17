@@ -8,6 +8,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
 import LanguageCard from "../../components/LanguageCard.tsx";
+import VoiceMicCard from "../../components/VoiceMicCard.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuth, useAuthSession } from "../../hooks/useAuth.ts";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
@@ -47,6 +48,7 @@ export default function ProfilePage() {
 	return (
 		<Stack spacing={1.5}>
 			<LanguageCard />
+			<VoiceMicCard />
 
 			{!loggedIn ? (
 				<LoginPanel />

@@ -572,6 +572,13 @@ export function mintHubTicket(token: string, uuid: string) {
 	});
 }
 
+export function mintVoiceTicket(token: string, uuid: string) {
+	return request<HubTicket>(token, "/api/mobile/voice/live", {
+		method: "POST",
+		body: JSON.stringify({ uuid }),
+	});
+}
+
 export function loadDeviceLogs(token: string, uuid: string) {
 	return request<{ text: string }>(
 		token,

@@ -62,6 +62,19 @@
         "wrangler": "^4.127.1",
       },
     },
+    "apps/workers/voice-hub": {
+      "name": "gpio-companion-voice",
+      "version": "0.0.0",
+      "dependencies": {
+        "gpio-companion": "workspace:*",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^4.20260702.1",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+        "wrangler": "^4.127.1",
+      },
+    },
     "binary/gpio-companion": {
       "name": "gpio-companion-bin",
       "version": "0.0.0",
@@ -679,6 +692,8 @@
     "gpio-companion-dashboard": ["gpio-companion-dashboard@workspace:apps/dashboard"],
 
     "gpio-companion-hub": ["gpio-companion-hub@workspace:apps/workers/device-hub"],
+
+    "gpio-companion-voice": ["gpio-companion-voice@workspace:apps/workers/voice-hub"],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 

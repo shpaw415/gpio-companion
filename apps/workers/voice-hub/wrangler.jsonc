@@ -1,0 +1,36 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	// Workers Builds (Git): Worker gpio-companion-voice, root apps/workers/voice-hub
+	// build: bun run ci:install
+	// deploy: npx wrangler deploy
+	// Secrets: XAI_API_KEY, GPIO_COMPANION_DEVICE_PRIVATE_KEY
+	"name": "gpio-companion-voice",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-09-07",
+	"observability": {
+		"enabled": true
+	},
+	"vars": {
+		"GPIO_AI_MARKUP": "1.25"
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "VOICE_HUB",
+				"class_name": "VoiceHub"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["VoiceHub"]
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "DYNAMIC_PAGE_KV",
+			"id": "91a78de240bc421187afe64a498d0014"
+		}
+	]
+}

@@ -728,6 +728,10 @@ export function mintHubTicket(uuid: string) {
 	return apiRequest<HubTicket>("POST", "/api/mobile/hub", { uuid });
 }
 
+export function mintVoiceTicket(uuid: string) {
+	return apiRequest<HubTicket>("POST", "/api/mobile/voice/live", { uuid });
+}
+
 export type FlashPort = {
 	address: string;
 	protocol?: string;

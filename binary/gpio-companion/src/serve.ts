@@ -32,6 +32,7 @@ import {
 	isFlashPath,
 	isGpioBusCommand,
 	isGpioWsRefresh,
+	isAgentPath,
 	isRunPath,
 	isVerifyPath,
 	LOGS_PATH,
@@ -57,6 +58,9 @@ import {
 	publicPairing,
 	publicWifiFailure,
 	publicWifiStatus,
+	AGENT_PATH,
+	AGENT_STOP_PATH,
+	AgentError,
 	RUN_PATH,
 	RUN_SKETCHES_PATH,
 	RUN_STOP_PATH,
@@ -103,6 +107,7 @@ import {
 	type ApplyProjects,
 	projectsRoot,
 } from "./projects.ts";
+import { createAgentController, type AgentController } from "./agent.ts";
 import { createHostRun, type RunController } from "./run.ts";
 import { createCircuitVerify, type VerifyController } from "./verify.ts";
 import type { SecretsStore } from "./secrets.ts";
@@ -153,6 +158,7 @@ export type ServeOptions = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	agent?: AgentController;
 	verify?: VerifyController;
 	proxy?: ArduinoProxyController;
 	console?: ConsoleHub;
@@ -167,6 +173,7 @@ export type DeviceRequestExtras = {
 	gpio?: GpioController;
 	flash?: FlashController;
 	run?: RunController;
+	agent?: AgentController;
 	verify?: VerifyController;
 	proxy?: ArduinoProxyController;
 	console?: ConsoleHub;
@@ -268,6 +275,9 @@ export function startDeviceApi(options: ServeOptions) {
 				},
 			}),
 		run,
+		agent: options.agent ?? createAgentController({
+			projectsDir: options.projectsDir,
+		}),
 		verify,
 		projectsDir: options.projectsDir,
 		applyUpdate: options.applyUpdate,
@@ -375,6 +385,7 @@ export function startDeviceApi(options: ServeOptions) {
 				} else if (
 					error instanceof FlashError ||
 					error instanceof RunError ||
+					error instanceof AgentError ||
 					error instanceof VerifyError ||
 					error instanceof ConsoleError ||
 					error instanceof ArduinoProxyError
@@ -513,6 +524,7 @@ export async function handleDeviceRequest(
 		(path === GPIO_PATH ||
 			isFlashPath(path) ||
 			isRunPath(path) ||
+			isAgentPath(path) ||
 			isVerifyPath(path) ||
 			isConsolePath(path) ||
 			isArduinoProxyPath(path)) &&
@@ -531,6 +543,9 @@ export async function handleDeviceRequest(
 		}
 		if (isRunPath(path)) {
 			return handleRun(method, path, bodyText, extras);
+		}
+		if (isAgentPath(path)) {
+			return handleAgent(method, path, bodyText, extras);
 		}
 		if (isVerifyPath(path)) {
 			return handleVerify(method, path, bodyText, extras);
@@ -813,6 +828,10 @@ export async function handleDeviceRequest(
 
 	if (isRunPath(path)) {
 		return handleRun(method, path, bodyText, extras);
+	}
+
+	if (isAgentPath(path)) {
+		return handleAgent(method, path, bodyText, extras);
 	}
 
 	if (isVerifyPath(path)) {
@@ -1242,6 +1261,28 @@ function handleRun(
 	}
 	if (method === "POST" && path === RUN_STOP_PATH) {
 		return json(run.stop());
+	}
+	return json({ error: "method not allowed" }, 405);
+}
+
+function handleAgent(
+	method: string,
+	path: string,
+	bodyText: string,
+	extras: DeviceRequestExtras | undefined,
+): Response {
+	const agent = extras?.agent;
+	if (!agent) {
+		return json({ error: "agent is unavailable" }, 503);
+	}
+	if (method === "GET" && path === AGENT_PATH) {
+		return json(agent.status());
+	}
+	if (method === "POST" && path === AGENT_PATH) {
+		return json(agent.start(parseJson(bodyText)));
+	}
+	if (method === "POST" && path === AGENT_STOP_PATH) {
+		return json(agent.stop());
 	}
 	return json({ error: "method not allowed" }, 405);
 }

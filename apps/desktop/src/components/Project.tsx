@@ -66,6 +66,7 @@ import FlashPanel from "./FlashPanel";
 import GpioPanel from "./GpioPanel";
 import RunPanel from "./RunPanel";
 import { ListSkeleton, PreviewSkeleton } from "./skeletons";
+import TalkPanel from "./TalkPanel";
 import VerifyPanel from "./VerifyPanel";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
@@ -968,6 +969,13 @@ export default function Project() {
 							{t("project.delete")}
 						</Button>
 					</Stack>
+					{paired && activeUuid ? (
+						<TalkPanel
+							uuid={activeUuid}
+							repo={bundle.repo}
+							owner={bundle.owner}
+						/>
+					) : null}
 					{justCreated === bundle.repo ? (
 						<Alert severity="success">
 							<Stack

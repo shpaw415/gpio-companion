@@ -1,6 +1,6 @@
 # Deploy (host)
 
-Deploy order: **device keys → hub Worker → dashboard (auth + KV + secret + DEVICE_HUB bind) → tell users the URLs**. Boards can boot before a user connects the GitHub App; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
+Deploy order: **device keys → hub Worker → voice Worker → dashboard (auth + KV + secret + DEVICE_HUB + VOICE_HUB binds) → tell users the URLs**. Boards can boot before a user connects the GitHub App; they cannot accept signed dashboard commands until first-setup has fetched `GET /api/device-public-key` for the private key you installed on Cloudflare.
 
 ## Prerequisites
 
@@ -71,6 +71,24 @@ Workers Builds auto-runs `bun install --frozen-lockfile` with the Bun it detects
 The Worker name in the dashboard must stay `gpio-companion-hub` (same as `wrangler.jsonc` `name`). First-time local upload: `bun run deploy:hub`. After Git is connected, every push to `main` deploys the hub.
 
 The dashboard `wrangler.jsonc` binds that Worker with `script_name: "gpio-companion-hub"`. Pis mint a short-lived ticket via `POST /api/hub` `{uuid,key}` then connect `wss://gpio-companion.com/api/hub`. Dashboard browsers upgrade the same path with the session cookie. Writes stay signed HTTP/BLE.
+
+## 2b. Voice hub Worker (Durable Objects)
+
+Project Talk audio goes through a per-owner+board Durable Object that proxies Grok Voice. Cloudflare Pages cannot define Durable Object classes, so this Worker must exist **before** a dashboard deploy that binds it. Do **not** put PCM on DeviceHub.
+
+App: `apps/workers/voice-hub`. Wrangler name: `gpio-companion-voice`. Binding: `VOICE_HUB` / class `VoiceHub`. Same KV namespace as the dashboard (`DYNAMIC_PAGE_KV`).
+
+| Setting | Value |
+| --- | --- |
+| Git repository | `shpaw415/gpio-companion` |
+| Production branch | `main` |
+| Root directory | `apps/workers/voice-hub` |
+| Build command | `bun run ci:install` |
+| Deploy command | `npx wrangler deploy` |
+
+Secrets on this Worker (not Pages): `XAI_API_KEY`, `GPIO_COMPANION_DEVICE_PRIVATE_KEY` (same Ed25519 PEM as the dashboard). First-time local upload: `bun run deploy:voice`.
+
+The dashboard `wrangler.jsonc` binds that Worker with `script_name: "gpio-companion-voice"`. Browsers upgrade `wss://gpio-companion.com/api/voice/live?uuid=` with the session cookie. Native apps mint `POST /api/mobile/voice/live` `{uuid}` then connect with `?ticket=`. Owner-only. Empty credits return 402.
 
 ## 3. Dashboard (Cloudflare Pages)
 

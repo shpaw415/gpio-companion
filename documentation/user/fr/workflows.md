@@ -1,5 +1,11 @@
 # Flux utilisateur
 
+## Quotidien : Talk avec l’agent compagnon
+
+Sur Projet, **Talk** permet de parler pendant que vos mains sont sur le breadboard. Grok Voice répond à voix haute. Maintenir pour parler est le défaut. Le profil peut passer en écoute continue ou au mot de réveil **Hey Companion**. Talk utilise les crédits du tableau de bord (0,08 $/min × marge pendant que Grok est connecté). L’écoute locale du mot de réveil n’est pas facturée.
+
+Les actions parlées peuvent exécuter, arrêter, vérifier, graver ou enregistrer le projet, et **demander à l’agent sur la carte** d’ajouter un croquis C ou une fonction. Le pilotage durable des broches passe toujours par gpio-host / proxy Arduino, pas par un PUT GPIO durable.
+
 ## Quotidien : travailler avec l’agent sur la carte
 
 Ouvrez T3 Code (tunneled) ou OpenCode sur le Pi. L’agent charge :

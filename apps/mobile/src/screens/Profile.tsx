@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Linking } from "react-native";
 import LanguageCard from "../components/LanguageCard.tsx";
+import VoiceMicCard from "../components/VoiceMicCard.tsx";
 import {
 	Body,
 	ErrorText,
@@ -39,6 +40,7 @@ export default function Profile() {
 				{translateError(t, error || creditsQuery.error || "")}
 			</ErrorText>
 			<LanguageCard />
+			<VoiceMicCard />
 			<Paper>
 				<Body>{t("profile.account")}</Body>
 				<Body>{auth.session?.name || t("auth.signedIn")}</Body>

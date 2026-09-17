@@ -74,6 +74,24 @@ export const fr = {
 		roleAdmin: "admin",
 		roleUser: "utilisateur",
 		manageCredits: "Gérer les crédits",
+		voiceTitle: "Talk",
+		voiceHint: "Comment le micro parle à l’agent compagnon.",
+	},
+	talk: {
+		title: "Talk",
+		hint: "Parlez à l’agent compagnon. Grok Voice répond à voix haute.",
+		hold: "Maintenir pour parler",
+		always: "Écoute continue",
+		wake: "Mot de réveil",
+		listening: "Écoute « Hey Companion »",
+		talking: "Parole · facturé",
+		working: "Travail sur la carte…",
+		micDenied: "L’autorisation du microphone est requise.",
+		creditsEmpty: "Crédits vides.",
+		press: "Maintenir pour parler",
+		release: "Relâcher",
+		stop: "Arrêter",
+		transcript: "Transcription",
 	},
 	project: {
 		title: "Projet",
@@ -98,7 +116,7 @@ export const fr = {
 		yourProjects: "Vos projets",
 		boardTools: "Outils de la carte",
 		boardToolsHint:
-			"GPIO en direct, Graver Arduino, Exécuter sur la carte, Vérifier le circuit",
+			"Talk, GPIO en direct, Graver Arduino, Exécuter sur la carte, Vérifier le circuit",
 		show: "Afficher",
 		hide: "Masquer",
 		liveGpioHint:

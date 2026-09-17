@@ -46,6 +46,7 @@ import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
+import TalkPanel from "./TalkPanel.tsx";
 import BreadboardViewer from "./BreadboardViewer.tsx";
 import PcbViewer from "./PcbViewer.tsx";
 import { PreviewSkeleton, TableRowsSkeleton } from "./skeletons.tsx";
@@ -744,6 +745,13 @@ export default function ProjectBrowser({
 								</Button>
 							</Stack>
 						</Stack>
+						{uuid && paired ? (
+							<TalkPanel
+								uuid={uuid}
+								repo={bundle.repo}
+								owner={bundle.owner}
+							/>
+						) : null}
 						{justCreated === bundle.repo ? (
 							<Alert severity="success">
 								<Stack

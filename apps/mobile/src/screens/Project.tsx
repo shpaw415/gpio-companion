@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Linking, Modal, Pressable, Text, View } from "react-native";
 import FlashPanel from "../components/FlashPanel.tsx";
+import TalkPanel from "../components/TalkPanel.tsx";
 import GpioPanel from "../components/GpioPanel.tsx";
 import RunPanel from "../components/RunPanel.tsx";
 import {
@@ -709,6 +710,13 @@ export default function Project() {
 					<Body>
 						{bundle.owner}/{bundle.repo}
 					</Body>
+					{paired && activeUuid ? (
+						<TalkPanel
+							uuid={activeUuid}
+							repo={bundle.repo}
+							owner={bundle.owner}
+						/>
+					) : null}
 					{bundle.branches && bundle.branches.length > 0 ? (
 						<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 							{bundle.branches.map((branch) => {
