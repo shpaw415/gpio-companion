@@ -183,7 +183,7 @@ describe("live handshake", () => {
 		proxy.apply("orangepi", { physical: 14, dir: "off" });
 		expect(
 			writes.some(
-				(item) => item[0] === 0xf4 && item[1] === 14 && item[2] === 0,
+				(item) => item[0] === 0xf4 && item[1] === 14 && item[2] === 0x7f,
 			),
 		).toBe(true);
 		expect(writes.some((item) => item[0] === 0xc0 && item[1] === 0)).toBe(true);

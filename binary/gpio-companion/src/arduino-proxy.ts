@@ -320,7 +320,7 @@ export function createArduinoProxy(
 						encodeReportAnalog(analogChannel(status, command.physical), false),
 					);
 				}
-				open.write(encodeSetPinMode(command.physical, "input"));
+				open.write(encodeSetPinMode(command.physical, "ignore"));
 			} else if (command.dir === "in") {
 				const pin = status.pins.find(
 					(item) => item.physical === command.physical,

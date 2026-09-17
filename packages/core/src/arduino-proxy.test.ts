@@ -120,6 +120,7 @@ describe("firmata", () => {
 		expect([...encodeDigitalPin(13, 1)]).toEqual([0xf5, 13, 1]);
 		expect([...encodeAnalogWrite(9, 64)]).toEqual([0xe9, 64, 0]);
 		expect([...encodeSetPinMode(14, "analog")]).toEqual([0xf4, 14, 2]);
+		expect([...encodeSetPinMode(14, "ignore")]).toEqual([0xf4, 14, 0x7f]);
 		expect([...encodeReportAnalog(0, true)]).toEqual([0xc0, 1]);
 		expect([...encodeSystemReset()]).toEqual([0xff]);
 		expect([...encodeAnalogMappingQuery()]).toEqual([0xf0, 0x69, 0xf7]);

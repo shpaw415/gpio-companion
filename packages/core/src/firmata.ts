@@ -29,6 +29,7 @@ export const PIN_MODE_I2C = 6;
 export const PIN_MODE_SERIAL = 10;
 export const PIN_MODE_PULLUP = 11;
 export const PIN_MODE_SPI = 12;
+export const PIN_MODE_IGNORE = 0x7f;
 
 export const I2C_WRITE = 0;
 export const I2C_READ = 1;
@@ -44,7 +45,8 @@ export type FirmataPinMode =
 	| "i2c"
 	| "serial"
 	| "pullup"
-	| "spi";
+	| "spi"
+	| "ignore";
 
 export type FirmataEvent =
 	| { type: "firmware"; name: string; major: number; minor: number }
@@ -71,6 +73,7 @@ const MODE_BY_CODE: Record<number, FirmataPinMode> = {
 	[PIN_MODE_SERIAL]: "serial",
 	[PIN_MODE_PULLUP]: "pullup",
 	[PIN_MODE_SPI]: "spi",
+	[PIN_MODE_IGNORE]: "ignore",
 };
 
 const CODE_BY_MODE: Record<FirmataPinMode, number> = {
@@ -83,6 +86,7 @@ const CODE_BY_MODE: Record<FirmataPinMode, number> = {
 	serial: PIN_MODE_SERIAL,
 	pullup: PIN_MODE_PULLUP,
 	spi: PIN_MODE_SPI,
+	ignore: PIN_MODE_IGNORE,
 };
 
 export function firmataModeCode(mode: FirmataPinMode): number {
