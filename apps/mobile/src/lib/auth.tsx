@@ -17,6 +17,12 @@ import {
 import { getSession, type Session, setTokenProvider } from "./api.ts";
 import { authClientId, authRedirectUri, issuerUrl } from "./config.ts";
 
+const authOptions = {
+	issuer: issuerUrl,
+	clientId: authClientId,
+	redirectUri: authRedirectUri,
+};
+
 type AuthState = {
 	ready: boolean;
 	token: string | null;
@@ -51,11 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			setReady(true);
 			return;
 		}
-		void configureAuth({
-			issuer: issuerUrl,
-			clientId: authClientId,
-			redirectUri: authRedirectUri,
-		})
+		void configureAuth(authOptions)
 			.then(() => isAuthenticated())
 			.then(async (ok) => {
 				if (!ok) {
@@ -111,10 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				error,
 				login: async () => {
 					try {
+						await configureAuth(authOptions);
 						const next = await loginWithGithub();
+						setError(null);
 						if (next) {
 							setToken(next);
-							setError(null);
 						}
 					} catch (caught) {
 						setError(caught instanceof Error ? caught.message : "login failed");
@@ -129,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					setError(null);
 				},
 				completeAuthCallback: async (url: string) => {
+					await configureAuth(authOptions);
 					const next = await handleAuthCallback(url);
 					setToken(next);
 					setError(null);

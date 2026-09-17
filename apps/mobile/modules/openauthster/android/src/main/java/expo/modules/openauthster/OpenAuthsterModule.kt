@@ -1,5 +1,6 @@
 package expo.modules.openauthster
 
+import android.content.Context
 import android.net.Uri
 import com.openauthster.OpenAuthsterClient
 import com.openauthster.OpenAuthsterConfig
@@ -8,32 +9,26 @@ import expo.modules.kotlin.modules.ModuleDefinition
 
 class OpenAuthsterModule : Module() {
 	private var client: OpenAuthsterClient? = null
+	private var issuer: String? = null
+	private var clientId: String? = null
+	private var redirectUri: String? = null
 
 	override fun definition() = ModuleDefinition {
 		Name("OpenAuthster")
 
 		AsyncFunction("configure") { issuer: String, clientId: String, redirectUri: String ->
-			val context = appContext.reactContext ?: throw IllegalStateException("no android context")
-			client =
-				OpenAuthsterClient(
-					context,
-					OpenAuthsterConfig(
-						issuer = Uri.parse(issuer),
-						clientId = clientId,
-						redirectUri = Uri.parse(redirectUri),
-					),
-				)
+			applyConfig(issuer, clientId, redirectUri)
 		}
 
 		AsyncFunction("login") { provider: String ->
-			val current = client ?: throw IllegalStateException("call configure first")
+			val current = requireClient()
 			val context = appContext.currentActivity ?: throw IllegalStateException("no activity")
 			current.launchLogin(context, provider)
 			""
 		}
 
 		AsyncFunction("handleCallback") { url: String ->
-			val current = client ?: throw IllegalStateException("call configure first")
+			val current = requireClient()
 			current.handleCallback(Uri.parse(url))
 			current.accessToken() ?: throw IllegalStateException("missing access token")
 		}
@@ -43,11 +38,46 @@ class OpenAuthsterModule : Module() {
 		}
 
 		AsyncFunction("getAccessToken") {
-			client?.getValidAccessToken()
+			requireClientOrNull()?.getValidAccessToken()
 		}
 
 		AsyncFunction("isAuthenticated") {
-			client?.isAuthenticated == true
+			requireClientOrNull()?.isAuthenticated == true
 		}
+	}
+
+	private fun androidContext(): Context {
+		return appContext.reactContext?.applicationContext
+			?: appContext.currentActivity?.applicationContext
+			?: appContext.currentActivity
+			?: throw IllegalStateException("no android context")
+	}
+
+	private fun applyConfig(issuer: String, clientId: String, redirectUri: String) {
+		this.issuer = issuer
+		this.clientId = clientId
+		this.redirectUri = redirectUri
+		client =
+			OpenAuthsterClient(
+				androidContext(),
+				OpenAuthsterConfig(
+					issuer = Uri.parse(issuer),
+					clientId = clientId,
+					redirectUri = Uri.parse(redirectUri),
+				),
+			)
+	}
+
+	private fun requireClient(): OpenAuthsterClient {
+		return requireClientOrNull() ?: throw IllegalStateException("call configure first")
+	}
+
+	private fun requireClientOrNull(): OpenAuthsterClient? {
+		client?.let { return it }
+		val savedIssuer = issuer ?: return null
+		val savedClientId = clientId ?: return null
+		val savedRedirect = redirectUri ?: return null
+		applyConfig(savedIssuer, savedClientId, savedRedirect)
+		return client
 	}
 }
