@@ -26,6 +26,7 @@ If `connected` is true:
 
 1. Write C in `~/projects/<repo>/host/arduino-proxy-<kebab>/` (prefix required).
 2. Use **Arduino pin numbers** (13 = LED_BUILTIN, A0 = 14 on Uno). Not companion header seats.
+   `analogRead(A0)`, `analogRead(14)`, and `analogRead(0)` all read A0 on Uno (0–1023 AVR). Live GPIO `dir:in` on analog pins reports `adc`.
 3. `POST /v1/run` `{ dir }` with that absolute folder.
 4. Write `breadboard/diagram.json` with a `gpio-arduino-proxy` part (`attrs.board`
    from `fqbn`, e.g. `uno`). Wires use Arduino pins (`uno:13`, `uno:A0`, `uno:GND`).

@@ -9,6 +9,7 @@ import {
 	gpioLiveValues,
 	gpioNamedLine,
 	gpioPatchFrame,
+	gpioPinStatusKey,
 	gpioPinStatusLabel,
 	gpioPinTone,
 	gpioWsConnectUrl,
@@ -188,6 +189,17 @@ describe("header", () => {
 		).toBe("PWM 128/255");
 		expect(gpioPinStatusLabel({ ...gpio, hz: 440, value: undefined })).toBe(
 			"tone 440 Hz",
+		);
+		expect(
+			gpioPinStatusLabel({
+				...gpio,
+				adc: 507,
+				value: undefined,
+				dir: undefined,
+			}),
+		).toBe("adc 507");
+		expect(gpioPinStatusKey({ ...gpio, adc: 0 })).not.toBe(
+			gpioPinStatusKey({ ...gpio, adc: 507 }),
 		);
 	});
 });

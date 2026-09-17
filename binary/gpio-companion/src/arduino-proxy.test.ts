@@ -115,6 +115,56 @@ describe("live handshake", () => {
 		expect(pin?.analog).toBe(64);
 	});
 
+	test("analog reports update A0 adc", async () => {
+		let onData: (bytes: Uint8Array) => void = () => undefined;
+		const proxy = createArduinoProxy({
+			probeMs: 200,
+			openSerial: (_port, _baud, data) => {
+				onData = data;
+				return {
+					write() {
+						onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		onData(Uint8Array.from([0xe0, 0x7b, 0x03]));
+		expect(proxy.status().pins.find((pin) => pin.physical === 14)?.adc).toBe(
+			507,
+		);
+	});
+
+	test("dir in on A0 enables analog reporting", async () => {
+		const writes: number[][] = [];
+		const proxy = createArduinoProxy({
+			probeMs: 200,
+			openSerial: (_port, _baud, onData) => {
+				return {
+					write(bytes) {
+						writes.push([...bytes]);
+						onData(Uint8Array.from([0xf0, 0x79, 2, 5, 0xf7]));
+					},
+					close() {
+						undefined;
+					},
+				};
+			},
+		});
+		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		writes.length = 0;
+		proxy.apply("orangepi", { physical: 14, dir: "in" });
+		expect(
+			writes.some(
+				(item) => item[0] === 0xf4 && item[1] === 14 && item[2] === 2,
+			),
+		).toBe(true);
+		expect(writes.some((item) => item[0] === 0xc0 && item[1] === 1)).toBe(true);
+	});
+
 	test("probe drops the proxy when the usb port vanishes", async () => {
 		let listed = ["/dev/ttyACM0"];
 		let closed = 0;

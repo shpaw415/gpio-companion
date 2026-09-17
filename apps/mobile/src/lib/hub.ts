@@ -75,7 +75,7 @@ export function gpioSnapshotStatusKey(snapshot: GpioSnapshot): string {
 	return `${snapshot.target ?? "header"}|${snapshot.pins
 		.map(
 			(pin) =>
-				`${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}`,
+				`${pin.physical}:${pin.dir ?? ""}:${pin.value ?? ""}:${pin.analog ?? ""}:${pin.hz ?? ""}:${pin.pwm ?? ""}:${pin.adc ?? ""}`,
 		)
 		.join("|")}`;
 }

@@ -435,6 +435,7 @@ export function gpioPinStatusKey(pin: GpioPinState): string {
 		pin.analog ?? "",
 		pin.hz ?? "",
 		pin.pwm ?? "",
+		pin.adc ?? "",
 		pin.unresolved ? 1 : 0,
 		pin.reserved ? 1 : 0,
 	].join(":");

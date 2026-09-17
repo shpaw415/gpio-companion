@@ -16,10 +16,12 @@ import {
 import { arduinoProxyHeaderLayout } from "./arduino-proxy-layout.ts";
 import { FLASH_PROXY_PATH } from "./flash.ts";
 import {
-	encodeCapabilityQuery,
+	encodeAnalogMappingQuery,
 	encodeAnalogWrite,
+	encodeCapabilityQuery,
 	encodeDigitalPin,
 	encodeQueryFirmware,
+	encodeReportAnalog,
 	encodeSetPinMode,
 	encodeSysex,
 	parseFirmataBytes,
@@ -116,6 +118,9 @@ describe("firmata", () => {
 		expect([...encodeSetPinMode(9, "pwm")]).toEqual([0xf4, 9, 3]);
 		expect([...encodeDigitalPin(13, 1)]).toEqual([0xf5, 13, 1]);
 		expect([...encodeAnalogWrite(9, 64)]).toEqual([0xe9, 64, 0]);
+		expect([...encodeSetPinMode(14, "analog")]).toEqual([0xf4, 14, 2]);
+		expect([...encodeReportAnalog(0, true)]).toEqual([0xc0, 1]);
+		expect([...encodeAnalogMappingQuery()]).toEqual([0xf0, 0x69, 0xf7]);
 	});
 
 	test("parses firmware and capability sysex", () => {
@@ -134,6 +139,16 @@ describe("firmata", () => {
 		]);
 		expect(parseFirmataBytes(capability)[0]).toMatchObject({
 			type: "capability",
+		});
+		const analogMap = encodeSysex(0x6a, [127, 127, 0, 1]);
+		expect(parseFirmataBytes(analogMap)[0]).toMatchObject({
+			type: "analog-map",
+			map: [127, 127, 0, 1],
+		});
+		expect(parseFirmataBytes([0xe0, 0x7b, 0x03])[0]).toMatchObject({
+			type: "analog",
+			pin: 0,
+			value: 507,
 		});
 	});
 });

@@ -51,6 +51,8 @@ static struct timespec start_time;
 static int analog_warned;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
+int A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15;
+
 SerialClass Serial;
 
 static void die(const char *msg) {

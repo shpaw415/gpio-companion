@@ -13,6 +13,8 @@
 #define REPORT_VERSION 0xF9
 #define SYSEX_REPORT_FIRMWARE 0x79
 #define SYSEX_CAPABILITY_QUERY 0x6C
+#define SYSEX_ANALOG_MAPPING_QUERY 0x69
+#define SYSEX_ANALOG_MAPPING_RESPONSE 0x6A
 #define SYSEX_I2C_REQUEST 0x76
 #define SYSEX_I2C_CONFIG 0x78
 #define SYSEX_SERIAL 0x60
@@ -29,8 +31,10 @@
 
 #if defined(ESP32)
 #define SERIAL_BAUD 115200
+#define ANALOG_RESOLUTION 12
 #else
 #define SERIAL_BAUD 57600
+#define ANALOG_RESOLUTION 10
 #endif
 
 #ifndef LED_BUILTIN
@@ -56,6 +60,106 @@ static void sendSysex(uint8_t command, const uint8_t *data, uint8_t len) {
 	Serial.write(END_SYSEX);
 }
 
+static int analogDigitalPin(uint8_t channel) {
+#if defined(ESP32)
+	(void)channel;
+	return -1;
+#elif defined(analogInputToDigitalPin)
+	int mapped = analogInputToDigitalPin(channel);
+	if (mapped >= 0) {
+		return mapped;
+	}
+#endif
+#if defined(A0)
+	return (int)A0 + (int)channel;
+#else
+	return -1;
+#endif
+}
+
+static int analogChannelForPin(int pin) {
+	for (uint8_t i = 0; i < analogCount; i++) {
+		if (analogMap[i] == pin) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static uint8_t pinCount() {
+	uint8_t n = NUM_DIGITAL_PINS;
+	for (uint8_t i = 0; i < analogCount; i++) {
+		if (analogMap[i] >= 0 && analogMap[i] + 1 > n) {
+			n = (uint8_t)(analogMap[i] + 1);
+		}
+	}
+	return n;
+}
+
+static int pinSupported(uint8_t pin) {
+	if (pin < NUM_DIGITAL_PINS) {
+		return 1;
+	}
+	return analogChannelForPin(pin) >= 0;
+}
+
+static int bindAnalogChannel(uint8_t ch) {
+	if (ch >= 16) {
+		return -1;
+	}
+	if (analogMap[ch] >= 0) {
+		return analogMap[ch];
+	}
+	for (uint8_t pin = 0; pin < 128; pin++) {
+		if (pinModeStored[pin] == MODE_ANALOG && analogChannelForPin(pin) < 0) {
+			analogMap[ch] = pin;
+			if (ch >= analogCount) {
+				analogCount = ch + 1;
+			}
+			return pin;
+		}
+	}
+	return -1;
+}
+
+static int sampleAnalogChannel(uint8_t ch) {
+	if (ch >= analogCount) {
+		return 0;
+	}
+	int pin = analogMap[ch];
+	if (pin >= 0) {
+		return analogRead(pin);
+	}
+#if defined(ESP32)
+	return 0;
+#else
+	return analogRead(ch);
+#endif
+}
+
+static void sendAnalog(uint8_t ch, int value) {
+	if (value < 0) {
+		value = 0;
+	}
+	if (value > 16383) {
+		value = 16383;
+	}
+	Serial.write(ANALOG_MESSAGE | (ch & 0x0F));
+	Serial.write(value & 0x7f);
+	Serial.write((value >> 7) & 0x7f);
+}
+
+static void reportAnalogChannel(uint8_t ch) {
+	if (ch >= analogCount) {
+		return;
+	}
+	int pin = analogMap[ch];
+	if (pin >= 0 && pin < 128 && pinModeStored[pin] == MODE_PWM) {
+		return;
+	}
+	sendAnalog(ch, sampleAnalogChannel(ch));
+}
+
 static void sendFirmware() {
 	const char *name = "gpio-companion-proxy";
 	uint8_t payload[48];
@@ -72,24 +176,42 @@ static void sendFirmware() {
 static void sendCapabilities() {
 	Serial.write(START_SYSEX);
 	Serial.write(SYSEX_CAPABILITY_QUERY);
-	for (uint8_t pin = 0; pin < NUM_DIGITAL_PINS; pin++) {
-		Serial.write((uint8_t)MODE_INPUT);
-		Serial.write((uint8_t)1);
-		Serial.write((uint8_t)MODE_OUTPUT);
-		Serial.write((uint8_t)1);
-		Serial.write((uint8_t)MODE_PULLUP);
-		Serial.write((uint8_t)1);
-		if (digitalPinHasPWM(pin)) {
-			Serial.write((uint8_t)MODE_PWM);
-			Serial.write((uint8_t)8);
+	uint8_t n = pinCount();
+	for (uint8_t pin = 0; pin < n; pin++) {
+		if (pin < NUM_DIGITAL_PINS) {
+			Serial.write((uint8_t)MODE_INPUT);
+			Serial.write((uint8_t)1);
+			Serial.write((uint8_t)MODE_OUTPUT);
+			Serial.write((uint8_t)1);
+			Serial.write((uint8_t)MODE_PULLUP);
+			Serial.write((uint8_t)1);
+			if (digitalPinHasPWM(pin)) {
+				Serial.write((uint8_t)MODE_PWM);
+				Serial.write((uint8_t)8);
+			}
+		}
+		if (analogChannelForPin(pin) >= 0) {
+			Serial.write((uint8_t)MODE_ANALOG);
+			Serial.write((uint8_t)ANALOG_RESOLUTION);
 		}
 		Serial.write(0x7f);
 	}
 	Serial.write(END_SYSEX);
 }
 
+static void sendAnalogMapping() {
+	Serial.write(START_SYSEX);
+	Serial.write(SYSEX_ANALOG_MAPPING_RESPONSE);
+	uint8_t n = pinCount();
+	for (uint8_t pin = 0; pin < n; pin++) {
+		int ch = analogChannelForPin(pin);
+		Serial.write(ch >= 0 ? (uint8_t)ch : 0x7f);
+	}
+	Serial.write(END_SYSEX);
+}
+
 static void applyMode(uint8_t pin, uint8_t mode) {
-	if (pin >= NUM_DIGITAL_PINS) {
+	if (!pinSupported(pin)) {
 		return;
 	}
 	pinModeStored[pin] = mode;
@@ -116,6 +238,10 @@ static void handleSysex() {
 	}
 	if (command == SYSEX_CAPABILITY_QUERY) {
 		sendCapabilities();
+		return;
+	}
+	if (command == SYSEX_ANALOG_MAPPING_QUERY) {
+		sendAnalogMapping();
 		return;
 	}
 	if (command == SYSEX_I2C_CONFIG) {
@@ -204,7 +330,7 @@ static void handleByte(uint8_t value) {
 		if (cmd == SET_PIN_MODE) {
 			applyMode(stored, value);
 		} else if (cmd == SET_DIGITAL_PIN) {
-			if (stored < NUM_DIGITAL_PINS) {
+			if (stored < 128 && pinSupported(stored)) {
 				pinModeStored[stored] = MODE_OUTPUT;
 				pinAnalog[stored] = 0;
 			}
@@ -215,11 +341,20 @@ static void handleByte(uint8_t value) {
 			if (analog > 255) {
 				analog = 255;
 			}
-			if (pin < NUM_DIGITAL_PINS) {
+			if (pin < 128 && pinSupported(pin)) {
 				pinModeStored[pin] = MODE_PWM;
 				pinAnalog[pin] = (uint8_t)analog;
 			}
 			analogWrite(pin, analog);
+		} else if ((cmd & 0xF0) == REPORT_ANALOG) {
+			uint8_t ch = cmd & 0x0F;
+			reportAnalog[ch] = value ? 1 : 0;
+			if (reportAnalog[ch]) {
+				bindAnalogChannel(ch);
+				reportAnalogChannel(ch);
+			}
+		} else if ((cmd & 0xF0) == REPORT_DIGITAL) {
+			reportDigital[cmd & 0x0F] = value ? 1 : 0;
 		}
 		wait = 0;
 		return;
@@ -243,7 +378,6 @@ static void handleByte(uint8_t value) {
 	if ((value & 0xF0) == REPORT_DIGITAL) {
 		cmd = value;
 		wait = 1;
-		stored = value & 0x0F;
 		return;
 	}
 	if ((value & 0xF0) == REPORT_ANALOG) {
@@ -261,10 +395,16 @@ void setup() {
 	}
 	for (uint8_t i = 0; i < 16; i++) {
 		analogMap[i] = -1;
+		reportAnalog[i] = 0;
+		reportDigital[i] = 0;
 	}
 #if defined(NUM_ANALOG_INPUTS)
-	for (uint8_t a = 0; a < NUM_ANALOG_INPUTS && analogCount < 16; a++) {
-		analogMap[analogCount++] = analogInputToDigitalPin(a);
+	analogCount = NUM_ANALOG_INPUTS;
+	if (analogCount > 16) {
+		analogCount = 16;
+	}
+	for (uint8_t a = 0; a < analogCount; a++) {
+		analogMap[a] = analogDigitalPin(a);
 	}
 #endif
 	applyMode(LED_BUILTIN, MODE_OUTPUT);
@@ -307,5 +447,11 @@ void loop() {
 		Serial.write(DIGITAL_MESSAGE | port);
 		Serial.write(bits & 0x7f);
 		Serial.write((bits >> 7) & 0x7f);
+	}
+	for (uint8_t ch = 0; ch < analogCount && ch < 16; ch++) {
+		if (!reportAnalog[ch]) {
+			continue;
+		}
+		reportAnalogChannel(ch);
 	}
 }

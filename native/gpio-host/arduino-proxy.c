@@ -5,9 +5,11 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -18,6 +20,9 @@
 #define SET_PIN_MODE 0xF4
 #define SET_DIGITAL_PIN 0xF5
 #define ANALOG_MESSAGE 0xE0
+#define REPORT_ANALOG 0xC0
+#define SYSEX_ANALOG_MAPPING_QUERY 0x69
+#define SYSEX_ANALOG_MAPPING_RESPONSE 0x6A
 #define SYSEX_I2C_REQUEST 0x76
 #define SYSEX_I2C_CONFIG 0x78
 #define SYSEX_SERIAL 0x60
@@ -42,6 +47,22 @@ static struct timespec start_time;
 static int serial_fd = -1;
 static char serial_port[128];
 static int serial_baud = 57600;
+static int analog_channel[MAX_PINS];
+static int analog_pin_by_channel[16];
+static int analog_value[16];
+static int analog_fresh[16];
+static int analog_map_ready;
+static int analog_map_from_fw;
+static int analog_queried;
+static int analog_warned;
+static int analog_wait;
+static unsigned char analog_cmd;
+static unsigned char analog_lsb;
+static int in_sysex;
+static unsigned char sysex_buf[80];
+static uint8_t sysex_len;
+
+int A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15;
 
 SerialClass Serial;
 
@@ -96,6 +117,116 @@ static void serial_open(void) {
 	}
 }
 
+static void analog_map_from_pinmap(void) {
+	for (int pin = 0; pin < MAX_PINS; pin++) {
+		analog_channel[pin] = -1;
+	}
+	for (int i = 0; i < 16; i++) {
+		analog_pin_by_channel[i] = -1;
+	}
+	int ch = 0;
+	for (int pin = 0; pin < MAX_PINS && ch < 16; pin++) {
+		if (pins[pin].adc) {
+			analog_channel[pin] = ch;
+			analog_pin_by_channel[ch] = pin;
+			ch++;
+		}
+	}
+	analog_map_ready = 1;
+}
+
+static void handle_analog_map(const unsigned char *data, uint8_t len) {
+	for (int pin = 0; pin < MAX_PINS; pin++) {
+		analog_channel[pin] = -1;
+	}
+	for (int i = 0; i < 16; i++) {
+		analog_pin_by_channel[i] = -1;
+	}
+	for (uint8_t pin = 0; pin < len && pin < MAX_PINS; pin++) {
+		uint8_t ch = data[pin];
+		if (ch < 16) {
+			analog_channel[pin] = ch;
+			analog_pin_by_channel[ch] = pin;
+		}
+	}
+	analog_map_from_fw = 1;
+	analog_map_ready = 1;
+}
+
+static void handle_rx_byte(unsigned char value) {
+	if (in_sysex) {
+		if (value == END_SYSEX) {
+			in_sysex = 0;
+			if (sysex_len >= 1 && sysex_buf[0] == SYSEX_ANALOG_MAPPING_RESPONSE) {
+				handle_analog_map(sysex_buf + 1, (uint8_t)(sysex_len - 1));
+			}
+			sysex_len = 0;
+			return;
+		}
+		if (sysex_len < sizeof(sysex_buf)) {
+			sysex_buf[sysex_len++] = value;
+		}
+		return;
+	}
+	if (value == START_SYSEX) {
+		in_sysex = 1;
+		sysex_len = 0;
+		return;
+	}
+	if (analog_wait) {
+		if (analog_wait == 2) {
+			analog_lsb = value;
+			analog_wait = 1;
+			return;
+		}
+		int ch = analog_cmd & 0x0f;
+		analog_value[ch] = analog_lsb | ((value & 0x7f) << 7);
+		analog_fresh[ch] = 1;
+		analog_wait = 0;
+		return;
+	}
+	if ((value & 0xF0) == ANALOG_MESSAGE) {
+		analog_cmd = value;
+		analog_wait = 2;
+	}
+}
+
+static void serial_drain(void) {
+	serial_open();
+	if (serial_fd < 0) {
+		return;
+	}
+	unsigned char buf[64];
+	for (;;) {
+		ssize_t n = read(serial_fd, buf, sizeof(buf));
+		if (n <= 0) {
+			break;
+		}
+		for (ssize_t i = 0; i < n; i++) {
+			handle_rx_byte(buf[i]);
+		}
+	}
+}
+
+static int serial_wait(int timeout_ms) {
+	serial_open();
+	if (serial_fd < 0) {
+		return -1;
+	}
+	fd_set rfds;
+	FD_ZERO(&rfds);
+	FD_SET(serial_fd, &rfds);
+	struct timeval tv;
+	tv.tv_sec = timeout_ms / 1000;
+	tv.tv_usec = (timeout_ms % 1000) * 1000L;
+	int r = select(serial_fd + 1, &rfds, NULL, NULL, &tv);
+	if (r > 0) {
+		serial_drain();
+		return 1;
+	}
+	return 0;
+}
+
 static void serial_send(const unsigned char *bytes, size_t n) {
 	serial_open();
 	if (serial_fd < 0) {
@@ -114,6 +245,52 @@ static void send_digital(int pin, int value) {
 	unsigned char buf[3] = {SET_DIGITAL_PIN, (unsigned char)(pin & 0x7f),
 		(unsigned char)(value ? 1 : 0)};
 	serial_send(buf, 3);
+}
+
+static void analog_map_query(void) {
+	if (analog_map_from_fw) {
+		return;
+	}
+	if (!analog_map_ready) {
+		analog_map_from_pinmap();
+	}
+	if (analog_queried) {
+		return;
+	}
+	analog_queried = 1;
+	unsigned char q[] = {START_SYSEX, SYSEX_ANALOG_MAPPING_QUERY, END_SYSEX};
+	serial_send(q, 3);
+	unsigned long start = millis();
+	while (!analog_map_from_fw && millis() - start < 80) {
+		if (gpio_host_stopping()) {
+			return;
+		}
+		serial_wait(20);
+	}
+}
+
+static int resolve_analog(int pin, int *channel) {
+	analog_map_query();
+	if (pin >= 0 && pin < MAX_PINS && analog_channel[pin] >= 0) {
+		*channel = analog_channel[pin];
+		return pin;
+	}
+	if (pin >= 0 && pin < 16 && analog_pin_by_channel[pin] >= 0) {
+		*channel = pin;
+		return analog_pin_by_channel[pin];
+	}
+	return -1;
+}
+
+static void fill_analog_aliases(void) {
+	int *aliases[] = {&A0, &A1, &A2, &A3, &A4, &A5, &A6, &A7, &A8, &A9, &A10,
+		&A11, &A12, &A13, &A14, &A15};
+	int n = 0;
+	for (int pin = 0; pin < MAX_PINS && n < 16; pin++) {
+		if (pins[pin].adc) {
+			*aliases[n++] = pin;
+		}
+	}
 }
 
 static PinState *require_gpio(int pin, const char *op) {
@@ -203,6 +380,8 @@ void gpio_host_init(int argc, char **argv) {
 	}
 	memset(pins, 0, sizeof(pins));
 	parse_pinmap(pinmap);
+	fill_analog_aliases();
+	analog_map_from_pinmap();
 	clock_gettime(CLOCK_MONOTONIC, &start_time);
 	Serial.begin = serial_begin;
 	Serial.print = serial_print;
@@ -260,11 +439,37 @@ void analogWrite(int pin, int value) {
 }
 
 int analogRead(int pin) {
-	PinState *state = require_gpio(pin, "analogRead");
-	if (!state->adc) {
+	int channel = -1;
+	int digital = resolve_analog(pin, &channel);
+	if (digital < 0 || channel < 0 || channel >= 16) {
+		if (!analog_warned) {
+			analog_warned = 1;
+			fprintf(stderr, "gpio-host-proxy: analogRead is unavailable for pin %d\n",
+				pin);
+		}
 		return 0;
 	}
-	return 0;
+	if (digital < MAX_PINS && pins[digital].kind == PIN_GPIO) {
+		pins[digital].mode = INPUT;
+	}
+	analog_fresh[channel] = 0;
+	send_mode(digital, 2);
+	unsigned char report[2] = {
+		(unsigned char)(REPORT_ANALOG | (channel & 0x0f)),
+		1,
+	};
+	serial_send(report, 2);
+	unsigned long start = millis();
+	while (millis() - start < 150) {
+		if (gpio_host_stopping()) {
+			break;
+		}
+		serial_wait(20);
+		if (analog_fresh[channel]) {
+			return analog_value[channel];
+		}
+	}
+	return analog_value[channel];
 }
 
 void tone(int pin, unsigned int frequency) {

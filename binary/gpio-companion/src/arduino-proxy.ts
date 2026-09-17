@@ -26,6 +26,7 @@ import {
 	encodeI2cRead,
 	encodeI2cWrite,
 	encodeQueryFirmware,
+	encodeReportAnalog,
 	encodeSerialWrite,
 	encodeSetPinMode,
 	encodeSpiTransfer,
@@ -300,7 +301,17 @@ export function createArduinoProxy(
 					encodeAnalogWrite(command.physical, command.analog ?? 0),
 				);
 			} else if (command.dir === "in") {
-				serial?.write(encodeSetPinMode(command.physical, "input"));
+				const pin = status.pins.find(
+					(item) => item.physical === command.physical,
+				);
+				if (pin && pin.adc !== undefined) {
+					serial?.write(encodeSetPinMode(command.physical, "analog"));
+					serial?.write(
+						encodeReportAnalog(analogChannel(status, command.physical), true),
+					);
+				} else {
+					serial?.write(encodeSetPinMode(command.physical, "input"));
+				}
 			} else {
 				serial?.write(encodeSetPinMode(command.physical, "output"));
 				serial?.write(
@@ -497,9 +508,19 @@ function patchPins(pins: GpioPinState[], command: GpioApply): GpioPinState[] {
 	});
 }
 
+function analogPins(status: ArduinoProxyStatus) {
+	return status.pins.filter((pin) => pin.adc !== undefined);
+}
+
 function analogPin(status: ArduinoProxyStatus, analogChannel: number): number {
-	const analogs = status.pins.filter((pin) => pin.adc !== undefined);
-	return analogs[analogChannel]?.physical ?? analogChannel;
+	return analogPins(status)[analogChannel]?.physical ?? analogChannel;
+}
+
+function analogChannel(status: ArduinoProxyStatus, physical: number): number {
+	const index = analogPins(status).findIndex(
+		(pin) => pin.physical === physical,
+	);
+	return index >= 0 ? index : physical;
 }
 
 function liveOpenSerial(
