@@ -33,18 +33,12 @@
 	// GPIO_COMPANION_DEVICE_PRIVATE_KEY Pages secret (Ed25519 PEM)
 	// PAYPAL_CLIENT_SECRET Pages secret
 	// PUBLIC_PAYPAL_CLIENT_ID wrangler var (do not bake empty)
-	// XAI_API_KEY is a gpio-companion-voice Worker secret (not Pages)
 	"durable_objects": {
 		"bindings": [
 			{
 				"name": "DEVICE_HUB",
 				"class_name": "DeviceHub",
 				"script_name": "gpio-companion-hub",
-			},
-			{
-				"name": "VOICE_HUB",
-				"class_name": "VoiceHub",
-				"script_name": "gpio-companion-voice",
 			}
 		]
 	}
