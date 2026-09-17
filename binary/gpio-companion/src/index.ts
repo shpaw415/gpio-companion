@@ -221,9 +221,7 @@ const hub = hubEnabled
 	: { stop() {} };
 void proxy.probe();
 const stopUsbWatch = watchUsbSerialPorts(() => {
-	if (!proxy.status().connected) {
-		void proxy.probe();
-	}
+	void proxy.probe();
 });
 
 console.log(
@@ -273,6 +271,9 @@ process.on("SIGTERM", () => {
 });
 process.on("SIGINT", () => {
 	void shutdown("SIGINT");
+});
+process.on("SIGHUP", () => {
+	undefined;
 });
 
 function loadDeviceAuth(): { keyId: string; publicKeyPem: string } {

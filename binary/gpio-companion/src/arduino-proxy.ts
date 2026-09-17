@@ -1,11 +1,13 @@
 import {
+	constants,
 	createReadStream,
 	createWriteStream,
 	existsSync,
-	readdirSync,
+	openSync,
 	type ReadStream,
-	watch,
+	readdirSync,
 	type WriteStream,
+	watch,
 } from "node:fs";
 import { join } from "node:path";
 import {
@@ -67,6 +69,17 @@ export type ArduinoProxyOptions = {
 
 const PROBE_MS = 3_500;
 const QUERY_EVERY_MS = 250;
+export const TTY_NOCTTY_FLAGS = constants.O_NOCTTY;
+
+export function openTtyReadStream(port: string): ReadStream {
+	const fd = openSync(port, constants.O_RDONLY | TTY_NOCTTY_FLAGS);
+	return createReadStream(port, { fd });
+}
+
+export function openTtyWriteStream(port: string): WriteStream {
+	const fd = openSync(port, constants.O_WRONLY | TTY_NOCTTY_FLAGS);
+	return createWriteStream(port, { fd });
+}
 
 export function listUsbSerialPorts(devDir = "/dev"): string[] {
 	try {
@@ -333,9 +346,6 @@ export function createArduinoProxy(
 			return handshake(port, fqbn);
 		},
 		async probe() {
-			if (status.connected && serial) {
-				return status;
-			}
 			if (probing) {
 				return probing;
 			}
@@ -349,6 +359,15 @@ export function createArduinoProxy(
 					}
 				} else {
 					ports = listUsbSerialPorts().map((address) => ({ address }));
+				}
+				if (status.connected && serial) {
+					if (
+						status.port &&
+						ports.some((item) => item.address === status.port)
+					) {
+						return status;
+					}
+					disconnect();
 				}
 				for (const port of ports) {
 					if (!port.address) {
@@ -522,8 +541,8 @@ function liveOpenSerial(
 			return;
 		}
 		try {
-			reader = createReadStream(port);
-			writer = createWriteStream(port);
+			reader = openTtyReadStream(port);
+			writer = openTtyWriteStream(port);
 			reader.on("error", () => {
 				if (!closed) {
 					onClose();
