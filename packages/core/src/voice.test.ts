@@ -65,6 +65,8 @@ describe("voice protocol", () => {
 	test("matches the wake phrase", () => {
 		expect(matchesWakePhrase("Hey Companion, blink pin 7")).toBe(true);
 		expect(matchesWakePhrase("dis companion")).toBe(true);
+		expect(matchesWakePhrase("hé compagnon")).toBe(true);
+		expect(matchesWakePhrase("ok companion please")).toBe(true);
 		expect(matchesWakePhrase("hello board")).toBe(false);
 	});
 

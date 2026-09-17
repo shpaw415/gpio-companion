@@ -5,13 +5,15 @@ import Select from "@shpaw415/mui-lite/Select";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useRef, useState } from "react";
-import { mintVoiceTicket } from "../api";
+import { createPortal } from "react-dom";
+import { mintVoiceTicket, transcribeWake } from "../api";
 import {
 	encodeVoiceClient,
 	matchesWakePhrase,
 	parseVoiceId,
 	parseVoiceMicMode,
 	parseVoiceServerMessage,
+	pcmToWav,
 	VOICE_ID_STORAGE_KEY,
 	VOICE_MIC_STORAGE_KEY,
 	VOICE_SAMPLE_RATE,
@@ -70,51 +72,24 @@ export default function TalkPanel({
 		if (mode !== "wake" || !uuid) {
 			return;
 		}
-		const Speech = (
-			window as unknown as {
-				webkitSpeechRecognition?: new () => {
-					continuous: boolean;
-					interimResults: boolean;
-					lang: string;
-					onresult:
-						| ((event: {
-								results: ArrayLike<ArrayLike<{ transcript: string }>>;
-						  }) => void)
-						| null;
-					start(): void;
-					stop(): void;
-				};
-			}
-		).webkitSpeechRecognition;
-		if (!Speech) {
-			setState("listening");
-			return;
-		}
-		const rec = new Speech();
-		rec.continuous = true;
-		rec.interimResults = true;
-		rec.lang = locale.startsWith("fr") ? "fr-FR" : "en-US";
-		rec.onresult = (event) => {
-			const last = event.results[event.results.length - 1];
-			const text = last?.[0]?.transcript ?? "";
-			if (matchesWakePhrase(text)) {
+		let closed = false;
+		setState("listening");
+		const stopSpeech = startSpeechWake(() => {
+			if (!closed && !socketRef.current) {
 				void startSession();
 			}
-		};
-		try {
-			rec.start();
-			setState("listening");
-		} catch {
-			setState("listening");
-		}
-		return () => {
-			try {
-				rec.stop();
-			} catch {
-				undefined;
+		});
+		const stopVad = startVadWake(() => {
+			if (!closed && !socketRef.current) {
+				void startSession();
 			}
+		});
+		return () => {
+			closed = true;
+			stopSpeech();
+			stopVad();
 		};
-	}, [mode, uuid, locale]);
+	}, [mode, uuid]);
 
 	async function startSession() {
 		if (!uuid || socketRef.current) {
@@ -254,11 +229,7 @@ export default function TalkPanel({
 		setState("idle");
 	}
 
-	const live =
-		billed ||
-		state === "talking" ||
-		state === "listening" ||
-		state === "working";
+	const active = billed || state === "talking" || state === "working";
 
 	const chip =
 		state === "working"
@@ -306,34 +277,7 @@ export default function TalkPanel({
 					))}
 				</Select>
 				{error ? <Typography color="error">{error}</Typography> : null}
-				{live ? (
-					<Stack spacing={1} sx={{ alignItems: "center", pt: 1 }}>
-						{heard ? (
-							<div className="talk-heard">{heard}</div>
-						) : (
-							<Typography color="secondary" sx={{ fontSize: "0.85rem" }}>
-								{t("talk.listening")}
-							</Typography>
-						)}
-						<button
-							type="button"
-							className="talk-mic"
-							onClick={() => stopAll()}
-							aria-label={t("talk.stop")}
-						>
-							<span className="talk-mic-pulse" />
-							<svg
-								width="28"
-								height="28"
-								viewBox="0 0 24 24"
-								aria-hidden
-								style={{ position: "relative", fill: "currentColor" }}
-							>
-								<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
-							</svg>
-						</button>
-					</Stack>
-				) : (
+				{!active ? (
 					<Stack direction="row" spacing={1}>
 						{mode === "hold" ? (
 							<Button
@@ -355,8 +299,190 @@ export default function TalkPanel({
 							</Button>
 						)}
 					</Stack>
-				)}
+				) : null}
 			</Stack>
+			{active
+				? createPortal(
+						<div className="talk-float">
+							{heard ? <div className="talk-heard">{heard}</div> : null}
+							<button
+								type="button"
+								className="talk-mic"
+								onClick={() => stopAll()}
+								aria-label={t("talk.stop")}
+							>
+								<span className="talk-mic-pulse" />
+								<svg
+									width="28"
+									height="28"
+									viewBox="0 0 24 24"
+									aria-hidden
+									style={{ position: "relative", fill: "currentColor" }}
+								>
+									<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+								</svg>
+							</button>
+						</div>,
+						document.body,
+					)
+				: null}
 		</Paper>
 	);
 }
+
+function startSpeechWake(onWake: () => void): () => void {
+	const Speech =
+		(
+			window as unknown as {
+				SpeechRecognition?: new () => SpeechRec;
+				webkitSpeechRecognition?: new () => SpeechRec;
+			}
+		).SpeechRecognition ||
+		(
+			window as unknown as {
+				webkitSpeechRecognition?: new () => SpeechRec;
+			}
+		).webkitSpeechRecognition;
+	if (!Speech) {
+		return () => undefined;
+	}
+	let closed = false;
+	const rec = new Speech();
+	rec.continuous = true;
+	rec.interimResults = true;
+	rec.lang = "en-US";
+	rec.maxAlternatives = 3;
+	rec.onresult = (event) => {
+		for (let i = event.resultIndex; i < event.results.length; i += 1) {
+			const row = event.results[i];
+			if (!row) {
+				continue;
+			}
+			for (let j = 0; j < row.length; j += 1) {
+				if (matchesWakePhrase(row[j]?.transcript ?? "")) {
+					onWake();
+					return;
+				}
+			}
+		}
+	};
+	rec.onend = () => {
+		if (!closed) {
+			try {
+				rec.start();
+			} catch {
+				undefined;
+			}
+		}
+	};
+	try {
+		rec.start();
+	} catch {
+		undefined;
+	}
+	return () => {
+		closed = true;
+		try {
+			rec.stop();
+		} catch {
+			undefined;
+		}
+	};
+}
+
+function startVadWake(onWake: () => void): () => void {
+	let closed = false;
+	let context: AudioContext | null = null;
+	let stream: MediaStream | null = null;
+	let busy = false;
+	void (async () => {
+		try {
+			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			if (closed) {
+				for (const track of stream.getTracks()) {
+					track.stop();
+				}
+				return;
+			}
+			context = new AudioContext();
+			const source = context.createMediaStreamSource(stream);
+			const processor = context.createScriptProcessor(4096, 1, 1);
+			const rate = context.sampleRate;
+			let speaking = false;
+			let silence = 0;
+			let chunks: Float32Array[] = [];
+			processor.onaudioprocess = (event) => {
+				if (closed || busy) {
+					return;
+				}
+				const input = event.inputBuffer.getChannelData(0);
+				let sum = 0;
+				for (let i = 0; i < input.length; i += 1) {
+					const sample = input[i] ?? 0;
+					sum += sample * sample;
+				}
+				const rms = Math.sqrt(sum / input.length);
+				if (rms > 0.025) {
+					speaking = true;
+					silence = 0;
+					chunks.push(new Float32Array(input));
+					return;
+				}
+				if (!speaking) {
+					return;
+				}
+				silence += input.length / rate;
+				chunks.push(new Float32Array(input));
+				if (silence < 0.4 || chunks.length < 6) {
+					return;
+				}
+				const blob = pcmToWav(chunks, rate);
+				chunks = [];
+				speaking = false;
+				silence = 0;
+				busy = true;
+				void transcribeWake(blob)
+					.then((text) => {
+						if (!closed && matchesWakePhrase(text)) {
+							onWake();
+						}
+					})
+					.catch(() => undefined)
+					.finally(() => {
+						busy = false;
+					});
+			};
+			source.connect(processor);
+			const mute = context.createGain();
+			mute.gain.value = 0;
+			processor.connect(mute);
+			mute.connect(context.destination);
+		} catch {
+			undefined;
+		}
+	})();
+	return () => {
+		closed = true;
+		for (const track of stream?.getTracks() ?? []) {
+			track.stop();
+		}
+		void context?.close();
+	};
+}
+
+type SpeechRec = {
+	continuous: boolean;
+	interimResults: boolean;
+	lang: string;
+	maxAlternatives: number;
+	resultIndex: number;
+	onresult:
+		| ((event: {
+				resultIndex: number;
+				results: ArrayLike<ArrayLike<{ transcript: string }>>;
+		  }) => void)
+		| null;
+	onend: (() => void) | null;
+	start(): void;
+	stop(): void;
+};

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Animated, Modal, Pressable, Text, View } from "react-native";
 import { mintVoiceTicket } from "../lib/api.ts";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
@@ -41,11 +41,7 @@ export default function TalkPanel({
 	const [heard, setHeard] = useState("");
 	const socketRef = useRef<WebSocket | null>(null);
 	const pulse = useRef(new Animated.Value(1)).current;
-	const live =
-		billed ||
-		state === "talking" ||
-		state === "listening" ||
-		state === "working";
+	const active = billed || state === "talking" || state === "working";
 
 	useEffect(() => {
 		void storageGet(VOICE_MIC_STORAGE_KEY).then((stored) => {
@@ -69,7 +65,7 @@ export default function TalkPanel({
 	}, [mode, uuid, auth.token]);
 
 	useEffect(() => {
-		if (!live) {
+		if (!active) {
 			pulse.setValue(1);
 			return;
 		}
@@ -91,7 +87,7 @@ export default function TalkPanel({
 		return () => {
 			anim.stop();
 		};
-	}, [live, pulse]);
+	}, [active, pulse]);
 
 	async function startSession() {
 		if (!uuid || !auth.token || socketRef.current) {
@@ -221,29 +217,49 @@ export default function TalkPanel({
 				})}
 			</View>
 			<ErrorText>{error}</ErrorText>
-			{live ? (
-				<View style={{ alignItems: "center", paddingTop: 8, gap: 10 }}>
-					<View
-						style={{
-							maxWidth: 280,
-							maxHeight: 72,
-							overflow: "hidden",
-							borderRadius: 12,
-							paddingHorizontal: 12,
-							paddingVertical: 8,
-							backgroundColor: colors.chipBg,
-						}}
-					>
-						<Text
+			{!active ? (
+				<PrimaryButton
+					label={t("talk.press")}
+					onPress={() => void startSession()}
+				/>
+			) : null}
+			<Modal
+				visible={active}
+				transparent
+				animationType="none"
+				onRequestClose={() => stopAll()}
+			>
+				<View
+					pointerEvents="box-none"
+					style={{
+						flex: 1,
+						justifyContent: "flex-end",
+						alignItems: "center",
+						paddingBottom: 36,
+					}}
+				>
+					{heard ? (
+						<View
 							style={{
-								color: colors.muted,
-								fontSize: 13,
-								textAlign: "center",
+								maxWidth: 280,
+								marginBottom: 10,
+								borderRadius: 12,
+								paddingHorizontal: 12,
+								paddingVertical: 8,
+								backgroundColor: colors.chipBg,
 							}}
 						>
-							{heard || t("talk.listening")}
-						</Text>
-					</View>
+							<Text
+								style={{
+									color: colors.muted,
+									fontSize: 13,
+									textAlign: "center",
+								}}
+							>
+								{heard}
+							</Text>
+						</View>
+					) : null}
 					<Pressable
 						onPress={() => stopAll()}
 						accessibilityLabel={t("talk.stop")}
@@ -300,12 +316,7 @@ export default function TalkPanel({
 						</View>
 					</Pressable>
 				</View>
-			) : (
-				<PrimaryButton
-					label={t("talk.press")}
-					onPress={() => void startSession()}
-				/>
-			)}
+			</Modal>
 		</Paper>
 	);
 }

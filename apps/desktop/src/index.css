@@ -147,17 +147,31 @@ body {
 	max-width: 100%;
 }
 
+.talk-float {
+	position: fixed;
+	left: 50%;
+	bottom: 1.5rem;
+	z-index: 40;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
 .talk-heard {
 	max-width: 20rem;
 	max-height: 4.5rem;
 	overflow: auto;
 	border-radius: 0.75rem;
 	padding: 0.4rem 0.75rem;
-	background: rgba(var(--text-main), 0.06);
+	background: rgba(var(--bg-surface), 0.92);
 	color: rgb(var(--text-secondary));
 	font-size: 0.85rem;
 	line-height: 1.35;
 	text-align: center;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .talk-mic {
@@ -172,6 +186,8 @@ body {
 	background: rgb(var(--bg-surface));
 	color: rgb(var(--text-primary));
 	cursor: pointer;
+	pointer-events: auto;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
 .talk-mic-pulse {

@@ -45,10 +45,13 @@ export class VoiceHub extends DurableObject<Env> {
 	private pendingCalls = 0;
 
 	override async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+		if (request.method === "POST" && url.searchParams.get("op") === "stt") {
+			return this.transcribe(request);
+		}
 		if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
 			return new Response("expected websocket", { status: 426 });
 		}
-		const url = new URL(request.url);
 		const userId = url.searchParams.get("userId")?.trim() ?? "";
 		const uuid = url.searchParams.get("uuid")?.trim() ?? "";
 		const deviceUrl = url.searchParams.get("deviceUrl")?.trim() ?? "";
@@ -444,6 +447,44 @@ export class VoiceHub extends DurableObject<Env> {
 				}
 			}
 		}
+	}
+
+	private async transcribe(request: Request): Promise<Response> {
+		const key = this.env.XAI_API_KEY?.trim() ?? "";
+		if (!key) {
+			return Response.json(
+				{ error: "voice is not configured" },
+				{ status: 503 },
+			);
+		}
+		let form: FormData;
+		try {
+			form = await request.formData();
+		} catch {
+			return Response.json({ error: "file is required" }, { status: 400 });
+		}
+		const file = form.get("file");
+		if (!(file instanceof Blob)) {
+			return Response.json({ error: "file is required" }, { status: 400 });
+		}
+		const body = new FormData();
+		body.append("file", file, "wake.wav");
+		const response = await fetch("https://api.x.ai/v1/stt", {
+			method: "POST",
+			headers: { Authorization: `Bearer ${key}` },
+			body,
+		});
+		const payload = (await response.json().catch(() => null)) as {
+			text?: unknown;
+			error?: unknown;
+		} | null;
+		const text = typeof payload?.text === "string" ? payload.text : "";
+		if (!response.ok) {
+			const error =
+				typeof payload?.error === "string" ? payload.error : "stt failed";
+			return Response.json({ error }, { status: response.status });
+		}
+		return Response.json({ text });
 	}
 
 	private send(message: {

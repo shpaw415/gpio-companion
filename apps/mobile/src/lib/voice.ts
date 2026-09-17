@@ -22,6 +22,52 @@ export type VoiceServerMessage = {
 	billed?: boolean;
 };
 
+export function foldWakeText(text: string): string {
+	return text
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^a-z0-9\s]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+export function matchesWakePhrase(text: string): boolean {
+	const normalized = foldWakeText(text);
+	if (!normalized) {
+		return false;
+	}
+	if (
+		normalized.includes("hey companion") ||
+		normalized.includes("hey compagnon") ||
+		normalized.includes("hi companion") ||
+		normalized.includes("ok companion") ||
+		normalized.includes("dis companion")
+	) {
+		return true;
+	}
+	const words = normalized.split(" ");
+	let hey = -1;
+	let companion = -1;
+	for (let i = 0; i < words.length; i += 1) {
+		const word = words[i] ?? "";
+		if (
+			hey < 0 &&
+			(word === "hey" ||
+				word === "he" ||
+				word === "hi" ||
+				word === "ok" ||
+				word === "dis")
+		) {
+			hey = i;
+		}
+		if (word.startsWith("companion") || word.startsWith("compagnon")) {
+			companion = i;
+		}
+	}
+	return hey >= 0 && companion > hey;
+}
+
 export function parseVoiceMicMode(value: unknown): VoiceMicMode {
 	return value === "always" || value === "wake" || value === "hold"
 		? value

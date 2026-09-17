@@ -16,6 +16,7 @@ import {
 	WAKE_PHRASE_LABEL,
 } from "gpio-companion";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocale, useT } from "../hooks/useLocale.tsx";
 import { useVoiceMic } from "../hooks/useVoiceMic.ts";
 
@@ -23,11 +24,14 @@ type SpeechRec = {
 	continuous: boolean;
 	interimResults: boolean;
 	lang: string;
+	maxAlternatives: number;
 	onresult:
 		| ((event: {
+				resultIndex: number;
 				results: ArrayLike<ArrayLike<{ transcript: string }>>;
 		  }) => void)
 		| null;
+	onend: (() => void) | null;
 	onerror: (() => void) | null;
 	start(): void;
 	stop(): void;
@@ -94,15 +98,33 @@ export default function TalkPanel({
 			setState("listening");
 			return;
 		}
+		let closed = false;
 		const rec = new Speech();
 		rec.continuous = true;
 		rec.interimResults = true;
-		rec.lang = locale.startsWith("fr") ? "fr-FR" : "en-US";
+		rec.maxAlternatives = 3;
+		rec.lang = "en-US";
 		rec.onresult = (event) => {
-			const last = event.results[event.results.length - 1];
-			const text = last?.[0]?.transcript ?? "";
-			if (matchesWakePhrase(text)) {
-				void startSession();
+			for (let i = event.resultIndex; i < event.results.length; i += 1) {
+				const row = event.results[i];
+				if (!row) {
+					continue;
+				}
+				for (let j = 0; j < row.length; j += 1) {
+					if (matchesWakePhrase(row[j]?.transcript ?? "")) {
+						void startSession();
+						return;
+					}
+				}
+			}
+		};
+		rec.onend = () => {
+			if (!closed) {
+				try {
+					rec.start();
+				} catch {
+					undefined;
+				}
 			}
 		};
 		rec.onerror = () => undefined;
@@ -113,6 +135,7 @@ export default function TalkPanel({
 			setState("listening");
 		}
 		return () => {
+			closed = true;
 			try {
 				rec.stop();
 			} catch {
@@ -257,11 +280,7 @@ export default function TalkPanel({
 		setState("idle");
 	}
 
-	const live =
-		billed ||
-		state === "talking" ||
-		state === "listening" ||
-		state === "working";
+	const active = billed || state === "talking" || state === "working";
 
 	const chip =
 		state === "working"
@@ -301,29 +320,7 @@ export default function TalkPanel({
 					))}
 				</Select>
 				{error ? <Typography color="error">{error}</Typography> : null}
-				{live ? (
-					<Stack spacing={1} className="items-center pt-2">
-						{heard ? (
-							<div className="talk-heard">{heard}</div>
-						) : (
-							<Typography color="secondary" className="text-sm">
-								{t("talk.listening")}
-							</Typography>
-						)}
-						<button
-							type="button"
-							className="talk-mic"
-							onClick={() => stopAll()}
-							aria-label={t("talk.stop")}
-						>
-							<span className="talk-mic-pulse" />
-							<MicIcon
-								className="relative h-7 w-7"
-								style={{ fill: "currentColor" }}
-							/>
-						</button>
-					</Stack>
-				) : (
+				{!active ? (
 					<Stack direction="row" spacing={1} className="flex-wrap">
 						{mode === "hold" ? (
 							<Button
@@ -345,8 +342,28 @@ export default function TalkPanel({
 							</Button>
 						)}
 					</Stack>
-				)}
+				) : null}
 			</Stack>
+			{active
+				? createPortal(
+						<div className="talk-float">
+							{heard ? <div className="talk-heard">{heard}</div> : null}
+							<button
+								type="button"
+								className="talk-mic"
+								onClick={() => stopAll()}
+								aria-label={t("talk.stop")}
+							>
+								<span className="talk-mic-pulse" />
+								<MicIcon
+									className="relative h-7 w-7"
+									style={{ fill: "currentColor" }}
+								/>
+							</button>
+						</div>,
+						document.body,
+					)
+				: null}
 		</Paper>
 	);
 }

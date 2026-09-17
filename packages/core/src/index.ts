@@ -650,6 +650,7 @@ export {
 	encodeVoiceMessage,
 	isVoiceAccessToken,
 	isVoiceMicMode,
+	foldWakeText,
 	matchesWakePhrase,
 	parseVoiceClientMessage,
 	parseVoiceId,

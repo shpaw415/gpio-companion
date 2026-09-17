@@ -732,6 +732,30 @@ export function mintVoiceTicket(uuid: string) {
 	return apiRequest<HubTicket>("POST", "/api/mobile/voice/live", { uuid });
 }
 
+export async function transcribeWake(blob: Blob): Promise<string> {
+	const token = await authToken();
+	if (!token) {
+		throw new Error("sign in first");
+	}
+	const form = new FormData();
+	form.append("file", blob, "wake.wav");
+	const response = await fetch(`${DASHBOARD_URL}/api/mobile/voice/stt`, {
+		method: "POST",
+		headers: { authorization: `Bearer ${token}` },
+		body: form,
+	});
+	const payload = (await response.json().catch(() => null)) as {
+		ok?: boolean;
+		data?: { text?: string };
+		error?: string;
+		text?: string;
+	} | null;
+	if (!response.ok) {
+		throw new Error(payload?.error || "stt failed");
+	}
+	return payload?.data?.text || payload?.text || "";
+}
+
 export type FlashPort = {
 	address: string;
 	protocol?: string;
