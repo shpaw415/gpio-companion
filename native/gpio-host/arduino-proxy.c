@@ -21,6 +21,7 @@
 #define SET_DIGITAL_PIN 0xF5
 #define ANALOG_MESSAGE 0xE0
 #define REPORT_ANALOG 0xC0
+#define SYSTEM_RESET 0xFF
 #define SYSEX_ANALOG_MAPPING_QUERY 0x69
 #define SYSEX_ANALOG_MAPPING_RESPONSE 0x6A
 #define SYSEX_I2C_REQUEST 0x76
@@ -40,6 +41,7 @@ typedef struct {
 	int pwm;
 	int mode;
 	int value;
+	int used;
 } PinState;
 
 static PinState pins[MAX_PINS];
@@ -391,14 +393,33 @@ void gpio_host_init(int argc, char **argv) {
 }
 
 void gpio_host_shutdown(void) {
-	if (serial_fd >= 0) {
-		close(serial_fd);
-		serial_fd = -1;
+	if (serial_fd < 0) {
+		return;
 	}
+	for (int ch = 0; ch < 16; ch++) {
+		unsigned char report[2] = {
+			(unsigned char)(REPORT_ANALOG | (ch & 0x0f)),
+			0,
+		};
+		serial_send(report, 2);
+	}
+	for (int pin = 0; pin < MAX_PINS; pin++) {
+		if (pins[pin].kind != PIN_GPIO || !pins[pin].used) {
+			continue;
+		}
+		send_mode(pin, 1);
+		send_digital(pin, 0);
+	}
+	unsigned char reset = SYSTEM_RESET;
+	serial_send(&reset, 1);
+	tcdrain(serial_fd);
+	close(serial_fd);
+	serial_fd = -1;
 }
 
 void pinMode(int pin, int mode) {
 	PinState *state = require_gpio(pin, "pinMode");
+	state->used = 1;
 	state->mode = mode;
 	if (mode == INPUT_PULLUP) {
 		send_mode(pin, 11);
@@ -411,6 +432,7 @@ void pinMode(int pin, int mode) {
 
 void digitalWrite(int pin, int value) {
 	PinState *state = require_gpio(pin, "digitalWrite");
+	state->used = 1;
 	state->value = value ? 1 : 0;
 	send_digital(pin, state->value);
 }
@@ -422,6 +444,7 @@ int digitalRead(int pin) {
 
 void analogWrite(int pin, int value) {
 	PinState *state = require_gpio(pin, "analogWrite");
+	state->used = 1;
 	if (value < 0) {
 		value = 0;
 	}
@@ -450,6 +473,7 @@ int analogRead(int pin) {
 		return 0;
 	}
 	if (digital < MAX_PINS && pins[digital].kind == PIN_GPIO) {
+		pins[digital].used = 1;
 		pins[digital].mode = INPUT;
 	}
 	analog_fresh[channel] = 0;

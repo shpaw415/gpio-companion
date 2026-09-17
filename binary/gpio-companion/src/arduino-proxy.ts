@@ -30,6 +30,7 @@ import {
 	encodeSerialWrite,
 	encodeSetPinMode,
 	encodeSpiTransfer,
+	encodeSystemReset,
 	type FlashPort,
 	type GpioApply,
 	type GpioBusCommand,
@@ -265,6 +266,7 @@ export function createArduinoProxy(
 		if (serial.ready) {
 			await serial.ready;
 		}
+		serial.write(encodeSystemReset());
 		const probeMs = options.probeMs ?? PROBE_MS;
 		const deadline = Date.now() + probeMs;
 		while (!sawFirmware && Date.now() < deadline) {

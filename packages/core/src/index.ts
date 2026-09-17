@@ -319,6 +319,7 @@ export {
 	encodeSetPinMode,
 	encodeSpiTransfer,
 	encodeSysex,
+	encodeSystemReset,
 	type FirmataEvent,
 	type FirmataPinCapability,
 	type FirmataPinMode,

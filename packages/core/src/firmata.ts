@@ -130,6 +130,10 @@ export function encodeReportAnalog(pin: number, enabled: boolean): Uint8Array {
 	return Uint8Array.from([REPORT_ANALOG | (pin & 0x0f), enabled ? 1 : 0]);
 }
 
+export function encodeSystemReset(): Uint8Array {
+	return Uint8Array.from([SYSTEM_RESET]);
+}
+
 export function encodeI2cConfig(delayUs = 0): Uint8Array {
 	return encodeSysex(SYSEX_I2C_CONFIG, [delayUs & 0x7f, (delayUs >> 7) & 0x7f]);
 }

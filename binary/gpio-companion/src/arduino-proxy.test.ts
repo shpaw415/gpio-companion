@@ -107,6 +107,7 @@ describe("live handshake", () => {
 			},
 		});
 		await proxy.attach("/dev/ttyACM0", "arduino:avr:uno");
+		expect(writes[0]).toEqual([0xff]);
 		const snapshot = proxy.apply("orangepi", {
 			physical: 9,
 			dir: "pwm",

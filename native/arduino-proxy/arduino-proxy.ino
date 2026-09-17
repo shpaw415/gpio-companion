@@ -11,6 +11,7 @@
 #define REPORT_ANALOG 0xC0
 #define REPORT_DIGITAL 0xD0
 #define REPORT_VERSION 0xF9
+#define SYSTEM_RESET 0xFF
 #define SYSEX_REPORT_FIRMWARE 0x79
 #define SYSEX_CAPABILITY_QUERY 0x6C
 #define SYSEX_ANALOG_MAPPING_QUERY 0x69
@@ -359,6 +360,15 @@ static void handleByte(uint8_t value) {
 		wait = 0;
 		return;
 	}
+	if (value == SYSTEM_RESET) {
+		wait = 0;
+		cmd = 0;
+		inSysex = 0;
+		sysexLen = 0;
+		resetState();
+		sendFirmware();
+		return;
+	}
 	if (value == REPORT_VERSION) {
 		Serial.write(REPORT_VERSION);
 		Serial.write(2);
@@ -387,11 +397,11 @@ static void handleByte(uint8_t value) {
 	}
 }
 
-void setup() {
-	Serial.begin(SERIAL_BAUD);
+static void resetState() {
 	analogCount = 0;
 	for (uint8_t i = 0; i < 128; i++) {
 		pinModeStored[i] = 0xFF;
+		pinAnalog[i] = 0;
 	}
 	for (uint8_t i = 0; i < 16; i++) {
 		analogMap[i] = -1;
@@ -408,6 +418,12 @@ void setup() {
 	}
 #endif
 	applyMode(LED_BUILTIN, MODE_OUTPUT);
+	digitalWrite(LED_BUILTIN, LOW);
+}
+
+void setup() {
+	Serial.begin(SERIAL_BAUD);
+	resetState();
 	sendFirmware();
 }
 
