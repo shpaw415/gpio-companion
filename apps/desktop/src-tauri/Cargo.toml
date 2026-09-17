@@ -35,3 +35,4 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus = "0.9"
+webkit2gtk = { version = "2.0.2", features = ["v2_40"] }

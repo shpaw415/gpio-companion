@@ -51,6 +51,7 @@ export default function TalkPanel({
 	const [transcript, setTranscript] = useState("");
 	const socketRef = useRef<WebSocket | null>(null);
 	const audioRef = useRef<AudioContext | null>(null);
+	const streamRef = useRef<MediaStream | null>(null);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: unmount only
 	useEffect(() => () => stopAll(), []);
@@ -179,11 +180,24 @@ export default function TalkPanel({
 	}
 
 	async function startMic(socket: WebSocket) {
-		const stream = await navigator.mediaDevices.getUserMedia({
-			audio: { echoCancellation: true, noiseSuppression: true },
-		});
+		const media = navigator.mediaDevices;
+		if (!media?.getUserMedia) {
+			throw new Error("mic");
+		}
+		let stream: MediaStream;
+		try {
+			stream = await media.getUserMedia({ audio: true });
+		} catch {
+			stream = await media.getUserMedia({
+				audio: { echoCancellation: true, noiseSuppression: true },
+			});
+		}
+		streamRef.current = stream;
 		const context = new AudioContext({ sampleRate: VOICE_SAMPLE_RATE });
 		audioRef.current = context;
+		if (context.state === "suspended") {
+			await context.resume();
+		}
 		const source = context.createMediaStreamSource(stream);
 		const processor = context.createScriptProcessor(4096, 1, 1);
 		processor.onaudioprocess = (event) => {
@@ -228,6 +242,10 @@ export default function TalkPanel({
 			socket.close();
 		}
 		socketRef.current = null;
+		for (const track of streamRef.current?.getTracks() ?? []) {
+			track.stop();
+		}
+		streamRef.current = null;
 		void audioRef.current?.close();
 		audioRef.current = null;
 		setBilled(false);

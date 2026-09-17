@@ -82,6 +82,31 @@ async fn auth_session() -> Result<Session, String> {
 	api::request(Method::GET, "/api/mobile/session", None::<&Value>).await
 }
 
+fn enable_talk_microphone(app: &AppHandle) {
+	let Some(window) = app.get_webview_window("main") else {
+		return;
+	};
+	let _ = window.with_webview(|webview| {
+		#[cfg(target_os = "linux")]
+		{
+			use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt};
+			let webview = webview.inner();
+			if let Some(settings) = webview.settings() {
+				settings.set_enable_media_stream(true);
+				settings.set_enable_webrtc(true);
+			}
+			webview.connect_permission_request(|_, request| {
+				request.allow();
+				true
+			});
+		}
+		#[cfg(not(target_os = "linux"))]
+		{
+			let _ = webview;
+		}
+	});
+}
+
 fn focus_main(app: &AppHandle) {
 	if let Some(window) = app.get_webview_window("main") {
 		let _ = window.unminimize();
@@ -693,6 +718,7 @@ pub fn run() {
 					}
 				}
 			}
+			enable_talk_microphone(app.handle());
 			Ok(())
 		})
 		.invoke_handler(tauri::generate_handler![

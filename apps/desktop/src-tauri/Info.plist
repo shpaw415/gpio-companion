@@ -6,5 +6,7 @@
 	<string>gpio-companion uses Bluetooth to pair a board and send signed WiFi credentials.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>gpio-companion uses Bluetooth to pair a board and send signed WiFi credentials.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Talk uses the microphone so you can speak to the companion agent.</string>
 </dict>
 </plist>
