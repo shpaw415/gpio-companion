@@ -36,6 +36,7 @@ import {
 	type GpioBusCommand,
 	type GpioPinState,
 	type GpioSnapshot,
+	gpioPinOff,
 	type HardwareId,
 	isArduinoProxyFqbn,
 	parseArduinoBoardList,
@@ -310,6 +311,16 @@ export function createArduinoProxy(
 			} else if (command.dir === "pwm") {
 				open.write(encodeSetPinMode(command.physical, "pwm"));
 				open.write(encodeAnalogWrite(command.physical, command.analog ?? 0));
+			} else if (command.dir === "off") {
+				const pin = status.pins.find(
+					(item) => item.physical === command.physical,
+				);
+				if (pin && pin.adc !== undefined) {
+					open.write(
+						encodeReportAnalog(analogChannel(status, command.physical), false),
+					);
+				}
+				open.write(encodeSetPinMode(command.physical, "input"));
 			} else if (command.dir === "in") {
 				const pin = status.pins.find(
 					(item) => item.physical === command.physical,
@@ -529,6 +540,9 @@ function patchPins(pins: GpioPinState[], command: GpioApply): GpioPinState[] {
 				analog: command.analog ?? 0,
 				value: (command.analog ?? 0) >= 128 ? 1 : 0,
 			};
+		}
+		if (command.dir === "off") {
+			return gpioPinOff(pin);
 		}
 		if (command.dir === "in") {
 			const next = { ...pin, dir: "in" as const };

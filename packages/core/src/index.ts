@@ -404,6 +404,7 @@ export {
 	type GpioWsRefresh,
 	gpioLiveValues,
 	gpioNamedLine,
+	gpioPinOff,
 	gpioPatchFrame,
 	gpioPinStatusKey,
 	gpioPinStatusLabel,

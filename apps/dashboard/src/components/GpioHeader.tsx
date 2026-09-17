@@ -25,6 +25,9 @@ export function gpioStatusText(
 	if (pin.unresolved) {
 		return t("gpio.unresolved");
 	}
+	if (pin.dir === "off") {
+		return t("gpio.offDir");
+	}
 	if (typeof pin.hz === "number") {
 		return t("gpio.toneHz", { n: Math.round(pin.hz) });
 	}

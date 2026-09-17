@@ -280,6 +280,7 @@ export function createLibgpiodGpio(): GpioController {
 		{ proc: ReturnType<typeof Bun.spawn>; value: 0 | 1 }
 	>();
 	const pwmHeld = new Map<string, PwmHold>();
+	const offHeld = new Set<string>();
 	let gate = Promise.resolve();
 	function serial<T>(fn: () => Promise<T>): Promise<T> {
 		const next = gate.then(fn, fn);
@@ -295,7 +296,7 @@ export function createLibgpiodGpio(): GpioController {
 			readall: () => spawnText(["gpio", "readall"]).catch(() => ""),
 			pwm: readSysfsPwm,
 			async get(ref) {
-				const heldLive = liveFromHeld(held, pwmHeld, ref);
+				const heldLive = liveFromHeld(held, pwmHeld, offHeld, ref);
 				if (heldLive) {
 					return heldLive;
 				}
@@ -303,12 +304,17 @@ export function createLibgpiodGpio(): GpioController {
 				return parseGpioGet(text);
 			},
 			async getMany(refs) {
-				return readManyLives(refs, held, pwmHeld);
+				return readManyLives(refs, held, pwmHeld, offHeld);
 			},
 			async set(ref, dir, value) {
 				await serial(async () => {
 					await releasePwm(pwmHeld, ref);
 					await releaseHeld(held, ref);
+					if (dir === "off") {
+						offHeld.add(lineKey(ref));
+						return;
+					}
+					offHeld.delete(lineKey(ref));
 					if (dir === "in") {
 						await spawnGpioGet(ref, false);
 						return;
@@ -324,6 +330,7 @@ export function createLibgpiodGpio(): GpioController {
 			},
 			async analogWrite(ref, analog) {
 				await serial(async () => {
+					offHeld.delete(lineKey(ref));
 					await releaseHeld(held, ref);
 					const current = pwmHeld.get(lineKey(ref));
 					if (current && current.hz === undefined) {
@@ -337,6 +344,7 @@ export function createLibgpiodGpio(): GpioController {
 			},
 			async tone(ref, hz) {
 				await serial(async () => {
+					offHeld.delete(lineKey(ref));
 					await releaseHeld(held, ref);
 					const current = pwmHeld.get(lineKey(ref));
 					if (current && current.hz !== undefined) {
@@ -361,6 +369,7 @@ export function createLibgpiodGpio(): GpioController {
 		apply: controller.apply,
 		async releaseAll() {
 			await serial(async () => {
+				offHeld.clear();
 				for (const [key, current] of [...held.entries()]) {
 					held.delete(key);
 					await killTree(current.proc);
@@ -397,6 +406,10 @@ export function memoryGpioBackend(
 			return state.get(lineKey(ref)) ?? { dir: "in", value: 0 };
 		},
 		async set(ref, dir, value) {
+			if (dir === "off") {
+				state.set(lineKey(ref), { dir: "off" });
+				return;
+			}
 			state.set(lineKey(ref), {
 				dir,
 				value: dir === "out" ? (value ?? 0) : 0,
@@ -499,16 +512,18 @@ async function readSnapshot(
 		if (def.alt?.length) {
 			pin.alt = def.alt;
 		}
-		if (live?.analog !== undefined) {
-			pin.analog = live.analog;
-			pin.pwm = analogToPwmPercent(live.analog);
-			pin.dir = "pwm";
-		} else if (pwm !== undefined) {
-			pin.pwm = pwm;
-		}
-		if (live?.hz !== undefined) {
-			pin.hz = live.hz;
-			pin.dir = "out";
+		if (live?.dir !== "off") {
+			if (live?.analog !== undefined) {
+				pin.analog = live.analog;
+				pin.pwm = analogToPwmPercent(live.analog);
+				pin.dir = "pwm";
+			} else if (pwm !== undefined) {
+				pin.pwm = pwm;
+			}
+			if (live?.hz !== undefined) {
+				pin.hz = live.hz;
+				pin.dir = "out";
+			}
 		}
 		pins.push(pin);
 	}
@@ -680,8 +695,12 @@ async function readLives(
 function liveFromHeld(
 	held: Map<string, { proc: ReturnType<typeof Bun.spawn>; value: 0 | 1 }>,
 	pwmHeld: Map<string, PwmHold>,
+	offHeld: Set<string>,
 	ref: GpioLineRef,
 ): GpioLive | undefined {
+	if (offHeld.has(lineKey(ref))) {
+		return { dir: "off" };
+	}
 	const pwm = pwmHeld.get(lineKey(ref));
 	if (pwm) {
 		return {
@@ -702,11 +721,12 @@ async function readManyLives(
 	refs: GpioLineRef[],
 	held: Map<string, { proc: ReturnType<typeof Bun.spawn>; value: 0 | 1 }>,
 	pwmHeld: Map<string, PwmHold>,
+	offHeld: Set<string>,
 ): Promise<Map<string, GpioLive>> {
 	const lives = new Map<string, GpioLive>();
 	const pending: GpioLineRef[] = [];
 	for (const ref of refs) {
-		const heldLive = liveFromHeld(held, pwmHeld, ref);
+		const heldLive = liveFromHeld(held, pwmHeld, offHeld, ref);
 		if (heldLive) {
 			lives.set(lineKey(ref), heldLive);
 			continue;

@@ -8,7 +8,7 @@ import {
 
 export type GpioPut = {
 	physical: number;
-	dir?: "in" | "out" | "pwm";
+	dir?: "in" | "out" | "pwm" | "off";
 	value?: 0 | 1;
 	analog?: number;
 	op?: "refresh" | "tone" | "notone";

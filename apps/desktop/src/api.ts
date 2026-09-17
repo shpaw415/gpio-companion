@@ -1000,7 +1000,7 @@ export type GpioPinState = {
 	physical: number;
 	name: string;
 	type: string;
-	dir?: "in" | "out" | "pwm";
+	dir?: "in" | "out" | "pwm" | "off";
 	value?: 0 | 1;
 	pwm?: number;
 	analog?: number;

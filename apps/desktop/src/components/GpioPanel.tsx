@@ -37,7 +37,7 @@ function liveValues(snapshot: GpioSnapshot | null): Record<number, 0 | 1> {
 
 type GpioCommand = {
 	physical: number;
-	dir?: "in" | "out" | "pwm";
+	dir?: "in" | "out" | "pwm" | "off";
 	value?: 0 | 1;
 	analog?: number;
 	op?: "tone" | "notone";
@@ -78,6 +78,17 @@ function applyCommand(
 					value: analog >= 128 ? (1 as const) : (0 as const),
 				};
 				delete next.hz;
+				return next;
+			}
+			if (command.dir === "off") {
+				const next = { ...pin, dir: "off" as const };
+				delete next.value;
+				delete next.analog;
+				delete next.pwm;
+				delete next.hz;
+				if (typeof next.adc === "number") {
+					next.adc = 0;
+				}
 				return next;
 			}
 			if (command.dir === "in") {
@@ -423,6 +434,14 @@ function GpioPinActions({
 					onClick={() => onDrive({ physical: pin.physical, dir: "in" })}
 				>
 					{t("gpio.in")}
+				</Button>
+				<Button
+					size="small"
+					variant="outlined"
+					disabled={busy || locked}
+					onClick={() => onDrive({ physical: pin.physical, dir: "off" })}
+				>
+					{t("gpio.off")}
 				</Button>
 				<Button
 					size="small"

@@ -179,6 +179,17 @@ describe("live handshake", () => {
 			),
 		).toBe(true);
 		expect(writes.some((item) => item[0] === 0xc0 && item[1] === 1)).toBe(true);
+		writes.length = 0;
+		proxy.apply("orangepi", { physical: 14, dir: "off" });
+		expect(
+			writes.some(
+				(item) => item[0] === 0xf4 && item[1] === 14 && item[2] === 0,
+			),
+		).toBe(true);
+		expect(writes.some((item) => item[0] === 0xc0 && item[1] === 0)).toBe(true);
+		expect(proxy.status().pins.find((pin) => pin.physical === 14)?.dir).toBe(
+			"off",
+		);
 	});
 
 	test("probe drops the proxy when the usb port vanishes", async () => {

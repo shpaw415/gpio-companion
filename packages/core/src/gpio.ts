@@ -33,7 +33,7 @@ export const GPIO_RESERVED_PHYSICAL: Record<HardwareId, number[]> = {
 	orangepi: [],
 };
 
-export type GpioDir = "in" | "out" | "pwm";
+export type GpioDir = "in" | "out" | "pwm" | "off";
 
 export type GpioTarget = "header" | "arduino-proxy";
 
@@ -383,6 +383,9 @@ export function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
+	if (pin.dir === "off") {
+		return "idle";
+	}
 	if (typeof pin.hz === "number") {
 		return "tone";
 	}
@@ -404,6 +407,9 @@ export function gpioPinStatusLabel(pin: GpioPinState): string {
 	}
 	if (pin.unresolved) {
 		return "Unresolved";
+	}
+	if (pin.dir === "off") {
+		return "off";
 	}
 	if (typeof pin.hz === "number") {
 		return `tone ${Math.round(pin.hz)} Hz`;
@@ -576,6 +582,9 @@ export function applyGpioApply(
 				};
 				delete next.hz;
 				return next;
+			}
+			if (command.dir === "off") {
+				return gpioPinOff(pin);
 			}
 			if (command.dir === "in") {
 				const next = { ...pin, dir: "in" as const };
@@ -819,10 +828,22 @@ function parseDir(dir: unknown, value: unknown): GpioDir {
 	if (dir === undefined || dir === "") {
 		return value === undefined ? "in" : "out";
 	}
-	if (dir === "in" || dir === "out" || dir === "pwm") {
+	if (dir === "in" || dir === "out" || dir === "pwm" || dir === "off") {
 		return dir;
 	}
-	throw new GpioError("dir must be in, out, or pwm");
+	throw new GpioError("dir must be in, out, pwm, or off");
+}
+
+export function gpioPinOff(pin: GpioPinState): GpioPinState {
+	const next = { ...pin, dir: "off" as const };
+	delete next.value;
+	delete next.analog;
+	delete next.pwm;
+	delete next.hz;
+	if (typeof next.adc === "number") {
+		next.adc = 0;
+	}
+	return next;
 }
 
 function parseValue(value: unknown): 0 | 1 {

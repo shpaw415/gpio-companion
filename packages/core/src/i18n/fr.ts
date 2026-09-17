@@ -532,6 +532,7 @@ export const fr = {
 		tapToDrive: "Touchez une broche GPIO pour la commander.",
 		pin: "Broche {n} {name}",
 		in: "Entrée",
+		off: "Arrêt",
 		setHigh: "Mettre à haut",
 		setLow: "Mettre à bas",
 		pwm: "PWM",
@@ -564,6 +565,7 @@ export const fr = {
 		usb: "USB",
 		inDir: "entrée",
 		outDir: "sortie",
+		offDir: "arrêt",
 	},
 	flash: {
 		title: "Graver Arduino",

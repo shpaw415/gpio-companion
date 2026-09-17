@@ -394,6 +394,15 @@ function GpioPinActions({
 					size="small"
 					variant="outlined"
 					disabled={busy || disabled || locked}
+					onClick={() => onDrive({ physical: pin.physical, dir: "off" })}
+				>
+					{t("gpio.off")}
+				</Button>
+				<Button
+					type="button"
+					size="small"
+					variant="outlined"
+					disabled={busy || disabled || locked}
 					onClick={() =>
 						onDrive({
 							physical: pin.physical,

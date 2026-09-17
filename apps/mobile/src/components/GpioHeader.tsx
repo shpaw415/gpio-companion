@@ -49,6 +49,9 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
+	if (pin.dir === "off") {
+		return "idle";
+	}
 	if (typeof pin.hz === "number") {
 		return "tone";
 	}
@@ -70,6 +73,9 @@ function pinStatusLabel(pin: GpioPinState, t: Translate<Messages>): string {
 	}
 	if (pin.unresolved) {
 		return t("gpio.unresolved");
+	}
+	if (pin.dir === "off") {
+		return t("gpio.offDir");
 	}
 	if (typeof pin.hz === "number") {
 		return t("gpio.toneHz", { n: Math.round(pin.hz) });

@@ -285,6 +285,17 @@ describe("gpio controller", () => {
 			op: "notone",
 		});
 		expect(silent.pins.find((pin) => pin.physical === 11)?.hz).toBeUndefined();
+		const released = await gpio.apply("raspberrypi", {
+			physical: 11,
+			dir: "off",
+		});
+		expect(released.pins.find((pin) => pin.physical === 11)?.dir).toBe("off");
+		expect(
+			released.pins.find((pin) => pin.physical === 11)?.value,
+		).toBeUndefined();
+		expect(
+			released.pins.find((pin) => pin.physical === 11)?.analog,
+		).toBeUndefined();
 	});
 });
 

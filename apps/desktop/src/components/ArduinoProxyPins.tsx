@@ -28,6 +28,9 @@ function gpioPinTone(pin: GpioPinState): string {
 	if (pin.reserved) {
 		return "reserved";
 	}
+	if (pin.dir === "off") {
+		return "idle";
+	}
 	if (typeof pin.hz === "number") {
 		return "tone";
 	}

@@ -59,6 +59,9 @@ function gpioPinTone(pin: GpioPinState): GpioPinTone {
 	if (pin.unresolved) {
 		return "unresolved";
 	}
+	if (pin.dir === "off") {
+		return "idle";
+	}
 	if (typeof pin.hz === "number") {
 		return "tone";
 	}

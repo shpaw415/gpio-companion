@@ -72,6 +72,10 @@ describe("parseGpioPut", () => {
 			physical: 11,
 			dir: "in",
 		});
+		expect(parseGpioPut({ physical: 11, dir: "off" })).toEqual({
+			physical: 11,
+			dir: "off",
+		});
 	});
 
 	test("requires value for output", () => {
@@ -179,6 +183,10 @@ describe("header", () => {
 		expect(gpioPinTone(reserved)).toBe("reserved");
 		expect(gpioPinTone({ ...gpio, pwm: 40 })).toBe("pwm");
 		expect(gpioPinStatusLabel(gpio)).toBe("out · high");
+		expect(gpioPinStatusLabel({ ...gpio, dir: "off", value: undefined })).toBe(
+			"off",
+		);
+		expect(gpioPinTone({ ...gpio, dir: "off", value: undefined })).toBe("idle");
 		expect(
 			gpioPinStatusLabel({
 				...gpio,
@@ -234,6 +242,13 @@ describe("gpio stream frames", () => {
 			value: 1,
 		});
 		expect(next.pins.find((pin) => pin.physical === 11)?.value).toBe(1);
+		const released = applyGpioApply(next, { physical: 11, dir: "off" });
+		expect(released.pins.find((pin) => pin.physical === 11)).toMatchObject({
+			dir: "off",
+		});
+		expect(
+			released.pins.find((pin) => pin.physical === 11)?.value,
+		).toBeUndefined();
 		expect(gpioPatchFrame(base, base)).toBeNull();
 		expect(gpioPatchFrame(null, next)).toEqual(next);
 		const changed = next.pins.find((pin) => pin.physical === 11);

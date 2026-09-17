@@ -518,6 +518,7 @@ export const en = {
 		tapToDrive: "Tap a GPIO pin to drive it.",
 		pin: "Pin {n} {name}",
 		in: "In",
+		off: "Off",
 		setHigh: "Set high",
 		setLow: "Set low",
 		pwm: "PWM",
@@ -550,6 +551,7 @@ export const en = {
 		usb: "USB",
 		inDir: "in",
 		outDir: "out",
+		offDir: "off",
 	},
 	flash: {
 		title: "Flash Arduino",
