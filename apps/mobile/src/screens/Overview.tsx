@@ -1,8 +1,11 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useEffect, useRef, useState } from "react";
+import { View } from "react-native";
 import BoardCard from "../components/BoardCard.tsx";
 import {
 	ErrorText,
 	Muted,
+	Paper,
 	PrimaryButton,
 	Screen,
 	Skeleton,
@@ -11,12 +14,14 @@ import { unpairDevice } from "../lib/api.ts";
 import { useUserBoards } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
+import { useColors } from "../lib/color-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 
 export default function Overview() {
 	const auth = useAuth();
 	const t = useT();
+	const colors = useColors();
 	const { setTab } = useDeviceHub();
 	const { uuid, setUuid } = useBoardSelection();
 	const uuidRef = useRef(uuid);
@@ -48,13 +53,27 @@ export default function Overview() {
 					<Skeleton />
 				</>
 			) : boards.length === 0 ? (
-				<>
-					<Muted>{t("devices.noBoardsYetBle")}</Muted>
-					<PrimaryButton
-						label={t("devices.pairADevice")}
-						onPress={() => setTab("pair")}
-					/>
-				</>
+				<Paper>
+					<View style={{ alignItems: "center", gap: 12, paddingVertical: 20 }}>
+						<View
+							style={{
+								width: 52,
+								height: 52,
+								borderRadius: 16,
+								backgroundColor: colors.chipBg,
+								alignItems: "center",
+								justifyContent: "center",
+							}}
+						>
+							<MaterialIcons name="memory" size={28} color={colors.primary} />
+						</View>
+						<Muted>{t("devices.noBoardsYetBle")}</Muted>
+						<PrimaryButton
+							label={t("devices.pairADevice")}
+							onPress={() => setTab("pair")}
+						/>
+					</View>
+				</Paper>
 			) : (
 				<>
 					<PrimaryButton

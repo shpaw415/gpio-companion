@@ -30,8 +30,6 @@ import {
 	type GpioTarget,
 	getGithubApp,
 	listProjects,
-	loadFlash,
-	loadFlashSketches,
 	loadProject,
 	loadRun,
 	loadRunSketches,
@@ -39,7 +37,6 @@ import {
 	pushProject,
 	type RunStatus,
 	readProjectFile,
-	startFlash,
 	startRun,
 	stopRun,
 } from "../lib/api.ts";
@@ -52,6 +49,7 @@ import {
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 import { storageGet, storageRemove, storageSet } from "../lib/storage.ts";
@@ -210,7 +208,7 @@ export default function Project() {
 	const [stopping, setStopping] = useState(false);
 	const [runRunning, setRunRunning] = useState(false);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
-	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
+	const { isEasy } = useDashboardMode();
 	const [sketchBusy, setSketchBusy] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [deleteName, setDeleteName] = useState("");
@@ -234,28 +232,22 @@ export default function Project() {
 	useEffect(() => {
 		if (!activeUuid || !token) {
 			setHostSketches([]);
-			setFirmwareSketches([]);
 			setRunRunning(false);
 			return;
 		}
 		let cancelled = false;
-		Promise.all([
-			loadRunSketches(token, activeUuid),
-			loadFlashSketches(token, activeUuid),
-		])
-			.then(([host, firmware]) => {
+		loadRunSketches(token, activeUuid)
+			.then((host) => {
 				if (cancelled) {
 					return;
 				}
 				setHostSketches(host.sketches);
-				setFirmwareSketches(firmware.sketches);
 			})
 			.catch(() => {
 				if (cancelled) {
 					return;
 				}
 				setHostSketches([]);
-				setFirmwareSketches([]);
 			});
 		loadRun(token, activeUuid)
 			.then((status) => {
@@ -795,7 +787,7 @@ export default function Project() {
 					<Skeleton height={180} />
 				</>
 			) : bundle ? (
-				<>
+				<Paper>
 					<Body>
 						{bundle.owner}/{bundle.repo}
 					</Body>
@@ -847,7 +839,7 @@ export default function Project() {
 					<TextButton
 						label={stopping ? t("project.stopping") : t("project.stopSketch")}
 						danger={runRunning}
-						disabled={stopping || !activeUuid}
+						disabled={stopping || !activeUuid || !runRunning}
 						onPress={() => void stopSketch()}
 					/>
 					<PrimaryButton
@@ -875,76 +867,71 @@ export default function Project() {
 						</Paper>
 					) : null}
 					{saveHint ? <Muted>{saveHint}</Muted> : null}
-					<PreviewCard
-						title={t("project.pcb")}
-						hint={t("project.noPcbHintDesktop")}
-						url={bundle.pcbPreviewUrl}
-					/>
-					<BreadboardWebView
-						diagramText={breadboardJson}
-						previewUrl={bundle.breadboardPreviewUrl}
-						livePins={livePins}
-						arduinoLivePins={arduinoLivePins}
-						verifyResults={verifyResults}
-						boardModel={activeBoard?.status?.model}
-					/>
-					<FileGroup title={t("project.pcb")} files={bundle.pcb} />
-					<FileGroup
-						title={t("project.breadboard")}
-						files={bundle.breadboard}
-					/>
-					<FileGroup title={t("project.technical")} files={bundle.technical} />
-					<BoardSketchGroup
-						title={t("project.hostSketches")}
-						action={t("project.run")}
-						sketches={hostSketches.filter(
-							(item) => item.project === bundle.repo,
-						)}
-						busy={sketchBusy || !token || !activeUuid}
-						onLaunch={(dir) => {
-							if (!token) {
-								return;
-							}
-							launchSketch(async () => {
-								await startRun(token, { uuid: activeUuid, dir });
-								setRunRunning((await loadRun(token, activeUuid)).running);
-							});
-						}}
-					/>
-					<BoardSketchGroup
-						title={t("project.arduinoFirmware")}
-						action={t("flash.flash")}
-						sketches={firmwareSketches.filter(
-							(item) => item.project === bundle.repo,
-						)}
-						busy={sketchBusy || !token || !activeUuid}
-						onLaunch={(dir) => {
-							if (!token) {
-								return;
-							}
-							launchSketch(async () => {
-								await startFlash(token, {
-									uuid: activeUuid,
-									fqbn: "arduino:avr:uno",
-									dir,
+					<View style={{ gap: 10 }}>
+						<PreviewCard
+							title={t("project.pcb")}
+							hint={t("project.noPcbHintDesktop")}
+							url={bundle.pcbPreviewUrl}
+						/>
+						<BreadboardWebView
+							diagramText={breadboardJson}
+							previewUrl={bundle.breadboardPreviewUrl}
+							livePins={livePins}
+							arduinoLivePins={arduinoLivePins}
+							verifyResults={verifyResults}
+							boardModel={activeBoard?.status?.model}
+						/>
+					</View>
+					<View style={{ gap: 8 }}>
+						<FileGroup title={t("project.pcb")} files={bundle.pcb} />
+						<FileGroup
+							title={t("project.breadboard")}
+							files={bundle.breadboard}
+						/>
+						<FileGroup
+							title={t("project.technical")}
+							files={bundle.technical}
+						/>
+						<BoardSketchGroup
+							title={t("project.hostSketches")}
+							action={t("project.run")}
+							sketches={hostSketches.filter(
+								(item) => item.project === bundle.repo,
+							)}
+							busy={sketchBusy || !token || !activeUuid}
+							onLaunch={(dir) => {
+								if (!token) {
+									return;
+								}
+								launchSketch(async () => {
+									await startRun(token, { uuid: activeUuid, dir });
+									setRunRunning((await loadRun(token, activeUuid)).running);
 								});
-								await loadFlash(token, activeUuid);
-							});
-						}}
-					/>
-				</>
+							}}
+						/>
+					</View>
+				</Paper>
 			) : loading || !configured || empty ? null : (
 				<Muted>{t("project.selectToSee")}</Muted>
 			)}
 			{paired && activeUuid && bundle ? (
 				<Paper>
 					<Body>{t("project.boardTools")}</Body>
+					<Muted>
+						{t("project.selectedBoardContext", {
+							board:
+								activeBoard.device.label ||
+								activeBoard.status?.model ||
+								activeUuid.slice(0, 8),
+						})}
+					</Muted>
 					<TextButton
 						label={boardToolsOpen ? t("project.hide") : t("project.show")}
 						onPress={() => setBoardToolsOpen((open) => !open)}
 					/>
 					{boardToolsOpen ? (
 						<>
+							<ErrorText>{t("project.safetyHint")}</ErrorText>
 							<Body>{t("docs.board")}</Body>
 							<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
 								{boards.map((board) => (
@@ -975,23 +962,27 @@ export default function Project() {
 									</Pressable>
 								))}
 							</View>
-							<Body>{t("gpio.live")}</Body>
-							<Muted>{t("project.liveGpioHint")}</Muted>
-							<GpioPanel
-								uuid={activeUuid}
-								connected={Boolean(activeBoard?.status)}
-								poll
-								onLivePins={(
-									pins: Record<number, 0 | 1>,
-									target?: GpioTarget,
-								) => {
-									if (target === "arduino-proxy") {
-										setArduinoLivePins(pins);
-									} else {
-										setLivePins(pins);
-									}
-								}}
-							/>
+							{isEasy ? null : (
+								<>
+									<Body>{t("gpio.live")}</Body>
+									<Muted>{t("project.liveGpioHint")}</Muted>
+									<GpioPanel
+										uuid={activeUuid}
+										connected={Boolean(activeBoard?.status)}
+										poll
+										onLivePins={(
+											pins: Record<number, 0 | 1>,
+											target?: GpioTarget,
+										) => {
+											if (target === "arduino-proxy") {
+												setArduinoLivePins(pins);
+											} else {
+												setLivePins(pins);
+											}
+										}}
+									/>
+								</>
+							)}
 							<Body>{t("flash.title")}</Body>
 							<FlashPanel uuid={activeUuid} project={bundle.repo} />
 							<Body>{t("run.title")}</Body>

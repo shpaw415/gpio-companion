@@ -1,61 +1,88 @@
-# Démarrage (utilisateur)
+# Démarrage
 
-Faites ceci dans l’ordre. Le jeton GitHub **n’est pas** saisi sur le Pi ; il vient du tableau de bord Profil → GitHub après l’association. OpenCode utilise les crédits du tableau de bord via un proxy gpio-companion local (aucune clé IA à coller).
+À la fin de ce guide, votre carte sera en ligne, associée à votre compte, reliée à GitHub et prête pour son premier projet.
 
-## 1. Allumer la carte
+Il vous faut une **carte gpio-companion configurée** et un compte GitHub. Si vous préparez vous-même l’image du système, suivez d’abord `documentation/host/device-image.md` dans le dépôt source.
 
-HDMI/série si vous avez besoin de la console. Le premier démarrage clone le dépôt dans `/opt/gpio-companion` et lance first-setup (root, interactif).
+## 1. Alimenter et connecter la carte
 
-Choisissez **raspberrypi** ou **orangepi**. Saisissez le jeton API Cloudflare de l’hôte, l’ID de compte et l’ID de zone pour que first-setup crée le tunnel de cette carte (`api-…` et `t3-…` sur gpio-companion.com).
+Branchez l’alimentation. Ethernet est la solution la plus simple pour la première connexion : branchez un câble réseau si possible et attendez environ deux minutes.
 
-**Notez** l’**UUID d’association** et la **clé d’association** imprimés, ou récupérez l’UUID, la clé et l’URL de l’appareil sur `/pair` en Bluetooth (Chrome) / collage LightBlue (iOS). Ils se trouvent aussi dans `/etc/gpio-companion/pairing.env` (root).
+Pas d’Ethernet ? Aucun problème. Vous pourrez associer la carte proche en Bluetooth et lui envoyer les informations WiFi à l’étape 4. Consultez [WiFi et Bluetooth](./wifi-bluetooth.md) si votre navigateur ou votre téléphone ne la trouve pas.
 
-## 2. Réseau
+## 2. Se connecter
 
-Si le Pi a déjà de l’Ethernet, passez à la connexion.
+Ouvrez gpio-companion dans l’application web, de bureau ou mobile, puis choisissez **Continuer avec GitHub**.
 
-S’il n’a pas encore de WiFi, associez d’abord en Bluetooth (étape 4), puis configurez le WiFi depuis **WiFi** (`/devices/wifi`) — voir [wifi-bluetooth.md](./wifi-bluetooth.md). Tant que la carte est hors ligne (horloge non synchronisée NTP), le Pi accepte une commande BLE signée une fois par nonce au lieu de la fenêtre de 60 secondes. Le tableau de bord ne signe le WiFi que pour une carte déjà associée à votre compte.
+Sur le web, la page **Projet** présente un parcours court :
 
-L’Ethernet et le TTY du Pi (`nmcli`) fonctionnent toujours.
+**Connexion → Associer une carte → Connecter GitHub → Prêt**
 
-## 3. Connexion
+L’application de bureau peut ouvrir **Appareils** après la connexion, tandis que l’application mobile ouvre **Projet**. Les mêmes outils sont disponibles sur les trois plateformes.
 
-Assistant du tableau de bord `/` : **Connexion → Associer une carte → GitHub → Prêt**.
+## 3. Associer votre carte
 
-Utilisez `/login`. Continuez avec GitHub ; vous arrivez sur `/callback` puis l’accueil.
+Ouvrez **Appareils → Ma carte**, puis choisissez **Associer un appareil** ou **Ajouter une carte**.
 
-## 4. Associer la carte
+La méthode la plus simple :
 
-Page `/devices` (ou étape 2 de l’assistant). Vous pouvez associer plusieurs cartes.
+1. Choisissez **Connecter en Bluetooth** ou **Rechercher à proximité**.
+2. Sélectionnez l’appareil nommé **gpio-companion**.
+3. Vérifiez la carte détectée, puis choisissez **Associer l’appareil sélectionné**.
+4. Donnez-lui un nom parlant, par exemple `Pi du bureau` ou `Banc Orange`.
 
-| Champ | Provenance |
+Si le Bluetooth est indisponible, saisissez l’**URL de l’appareil**, l’**UUID d’association** et la **clé d’association** fournis avec la carte configurée. Traitez cette clé comme un mot de passe.
+
+Si la carte a déjà un propriétaire, votre demande attend son accord. Une carte ne possède qu’un propriétaire à la fois.
+
+## 4. Connecter le WiFi si nécessaire
+
+Ignorez cette étape si la carte est déjà en ligne par Ethernet.
+
+Ouvrez **Appareils → WiFi**, choisissez la carte associée, saisissez le nom du réseau et son mot de passe, puis choisissez **Connecter en Bluetooth** ou **Envoyer à la carte**. Attendez le message de connexion avant de retirer le câble Ethernet.
+
+Les informations WiFi vont directement vers la carte proche. Elles ne sont pas ajoutées au projet. Pour les options selon le navigateur ou l’iPhone, consultez [WiFi et Bluetooth](./wifi-bluetooth.md).
+
+## 5. Associer T3 Code
+
+Dans **Appareils → Ma carte**, trouvez votre carte et choisissez **Associer T3 Code**. Ouvrez le lien affiché ou scannez le code QR, puis confirmez l’association.
+
+Ensuite, **Ouvrir Code** lance votre espace T3 Code privé. Cette opération ne se fait normalement qu’une fois par carte.
+
+## 6. Connecter GitHub
+
+Ouvrez **Profil → GitHub** et choisissez **Connecter l’application GitHub**. Sélectionnez les dépôts que gpio-companion peut utiliser, ou autorisez-les tous.
+
+Vous n’avez pas besoin de créer ni de coller un jeton d’accès personnel. La carte reçoit un accès de courte durée lorsqu’elle doit enregistrer du travail.
+
+## 7. Créer votre premier projet
+
+Ouvrez **Projet** et choisissez **Nouveau projet**. Utilisez un nom simple comme `bonjour-led`, puis choisissez **Créer**.
+
+Lorsque la carte est en ligne, gpio-companion crée le dépôt GitHub, le copie sur la carte et l’ajoute à Code. Sélectionnez la ligne du projet s’il ne s’ouvre pas automatiquement.
+
+Choisissez maintenant **Ouvrir Code** et essayez cette demande :
+
+> Aidez-moi à construire une LED clignotante sûre pour ma carte. Montrez-moi d’abord la breadboard, utilisez les numéros de broches physiques et attendez mon accord avant de l’exécuter.
+
+L’agent doit reconnaître votre carte, préparer une breadboard visuelle et expliquer chaque fil. Continuez avec [Construire, exécuter et enregistrer](./workflows.md).
+
+## Vérification rapide
+
+Vous êtes prêt lorsque :
+
+- la carte indique **En ligne** dans Appareils
+- **Ouvrir Code** donne accès à T3 Code
+- la connexion GitHub est active
+- `bonjour-led` apparaît dans Projet
+
+## En cas de blocage
+
+| Ce que vous voyez | À essayer |
 | --- | --- |
-| URL de l’appareil | Bluetooth (`apiHostname` de first-setup) ou `https://api-<uuid>.gpio-companion.com` |
-| UUID d’association | Bluetooth ou impression first-setup |
-| Clé d’association | Bluetooth ou impression first-setup |
-
-Dans l’aperçu Appareils vous pouvez poser un **libellé** facultatif sur une carte associée à tout moment (nommez-la pour le banc). Il sert seulement à la reconnaissance dans le tableau de bord.
-
-Le tableau de bord **signe** la réclamation, puis **Associer T3** (aussi dans l’aperçu Appareils pour une carte déjà réclamée). Cela lance `t3 pair` contre le service installé à first-setup et affiche un code, un QR et l’URL de la carte (`https://t3-…/pair#token=…`). Scannez ou ouvrez-la pour terminer l’association T3. Si cette carte appartient déjà à quelqu’un, attendez qu’il **Accepte** sur `/notifications` (le propriétaire change ; sa session T3 Code est révoquée). Un propriétaire actif par carte.
-
-## 5. GitHub
-
-1. Utilisez **votre** compte GitHub (créez-en un si besoin)
-2. Tableau de bord **Profil → GitHub** : **Connecter GitHub** et installez l’application GitHub gpio-companion sur votre compte (tous les dépôts ou une sélection)
-3. Les cartes associées créent un jeton frais à chaque `git push`. Vous ne collez pas de PAT. Si la carte a été hors ligne plus d’une heure, poussez à nouveau une fois qu’elle a Internet — ne rouvrez pas GitHub.
-
-OpenCode utilise `/profile/credits` (solde USD facturé à partir des jetons Workers AI), pas un jeton GitHub. Achetez des packs 5 $ / 10 $ / 25 $ / 50 $ avec PayPal sur cette page (bureau/mobile ouvrent la même URL du tableau de bord). `gpio-companion github-token` affiche un jeton live pour les appels API.
-
-## 6. Projet
-
-L’accueil du tableau de bord est **Projet** (`/project` ; bureau et mobile s’ouvrent aussi ici). Créez d’abord un projet. Une carte en ligne le clone dans `~/projects/<name>` et l’ajoute dans T3 Code. Après la création, **Ouvrir Code** (Appareils → Code) est l’étape suivante pour discuter avec l’agent. GPIO en direct, Gravure, Exécution et Vérification restent sous **Outils de la carte** jusqu’à ce qu’un projet soit ouvert.
-
-L’association T3 Code est **Associer T3** sur `/devices` (ou `/devices/pair`) : scannez le QR ou ouvrez l’URL d’association de la carte avec le code.
-
-## Si quelque chose échoue
-
-- `device 401` / signature manquante : secret de signature de l’hôte non défini, ou image trop ancienne
-- `pairing uuid mismatch` / `pairing key mismatch` : mauvaise impression ou mauvaise carte
-- `already paired` : un autre utilisateur du tableau de bord a réclamé cet UUID
-- `pair a device first` sur GitHub : terminez d’abord l’association sur `/devices`
-- Contrôle de santé seulement : `http://<pi>:4150/health` est public ; tout le reste est signé
+| Aucun appareil Bluetooth proche | Rapprochez-vous, autorisez le Bluetooth et fermez toute autre application connectée à la carte |
+| La carte reste hors ligne | Gardez Ethernet branché ou renvoyez le WiFi depuis **Appareils → WiFi** |
+| Les informations d’association sont refusées | Vérifiez que les trois informations proviennent de la même carte physique |
+| L’association T3 a expiré | Choisissez à nouveau **Associer T3 Code** pour obtenir un code récent |
+| Le projet n’arrive pas sur la carte | Laissez la carte en ligne quelques minutes, puis actualisez Projet |
+| Une fonction récente manque | Passez en mode **Expert**, ouvrez **Appareils → Débogage**, puis choisissez **Mettre à jour le compagnon** |

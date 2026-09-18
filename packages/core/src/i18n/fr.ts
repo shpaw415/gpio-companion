@@ -84,7 +84,7 @@ export const fr = {
 		stepSignIn: "Connexion",
 		stepPair: "Associer une carte",
 		stepGithub: "Connecter GitHub",
-		stepReady: "Prêt",
+		stepReady: "Prêt à construire",
 		hintSignIn: "Connectez-vous avec GitHub pour commencer.",
 		hintPair:
 			"Associez votre carte depuis Appareils pour graver des croquis et voir les circuits.",
@@ -98,7 +98,14 @@ export const fr = {
 		yourProjects: "Vos projets",
 		boardTools: "Outils de la carte",
 		boardToolsHint:
-			"GPIO en direct, Graver Arduino, Exécuter sur la carte, Vérifier le circuit",
+			"Graver Arduino, exécuter sur la carte et contrôler le câblage",
+		advancedBoardTools: "Commandes avancées des broches",
+		selectedBoardContext: "Compagnon : {board}",
+		boardOnline: "En ligne",
+		boardUnavailable: "État indisponible",
+		codeNeedsPairing: "Associez Code avant d’ouvrir l’espace de travail IA.",
+		safetyHint:
+			"Coupez l’alimentation avant de modifier les fils. Le GPIO utilise 3,3 V : ne reliez jamais 5 V à un GPIO et utilisez une résistance avec les LED.",
 		show: "Afficher",
 		hide: "Masquer",
 		liveGpioHint:
@@ -132,11 +139,11 @@ export const fr = {
 		noMatch: "Aucun projet gpio-companion correspondant.",
 		branch: "Branche",
 		defaultBranch: "{name} (par défaut)",
-		reload: "Actualiser",
+		reload: "Actualiser depuis GitHub",
 		reloading: "Actualisation…",
 		stopSketch: "Arrêter le croquis",
 		stopping: "Arrêt…",
-		saveToGithub: "Enregistrer sur GitHub",
+		saveToGithub: "Enregistrer les changements de la carte",
 		saving: "Enregistrement…",
 		delete: "Supprimer",
 		deleting: "Suppression…",
@@ -156,6 +163,7 @@ export const fr = {
 		technical: "Technique",
 		hostSketches: "Croquis hôte",
 		arduinoFirmware: "Micrologiciel Arduino",
+		flashPrepared: "Choisir et graver dans Outils de la carte",
 		run: "Exécuter",
 		noneOnBoard: "Aucun sur cette carte pour ce projet.",
 		noFiles: "Aucun fichier dans ce dossier.",
@@ -176,7 +184,7 @@ export const fr = {
 		titleEasy: "Ma carte",
 		titleExpert: "Appareils",
 		easyHint:
-			"Votre carte compagnon Arduino. Associez-la, mettez-la en Wi‑Fi, puis ouvrez Code.",
+			"Votre compagnon est le Raspberry Pi ou l’Orange Pi qui exécute gpio-companion. Un Arduino USB est facultatif et apparaît séparément.",
 		expertHint:
 			"Cartes associées à votre compte et la façon dont elles joignent le tableau de bord.",
 		addBoard: "Ajouter une carte",
@@ -229,6 +237,8 @@ export const fr = {
 		unpairRevokes: "Dissocier (révoque T3 Code)",
 		unpair: "Dissocier",
 		unpairConfirm: "Retirer cette carte de votre compte ?",
+		unpairDetail:
+			"Cette action révoque l’accès à Code et retire la carte du compte. Vous pourrez l’associer à nouveau.",
 		unpairTitle: "Dissocier",
 		ethernet: "Ethernet",
 		wifiSsid: "WiFi · {ssid}",
@@ -252,6 +262,9 @@ export const fr = {
 		backToDevices: "Retour aux Appareils",
 		back: "Retour",
 		connectBle: "Connecter en Bluetooth",
+		manualSetup: "Saisir les informations manuellement",
+		manualSetupHint:
+			"Utilisez ces informations uniquement si la configuration Bluetooth est indisponible.",
 		signBleCommand: "Signer la commande Bluetooth d’association",
 		bleReadyHint:
 			"Vérifie le Web Bluetooth, puis vous demande de sélectionner gpio-companion. En cas d’échec, une commande signée est copiée pour LightBlue ou nRF Connect.",
@@ -305,6 +318,9 @@ export const fr = {
 		ssid: "SSID",
 		password: "Mot de passe",
 		networkName: "Nom du réseau",
+		connectBoard: "Connecter la carte au WiFi",
+		keepNearby:
+			"Gardez le compagnon allumé et à proximité. Le navigateur vous demandera de choisir gpio-companion.",
 		showPassword: "Afficher le mot de passe",
 		hidePassword: "Masquer le mot de passe",
 		send: "Envoyer à la carte",
@@ -367,25 +383,25 @@ export const fr = {
 		backToCatalog: "Retour au catalogue",
 		gettingStartedTitle: "Démarrage",
 		gettingStartedDesc:
-			"Allumez la carte, mettez-la en ligne, connectez-vous, associez, reliez GitHub, atteignez l’aperçu.",
-		userGuideTitle: "Guide utilisateur",
+			"Associez la carte, connectez le WiFi et GitHub, puis créez votre premier projet.",
+		userGuideTitle: "Bienvenue dans gpio-companion",
 		userGuideDesc:
-			"Ce qui arrive sur votre banc et où chaque document gpio-companion s’insère.",
-		wifiBluetoothTitle: "WiFi en Bluetooth",
+			"Découvrez votre établi, préparez un kit de départ et retenez trois règles de sécurité.",
+		wifiBluetoothTitle: "WiFi et Bluetooth",
 		wifiBluetoothDesc:
-			"Web Bluetooth Chrome/Edge, applications natives, et collage iOS LightBlue / nRF Connect.",
-		workflowsTitle: "Flux quotidiens",
+			"Mettez une carte en ligne depuis une application, un navigateur ou la solution iPhone.",
+		workflowsTitle: "Construire, exécuter et enregistrer",
 		workflowsDesc:
-			"Travail avec l’agent sur la carte, projets GitHub, mises à jour et sécurité du banc.",
+			"Transformez une idée en circuit sûr, exécutez-le, vérifiez-le et enregistrez-le.",
 		storageTitle: "Stockage amovible",
 		storageDesc:
-			"Les cartes SD et clés USB supplémentaires apparaissent dans T3 Code sous ~/storage/<label>.",
+			"Ouvrez une SD ou une clé USB dans Code, puis retirez-la en sécurité.",
 		pinoutPiTitle: "Brochage GPIO Raspberry Pi",
 		pinoutPiDesc:
-			"Carte d’en-tête 40 broches avec numéros physiques, alimentation et masse, I2C/SPI/UART, et notes de sécurité.",
+			"Trouvez la broche 1, câblez une première LED sûre et explorez les 40 broches.",
 		pinoutOrangeTitle: "Brochage GPIO Orange Pi",
 		pinoutOrangeDesc:
-			"En-tête 26 broches sur Orange Pi 3 LTS ; 3,3 V ; numéros physiques ; emplacements I2C/SPI/UART.",
+			"Trouvez des broches physiques sûres et câblez une première LED, notamment sur le 3 LTS.",
 	},
 	t3: {
 		title: "T3 Code",
@@ -574,6 +590,8 @@ export const fr = {
 		arduinoFlash: "Gravure Arduino",
 		replacesProxy:
 			"Graver un croquis de projet remplace le micrologiciel proxy Arduino jusqu’à ce que vous regraviez le proxy depuis Appareils.",
+		selectArduinoFirst:
+			"Détectez l’Arduino USB, puis confirmez son type de carte avant la gravure.",
 		loadPorts: "Charger les ports",
 		portsOverBle: "Ports en Bluetooth",
 		signPorts: "Signer les ports pour Bluetooth",
@@ -635,8 +653,8 @@ export const fr = {
 		serialStatus: "Série {status}",
 	},
 	verify: {
-		title: "Vérifier le circuit",
-		hint: "Pulse les cavaliers déclarés sur la carte. LED on/off nécessite un second GPIO ou ADC (absent de cet en-tête).",
+		title: "Contrôler la continuité du câblage",
+		hint: "Contrôle les connexions mesurables du schéma de breadboard. Cette vérification ne certifie pas l’alimentation, la polarité, les résistances ni tous les composants.",
 		selectProject: "Sélectionnez un projet avec breadboard/diagram.json.",
 		verify: "Vérifier",
 		stop: "Arrêter",

@@ -81,144 +81,164 @@ export default function DeviceBoardCard({
 	}
 
 	return (
-		<Paper className="w-full p-2" elevation={1}>
+		<Paper
+			className={`device-board-row w-full ${expanded ? "is-expanded" : ""} ${selected ? "is-selected" : ""}`}
+			elevation={0}
+		>
 			<Stack spacing={expanded ? 1.5 : 0}>
-				<Stack
-					direction="row"
-					spacing={1}
-					className="cursor-pointer items-center"
-					sx={{ minHeight: 48, px: 0.5 }}
+				<button
+					type="button"
+					className="device-board-summary"
 					onClick={toggle}
+					aria-expanded={expanded}
 				>
-					<Typography variant="subtitle1" className="min-w-0 flex-1" noWrap>
-						{deviceDisplayName(device)}
-					</Typography>
-					<Chip
-						label={online ? t("devices.online") : t("devices.offline")}
-						color={online ? "success" : "secondary"}
-						variant="outlined"
-						size="small"
+					<span className="device-board-icon" aria-hidden="true">
+						<MemoryIcon />
+					</span>
+					<span className="device-board-copy">
+						<Typography variant="subtitle1" noWrap>
+							{deviceDisplayName(device)}
+						</Typography>
+						<Typography color="secondary" variant="caption" noWrap>
+							{status?.model || status?.hardware || device.uuid.slice(0, 8)}
+						</Typography>
+					</span>
+					<span
+						className={`device-status-dot ${online ? "is-online" : ""}`}
+						aria-hidden="true"
 					/>
-					{selected ? (
-						<Chip
-							label={t("devices.selected")}
-							color="primary"
-							variant="outlined"
-							size="small"
-						/>
-					) : null}
-				</Stack>
+					<Typography
+						color="secondary"
+						variant="caption"
+						className="device-board-status-label"
+					>
+						{online ? t("devices.online") : t("devices.offline")}
+					</Typography>
+					<span
+						aria-hidden="true"
+						className={`device-board-chevron ${expanded ? "is-expanded" : ""}`}
+					>
+						<ExpandMoreIcon />
+					</span>
+				</button>
 				{expanded ? (
-					<>
-						{isEasy ? null : (
-							<>
-								<Typography color="secondary" className="break-all">
-									{device.uuid}
-								</Typography>
-								{device.deviceUrl ? (
-									<Typography color="secondary" className="break-all">
-										{device.deviceUrl}
-									</Typography>
-								) : null}
-							</>
-						)}
-						<DeviceLabelField
-							key={device.uuid}
-							uuid={device.uuid}
-							label={device.label}
-							onSaved={onLabelSaved}
-						/>
-						<Stack direction="row" spacing={1} className="flex-wrap">
-							{status?.model || status?.hardware ? (
-								<Chip
-									label={status?.model || status?.hardware}
-									variant="outlined"
-									size="small"
-								/>
-							) : null}
-							{networkLabel ? (
-								<Chip label={networkLabel} variant="outlined" size="small" />
-							) : null}
-							{status && !isEasy ? (
-								<Chip
-									label={
-										status.tunnel?.configured
-											? t("devices.tunnelReady")
-											: t("devices.tunnelPending")
-									}
-									color={status.tunnel?.configured ? "success" : "secondary"}
-									variant="outlined"
-									size="small"
-								/>
-							) : null}
-							{status ? (
+					<div className="device-board-details">
+						<Stack spacing={1.5}>
+							{isEasy ? null : (
 								<>
-									<Chip
-										label={
-											status.secrets?.githubReady
-												? t("devices.projectsConnected")
-												: t("devices.connectGithubChip")
-										}
-										color={status.secrets?.githubReady ? "success" : "warning"}
-										variant="outlined"
-										size="small"
-									/>
-									<Chip
-										label={
-											codeReady
-												? t("devices.codeReady")
-												: status.t3?.running
-													? t("devices.codeRunning")
-													: t("devices.codeIdle")
-										}
-										color={codeReady ? "success" : "secondary"}
-										variant="outlined"
-										size="small"
-									/>
+									<Typography color="secondary" className="break-all">
+										{device.uuid}
+									</Typography>
+									{device.deviceUrl ? (
+										<Typography color="secondary" className="break-all">
+											{device.deviceUrl}
+										</Typography>
+									) : null}
 								</>
-							) : null}
-						</Stack>
-						{showCodePair ? (
-							<T3PairingPanel
-								devices={[device]}
-								uuid={device.uuid}
-								initialStatus={status?.t3}
-								skipFetch={!t3AutoStart}
-								autoStart={t3AutoStart}
-							/>
-						) : null}
-						{!isEasy && loadInfo ? (
-							<DeviceCompanionInfo
+							)}
+							<DeviceLabelField
 								key={device.uuid}
 								uuid={device.uuid}
-								loadInfo={loadInfo}
+								label={device.label}
+								onSaved={onLabelSaved}
 							/>
-						) : null}
-						<FlashProxyButton uuid={device.uuid} connected={online} />
-						{isEasy ? null : (
-							<GpioPanel uuid={device.uuid} connected={online} />
-						)}
-						<Stack direction="row" spacing={1} className="flex-wrap">
-							{isEasy ? (
-								<Button href="/devices/t3" variant="contained" size="small">
-									{t("project.openCode")}
-								</Button>
+							<Stack direction="row" spacing={1} className="flex-wrap">
+								{status?.model || status?.hardware ? (
+									<Chip
+										label={status?.model || status?.hardware}
+										variant="outlined"
+										size="small"
+									/>
+								) : null}
+								{networkLabel ? (
+									<Chip label={networkLabel} variant="outlined" size="small" />
+								) : null}
+								{status && !isEasy ? (
+									<Chip
+										label={
+											status.tunnel?.configured
+												? t("devices.tunnelReady")
+												: t("devices.tunnelPending")
+										}
+										color={status.tunnel?.configured ? "success" : "secondary"}
+										variant="outlined"
+										size="small"
+									/>
+								) : null}
+								{status ? (
+									<>
+										<Chip
+											label={
+												status.secrets?.githubReady
+													? t("devices.projectsConnected")
+													: t("devices.connectGithubChip")
+											}
+											color={
+												status.secrets?.githubReady ? "success" : "warning"
+											}
+											variant="outlined"
+											size="small"
+										/>
+										<Chip
+											label={
+												codeReady
+													? t("devices.codeReady")
+													: status.t3?.running
+														? t("devices.codeRunning")
+														: t("devices.codeIdle")
+											}
+											color={codeReady ? "success" : "secondary"}
+											variant="outlined"
+											size="small"
+										/>
+									</>
+								) : null}
+							</Stack>
+							{showCodePair ? (
+								<T3PairingPanel
+									devices={[device]}
+									uuid={device.uuid}
+									initialStatus={status?.t3}
+									skipFetch={!t3AutoStart}
+									autoStart={t3AutoStart}
+								/>
 							) : null}
-							{!isEasy && onUnpair ? (
-								<Button
-									type="button"
-									variant="outlined"
-									size="small"
-									disabled={unpairing}
-									onClick={() => onUnpair(device.uuid)}
-								>
-									{t("devices.unpairRevokes")}
-								</Button>
+							{!isEasy && loadInfo ? (
+								<DeviceCompanionInfo
+									key={device.uuid}
+									uuid={device.uuid}
+									loadInfo={loadInfo}
+								/>
 							) : null}
+							<FlashProxyButton uuid={device.uuid} connected={online} />
+							{isEasy ? null : (
+								<GpioPanel uuid={device.uuid} connected={online} />
+							)}
+							<Stack direction="row" spacing={1} className="flex-wrap">
+								{isEasy ? (
+									<Button href="/devices/t3" variant="contained" size="small">
+										{t("project.openCode")}
+									</Button>
+								) : null}
+								{!isEasy && onUnpair ? (
+									<Button
+										type="button"
+										variant="outlined"
+										size="small"
+										disabled={unpairing}
+										onClick={() => onUnpair(device.uuid)}
+									>
+										{t("devices.unpairRevokes")}
+									</Button>
+								) : null}
+							</Stack>
 						</Stack>
-					</>
+					</div>
 				) : null}
 			</Stack>
 		</Paper>
 	);
 }
+
+import ExpandMoreIcon from "@material-design-icons/svg/filled/expand_more.svg";
+import MemoryIcon from "@material-design-icons/svg/filled/memory.svg";

@@ -1,17 +1,36 @@
 # Brochage GPIO Raspberry Pi
 
-La logique est **3,3 V**. N’injectez pas 5 V dans un GPIO. Ne court-circuitez pas 3V3 vers 5V.
+Utilisez ce plan chaque fois qu’un circuit se branche sur le connecteur du Raspberry Pi. Inutile de le mémoriser : trouvez le numéro physique, vérifiez son rôle et câblez hors tension.
 
-Les numéros de broches sont **physiques** (les emplacements de l’en-tête que vous voyez). gpio-companion pilote les broches par ces numéros. BCM n’est qu’une étiquette.
+## Les deux règles à retenir
 
-Orientez la carte avec l’en-tête 40 broches à droite (USB/Ethernet généralement vers vous sur un Pi 4/5). La broche 1 est 3V3, en haut à gauche de l’en-tête.
+1. Le GPIO utilise une logique **3,3 V**. N’envoyez jamais 5 V dans un GPIO et ne reliez jamais directement 3,3 V au 5 V.
+2. gpio-companion utilise les **numéros de broches physiques**, c’est-à-dire les trous numérotés visibles. Le numéro BCM est seulement un autre nom du signal.
+
+## Trouver la broche 1
+
+Sur un Raspberry Pi 4 ou 5, placez le connecteur 40 broches à droite et les prises USB/Ethernet vers vous. La **broche 1** se trouve en haut à gauche du connecteur et fournit 3,3 V.
+
+Les numéros physiques impairs descendent d’un côté et les pairs de l’autre. Vérifiez toujours l’orientation avant de compter.
 
 ## Sécurité
 
-- Commencez une LED sur la broche physique **11** ou **7** avec une résistance série vers GND (broche 6 ou 9).
+- Commencez une LED sur la broche physique **11** ou **7**, avec une résistance de **220 Ω à 1 kΩ** en série vers GND (broche 6 ou 9).
 - N’utilisez pas les broches **27** et **28** — ce sont l’EEPROM HAT.
 - Les broches **8** et **10** sont UART TX/RX — souvent la console série ; évitez-les pour les projets.
 - Le 5 V est sur les broches 2 et 4 — ne le câblez jamais dans un GPIO.
+
+## Essayez votre première LED
+
+Carte hors tension :
+
+1. Reliez la broche physique **11** à une résistance.
+2. Reliez la résistance à la longue patte de la LED.
+3. Reliez la courte patte de la LED à GND sur la broche physique **9**.
+4. Comparez le montage au schéma de breadboard fourni par l’agent.
+5. Rétablissez l’alimentation et utilisez **Exécuter sur la carte** pour démarrer le clignotement.
+
+Si la LED ne s’allume pas, coupez l’alimentation et retournez-la. Une LED ne laisse passer le courant que dans un sens.
 
 ## En-tête 40 broches
 
@@ -81,17 +100,12 @@ GPIO26(37) (38) GPIO20
 | 39 | GND | Masse |
 | 40 | GPIO21 | GPIO (BCM 21) |
 
-GND : 6, 9, 14, 20, 25, 30, 34, 39. 3V3 : 1, 17. 5V : 2, 4.
+## Usages courants
 
-I2C : 3/5. SPI : 19/21/23/24/26. Emplacements PWM matériel : 12, 32, 33. Le PWM logiciel compagnon et la tonalité fonctionnent sur n’importe quel GPIO.
+- **Entrée ou sortie numérique ordinaire :** commencez par 7, 11, 13, 15, 16, 18, 22, 29, 31, 36, 37, 38 ou 40.
+- **Capteurs et écrans I2C :** broches 3 et 5.
+- **Périphériques SPI :** broches 19, 21, 23, 24 et parfois 26.
+- **PWM matériel :** les broches 12, 32 et 33 sont pratiques.
+- **Masse :** 6, 9, 14, 20, 25, 30, 34 ou 39.
 
-Sur Projet, GPIO en direct affiche cet en-tête. Touchez une broche pour la commander.
-
-## Pour l’agent sur la carte
-
-Charger lorsque `/etc/gpio-companion/config.json` a `"hardware": "raspberrypi"`, ou que `/proc/device-tree/model` contient Raspberry Pi.
-
-1. `GET http://127.0.0.1:4150/v1/gpio` d’abord — cet instantané est la carte live (physique, nom, dir, valeur, PWM).
-2. **C d’abord :** `GET /v1/arduino-proxy` d’abord. Si connecté, compétence `gpio-arduino-proxy` (broches Arduino, `host/arduino-proxy-<name>/`) — pas cet en-tête. Sinon pilotez le GPIO d’en-tête avec un croquis C (compétence `gpio-host`, broches **physiques**). Jamais BCM dans le corps. Clignotement/PWM/tonalité/boucles vont à `POST /v1/run`. `PUT /v1/gpio` seulement pour un test ponctuel demandé par l’utilisateur : `{ "physical": 11, "dir": "out", "value": 1 }`. analogWrite/tone en C, ou compétence `gpio-pwm` pour un test. Breadboard : `gpio-breadboard`.
-3. Fiches techniques : **broche physique + nom** pour que l’utilisateur voie l’en-tête. Poussez `technical/` et `breadboard/diagram.json`.
-4. Refusez alimentation, GND, et physiques 27–28. Ne pas `gpioset`.
+Dans **Projet → Outils de la carte → GPIO en direct**, choisissez **Compagnon** pour afficher ce connecteur. Touchez un GPIO sûr pour ouvrir ses commandes de test temporaire. Utilisez **Exécuter sur la carte** pour un comportement durable.

@@ -10,18 +10,32 @@ description: >-
 
 # Orange Pi GPIO pinout
 
-Logic is **3.3V**. Do not feed 5V into a GPIO. Do not short 3V3 to 5V.
+Use this map whenever a circuit connects to an Orange Pi header. Orange Pi models differ, so first confirm the exact board shown in **Devices**.
 
-Pin numbers are **physical** (the header seats you can see). They are **not** Raspberry Pi BCM numbers.
+## The two facts to remember
 
-gpio-companion **Orange Pi 3 LTS** boards use a **26-pin** header. That map is below. Other Orange Pi models: see [Other Orange Pi boards](#other-orange-pi-boards).
+1. GPIO uses **3.3 V logic**. Never feed 5 V into a GPIO or connect 3.3 V directly to 5 V.
+2. gpio-companion uses **physical pin numbers**: the numbered holes you can see. Orange Pi signal names such as `PD22` are not Raspberry Pi BCM numbers.
+
+gpio-companion **Orange Pi 3 LTS** boards have a **26-pin** header. That map appears below. For another model, read [Other Orange Pi boards](#other-orange-pi-boards) before wiring.
 
 ## Safety
 
-- Start an LED on physical **7** with a series resistor to GND (pin 6 or 9).
+- Start an LED on physical **7**, with a **220 Ω to 1 kΩ resistor** in series to GND (pin 6 or 9).
 - Do not use pins **8** and **10** for projects — they are often the serial console.
 - This 26-pin header has **no analog input**. analogRead is not available.
-- PWM and tone (fade an LED, drive a buzzer) belong in a C sketch (skill `gpio-host`). `PUT /v1/gpio` / skill `gpio-pwm` are one-shot tests only.
+
+## Try your first LED
+
+With the board powered off:
+
+1. Connect physical pin **7** to a resistor.
+2. Connect the resistor to the LED's long leg.
+3. Connect the LED's short leg to GND on physical pin **9**.
+4. Compare the circuit with the breadboard diagram from the agent.
+5. Restore power and use **Run on board** to start the blinking sketch.
+
+If the LED does not light, disconnect power and turn the LED around. LEDs only conduct in one direction.
 
 ## Orange Pi 3 LTS — 26-pin header
 
@@ -72,11 +86,15 @@ SCLK (23) (24) CS
 | 25 | GND | Ground |
 | 26 | PL8 | GPIO |
 
-GND: 6, 9, 14, 20, 25. 3V3: 1, 17. 5V: 2, 4.
+## Common jobs
 
-I2C: pins 3/5 and 11/13. SPI: 19/21/23/24. Good jumpers: **7, 12, 16, 18, 22**.
+- **Ordinary digital input/output:** start with 7, 12, 16, 18, or 22.
+- **I2C sensors and displays:** pins 3/5 or 11/13.
+- **SPI devices:** pins 19, 21, 23, and 24.
+- **Ground:** 6, 9, 14, 20, or 25.
+- **3.3 V power:** 1 or 17. **5 V power:** 2 or 4; never connect it to GPIO.
 
-On Project, Live GPIO shows these names on the header. Tap a pin there to drive it.
+On **Project → Board tools → Live GPIO**, choose **Companion** to see the names detected for this header. Tap a safe GPIO to reveal its temporary test controls. Use **Run on board** for lasting behavior such as PWM or tone.
 
 ## Other Orange Pi boards
 
@@ -84,9 +102,11 @@ On Pi-style 2×20 headers, **physical power and ground seats match the Raspberry
 
 Some models are **26-pin** (or 26+13). If the silkscreen stops at 26, ignore physical 27–40.
 
-Use Live GPIO on Project (or ask the on-device agent) for the map of *this* board. Pins the companion cannot resolve cannot be driven.
+Use Live GPIO on Project, or ask the on-device agent, for the map of *this* board. A pin marked unresolved cannot be driven safely.
 
-## For the on-device agent
+## Agent reference
+
+The remainder is for the on-device agent. Bench users can stop here.
 
 Load when `/etc/gpio-companion/config.json` has `"hardware": "orangepi"`, or `/proc/device-tree/model` contains Orange Pi.
 

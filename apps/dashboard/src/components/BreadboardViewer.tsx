@@ -146,7 +146,11 @@ export default function BreadboardViewer({
 
 	return (
 		<Paper
-			className={fill ? "flex h-full items-center p-4" : "p-4 min-[900px]:p-6"}
+			className={
+				fill
+					? "flex h-full items-center p-4"
+					: "workbench-empty project-preview-empty"
+			}
 			elevation={fill ? 0 : 1}
 		>
 			<Typography color="secondary">{t("project.noBreadboard")}</Typography>
@@ -441,7 +445,7 @@ function BoardShell({
 					? "fixed inset-0 z-[1300] flex h-full flex-col overflow-hidden rounded-none p-4"
 					: fill
 						? "flex h-full min-h-0 flex-col overflow-hidden rounded-none p-3"
-						: "overflow-hidden p-4"
+						: "workbench-panel overflow-hidden p-4"
 			}
 			elevation={overlay ? 8 : fill ? 0 : 1}
 			sx={

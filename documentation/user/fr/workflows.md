@@ -1,70 +1,136 @@
-# Flux utilisateur
+# Construire, exécuter et enregistrer
 
-## Quotidien : travailler avec l’agent sur la carte
+Voici la boucle quotidienne : décrivez une idée, vérifiez le circuit visuel, construisez-le en sécurité, exécutez-le et enregistrez le résultat.
 
-Ouvrez T3 Code (tunneled) ou OpenCode sur le Pi. L’agent charge :
+## 1. Commencer avec une demande utile
 
-- `opencode/preferences` — il contrôle ce système GPIO
-- `opencode/skills` — y compris `gpio-pinout-raspberrypi` ou `gpio-pinout-orangepi` depuis `/etc/gpio-companion/config.json`
+Ouvrez un projet, choisissez **Ouvrir Code** et décrivez le résultat souhaité. Précisez les composants disponibles et demandez à l’agent d’attendre avant d’alimenter quoi que ce soit.
 
-Sur Raspberry Pi, utilisez les numéros de broches **physiques** (les emplacements de l’en-tête). gpio-companion pilote ces numéros ; BCM n’est qu’une étiquette. Logique 3,3 V seulement. Évitez les broches EEPROM ID 27–28 pour le GPIO général.
+Par exemple :
 
-Sur Orange Pi, **les numéros GPIO SoC ne sont pas BCM**. Orange Pi 3 LTS est un en-tête **26 broches** (ignorez 27–40). Parlez en numéros physiques.
+> J’ai une LED rouge, une résistance de 330 Ω et des fils. Faites-la clignoter chaque seconde. Montrez la breadboard, indiquez les broches physiques et attendez que je confirme le câblage avant l’exécution.
 
-Les cartes SD et clés USB supplémentaires apparaissent sous `~/storage/<label>` dans le home utilisateur T3. Ouvrez ce dossier pour les projets sur la clé ; voir [storage.md](./storage.md).
+Une bonne demande décrit le but et les contraintes. Vous n’avez pas besoin d’imposer des noms de fichiers, des API ou des commandes.
 
-Le micrologiciel Arduino est du **C**, gravé en USB via `http://127.0.0.1:4150/v1/flash` (dossier de croquis absolu avec `.c` ou `.ino`). Projet peut lancer le même travail via l’API web ou Bluetooth. Appareils peut **Graver Arduino comme proxy** pour que la carte USB devienne un esclave Firmata : GPIO en direct sur Projet bascule Compagnon | Arduino, Exécuter sur la carte peut lancer des croquis `arduino-proxy-*` qui commandent les broches MCU depuis le compagnon, et les cartes breadboard peuvent inclure un en-tête `gpio-arduino-proxy` (Uno/Mega/Nano/…) à côté de l’en-tête compagnon.
+## 2. Lire le circuit avant de le construire
 
-L’agent sur la carte vérifie `GET /v1/arduino-proxy` avant un clignotement ou un breadboard. Si le proxy Arduino USB est connecté, il écrit du C `host/arduino-proxy-*` (numéros de broches Arduino) et une pièce `gpio-arduino-proxy` dans `breadboard/diagram.json` (compétence `gpio-arduino-proxy`). Sinon il pilote l’en-tête de cette carte en C (`POST /v1/run`, compétence `gpio-host`) — pas de PUT GPIO direct sauf tests ponctuels. Les broches d’en-tête sont des numéros physiques. Vous démarrez et arrêtez ce travail sur Projet **Exécuter sur la carte** en choisissant un nom de croquis (pas en curlant le Pi ni en tapant un chemin). `Serial.print` de ce croquis s’affiche en direct sur le même panneau. Après **Graver Arduino**, le `Serial` USB s’affiche sur ce panneau (Ouvrir le série si vous devez attacher sans graver).
+Revenez dans **Projet** et examinez la breadboard. Vérifiez que :
 
-## Les projets vivent dans GitHub
+- la carte et les composants correspondent à ceux de votre établi
+- chaque GPIO est identifié par un **numéro de broche physique**
+- la LED possède une résistance en série
+- aucun GPIO n’est relié au 5 V
+- les connexions d’alimentation et de masse correspondent au brochage de votre carte
 
-Un dépôt git par projet électronique. Le tableau de bord ne liste que les dépôts avec un fichier `.gpio-companion` à la racine. Créez un projet depuis le tableau de bord, ou demandez à Code sur la carte — les nouveaux dépôts doivent inclure ce filigrane.
+Interrogez l’agent si un symbole ou un fil n’est pas clair. Un schéma visuel est un plan, pas la preuve que le montage réel est correct.
 
-La carte clone ces dépôts dans `~/projects/<name>` et les ajoute à T3 Code. Si la carte est en ligne quand vous créez un projet, c’est immédiat. Si elle est hors ligne, rien n’est mis en file — le clone s’exécute au prochain démarrage de gpio-companion (et toutes les 15 minutes tant qu’il tourne). Les dossiers existants sont laissés tels quels.
+## 3. Construire hors tension
 
-Supprimez un projet depuis Projet après avoir saisi son nom. Cela retire le dépôt GitHub et, si la carte est en ligne et à jour, le désinscrit de T3 Code et supprime `~/projects/<name>`. Les cartes hors ligne ne sont pas mises en file.
+Débranchez l’alimentation avant de placer ou déplacer des fils. Réalisez une connexion à la fois et tirez doucement sur chaque fil pour vérifier sa tenue.
 
-Pendant qu’une fonctionnalité PCB, breadboard, fiche technique ou croquis C est en cours, l’agent **pousse une branche de fonctionnalité** (`feat/<kebab>`), puis demande si vous voulez **enregistrer** (fusionner dans `main`). Il fusionne `main` seulement si vous dites oui :
+Pour une LED :
 
-| Dossier | Fichiers attendus |
+- la patte la plus longue est généralement le côté positif, appelé **anode**
+- le bord plat de la LED indique le côté négatif, appelé **cathode**
+- la résistance peut être placée d’un côté ou de l’autre de la LED, tant qu’elle reste en série
+
+Comparez le montage terminé avec le schéma, puis rebranchez l’alimentation.
+
+## 4. Choisir comment la commander
+
+Ouvrez le projet, dépliez **Outils de la carte** et sélectionnez la bonne carte en ligne.
+
+### Exécuter sur la carte
+
+Utilisez **Exécuter sur la carte** pour un comportement durable : clignotement, variation de luminosité, lecture d’un bouton ou tonalité. Sélectionnez le croquis préparé par l’agent et choisissez **Démarrer**.
+
+Les messages de `Serial.print` apparaissent dans **Série (hôte)**. Choisissez **Arrêter**, ou utilisez **Arrêter le croquis** en haut du projet, avant de modifier le câblage.
+
+### GPIO en direct
+
+Utilisez **GPIO en direct** pour un test rapide :
+
+1. Sélectionnez **Compagnon** pour le connecteur du Pi ou **Arduino** pour un proxy connecté.
+2. Touchez une broche GPIO sûre.
+3. Choisissez **Entrée**, **Mettre à 1**, **Mettre à 0**, **PWM** ou **Tonalité** selon le besoin.
+4. Choisissez **Désactivé** ou arrêtez la tonalité à la fin du test.
+
+GPIO en direct sert aux essais courts. Demandez un croquis à l’agent si le comportement doit continuer ou faire partie du projet.
+
+## 5. Vérifier le câblage
+
+Si le projet contient un schéma de breadboard, ouvrez **Vérifier le circuit** et choisissez **Vérifier**. Arrêtez d’abord tout croquis en cours.
+
+| Résultat | Signification |
 | --- | --- |
-| `pcb/` | `circuit.json`, `preview.svg` si possible |
-| `breadboard/` | `diagram.json` (carte Wokwi), `preview.svg` facultatif |
-| `technical/` | fiches |
-| `host/<name>/` | C gpio-host (`.c` / `.ino`) exécuté sur l’en-tête de cette carte |
-| `host/arduino-proxy-<name>/` | C gpio-arduino-proxy quand le proxy Arduino USB est connecté |
-| `firmware/<name>/` | C Arduino USB gravé en USB |
+| **Réussi** | La connexion mesurée correspond au plan |
+| **Échec** | La connexion mesurée ne correspond pas au plan |
+| **Appuyer** | Maintenez le bouton indiqué, puis recommencez |
+| **Dangereux** | Cette connexion ne doit pas être pilotée ; coupez l’alimentation et inspectez-la |
+| **Inconnu** | La carte ne peut pas mesurer ce réseau correctement ; inspectez-le à la main |
 
-Le tableau de bord `/project` lit les chemins visuels depuis GitHub, par défaut la branche au commit le plus récent (visionneuse PCB pour `pcb/circuit.json` / `pcb/preview.svg`, visionneuse breadboard pour `breadboard/diagram.json`). Projet mobile affiche cette même visionneuse Wokwi dans une WebView. Un sélecteur de branche change ce checkout. **Actualiser** (ou revenir à l’onglet Projet) reliste les branches GitHub pour qu’une nouvelle branche de l’agent apparaisse sans redémarrer. Les croquis hôte/micrologiciel sont listés depuis la carte sélectionnée. Le lancement utilise la copie de la carte, pas un chemin Pi saisi. Projet **Enregistrer sur GitHub** valide et pousse le clone `~/projects/<name>` sur la branche extraite (pas une fusion vers `main`), puis recharge la branche au commit le plus récent. Demandez à l’agent sur la carte d’enregistrer quand vous voulez fusionner la branche de fonctionnalité dans `main`.
+Une connexion avec seulement une LED peut rester **Inconnue**, car le connecteur ne peut pas mesurer tous les composants. Inconnu ne signifie pas échec.
 
-## Changer le WiFi plus tard
+## 6. Utiliser un Arduino USB
 
-Toujours connecté `/devices/wifi`, à tout moment — choisissez l’appareil associé dans le menu, puis le même flux Bluetooth Chrome ou collage iOS. Le tableau de bord ne signera pas un UUID qui n’est pas associé à votre compte.
+gpio-companion propose deux modes Arduino différents.
 
-## Changer GitHub plus tard
+### Graver Arduino comme proxy
 
-Profil → GitHub (`/profile/github`) → Connecter GitHub (installer l’application GitHub gpio-companion). Les cartes associées créent un jeton à chaque git push ; vous ne collez pas de PAT. Si une carte a été hors ligne plus d’une heure, poussez à nouveau une fois qu’elle a Internet. `/devices/keys` redirige toujours là.
+Utilisez ce mode pour commander les broches Arduino depuis GPIO en direct ou un croquis compagnon :
 
-## Mises à jour de la carte
+1. Branchez l’Arduino en USB.
+2. Ouvrez **Appareils → Ma carte**.
+3. Trouvez **Proxy Arduino** et choisissez **Graver Arduino comme proxy**.
+4. Revenez dans Projet. **Arduino** doit maintenant être proposé dans GPIO en direct.
 
-Vous ne faites pas de git-pull à la main sauf si vous le voulez. `gpio-companion-update.timer` tire `main` (ou `/etc/gpio-companion/branch`) au démarrage et toutes les 24 h, rafraîchit compétences/préférences, et redémarre l’API appareil quand l’arbre serveur a changé.
+Le proxy est un micrologiciel spécial de gpio-companion. Si la commande n’apparaît pas, vérifiez le câble et le port USB, puis actualisez la carte.
 
-`gpio-companion-cleanup.timer` s’exécute au démarrage et toutes les heures. Les journaux restent 24 heures puis sont compactés ; les fichiers apt/tmp/cache restants sont nettoyés pour que les cartes eMMC 8 Go ne se remplissent pas. Journald ne transmet pas à rsyslog. Appareils → Débogage montre l’espace disque libre et peut charger un extrait de journal des 24 dernières heures caviardé (pas un dump complet).
+### Graver Arduino
 
-## GPIO
+Utilisez **Projet → Outils de la carte → Gravure Arduino** lorsque l’Arduino doit exécuter seul le micrologiciel du projet. Sélectionnez le type de carte, le croquis et le port USB, puis choisissez **Graver**.
 
-L’agent sur la carte pilote l’en-tête de cette carte avec des croquis C (`POST /v1/run`, compétence `gpio-host`) sauf si un proxy Arduino USB est connecté — alors `host/arduino-proxy-*` et compétence `gpio-arduino-proxy`. Le `PUT /v1/gpio` direct est pour les tests ponctuels seulement. L’en-tête GPIO en direct de la page Projet du tableau de bord peut encore piloter la même carte (Compagnon | Arduino quand un proxy est actif). Alimentation/GND et broches Raspberry Pi 27–28 sont refusées. Orange Pi 3 LTS utilise la carte 26 broches ; les autres modèles Orange Pi ne pilotent que les broches que le compagnon peut résoudre.
+Le micrologiciel du projet remplace celui du proxy. Pour retrouver Arduino dans GPIO en direct, revenez dans Appareils et choisissez **Regraver Arduino comme proxy**.
 
-Gravez l’Arduino USB depuis Projet **Graver Arduino** (nom de croquis depuis `firmware/` sur la carte). Une seconde gravure pendant qu’une tourne renvoie 409.
+Les messages série USB apparaissent dans **Série (USB)**. Sélectionnez le port et la vitesse, puis choisissez **Ouvrir le port série**. La gravure peut fermer brièvement la connexion pendant le redémarrage de la carte.
 
-Exécutez du C sur le GPIO compagnon depuis Projet **Exécuter sur la carte** (nom de croquis depuis `host/` sur la carte). Une seconde exécution pendant qu’une tourne renvoie 409.
+## 7. Examiner et enregistrer
 
-Projet **Vérifier le circuit** pulse les cavaliers depuis `breadboard/diagram.json` sur la carte. Un overlay vert/rouge (ou une liste de puces sur mobile) montre réussite/échec. Un filet LED isolé reste inconnu — cet en-tête n’a pas d’ADC. Vérifier et Exécuter ne peuvent pas tourner en même temps.
+Pendant le travail, l’agent utilise une branche séparée. Vous pouvez ainsi examiner le résultat sans remplacer immédiatement la version enregistrée.
 
-## Sécurité
+Utilisez **Actualiser** pour voir une nouvelle branche. Vérifiez la breadboard, le PCB, les fiches techniques et le comportement. Lorsque tout vous convient, dites à l’agent :
 
-- N’injectez pas 5 V dans un GPIO
-- Ne court-circuitez pas 3V3 vers 5V
-- L’agent peut piloter les broches et l’USB ; restez au banc pour le matériel d’alimentation
-- La clé d’association et le jeton GitHub sont des secrets ; ne les validez pas
+> Enregistrez ce projet.
+
+L’agent fusionne alors le travail terminé dans la branche principale. **Enregistrer sur GitHub** valide et envoie seulement les fichiers actuels de la carte ; cette action n’approuve ni ne fusionne la fonctionnalité à elle seule.
+
+## Emplacements utiles du projet
+
+Vous n’avez normalement pas besoin de modifier ces chemins à la main, mais ils expliquent le contenu affiché dans Projet :
+
+| Dossier | Contenu |
+| --- | --- |
+| `breadboard/` | Plan visuel de branchement |
+| `pcb/` | Conception et aperçu du PCB |
+| `technical/` | Notes de câblage et fiches techniques |
+| `host/` | Croquis C exécutés par le compagnon |
+| `firmware/` | Croquis C gravés sur un Arduino USB |
+
+## Mises à jour et dépannage
+
+Les mises à jour s’installent normalement seules. Pour en demander une, passez en mode **Expert**, ouvrez **Appareils → Débogage**, sélectionnez une carte en ligne et choisissez **Mettre à jour le compagnon**. La carte peut apparaître brièvement hors ligne pendant le redémarrage des services.
+
+- **Aucun croquis dans la liste :** demandez à l’agent d’envoyer le projet, puis actualisez Projet.
+- **Exécution occupée :** arrêtez d’abord le croquis ou la vérification en cours.
+- **Port Arduino absent :** utilisez un câble USB de données, reconnectez-le et rechargez les ports.
+- **Aucun message série :** vérifiez que le croquis produit des messages et que la vitesse sélectionnée correspond.
+- **Nouvelle branche absente :** choisissez **Actualiser** ou rouvrez Projet.
+
+## Sécurité sur l’établi
+
+- Débranchez l’alimentation avant de modifier les fils.
+- N’envoyez jamais 5 V dans une broche GPIO.
+- Ne reliez jamais directement 3,3 V au 5 V ou à la masse.
+- Utilisez une résistance adaptée avec toute LED ordinaire.
+- Restez près de l’établi lorsque des moteurs, relais, éléments chauffants ou autres équipements alimentés fonctionnent.
+- Gardez les informations d’association privées et n’ajoutez jamais de mot de passe ou de clé au projet.

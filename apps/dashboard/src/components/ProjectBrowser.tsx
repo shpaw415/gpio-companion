@@ -1,5 +1,3 @@
-import { GET as loadFlash, POST as startFlash } from "@api/flash";
-import { GET as loadFlashSketches } from "@api/flash/sketches";
 import { GET as getGithubApp } from "@api/github-app";
 import {
 	PATCH as createProject,
@@ -99,7 +97,6 @@ export default function ProjectBrowser({
 	const [stopping, setStopping] = useState(false);
 	const [runRunning, setRunRunning] = useState(false);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
-	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
 	const [sketchBusy, setSketchBusy] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [deleteName, setDeleteName] = useState("");
@@ -157,25 +154,22 @@ export default function ProjectBrowser({
 	useEffect(() => {
 		if (!uuid) {
 			setHostSketches([]);
-			setFirmwareSketches([]);
 			setRunRunning(false);
 			return;
 		}
 		let cancelled = false;
-		Promise.all([loadRunSketches(uuid), loadFlashSketches(uuid)])
-			.then(([host, firmware]) => {
+		loadRunSketches(uuid)
+			.then((host) => {
 				if (cancelled) {
 					return;
 				}
 				setHostSketches(unwrapAction(host).sketches);
-				setFirmwareSketches(unwrapAction(firmware).sketches);
 			})
 			.catch(() => {
 				if (cancelled) {
 					return;
 				}
 				setHostSketches([]);
-				setFirmwareSketches([]);
 			});
 		loadRun(uuid)
 			.then((result) => {
@@ -591,8 +585,8 @@ export default function ProjectBrowser({
 	}
 
 	return (
-		<Stack spacing={1.5}>
-			<Paper className="p-3" elevation={1}>
+		<Stack spacing={1.5} className="project-browser">
+			<Paper className="workbench-control-rail p-3" elevation={0}>
 				<Stack spacing={2}>
 					{createFields(empty)}
 					{empty ? null : (
@@ -713,7 +707,7 @@ export default function ProjectBrowser({
 					)}
 				</Stack>
 			</Paper>
-			<Stack spacing={3}>
+			<Stack spacing={1.5}>
 				{error ? <Alert severity="error">{error}</Alert> : null}
 				{loadingRepo ? (
 					<>
@@ -721,7 +715,7 @@ export default function ProjectBrowser({
 						<PreviewSkeleton />
 					</>
 				) : bundle ? (
-					<>
+					<section className="project-canvas">
 						<Stack
 							direction={mobile ? "column" : "row"}
 							spacing={2}
@@ -730,6 +724,7 @@ export default function ProjectBrowser({
 								alignItems: mobile ? "stretch" : "center",
 								justifyContent: "space-between",
 							}}
+							className="project-canvas-toolbar"
 						>
 							<Typography variant="h6" className="break-all">
 								{bundle.owner}/{bundle.repo}
@@ -782,7 +777,7 @@ export default function ProjectBrowser({
 								<Button
 									variant="outlined"
 									color={runRunning ? "error" : "primary"}
-									disabled={stopping || !uuid}
+									disabled={stopping || !uuid || !runRunning}
 									onClick={() => void stopSketch()}
 									className={mobile ? "flex-1" : undefined}
 								>
@@ -846,73 +841,56 @@ export default function ProjectBrowser({
 							</Typography>
 						)}
 						{saveHint ? <Alert severity="success">{saveHint}</Alert> : null}
-						<PcbViewer
-							circuitJsonText={pcbJson}
-							label={t("project.pcb")}
-							previewUrl={bundle.pcbPreviewUrl}
-						/>
-						<BreadboardViewer
-							diagramText={breadboardJson}
-							previewUrl={bundle.breadboardPreviewUrl}
-							livePins={livePins}
-							arduinoLivePins={arduinoLivePins}
-							verifyOverlay={overlay}
-							boardModel={boardModel}
-						/>
-						<FileGroup title={t("project.pcb")} files={bundle.pcb} />
-						<FileGroup
-							title={t("project.breadboard")}
-							files={bundle.breadboard}
-						/>
-						<FileGroup
-							title={t("project.technical")}
-							files={bundle.technical}
-						/>
-						<BoardSketchGroup
-							title={t("project.hostSketches")}
-							action={t("project.run")}
-							sketches={hostSketches.filter(
-								(item) => item.project === bundle.repo,
-							)}
-							busy={sketchBusy || !uuid}
-							onLaunch={(dir) => {
-								if (!uuid) {
-									return;
-								}
-								launch(async () => {
-									unwrapAction(await startRun({ uuid, dir }));
-									setRunRunning(unwrapAction(await loadRun(uuid)).running);
-								});
-							}}
-						/>
-						<BoardSketchGroup
-							title={t("project.arduinoFirmware")}
-							action={t("flash.flash")}
-							sketches={firmwareSketches.filter(
-								(item) => item.project === bundle.repo,
-							)}
-							busy={sketchBusy || !uuid}
-							onLaunch={(dir) => {
-								if (!uuid) {
-									return;
-								}
-								launch(async () => {
-									unwrapAction(
-										await startFlash({
-											uuid,
-											fqbn: "arduino:avr:uno",
-											dir,
-										}),
-									);
-									unwrapAction(await loadFlash(uuid));
-								});
-							}}
-						/>
-					</>
+						<div className="project-preview-grid">
+							<PcbViewer
+								circuitJsonText={pcbJson}
+								label={t("project.pcb")}
+								previewUrl={bundle.pcbPreviewUrl}
+							/>
+							<BreadboardViewer
+								diagramText={breadboardJson}
+								previewUrl={bundle.breadboardPreviewUrl}
+								livePins={livePins}
+								arduinoLivePins={arduinoLivePins}
+								verifyOverlay={overlay}
+								boardModel={boardModel}
+							/>
+						</div>
+						<div className="project-assets-grid">
+							<FileGroup title={t("project.pcb")} files={bundle.pcb} />
+							<FileGroup
+								title={t("project.breadboard")}
+								files={bundle.breadboard}
+							/>
+							<FileGroup
+								title={t("project.technical")}
+								files={bundle.technical}
+							/>
+							<BoardSketchGroup
+								title={t("project.hostSketches")}
+								action={t("project.run")}
+								sketches={hostSketches.filter(
+									(item) => item.project === bundle.repo,
+								)}
+								busy={sketchBusy || !uuid}
+								onLaunch={(dir) => {
+									if (!uuid) {
+										return;
+									}
+									launch(async () => {
+										unwrapAction(await startRun({ uuid, dir }));
+										setRunRunning(unwrapAction(await loadRun(uuid)).running);
+									});
+								}}
+							/>
+						</div>
+					</section>
 				) : empty ? null : (
-					<Typography color="secondary">
-						{t("project.selectProject")}
-					</Typography>
+					<Paper className="workbench-empty" elevation={0}>
+						<Typography color="secondary">
+							{t("project.selectProject")}
+						</Typography>
+					</Paper>
 				)}
 			</Stack>
 			<Dialog

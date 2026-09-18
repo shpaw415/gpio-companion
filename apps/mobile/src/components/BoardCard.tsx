@@ -1,3 +1,4 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import {
@@ -77,28 +78,48 @@ export default function BoardCard({
 				style={{
 					flexDirection: "row",
 					alignItems: "center",
-					gap: 8,
-					minHeight: 44,
+					gap: 10,
+					minHeight: 48,
 				}}
+				accessibilityRole="button"
+				accessibilityState={{ expanded }}
 			>
-				<Text
+				<View
 					style={{
-						color: colors.text,
-						fontWeight: "700",
-						fontSize: 16,
-						flex: 1,
+						width: 34,
+						height: 34,
+						borderRadius: 10,
+						backgroundColor: colors.chipBg,
+						alignItems: "center",
+						justifyContent: "center",
 					}}
-					numberOfLines={1}
 				>
-					{deviceDisplayName(device)}
-				</Text>
-				<Chip
-					label={online ? t("devices.online") : t("devices.offline")}
-					tone={online ? "success" : "muted"}
+					<MaterialIcons name="memory" size={20} color={colors.primary} />
+				</View>
+				<View style={{ flex: 1, minWidth: 0 }}>
+					<Text
+						style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}
+						numberOfLines={1}
+					>
+						{deviceDisplayName(device)}
+					</Text>
+					<Text style={{ color: colors.muted, fontSize: 12 }} numberOfLines={1}>
+						{status?.model || status?.hardware || device.uuid.slice(0, 8)}
+					</Text>
+				</View>
+				<View
+					style={{
+						width: 9,
+						height: 9,
+						borderRadius: 999,
+						backgroundColor: online ? colors.success : colors.muted,
+					}}
 				/>
-				{selected ? (
-					<Chip label={t("devices.selected")} tone="primary" filled />
-				) : null}
+				<MaterialIcons
+					name={expanded ? "expand-less" : "expand-more"}
+					size={22}
+					color={colors.muted}
+				/>
 			</Pressable>
 			{expanded ? (
 				<View style={{ gap: 8 }}>
@@ -184,14 +205,14 @@ export default function BoardCard({
 								onPress={() => setTab("t3")}
 							/>
 						) : null}
-						{onUnpair ? (
+						{!isEasy && onUnpair ? (
 							<TextButton
 								danger
 								label={t("devices.unpair")}
 								onPress={() => {
 									Alert.alert(
 										t("devices.unpairTitle"),
-										t("devices.unpairConfirm"),
+										`${t("devices.unpairConfirm")}\n\n${t("devices.unpairDetail")}`,
 										[
 											{ text: t("admin.cancel"), style: "cancel" },
 											{

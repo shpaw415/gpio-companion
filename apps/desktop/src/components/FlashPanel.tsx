@@ -36,7 +36,7 @@ export default function FlashPanel({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
-	const [fqbn, setFqbn] = useState("arduino:avr:uno");
+	const [fqbn, setFqbn] = useState("");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const [sketches, setSketches] = useState<BoardSketch[]>([]);
@@ -104,6 +104,10 @@ export default function FlashPanel({
 	return (
 		<Stack spacing={1} sx={{ mt: 1 }}>
 			<Typography variant="subtitle2">{t("flash.arduinoFlash")}</Typography>
+			<Typography variant="body2" color="secondary">
+				{t("flash.replacesProxy")}
+			</Typography>
+			<Alert severity="info">{t("flash.selectArduinoFirst")}</Alert>
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}

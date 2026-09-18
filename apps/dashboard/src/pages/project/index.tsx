@@ -20,6 +20,7 @@ import { LinesSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
+import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
@@ -33,6 +34,7 @@ export default function ProjectPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const t = useT();
+	const { isEasy } = useDashboardMode();
 	const mobile = useMobile();
 	const steps = [
 		t("project.stepSignIn"),
@@ -122,6 +124,9 @@ export default function ProjectPage() {
 	const step = !loggedIn ? 0 : !paired ? 1 : !githubReady ? 2 : 3;
 	const next = nextFor[step] ?? undefined;
 	const activeUuid = selectedUuid || devices[0]?.uuid || "";
+	const activeDevice = devices.find((device) => device.uuid === activeUuid);
+	const activeStatus = statuses[activeUuid];
+	const codeReady = Boolean(activeStatus?.t3?.paired && activeStatus);
 	const wifiHint = paired && needsWifi(statuses[activeUuid]);
 	const hasProject = Boolean(project);
 
@@ -132,11 +137,11 @@ export default function ProjectPage() {
 	}, [hasProject]);
 
 	return (
-		<Stack spacing={1.5}>
+		<Stack spacing={1.5} className="project-workbench">
 			{paired ? (
 				<Stack direction="row" className="justify-end">
 					<Button
-						href="/devices/t3"
+						href={codeReady ? "/devices/t3" : "/devices"}
 						variant="outlined"
 						size="small"
 						className={mobile ? "w-full" : undefined}
@@ -145,9 +150,16 @@ export default function ProjectPage() {
 					</Button>
 				</Stack>
 			) : null}
+			{paired && !pairingLoading && !codeReady ? (
+				<Alert severity="info">
+					{activeStatus
+						? t("project.codeNeedsPairing")
+						: t("project.boardUnavailable")}
+				</Alert>
+			) : null}
 
 			{step < 3 || pairingLoading ? (
-				<Paper className="p-3" elevation={1}>
+				<Paper className="workbench-control-rail p-3" elevation={0}>
 					<Stack spacing={1.5}>
 						{pairingLoading ? (
 							<LinesSkeleton lines={2} />
@@ -207,7 +219,10 @@ export default function ProjectPage() {
 			</div>
 
 			{paired && hasProject && activeUuid ? (
-				<Paper className="min-w-0 overflow-x-hidden p-3" elevation={1}>
+				<Paper
+					className="workbench-control-rail min-w-0 overflow-x-hidden p-3"
+					elevation={0}
+				>
 					<Stack spacing={1.5} className="min-w-0">
 						<Stack
 							direction={mobile ? "column" : "row"}
@@ -216,6 +231,14 @@ export default function ProjectPage() {
 						>
 							<Typography variant="subtitle1">
 								{t("project.boardTools")}
+							</Typography>
+							<Typography color="secondary" variant="body2">
+								{t("project.selectedBoardContext", {
+									board:
+										activeDevice?.label ||
+										activeStatus?.model ||
+										activeUuid.slice(0, 8),
+								})}
 							</Typography>
 							<Button
 								variant="outlined"
@@ -228,6 +251,7 @@ export default function ProjectPage() {
 						</Stack>
 						{boardToolsOpen ? (
 							<>
+								<Alert severity="warning">{t("project.safetyHint")}</Alert>
 								<DeviceSelect
 									devices={devices}
 									value={activeUuid}
@@ -235,7 +259,7 @@ export default function ProjectPage() {
 								/>
 								{pairingLoading ? (
 									<LinesSkeleton lines={3} />
-								) : (
+								) : isEasy ? null : (
 									<GpioPanel
 										key={activeUuid}
 										uuid={activeUuid}

@@ -82,7 +82,7 @@ export const en = {
 		stepSignIn: "Sign in",
 		stepPair: "Pair a board",
 		stepGithub: "Connect GitHub",
-		stepReady: "Ready",
+		stepReady: "Ready to build",
 		hintSignIn: "Sign in with GitHub to start.",
 		hintPair:
 			"Pair your board from Devices so you can flash sketches and see circuits.",
@@ -94,7 +94,14 @@ export const en = {
 		setWifi: "Set WiFi",
 		yourProjects: "Your projects",
 		boardTools: "Board tools",
-		boardToolsHint: "Live GPIO, Flash Arduino, Run on board, Verify circuit",
+		boardToolsHint: "Flash Arduino, Run on board, and check wiring",
+		advancedBoardTools: "Advanced pin controls",
+		selectedBoardContext: "Companion: {board}",
+		boardOnline: "Online",
+		boardUnavailable: "Status unavailable",
+		codeNeedsPairing: "Pair Code before opening the AI workspace.",
+		safetyHint:
+			"Power off before changing wires. GPIO uses 3.3 V; never connect 5 V to a GPIO, and use a resistor with LEDs.",
 		show: "Show",
 		hide: "Hide",
 		liveGpioHint:
@@ -126,11 +133,11 @@ export const en = {
 		noMatch: "No matching gpio-companion projects.",
 		branch: "Branch",
 		defaultBranch: "{name} (default)",
-		reload: "Reload",
+		reload: "Refresh from GitHub",
 		reloading: "Reloading…",
 		stopSketch: "Stop sketch",
 		stopping: "Stopping…",
-		saveToGithub: "Save to GitHub",
+		saveToGithub: "Save board changes",
 		saving: "Saving…",
 		delete: "Delete",
 		deleting: "Deleting…",
@@ -149,6 +156,7 @@ export const en = {
 		technical: "Technical",
 		hostSketches: "Host sketches",
 		arduinoFirmware: "Arduino firmware",
+		flashPrepared: "Choose and flash in Board tools",
 		run: "Run",
 		noneOnBoard: "None on this board for this project.",
 		noFiles: "No files in this folder.",
@@ -167,7 +175,7 @@ export const en = {
 		titleEasy: "My board",
 		titleExpert: "Devices",
 		easyHint:
-			"Your Arduino companion board. Pair it, put it on Wi‑Fi, then open Code.",
+			"Your companion is the Raspberry Pi or Orange Pi running gpio-companion. A USB Arduino is optional and appears separately.",
 		expertHint:
 			"Boards paired to your account and how they reach the dashboard.",
 		addBoard: "Add board",
@@ -220,6 +228,8 @@ export const en = {
 		unpairRevokes: "Unpair (revokes T3 Code)",
 		unpair: "Unpair",
 		unpairConfirm: "Remove this board from your account?",
+		unpairDetail:
+			"This revokes Code access and removes this board from your account. You can pair it again later.",
 		unpairTitle: "Unpair",
 		ethernet: "Ethernet",
 		wifiSsid: "WiFi · {ssid}",
@@ -243,6 +253,9 @@ export const en = {
 		backToDevices: "Back to Devices",
 		back: "Back",
 		connectBle: "Connect over Bluetooth",
+		manualSetup: "Enter pairing details manually",
+		manualSetupHint:
+			"Use these details only when Bluetooth setup is unavailable.",
 		signBleCommand: "Sign Bluetooth pairing command",
 		bleReadyHint:
 			"Checks Web Bluetooth, then asks you to select gpio-companion. If that fails, a signed command is copied for LightBlue or nRF Connect.",
@@ -295,6 +308,9 @@ export const en = {
 		ssid: "SSID",
 		password: "Password",
 		networkName: "Network name",
+		connectBoard: "Connect board to WiFi",
+		keepNearby:
+			"Keep the companion powered and nearby. Your browser will ask you to choose gpio-companion.",
 		showPassword: "Show password",
 		hidePassword: "Hide password",
 		send: "Send to board",
@@ -354,25 +370,25 @@ export const en = {
 		backToCatalog: "Back to catalog",
 		gettingStartedTitle: "Getting started",
 		gettingStartedDesc:
-			"Power the board, get it online, sign in, pair, connect GitHub, reach the overview.",
-		userGuideTitle: "User guide",
+			"Pair your board, connect WiFi and GitHub, then create your first project.",
+		userGuideTitle: "Welcome to gpio-companion",
 		userGuideDesc:
-			"What ships on your bench and where each gpio-companion document fits.",
-		wifiBluetoothTitle: "WiFi over Bluetooth",
+			"Meet your workbench, gather a starter kit, and learn the three safety rules.",
+		wifiBluetoothTitle: "WiFi and Bluetooth",
 		wifiBluetoothDesc:
-			"Chrome/Edge Web Bluetooth, native apps, and the iOS LightBlue / nRF Connect paste flow.",
-		workflowsTitle: "Daily workflows",
+			"Get a board online from the native apps, a browser, or an iPhone fallback.",
+		workflowsTitle: "Build, run, and save",
 		workflowsDesc:
-			"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
+			"Turn an idea into a safe circuit, run it, verify it, and save it to GitHub.",
 		storageTitle: "Removable storage",
 		storageDesc:
-			"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
+			"Open extra SD cards and USB drives in Code, then remove them safely.",
 		pinoutPiTitle: "Raspberry Pi GPIO pinout",
 		pinoutPiDesc:
-			"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
+			"Find pin 1, wire a safe first LED, and explore the Raspberry Pi 40-pin header.",
 		pinoutOrangeTitle: "Orange Pi GPIO pinout",
 		pinoutOrangeDesc:
-			"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
+			"Find safe physical pins and wire a first LED on Orange Pi, including the 3 LTS.",
 	},
 	t3: {
 		title: "T3 Code",
@@ -560,6 +576,8 @@ export const en = {
 		arduinoFlash: "Arduino flash",
 		replacesProxy:
 			"Flashing a project sketch replaces Arduino proxy firmware until you flash the proxy again from Devices.",
+		selectArduinoFirst:
+			"Detect the USB Arduino, then confirm its board type before flashing.",
 		loadPorts: "Load ports",
 		portsOverBle: "Ports over Bluetooth",
 		signPorts: "Sign ports for Bluetooth",
@@ -619,8 +637,8 @@ export const en = {
 		serialStatus: "Serial {status}",
 	},
 	verify: {
-		title: "Verify circuit",
-		hint: "Pulse declared jumpers on the board. LED on/off needs a second GPIO or ADC (not on this header).",
+		title: "Check wiring continuity",
+		hint: "Checks measurable connections from the breadboard diagram. It does not certify power, polarity, resistor values, or every component.",
 		selectProject: "Select a project with breadboard/diagram.json.",
 		verify: "Verify",
 		stop: "Stop",

@@ -88,11 +88,12 @@ export function Paper({
 	const colors = useColors();
 	const style: ViewStyle = {
 		backgroundColor: colors.surface,
-		borderRadius: 12,
+		borderRadius: 14,
 		padding: 12,
-		borderWidth: selected ? 2 : 1,
+		borderWidth: 1,
 		borderColor: selected ? colors.primary : colors.border,
 		gap: 8,
+		...(selected ? { borderLeftWidth: 4, paddingLeft: 9 } : undefined),
 	};
 	if (onPress) {
 		return (
@@ -232,7 +233,7 @@ export function Field({
 				autoCorrect={false}
 				style={{
 					backgroundColor: colors.surface,
-					borderRadius: 12,
+					borderRadius: 10,
 					padding: 12,
 					color: colors.text,
 					borderWidth: 1,
@@ -249,7 +250,7 @@ export function Skeleton({ height = 88 }: { height?: number }) {
 		<View
 			style={{
 				height,
-				borderRadius: 12,
+				borderRadius: 14,
 				backgroundColor: colors.chipBg,
 				opacity: 0.8,
 			}}

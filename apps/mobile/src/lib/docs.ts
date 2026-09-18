@@ -128,37 +128,37 @@ export function docsForLocale(locale: string): DocEntry[] {
 			title: "Getting started",
 			titleKey: "docs.gettingStartedTitle",
 			description:
-				"Power the board, get it online, sign in, pair, connect GitHub, reach the overview.",
+				"Pair your board, connect WiFi and GitHub, then create your first project.",
 			descriptionKey: "docs.gettingStartedDesc",
 			group: "guides",
 			raw: pickRaw(locale, gettingStarted, gettingStartedFr),
 		}),
 		doc({
 			id: "user-guide",
-			title: "User guide",
+			title: "Welcome to gpio-companion",
 			titleKey: "docs.userGuideTitle",
 			description:
-				"What ships on your bench and where each gpio-companion document fits.",
+				"Meet your workbench, gather a starter kit, and learn the three safety rules.",
 			descriptionKey: "docs.userGuideDesc",
 			group: "guides",
 			raw: pickRaw(locale, userGuide, userGuideFr),
 		}),
 		doc({
 			id: "wifi-bluetooth",
-			title: "WiFi over Bluetooth",
+			title: "WiFi and Bluetooth",
 			titleKey: "docs.wifiBluetoothTitle",
 			description:
-				"Chrome/Edge Web Bluetooth, native apps, and the iOS LightBlue / nRF Connect paste flow.",
+				"Get a board online from the native apps, a browser, or an iPhone fallback.",
 			descriptionKey: "docs.wifiBluetoothDesc",
 			group: "guides",
 			raw: pickRaw(locale, wifiBluetooth, wifiBluetoothFr),
 		}),
 		doc({
 			id: "workflows",
-			title: "Daily workflows",
+			title: "Build, run, and save",
 			titleKey: "docs.workflowsTitle",
 			description:
-				"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
+				"Turn an idea into a safe circuit, run it, verify it, and save it to GitHub.",
 			descriptionKey: "docs.workflowsDesc",
 			group: "guides",
 			raw: pickRaw(locale, workflows, workflowsFr),
@@ -168,7 +168,7 @@ export function docsForLocale(locale: string): DocEntry[] {
 			title: "Removable storage",
 			titleKey: "docs.storageTitle",
 			description:
-				"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
+				"Open extra SD cards and USB drives in Code, then remove them safely.",
 			descriptionKey: "docs.storageDesc",
 			group: "guides",
 			raw: pickRaw(locale, storage, storageFr),
@@ -178,7 +178,7 @@ export function docsForLocale(locale: string): DocEntry[] {
 			title: "Raspberry Pi GPIO pinout",
 			titleKey: "docs.pinoutPiTitle",
 			description:
-				"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
+				"Find pin 1, wire a safe first LED, and explore the Raspberry Pi 40-pin header.",
 			descriptionKey: "docs.pinoutPiDesc",
 			group: "hardware",
 			hardware: "raspberrypi",
@@ -189,7 +189,7 @@ export function docsForLocale(locale: string): DocEntry[] {
 			title: "Orange Pi GPIO pinout",
 			titleKey: "docs.pinoutOrangeTitle",
 			description:
-				"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
+				"Find safe physical pins and wire a first LED on Orange Pi, including the 3 LTS.",
 			descriptionKey: "docs.pinoutOrangeDesc",
 			group: "hardware",
 			hardware: "orangepi",

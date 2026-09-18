@@ -1,61 +1,88 @@
-# Getting started (user)
+# Getting started
 
-Do this in order. GitHub token is **not** typed on the Pi; it comes from dashboard Profile → GitHub after pair. OpenCode uses dashboard credits through a local gpio-companion proxy (no AI key to paste).
+By the end of this guide, your board will be online, paired with your account, connected to GitHub, and ready for its first project.
 
-## 1. Power the board
+You need a **configured gpio-companion board** and a GitHub account. If you are preparing the operating-system image yourself, follow `documentation/host/device-image.md` in the source repository first.
 
-HDMI/serial if you need the console. First boot clones the repo to `/opt/gpio-companion` and runs first-setup (root, interactive).
+## 1. Power and connect the board
 
-Choose **raspberrypi** or **orangepi**. Enter the host’s Cloudflare API token, account ID, and zone ID so first-setup can create this board’s tunnel (`api-…` and `t3-…` on gpio-companion.com).
+Connect the board to power. Ethernet is the easiest first connection: plug in a network cable if one is available and wait about two minutes.
 
-**Write down** the printed **pairing UUID** and **pairing key**, or pull UUID, key, and Device URL on `/pair` over Bluetooth (Chrome) / LightBlue paste (iOS). They also live in `/etc/gpio-companion/pairing.env` (root).
+No Ethernet? That is fine. You can pair the nearby board over Bluetooth and send its WiFi details in step 4. See [WiFi and Bluetooth](./wifi-bluetooth.md) if your browser or phone cannot find it.
 
-## 2. Network
+## 2. Sign in
 
-If the Pi already has Ethernet, skip to sign-in.
+Open gpio-companion in the web, desktop, or mobile app and choose **Continue with GitHub**.
 
-If it has no WiFi yet, pair over Bluetooth first (step 4), then set WiFi from **WiFi** (`/devices/wifi`) — see [wifi-bluetooth.md](./wifi-bluetooth.md). While the board is offline (clock not NTP-synced), the Pi accepts a signed BLE command once per nonce instead of the 60-second timestamp window. The dashboard only signs WiFi for a board already paired to your account.
+On the web, the **Project** page shows a short setup journey:
 
-Ethernet and the Pi TTY (`nmcli`) always work.
+**Sign in → Pair a board → Connect GitHub → Ready**
 
-## 3. Sign in
+Desktop may open **Devices** after sign-in, while mobile opens **Project**. The same tools are available on all three.
 
-Dashboard `/` stepper: **Sign in → Pair board → GitHub → Ready**.
+## 3. Pair your board
 
-Use `/login`. Continue with GitHub; you land on `/callback` then home.
+Open **Devices → My board**, then choose **Pair a device** or **Add board**.
 
-## 4. Pair the board
+The easiest method is:
 
-Page `/devices` (or stepper step 2). You can pair more than one board.
+1. Choose **Connect over Bluetooth** or **Scan nearby**.
+2. Select the device named **gpio-companion**.
+3. Check the detected board, then choose **Pair selected device**.
+4. Give it a friendly label such as `Desk Pi` or `Orange Bench`.
 
-| Field | Where it comes from |
+If Bluetooth is unavailable, enter the **Device URL**, **Pairing UUID**, and **Pairing key** supplied with the configured board. Treat the pairing key like a password.
+
+If the board already has an owner, your request waits for that person to approve the transfer. One person owns a board at a time.
+
+## 4. Connect WiFi if needed
+
+Skip this step when the board is already online through Ethernet.
+
+Open **Devices → WiFi**, choose your paired board, enter the network name and password, then choose **Connect over Bluetooth** or **Send to board**. Wait for the connected message before unplugging Ethernet.
+
+The WiFi details go directly to the nearby board. They are not added to your project. For browser and iPhone options, see [WiFi and Bluetooth](./wifi-bluetooth.md).
+
+## 5. Pair T3 Code
+
+On **Devices → My board**, find your board and choose **Pair T3 Code**. Open the displayed link or scan its QR code, then confirm the pairing.
+
+Afterward, **Open Code** launches your private T3 Code workspace. You normally do this once per board.
+
+## 6. Connect GitHub
+
+Open **Profile → GitHub** and choose **Connect GitHub App**. Select the repositories gpio-companion may use, or allow all repositories.
+
+You do not need to create or paste a personal access token. The board receives short-lived access when it needs to save work.
+
+## 7. Create your first project
+
+Open **Project** and choose **New project**. Use a simple name such as `hello-led`, then choose **Create**.
+
+When your board is online, gpio-companion creates the GitHub repository, copies it to the board, and adds it to Code. Select the project row if it does not open automatically.
+
+Now choose **Open Code** and try this prompt:
+
+> Help me build a safe blinking LED for my board. Show me the breadboard first, use physical pin numbers, and wait for me before running it.
+
+The agent should identify your board, prepare a visual breadboard, and explain where each wire goes. Continue with [Build, run, and save](./workflows.md).
+
+## Quick check
+
+You are ready when:
+
+- your board shows **Online** in Devices
+- **Open Code** reaches T3 Code
+- your GitHub connection shows as active
+- `hello-led` appears in Project
+
+## If you get stuck
+
+| What you see | What to try |
 | --- | --- |
-| Device URL | Bluetooth (first-setup `apiHostname`) or `https://api-<uuid>.gpio-companion.com` |
-| Pairing UUID | Bluetooth or first-setup printout |
-| Pairing key | Bluetooth or first-setup printout |
-
-On Devices overview you can set an optional **label** on a paired board at any time (name it for the bench). It is only for recognition in the dashboard.
-
-The dashboard **signs** the claim, then **Pair T3** (also on Devices overview for a board already claimed). That runs `t3 pair` against the service installed at first-setup and shows a pair code, QR, and board URL (`https://t3-…/pair#token=…`). Scan or open it to finish T3 pairing. If this board already belongs to someone, you wait until they **Accept** on `/notifications` (ownership transfers; their T3 Code session is revoked). One active owner per board.
-
-## 5. GitHub
-
-1. Use **your** GitHub account (create one if needed)
-2. Dashboard **Profile → GitHub**: **Connect GitHub** and install the gpio-companion GitHub App on your account (all or selected repos)
-3. Paired boards mint a fresh token at `git push`. You do not paste a PAT. If the board was offline for more than an hour, just push again once it has internet — do not reopen GitHub.
-
-OpenCode uses `/profile/credits` (USD balance billed from Workers AI tokens), not a GitHub token. Buy $5 / $10 / $25 / $50 packs with PayPal on that page (desktop/mobile open the same dashboard URL). `gpio-companion github-token` prints a live token for API calls.
-
-## 6. Project
-
-Dashboard home is **Project** (`/project`; desktop and mobile open here too). Create a project first. An online board clones it to `~/projects/<name>` and adds it in T3 Code. After create, **Open Code** (Devices → Code) is the next step so you can chat with the agent. Live GPIO, Flash, Run, and Verify stay under **Board tools** until a project is open.
-
-T3 Code pairing is **Pair T3** on `/devices` (or `/devices/pair`): scan the QR or open the board pairing URL with the pair code.
-
-## If something fails
-
-- `device 401` / missing signature: host signing secret not set, or you are on an old image
-- `pairing uuid mismatch` / `pairing key mismatch`: wrong printout or wrong board
-- `already paired`: another dashboard user claimed this UUID
-- `pair a device first` on GitHub: finish pairing on `/devices` first
-- Health check only: `http://<pi>:4150/health` is public; everything else is signed
+| No nearby Bluetooth device | Move closer, enable Bluetooth permissions, and make sure no other app is connected to the board |
+| Board remains offline | Keep Ethernet connected or send WiFi again from **Devices → WiFi** |
+| Pairing details are rejected | Confirm all three details belong to the same physical board |
+| T3 pairing expired | Choose **Pair T3 Code** again to create a fresh code |
+| Project does not reach the board | Keep the board online for a few minutes, then reload Project |
+| A new feature is missing | Switch to **Expert**, open **Devices → Debug**, and choose **Update companion** |

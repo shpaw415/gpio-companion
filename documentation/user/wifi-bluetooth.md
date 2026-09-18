@@ -1,62 +1,75 @@
-# WiFi over Bluetooth (user)
+# WiFi and Bluetooth
 
-The dashboard **signs** every WiFi command with gpio-companion’s private key and a timestamp (replay window 60 seconds). The Pi checks the signature and that the pairing UUID in the command matches **this** board. Unsigned BLE writes do nothing useful.
+Bluetooth gives a nearby phone or computer a private way to pair a board and send WiFi details before the board is online.
 
-A fresh board with no RTC (typical Orange Pi) often has a clock far behind Cloudflare. While it is offline (NTP not synced), the Pi accepts each signed BLE command **once** (`X-Gpio-Nonce`) and does not use the 60-second window. The first valid command may also set the clock. After NTP (or that clock set) the 60-second window applies; a reused nonce is always rejected.
+The Bluetooth device is named **gpio-companion**.
 
-You must be **signed in**, and the board must already be **paired** to your account. Choose it from the paired-device dropdown. The dashboard will not sign a WiFi command for any other UUID.
+## Before you begin
 
-Bluetooth name: **gpio-companion**.
+- Keep the board powered and nearby.
+- Turn on Bluetooth for your phone or computer.
+- Allow Bluetooth and nearby-device permissions when asked.
+- Close LightBlue, nRF Connect, `bluetoothctl`, or any other app already connected to the board.
 
-## Chrome or Edge (desktop / Android)
+Only one app can usually use the board's Bluetooth connection at a time.
 
-1. Pair the board on `/devices/pair` if you have not already
-2. Open `/devices/wifi`
-3. Select the paired device, then a known network or enter SSID and password
-4. **Connect over Bluetooth** and pick `gpio-companion`
-5. Wait until status says connected
+## Native desktop or mobile app
 
-Safari, Firefox, and iOS Chrome/Safari **cannot** use Web Bluetooth in this page. Use the native apps instead: `apps/mobile` (iOS/Android) or `apps/desktop` (Windows/Linux/macOS).
+This is the simplest option on Windows, Linux, macOS, iPhone, and Android.
 
-Chrome’s chooser uses **this computer’s** Bluetooth (not the Pi’s). Quit `bluetoothctl` first. Android Chrome needs Location allowed for BLE scans. nRF Connect can see the board even when the dashboard chooser is empty if the advert has no service UUID.
+1. Open **Devices → WiFi**.
+2. Choose your paired board.
+3. Pick a saved network or choose **Enter manually**.
+4. Enter the network name and password.
+5. Choose **Send to board** and select **gpio-companion** if prompted.
+6. Wait for the connected message.
 
-## Native desktop (Windows / Linux / macOS)
+Desktop may offer WiFi networks saved on that computer. Mobile remembers networks previously sent from the app, but iPhone and Android do not reveal passwords saved by the operating system.
 
-The Tauri app in `apps/desktop` signs in with GitHub, then pairs and sends WiFi over native Bluetooth (not Web Bluetooth).
+## Chrome or Edge
 
-On **WiFi**, pick a **Saved network** to auto-fill SSID and password:
+Web Bluetooth works in supported versions of Chrome or Edge on desktop and Android.
 
-- **Desktop:** this computer’s saved WiFi profiles (password when the OS allows) plus networks you already sent from the app. The network you are on is marked *(this computer)*.
-- **Mobile:** networks you already sent from this app (iOS/Android cannot read OS WiFi passwords).
+1. Open **Devices → WiFi** in the dashboard.
+2. Select your board and enter the WiFi details.
+3. Choose **Connect over Bluetooth**.
+4. Select **gpio-companion** in the browser chooser.
+5. Keep the page open until it reports success.
 
-If the network is not listed, choose **Enter manually** and type SSID and password. Fields stay editable after a fill. Successful sends are remembered on this device only (not uploaded). Logout does not clear them.
+The chooser uses the Bluetooth radio in the device running the browser. Android may require Location or Nearby devices permission before it can scan.
 
-```sh
-cd apps/desktop
-bun install
-bun run tauri:dev
-```
+Safari, Firefox, and browsers on iPhone do not provide Web Bluetooth for this page. Use the gpio-companion mobile app or the fallback below.
 
-Linux: install WebKitGTK/GTK build deps (see `apps/desktop/README.md`) and join the `bluetooth` group. Quit `bluetoothctl` while scanning.
+## iPhone fallback with LightBlue or nRF Connect
 
-## iOS workaround (until using the native app)
+Use this only when the native gpio-companion app is unavailable.
 
-Safari cannot talk to the Pi from the website. Use sign-and-copy:
+1. In the dashboard, open **Devices → WiFi** and fill in the network details.
+2. Choose **Sign and copy**.
+3. Open [LightBlue](https://apps.apple.com/app/lightblue/id557428110) or [nRF Connect](https://apps.apple.com/app/nrf-connect-for-mobile/id1054366564).
+4. Scan for and connect to **gpio-companion**.
+5. Open the write characteristic shown by the dashboard.
+6. Paste the copied message as **UTF-8 text**, not hexadecimal, and send it.
+7. Read the status characteristic to see whether the board connected.
 
-1. On `/devices/wifi` choose the paired device, then fill SSID and WiFi password
-2. **Sign and copy** — the signed JSON is shown in a copy block (and copied to the clipboard)
-3. Install [LightBlue](https://apps.apple.com/app/lightblue/id557428110) or [nRF Connect](https://apps.apple.com/app/nrf-connect-for-mobile/id1054366564)
-4. Scan and connect to **gpio-companion** (copy the Bluetooth name from the page)
-5. Open the **write** characteristic (copy it from the page)
-6. Paste the JSON as **UTF-8 text** (not hex) and send
-7. Read the **status** characteristic — `{ "connected": true, "ssid": "…" }` on success, or `{ "error": "…", "reason": "ssid-not-found"|"password"|"no-device"|"failed" }` on failure
+The copied message expires quickly for safety. If it fails after waiting, return to the dashboard and choose **Sign and copy** again.
 
-The Pi accepts that JSON text. Prefer `apps/mobile` (iOS/Android) or `apps/desktop` (Windows/Linux/macOS) instead of a third-party BLE app.
+## Ethernet and console fallback
 
-If copy failed, use **Copy to clipboard** on `/devices/wifi`. If the timestamp is older than about a minute, sign again (replay protection). The first successful paste may also set the board clock.
+Ethernet needs no Bluetooth setup: connect the cable and wait for the board to appear online.
 
-## If Bluetooth is missing
+If the board has no working Bluetooth radio, use Ethernet or connect a display/serial console and configure networking locally. Ask the person who prepared the image for help if you are unfamiliar with the console.
 
-- Orange Pi without a radio: use Ethernet or a USB WiFi dongle + TTY `nmcli`
-- Host may disable BLE with `GPIO_COMPANION_BLE=0`
-- HDMI/serial first-setup remains valid
+## Fix common problems
+
+| Problem | Try this |
+| --- | --- |
+| Board is not in the Bluetooth list | Move closer, restart Bluetooth, and make sure another app is not connected |
+| Browser has no Bluetooth button | Use Chrome/Edge or the native app |
+| Android finds nothing | Allow Location and Nearby devices, then scan again |
+| Password is rejected | Re-enter it carefully; WiFi passwords are case-sensitive |
+| Network is not found | Check the exact network name and move the board closer to the access point |
+| Board connected but remains offline | Wait one minute, reload Devices, and verify the network has internet access |
+| Bluetooth is never available | Use Ethernet; some Orange Pi models need a USB Bluetooth or WiFi adapter |
+
+Do not put a WiFi password, pairing key, or copied signed message in a GitHub project or chat screenshot.

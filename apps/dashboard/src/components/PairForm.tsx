@@ -59,6 +59,7 @@ export default function PairForm({
 	const [t3Uuid, setT3Uuid] = useState("");
 	const [t3AutoStart, setT3AutoStart] = useState(false);
 	const [pasteText, setPasteText] = useState("");
+	const [manualOpen, setManualOpen] = useState(false);
 
 	const applyDevices = useCallback((next: StoredPairing[]) => {
 		setDevices(next);
@@ -271,27 +272,41 @@ export default function PairForm({
 						/>
 					</>
 				)}
-				<TextField
-					label={t("pair.deviceUrl")}
-					placeholder={t("pair.deviceUrlPlaceholder")}
-					value={deviceUrl}
-					onChange={(event) => setDeviceUrl(event.target.value)}
-					className="w-full"
-				/>
-				<TextField
-					label={t("pair.pairingUuid")}
-					value={uuid}
-					onChange={(event) => setUuid(event.target.value)}
-					className="w-full"
-				/>
-				<TextField
-					label={t("pair.pairingKey")}
-					type="password"
-					value={key}
-					onChange={(event) => setKey(event.target.value)}
-					className="w-full"
-				/>
-				<Button type="submit" variant="contained">
+				<Button
+					type="button"
+					variant="text"
+					onClick={() => setManualOpen((open) => !open)}
+				>
+					{t("pair.manualSetup")}
+				</Button>
+				{manualOpen ? (
+					<>
+						<Typography variant="body2" color="secondary">
+							{t("pair.manualSetupHint")}
+						</Typography>
+						<TextField
+							label={t("pair.deviceUrl")}
+							placeholder={t("pair.deviceUrlPlaceholder")}
+							value={deviceUrl}
+							onChange={(event) => setDeviceUrl(event.target.value)}
+							className="w-full"
+						/>
+						<TextField
+							label={t("pair.pairingUuid")}
+							value={uuid}
+							onChange={(event) => setUuid(event.target.value)}
+							className="w-full"
+						/>
+						<TextField
+							label={t("pair.pairingKey")}
+							type="password"
+							value={key}
+							onChange={(event) => setKey(event.target.value)}
+							className="w-full"
+						/>
+					</>
+				) : null}
+				<Button type="submit" variant="contained" disabled={!uuid || !key}>
 					{t("pair.submit")}
 				</Button>
 				{!hideManagedList && devices.length > 0 ? (

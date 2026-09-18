@@ -1,70 +1,140 @@
-# User workflows
+# Build, run, and save
 
-## Daily: work with the on-device agent
+This is the everyday loop: describe an idea, check the visual circuit, build it safely, run it, and save the result.
 
-Open T3 Code (tunneled) or OpenCode on the Pi. The agent loads:
+## 1. Start with a useful prompt
 
-- `opencode/preferences` — it controls this GPIO OS
-- `opencode/skills` — including `gpio-pinout-raspberrypi` or `gpio-pinout-orangepi` from `/etc/gpio-companion/config.json`
+Open a project, choose **Open Code**, and tell the agent the outcome you want. Include the parts you have and ask it to pause before powering anything.
 
-On Raspberry Pi use **physical** pin numbers (the seats on the header). gpio-companion drives those numbers; BCM is only a label. 3.3V logic only. Avoid ID EEPROM pins 27–28 for general GPIO.
+For example:
 
-On Orange Pi, **SoC GPIO numbers are not BCM**. Orange Pi 3 LTS is a **26-pin** header (ignore 27–40). Talk physical pin numbers.
+> I have one red LED, a 330 Ω resistor, and jumper wires. Make it blink once per second. Show the breadboard, label physical pins, and wait for me to confirm the wiring before you run it.
 
-Extra SD cards and USB sticks show up as `~/storage/<label>` in the T3 user home. Open that folder for projects on the stick; see [storage.md](./storage.md).
+Good prompts describe the goal and constraints. You do not need to prescribe file names, APIs, or commands.
 
-Arduino firmware is **C**, flashed over USB through `http://127.0.0.1:4150/v1/flash` (absolute sketch dir with `.c` or `.ino`). Project can start the same job over the web API or Bluetooth. Devices can **Flash Arduino as proxy** so the USB board becomes a Firmata slave: Project Live GPIO switches Companion | Arduino, Run on board can launch `arduino-proxy-*` sketches that drive the MCU pins from the companion, and breadboard maps can include a `gpio-arduino-proxy` header (Uno/Mega/Nano/…) next to the companion header.
+## 2. Read the circuit before building it
 
-The on-device agent checks `GET /v1/arduino-proxy` before a blink or breadboard. If the USB Arduino proxy is connected, it writes `host/arduino-proxy-*` C (Arduino pin numbers) and a `gpio-arduino-proxy` part in `breadboard/diagram.json` (skill `gpio-arduino-proxy`). Otherwise it drives this board's header with C (`POST /v1/run`, skill `gpio-host`) — not direct GPIO PUT except one-shot tests. Header pins are physical numbers. You start and stop that job on Project **Run on board** by picking a sketch name (not by curling the Pi or typing a path). `Serial.print` from that sketch shows live on the same panel. After **Flash Arduino**, USB `Serial` shows on that panel (Open serial if you need to attach without flashing).
+Return to **Project** and inspect the breadboard view. Check that:
 
-## Projects live in GitHub
+- the board and parts match what is on your desk
+- every GPIO is identified by a **physical pin number**
+- an LED has a series resistor
+- no GPIO is connected to 5 V
+- power and ground connections match your board's pinout
 
-One git repo per electronics project. The dashboard only lists repos with a `.gpio-companion` file at the repo root. Create a project from the dashboard, or ask Code on the board — new repos must include that watermark.
+Ask the agent when a symbol or wire is unclear. A visual diagram is a plan, not proof that the physical circuit is correct.
 
-The board clones those repos to `~/projects/<name>` and adds them to T3 Code. If the board is online when you create a project, it happens immediately. If it is offline, nothing is queued — the clone runs the next time gpio-companion starts (and every 15 minutes while it is up). Existing folders are left alone.
+## 3. Build with power off
 
-Delete a project from Project after typing its name. That removes the GitHub repo and, if the board is online and updated, unregisters it in T3 Code and deletes `~/projects/<name>`. Offline boards are not queued.
+Disconnect board power before placing or moving wires. Build one connection at a time and gently tug each jumper to check that it is seated.
 
-While a PCB, breadboard, technical-sheet, or C-sketch feature is in progress, the agent **pushes a feature branch** (`feat/<kebab>`), then asks if you want to **save** (merge to `main`). It merges `main` only when you say yes:
+For an LED, remember:
 
-| Directory | Expected files |
+- the longer leg is usually the positive side, called the **anode**
+- the flat edge of the LED marks the negative side, called the **cathode**
+- the resistor can go on either side of the LED as long as it is in series
+
+Compare the finished circuit with the diagram, then reconnect power.
+
+## 4. Choose how to control it
+
+Open the project, expand **Board tools**, and select the correct online board.
+
+### Run on board
+
+Use **Run on board** for a lasting behavior such as blinking, fading, reading a button, or playing a tone. Select the sketch prepared by the agent and choose **Start**.
+
+Output from `Serial.print` appears under **Serial (host)**. Choose **Stop**, or use **Stop sketch** at the top of the project, before rewiring.
+
+### Live GPIO
+
+Use **Live GPIO** for a quick bench test:
+
+1. Select **Companion** for the Pi header or **Arduino** for a connected proxy.
+2. Tap a safe GPIO pin.
+3. Choose **In**, **Set high**, **Set low**, **PWM**, or **Tone** as appropriate.
+4. Choose **Off** or stop the tone when the test is finished.
+
+Live GPIO is for short tests. Ask the agent for a sketch when the behavior should continue or become part of the project.
+
+## 5. Verify the wiring
+
+If the project has a breadboard diagram, open **Verify circuit** and choose **Verify**. Stop any running sketch first.
+
+Results mean:
+
+| Result | Meaning |
 | --- | --- |
-| `pcb/` | `circuit.json`, `preview.svg` when possible |
-| `breadboard/` | `diagram.json` (Wokwi plug map), optional `preview.svg` |
-| `technical/` | sheets |
-| `host/<name>/` | gpio-host C (`.c` / `.ino`) run on this board's header |
-| `host/arduino-proxy-<name>/` | gpio-arduino-proxy C when USB Arduino proxy is connected |
-| `firmware/<name>/` | USB Arduino C flashed over USB |
+| **Pass** | The measured connection matches the plan |
+| **Fail** | The measured connection does not match the plan |
+| **Press** | Hold the indicated button, then test again |
+| **Unsafe** | The connection must not be driven; disconnect power and inspect it |
+| **Unknown** | The board cannot measure this net reliably; inspect it by hand |
 
-Dashboard `/project` reads visual paths from GitHub, defaulting to the branch with the newest commit (PCB viewer for `pcb/circuit.json` / `pcb/preview.svg`, breadboard viewer for `breadboard/diagram.json`). Mobile Project hosts that same Wokwi breadboard viewer in a WebView. A branch selector switches that checkout. **Reload** (or coming back to the Project tab) re-lists GitHub branches so a new agent branch appears without restarting. Host/firmware sketches are listed from the selected board. Launch uses the board copy, not a typed Pi path. Project **Save to GitHub** commits and pushes the board clone `~/projects/<name>` on whatever branch is checked out (not a merge to `main`), then reloads the newest-commit branch. Ask the on-device agent to save when you want the feature branch merged to `main`.
+An LED-only connection may be **Unknown** because the header cannot measure every component. Unknown is not the same as failed.
 
-## Change WiFi later
+## 6. Use a USB Arduino
 
-Still signed-in `/devices/wifi`, anytime — pick the paired device from the dropdown, then the same Chrome Bluetooth or iOS paste flow. The dashboard will not sign a UUID that is not paired to your account.
+gpio-companion offers two different Arduino modes.
 
-## Change GitHub later
+### Flash Arduino as proxy
 
-Profile → GitHub (`/profile/github`) → Connect GitHub (install the gpio-companion GitHub App). Paired boards mint a token at git push; you do not paste a PAT. If a board was offline for more than an hour, push again after it has internet. `/devices/keys` still redirects there.
+Use this when you want Live GPIO or a companion sketch to control Arduino pins:
 
-## Board updates
+1. Connect the Arduino by USB.
+2. Open **Devices → My board**.
+3. Find **Arduino proxy** and choose **Flash Arduino as proxy**.
+4. Return to Project. **Arduino** should now be available in Live GPIO.
 
-You do not git-pull by hand unless you want to. `gpio-companion-update.timer` pulls `main` (or `/etc/gpio-companion/branch`) on boot and every 24h, refreshes skills/preferences, and restarts the device API when the server tree changed.
+The proxy is special gpio-companion firmware. If the proxy control is missing, check the USB cable and port, then reload the board.
 
-`gpio-companion-cleanup.timer` runs on boot and every hour. Journals stay for 24 hours then vacuum; leftover apt/tmp/cache files are pruned so 8GB eMMC boards do not fill up. Journald does not forward to rsyslog. Devices → Debug shows disk free and can load a redacted last-24h journal excerpt (not a full log dump).
+### Flash Arduino
 
-## GPIO
+Use **Project → Board tools → Arduino flash** when the Arduino should run your project's own firmware by itself. Select the board type, sketch, and USB port, then choose **Flash**.
 
-The on-device agent drives this board's header with C sketches (`POST /v1/run`, skill `gpio-host`) unless a USB Arduino proxy is connected — then `host/arduino-proxy-*` and skill `gpio-arduino-proxy`. Direct `PUT /v1/gpio` is for one-shot tests only. The dashboard Project page Live GPIO header can still drive the same map (Companion | Arduino when a proxy is live). Power/GND and Raspberry Pi pins 27–28 are refused. Orange Pi 3 LTS uses the 26-pin map; other Orange Pi models only drive pins the companion can resolve.
+Project firmware replaces proxy firmware. To use Arduino Live GPIO again later, return to Devices and choose **Re-flash Arduino as proxy**.
 
-Flash USB Arduino from Project **Flash Arduino** (sketch name from `firmware/` on the board). A second flash while one is running returns 409.
+USB serial output appears under **Serial (USB)**. Select the port and speed, then choose **Open serial**. Flashing may close the serial connection briefly while the board restarts.
 
-Run C on the companion GPIO from Project **Run on board** (sketch name from `host/` on the board). A second run while one is running returns 409.
+## 7. Review and save
 
-Project **Verify circuit** pulses jumpers from `breadboard/diagram.json` on the board. Green/red overlay (or a chip list on mobile) shows pass/fail. A lone LED net stays unknown — this header has no ADC. Verify and Run cannot run at the same time.
+The agent works on a separate feature branch while a circuit or sketch is in progress. This lets you inspect the result without replacing the saved version immediately.
 
-## Safety
+Use **Reload** to see a newly pushed branch. Check the breadboard, PCB, technical sheets, and behavior. When you are happy, tell the agent:
 
-- Do not put 5V into GPIO
-- Do not short 3V3 to 5V
-- The agent may drive pins and USB; stay at the bench for power hardware
-- Pairing key and GitHub token are secrets; do not commit them
+> Save this project.
+
+The agent merges the finished work into the main branch. **Save to GitHub** only commits and pushes the board's current files; it does not approve or merge the feature by itself.
+
+## Useful project locations
+
+You normally do not need to edit these paths manually, but they help explain what appears in Project:
+
+| Folder | What it contains |
+| --- | --- |
+| `breadboard/` | The visual plug map |
+| `pcb/` | PCB design and preview |
+| `technical/` | Wiring notes and technical sheets |
+| `host/` | C sketches run by the companion |
+| `firmware/` | C sketches flashed to a USB Arduino |
+
+## Updates and troubleshooting
+
+Updates normally install automatically. To request one manually, switch the app to **Expert** mode, open **Devices → Debug**, select an online board, and choose **Update companion**. The board may appear offline briefly while services restart.
+
+Try these checks before rebuilding a circuit:
+
+- **No sketches listed:** ask the agent to push the project, then reload Project.
+- **Run says busy:** stop the current sketch or circuit verification first.
+- **Arduino port missing:** use a data-capable USB cable, reconnect it, and load ports again.
+- **No serial text:** confirm the sketch prints output and that the selected speed matches it.
+- **New branch missing:** choose **Reload** or leave and reopen Project.
+
+## Bench safety
+
+- Disconnect power before changing wires.
+- Never feed 5 V into a GPIO pin.
+- Never connect 3.3 V directly to 5 V or ground.
+- Use a suitable resistor with every ordinary LED.
+- Stay near the bench while motors, relays, heaters, or other powered hardware run.
+- Keep pairing details private and never add passwords or keys to a project.

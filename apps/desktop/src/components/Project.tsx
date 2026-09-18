@@ -35,8 +35,6 @@ import {
 	type GpioTarget,
 	getGithubApp,
 	listProjects,
-	loadFlash,
-	loadFlashSketches,
 	loadProject,
 	loadRun,
 	loadRunSketches,
@@ -45,7 +43,6 @@ import {
 	pushProject,
 	type RunStatus,
 	readProjectFile,
-	startFlash,
 	startRun,
 	stopRun,
 	t3AppUrl,
@@ -57,6 +54,7 @@ import {
 	useUserBoards,
 } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useDashboardMode } from "../hooks/useDashboardMode";
 import { useDeviceHub } from "../hooks/useDeviceHub";
 import { useT3Window } from "../hooks/useT3Window";
 import { useT } from "../locale";
@@ -282,7 +280,7 @@ export default function Project() {
 	);
 	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
 	const [hostSketches, setHostSketches] = useState<BoardSketch[]>([]);
-	const [firmwareSketches, setFirmwareSketches] = useState<BoardSketch[]>([]);
+	const { isEasy } = useDashboardMode();
 	const [sketchBusy, setSketchBusy] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [deleteName, setDeleteName] = useState("");
@@ -677,25 +675,22 @@ export default function Project() {
 	useEffect(() => {
 		if (!activeUuid) {
 			setHostSketches([]);
-			setFirmwareSketches([]);
 			setRunRunning(false);
 			return;
 		}
 		let cancelled = false;
-		Promise.all([loadRunSketches(activeUuid), loadFlashSketches(activeUuid)])
-			.then(([host, firmware]) => {
+		loadRunSketches(activeUuid)
+			.then((host) => {
 				if (cancelled) {
 					return;
 				}
 				setHostSketches(host.sketches);
-				setFirmwareSketches(firmware.sketches);
 			})
 			.catch(() => {
 				if (cancelled) {
 					return;
 				}
 				setHostSketches([]);
-				setFirmwareSketches([]);
 			});
 		loadRun(activeUuid)
 			.then((status) => {
@@ -759,7 +754,7 @@ export default function Project() {
 			{loading ? <ListSkeleton items={4} /> : null}
 
 			{loading || app?.connected ? null : (
-				<Paper sx={{ p: 2 }} elevation={1}>
+				<Paper className="workbench-control-rail" sx={{ p: 2 }} elevation={0}>
 					<Stack spacing={2}>
 						<Typography variant="h6">
 							{t("project.connectGithubNative")}
@@ -786,7 +781,7 @@ export default function Project() {
 			)}
 
 			{loading || !configured ? null : (
-				<Paper sx={{ p: 2 }} elevation={1}>
+				<Paper className="workbench-control-rail" sx={{ p: 2 }} elevation={0}>
 					<Stack spacing={2}>
 						{canCreate ? (
 							<Stack spacing={empty ? 1 : 2}>
@@ -951,7 +946,7 @@ export default function Project() {
 					<PreviewSkeleton height={220} />
 				</Box>
 			) : bundle ? (
-				<Stack spacing={2}>
+				<Stack spacing={2} className="project-canvas">
 					<Stack
 						direction="row"
 						spacing={1}
@@ -1002,7 +997,7 @@ export default function Project() {
 							variant="outlined"
 							size="small"
 							color={runRunning ? "error" : "primary"}
-							disabled={stopping || !activeUuid}
+							disabled={stopping || !activeUuid || !runRunning}
 							onClick={() => void stopSketch()}
 						>
 							{stopping ? t("project.stopping") : t("project.stopSketch")}
@@ -1059,7 +1054,8 @@ export default function Project() {
 					<Box
 						sx={{
 							display: "grid",
-							gridTemplateColumns: "1fr 1fr",
+							gridTemplateColumns:
+								"repeat(auto-fit, minmax(min(420px, 100%), 1fr))",
 							gap: 2,
 						}}
 					>
@@ -1080,7 +1076,8 @@ export default function Project() {
 					<Box
 						sx={{
 							display: "grid",
-							gridTemplateColumns: "1fr 1fr 1fr",
+							gridTemplateColumns:
+								"repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
 							gap: 2,
 						}}
 					>
@@ -1107,35 +1104,21 @@ export default function Project() {
 								});
 							}}
 						/>
-						<BoardSketchGroup
-							title={t("project.arduinoFirmware")}
-							action={t("flash.flash")}
-							sketches={firmwareSketches.filter(
-								(item) => item.project === bundle.repo,
-							)}
-							busy={sketchBusy || !activeUuid}
-							onLaunch={(dir) => {
-								launchSketch(async () => {
-									await startFlash({
-										uuid: activeUuid,
-										fqbn: "arduino:avr:uno",
-										dir,
-									});
-									await loadFlash(activeUuid);
-								});
-							}}
-						/>
 					</Box>
 				</Stack>
 			) : loading || !configured || empty ? null : (
-				<Paper sx={{ p: 4 }} elevation={0}>
+				<Paper className="workbench-control-rail" sx={{ p: 4 }} elevation={0}>
 					<Typography color="secondary" align="center">
 						{t("project.selectToSee")}
 					</Typography>
 				</Paper>
 			)}
 			{paired && activeUuid && bundle ? (
-				<Paper sx={{ p: 2, minWidth: 0, overflowX: "hidden" }} elevation={1}>
+				<Paper
+					className="workbench-control-rail"
+					sx={{ p: 2, minWidth: 0, overflowX: "hidden" }}
+					elevation={0}
+				>
 					<Stack spacing={2} sx={{ minWidth: 0 }}>
 						<Stack
 							direction="row"
@@ -1149,6 +1132,14 @@ export default function Project() {
 							<Typography variant="subtitle1">
 								{t("project.boardTools")}
 							</Typography>
+							<Typography color="secondary" variant="body2">
+								{t("project.selectedBoardContext", {
+									board:
+										activeBoard.device.label ||
+										activeBoard.status?.model ||
+										activeUuid.slice(0, 8),
+								})}
+							</Typography>
 							<Button
 								variant="outlined"
 								size="small"
@@ -1159,6 +1150,7 @@ export default function Project() {
 						</Stack>
 						{boardToolsOpen ? (
 							<>
+								<Alert severity="warning">{t("project.safetyHint")}</Alert>
 								<Select
 									name="board"
 									label={t("docs.board")}
@@ -1171,25 +1163,29 @@ export default function Project() {
 										</option>
 									))}
 								</Select>
-								<Typography variant="h6">{t("gpio.live")}</Typography>
-								<Typography color="secondary">
-									{t("project.liveGpioHint")}
-								</Typography>
-								<GpioPanel
-									uuid={activeUuid}
-									connected={Boolean(activeBoard?.status)}
-									poll
-									onLivePins={(
-										pins: Record<number, 0 | 1>,
-										target?: GpioTarget,
-									) => {
-										if (target === "arduino-proxy") {
-											setArduinoLivePins(pins);
-										} else {
-											setLivePins(pins);
-										}
-									}}
-								/>
+								{isEasy ? null : (
+									<>
+										<Typography variant="h6">{t("gpio.live")}</Typography>
+										<Typography color="secondary">
+											{t("project.liveGpioHint")}
+										</Typography>
+										<GpioPanel
+											uuid={activeUuid}
+											connected={Boolean(activeBoard?.status)}
+											poll
+											onLivePins={(
+												pins: Record<number, 0 | 1>,
+												target?: GpioTarget,
+											) => {
+												if (target === "arduino-proxy") {
+													setArduinoLivePins(pins);
+												} else {
+													setLivePins(pins);
+												}
+											}}
+										/>
+									</>
+								)}
 								<Typography variant="subtitle1">{t("flash.title")}</Typography>
 								<FlashPanel uuid={activeUuid} project={bundle.repo} />
 								<Typography variant="subtitle1">{t("run.title")}</Typography>

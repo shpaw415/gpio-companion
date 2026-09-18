@@ -1,17 +1,31 @@
 # Brochage GPIO Orange Pi
 
-La logique est **3,3 V**. N’injectez pas 5 V dans un GPIO. Ne court-circuitez pas 3V3 vers 5V.
+Utilisez ce plan chaque fois qu’un circuit se branche sur un Orange Pi. Les modèles diffèrent : vérifiez d’abord le modèle exact affiché dans **Appareils**.
 
-Les numéros de broches sont **physiques** (les emplacements de l’en-tête que vous voyez). Ce **ne sont pas** des numéros BCM Raspberry Pi.
+## Les deux règles à retenir
 
-gpio-companion **Orange Pi 3 LTS** utilise un en-tête **26 broches**. Cette carte est ci-dessous. Autres modèles Orange Pi : voir [Autres cartes Orange Pi](#autres-cartes-orange-pi).
+1. Le GPIO utilise une logique **3,3 V**. N’envoyez jamais 5 V dans un GPIO et ne reliez jamais directement 3,3 V au 5 V.
+2. gpio-companion utilise les **numéros de broches physiques**, c’est-à-dire les trous numérotés visibles. Les noms Orange Pi comme `PD22` ne sont pas des numéros BCM de Raspberry Pi.
+
+Le gpio-companion **Orange Pi 3 LTS** possède un connecteur à **26 broches**. Son plan apparaît ci-dessous. Pour un autre modèle, lisez [Autres cartes Orange Pi](#autres-cartes-orange-pi) avant de câbler.
 
 ## Sécurité
 
-- Commencez une LED sur la physique **7** avec une résistance série vers GND (broche 6 ou 9).
+- Commencez une LED sur la broche physique **7**, avec une résistance de **220 Ω à 1 kΩ** en série vers GND (broche 6 ou 9).
 - N’utilisez pas les broches **8** et **10** pour les projets — elles sont souvent la console série.
 - Cet en-tête 26 broches n’a **pas d’entrée analogique**. analogRead n’est pas disponible.
-- PWM et tonalité (faire fondre une LED, piloter un buzzer) appartiennent à un croquis C (compétence `gpio-host`). `PUT /v1/gpio` / compétence `gpio-pwm` sont des tests ponctuels seulement.
+
+## Essayez votre première LED
+
+Carte hors tension :
+
+1. Reliez la broche physique **7** à une résistance.
+2. Reliez la résistance à la longue patte de la LED.
+3. Reliez la courte patte de la LED à GND sur la broche physique **9**.
+4. Comparez le montage au schéma de breadboard fourni par l’agent.
+5. Rétablissez l’alimentation et utilisez **Exécuter sur la carte** pour démarrer le clignotement.
+
+Si la LED ne s’allume pas, coupez l’alimentation et retournez-la. Une LED ne laisse passer le courant que dans un sens.
 
 ## Orange Pi 3 LTS — en-tête 26 broches
 
@@ -62,11 +76,15 @@ SCLK (23) (24) CS
 | 25 | GND | Masse |
 | 26 | PL8 | GPIO |
 
-GND : 6, 9, 14, 20, 25. 3V3 : 1, 17. 5V : 2, 4.
+## Usages courants
 
-I2C : broches 3/5 et 11/13. SPI : 19/21/23/24. Bons cavaliers : **7, 12, 16, 18, 22**.
+- **Entrée ou sortie numérique ordinaire :** commencez par 7, 12, 16, 18 ou 22.
+- **Capteurs et écrans I2C :** broches 3/5 ou 11/13.
+- **Périphériques SPI :** broches 19, 21, 23 et 24.
+- **Masse :** 6, 9, 14, 20 ou 25.
+- **Alimentation 3,3 V :** 1 ou 17. **Alimentation 5 V :** 2 ou 4 ; ne la reliez jamais à un GPIO.
 
-Sur Projet, GPIO en direct affiche ces noms sur l’en-tête. Touchez une broche pour la commander.
+Dans **Projet → Outils de la carte → GPIO en direct**, choisissez **Compagnon** pour afficher les noms détectés sur ce connecteur. Touchez un GPIO sûr pour ouvrir ses commandes de test temporaire. Utilisez **Exécuter sur la carte** pour un comportement durable comme le PWM ou une tonalité.
 
 ## Autres cartes Orange Pi
 
@@ -74,14 +92,4 @@ Sur les en-têtes 2×20 style Pi, **les emplacements d’alimentation et de mass
 
 Certains modèles sont **26 broches** (ou 26+13). Si la sérigraphie s’arrête à 26, ignorez les physiques 27–40.
 
-Utilisez GPIO en direct sur Projet (ou demandez à l’agent sur la carte) pour la carte de *cette* carte. Les broches que le compagnon ne peut pas résoudre ne peuvent pas être commandées.
-
-## Pour l’agent sur la carte
-
-Charger lorsque `/etc/gpio-companion/config.json` a `"hardware": "orangepi"`, ou que `/proc/device-tree/model` contient Orange Pi.
-
-1. `GET http://127.0.0.1:4150/v1/gpio` d’abord — cet instantané est la carte live (physique, nom, dir, valeur, PWM). Ne redécouvrez pas avec WiringOP ou `gpioset`.
-2. **C d’abord :** `GET /v1/arduino-proxy` d’abord. Si connecté, compétence `gpio-arduino-proxy` (broches Arduino, `host/arduino-proxy-<name>/`) — pas cet en-tête. Sinon pilotez le GPIO d’en-tête avec un croquis C (compétence `gpio-host`, broches **physiques**). Jamais BCM. Clignotement/PWM/tonalité/boucles vont à `POST /v1/run`. `PUT /v1/gpio` seulement pour un test ponctuel demandé par l’utilisateur : `{ "physical": 7, "dir": "out", "value": 1 }`. analogWrite/tone en C, ou compétence `gpio-pwm` pour un test. Breadboard : `gpio-breadboard`.
-3. Fiches techniques : **broche physique + nom** (broche 7 / PD22), jamais un numéro BCM Pi. Poussez `technical/` et `breadboard/diagram.json`.
-4. Refusez alimentation, GND, et broches `unresolved`. Sur 3 LTS ignorez 27–40. analogRead seulement si l’instantané a `adc` (l’en-tête 3 LTS n’en a pas).
-5. Cartes de la famille sans carte SKU : ne pilotez que les broches que l’instantané ne marque pas unresolved.
+Utilisez GPIO en direct dans Projet, ou demandez à l’agent, pour obtenir le plan de *votre* modèle. Une broche marquée comme non résolue ne peut pas être pilotée en sécurité.

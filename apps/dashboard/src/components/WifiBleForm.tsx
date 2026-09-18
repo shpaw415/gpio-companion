@@ -16,6 +16,7 @@ import { translateError } from "gpio-companion/i18n";
 import { type FormEvent, useEffect, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
 import { useAuthSession } from "../hooks/useAuth.ts";
+import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
 import { unwrapAction } from "../lib/action.ts";
@@ -35,6 +36,7 @@ export default function WifiBleForm() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const t = useT();
+	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const supported = bluetoothSupported();
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
@@ -62,13 +64,15 @@ export default function WifiBleForm() {
 					if (current && next.some((device) => device.uuid === current)) {
 						return current;
 					}
-					return next[0]?.uuid ?? "";
+					return next.some((device) => device.uuid === selectedUuid)
+						? selectedUuid
+						: (next[0]?.uuid ?? "");
 				});
 			})
 			.finally(() => {
 				setDevicesLoading(false);
 			});
-	}, [session.data?.id, run]);
+	}, [session.data?.id, run, selectedUuid]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
@@ -188,6 +192,9 @@ export default function WifiBleForm() {
 		<Paper className="w-full max-w-xl p-4 min-[900px]:p-6" elevation={1}>
 			<form onSubmit={onSubmit}>
 				<Stack spacing={2}>
+					<Typography variant="body2" color="secondary">
+						{t("wifi.keepNearby")}
+					</Typography>
 					{supported ? null : (
 						<Alert severity="error">{t("wifi.safariAlert")}</Alert>
 					)}
@@ -203,12 +210,15 @@ export default function WifiBleForm() {
 						<DeviceSelect
 							devices={devices}
 							value={uuid}
-							onChange={setUuid}
+							onChange={(next) => {
+								setUuid(next);
+								selectBoard(next);
+							}}
 							disabled={busy}
 						/>
 					)}
 					<TextField
-						label={t("wifi.ssid")}
+						label={t("wifi.networkName")}
 						value={ssid}
 						onChange={(event) => setSsid(event.target.value)}
 						className="w-full"
@@ -232,7 +242,7 @@ export default function WifiBleForm() {
 							: status === "sending"
 								? t("wifi.signing")
 								: supported
-									? t("pair.connectBle")
+									? t("wifi.connectBoard")
 									: t("wifi.signAndCopy")}
 					</Button>
 					{supported ? null : (

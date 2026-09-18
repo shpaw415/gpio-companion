@@ -85,7 +85,12 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 				<AppBar
 					position="sticky"
 					color="default"
-					sx={{ flexShrink: 0, paddingTop: "env(safe-area-inset-top)" }}
+					sx={{
+						flexShrink: 0,
+						paddingTop: "env(safe-area-inset-top)",
+						borderBottom: "1px solid rgba(var(--text-main), 0.1)",
+						boxShadow: "none",
+					}}
 				>
 					<Toolbar className="gap-2" sx={{ minHeight: 48 }}>
 						<img
@@ -153,7 +158,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 					className={
 						onT3
 							? "flex min-h-0 w-full min-w-0 flex-1 flex-col"
-							: "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-auto px-2 py-2"
+							: "workbench-bg flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-auto px-2 py-2"
 					}
 					sx={{
 						flex: 1,

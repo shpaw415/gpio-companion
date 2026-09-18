@@ -112,7 +112,15 @@ export default function App() {
 					}}
 				>
 					<CssBaseline />
-					<AppBar position="sticky" color="default" sx={{ flexShrink: 0 }}>
+					<AppBar
+						position="sticky"
+						color="default"
+						sx={{
+							flexShrink: 0,
+							borderBottom: "1px solid rgba(var(--text-main), 0.1)",
+							boxShadow: "none",
+						}}
+					>
 						<Toolbar sx={{ gap: 1, minHeight: 48 }}>
 							<Box
 								sx={{
@@ -182,6 +190,7 @@ export default function App() {
 						</Toolbar>
 					</AppBar>
 					<Box
+						className={onT3 ? undefined : "workbench-bg"}
 						sx={{
 							flex: 1,
 							minHeight: 0,

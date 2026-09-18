@@ -160,6 +160,13 @@ export default function DevicesPage() {
 						);
 					}}
 					onUnpair={(uuid) => {
+						if (
+							!window.confirm(
+								`${t("devices.unpairConfirm")}\n\n${t("devices.unpairDetail")}`,
+							)
+						) {
+							return;
+						}
 						setUnpairing(uuid);
 						void run(unpairDevice(uuid)).then((result) => {
 							setUnpairing("");

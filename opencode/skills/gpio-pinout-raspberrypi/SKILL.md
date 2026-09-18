@@ -10,18 +10,37 @@ description: >-
 
 # Raspberry Pi GPIO pinout
 
-Logic is **3.3V**. Do not feed 5V into a GPIO. Do not short 3V3 to 5V.
+Use this map whenever a circuit connects to the Raspberry Pi header. You do not need to memorize it: find the physical pin number, check its purpose, and wire with the power off.
 
-Pin numbers are **physical** (the header seats you can see). gpio-companion drives pins by those numbers. BCM is only a label.
+## The two facts to remember
 
-Orient the board with the 40-pin header on the right (USB/Ethernet typically toward you on a Pi 4/5). Pin 1 is 3V3, top-left of the header.
+1. GPIO uses **3.3 V logic**. Never feed 5 V into a GPIO or connect 3.3 V directly to 5 V.
+2. gpio-companion uses **physical pin numbers**: the numbered holes you can see. A BCM number is only another name for the signal.
+
+## Find pin 1
+
+On a Raspberry Pi 4 or 5, place the board with the 40-pin header on the right and the USB/Ethernet sockets toward you. **Pin 1** is the top-left header pin and carries 3.3 V.
+
+The odd physical numbers run down one side; the even numbers run down the other. Always check the board orientation before counting.
 
 ## Safety
 
-- Start an LED on physical **11** or **7** with a series resistor to GND (pin 6 or 9).
+- Start an LED on physical **11** or **7**, with a **220 Ω to 1 kΩ resistor** in series to GND (pin 6 or 9).
 - Do not use pins **27** and **28** — they are the HAT EEPROM.
 - Pins **8** and **10** are UART TX/RX — often the serial console; avoid for projects.
 - 5V is on pins 2 and 4 — never wire that into a GPIO.
+
+## Try your first LED
+
+With the board powered off:
+
+1. Connect physical pin **11** to a resistor.
+2. Connect the resistor to the LED's long leg.
+3. Connect the LED's short leg to GND on physical pin **9**.
+4. Compare the circuit with the breadboard diagram from the agent.
+5. Restore power and use **Run on board** to start the blinking sketch.
+
+If the LED does not light, disconnect power and turn the LED around. LEDs only conduct in one direction.
 
 ## 40-pin header
 
@@ -93,11 +112,19 @@ GPIO26(37) (38) GPIO20
 
 GND: 6, 9, 14, 20, 25, 30, 34, 39. 3V3: 1, 17. 5V: 2, 4.
 
-I2C: 3/5. SPI: 19/21/23/24/26. Hardware PWM seats: 12, 32, 33. Companion software PWM and tone work on any GPIO.
+## Common jobs
 
-On Project, Live GPIO shows this header. Tap a pin there to drive it.
+- **Ordinary digital input/output:** start with 7, 11, 13, 15, 16, 18, 22, 29, 31, 36, 37, 38, or 40.
+- **I2C sensors and displays:** pins 3 and 5.
+- **SPI devices:** pins 19, 21, 23, 24, and sometimes 26.
+- **Hardware PWM:** pins 12, 32, and 33 are convenient choices.
+- **Ground:** 6, 9, 14, 20, 25, 30, 34, or 39.
 
-## For the on-device agent
+On **Project → Board tools → Live GPIO**, choose **Companion** to see this header. Tap a safe GPIO to reveal its temporary test controls. Use **Run on board** for lasting behavior.
+
+## Agent reference
+
+The remainder is for the on-device agent. Bench users can stop here.
 
 Load when `/etc/gpio-companion/config.json` has `"hardware": "raspberrypi"`, or `/proc/device-tree/model` contains Raspberry Pi.
 

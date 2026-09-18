@@ -9,40 +9,40 @@ function scheme(lightValue: string, darkValue: string): Scheme {
 }
 
 const bgLight = {
-	main: "#f5f6f8",
-	surface: "#ffffff",
-	primary: "#1976d2",
-	secondary: "#9c27b0",
-	success: "#2e7d32",
+	main: "#edf3f1",
+	surface: "#f9fbfa",
+	primary: "#087f73",
+	secondary: "#536b67",
+	success: "#247a52",
 	error: "#d32f2f",
 	warning: "#ed6c02",
 };
 
 const bgDark = {
-	main: "#101418",
-	surface: "#1a1f24",
-	primary: "#1565c0",
-	secondary: "#7b1fa2",
-	success: "#388e3c",
+	main: "#0c1415",
+	surface: "#162022",
+	primary: "#3fb8aa",
+	secondary: "#607d78",
+	success: "#56ad7f",
 	error: "#c62828",
 	warning: "#f57c00",
 };
 
 const textLight = {
-	main: "#1a1d21",
-	secondary: "#5f6368",
-	primary: "#1565c0",
-	success: "#1e7b34",
+	main: "#17211f",
+	secondary: "#5a6966",
+	primary: "#006b60",
+	success: "#176b45",
 	error: "#c5221f",
 	warning: "#b4540a",
 	info: "#0b57d0",
 };
 
 const textDark = {
-	main: "#e3e6ea",
-	secondary: "#9aa3af",
-	primary: "#8ab4f8",
-	success: "#81c995",
+	main: "#e2ebe8",
+	secondary: "#9caaa7",
+	primary: "#64d8c9",
+	success: "#79d3a2",
 	error: "#f28b82",
 	warning: "#ffb74d",
 	info: "#78b4ff",

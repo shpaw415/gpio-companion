@@ -1,24 +1,41 @@
-# Removable storage (SD / USB)
+# Removable storage
 
-Plug an SD card or USB stick into the board. gpio-companion mounts it and puts a shortcut in the T3 Code user home:
+An extra SD card or USB drive gives Code more room for files, references, and projects. There is no separate storage page in the app; you open the drive from T3 Code.
 
-`~/storage/<label>`
+## Find your drive
 
-Open that folder in T3 Code to add or manage projects. You do not need to browse `/media` or create the link yourself.
+1. Plug the extra drive into the gpio-companion board.
+2. Wait a few seconds.
+3. Open **Code** and browse to:
 
-`<label>` is the volume name when it has one, otherwise `USB-…` or `SD-…`. A second disk with the same name becomes `<label>-2`.
+   `~/storage`
 
-Unplug the card or stick: the mount goes away and that symlink is removed. `~/storage` stays.
+4. Open the folder named after the drive, for example `~/storage/MY-USB`.
 
-## What is not linked
+If a drive has no volume name, gpio-companion gives it a name beginning with `USB-` or `SD-`. A second drive with the same name receives `-2`.
 
-The disk the OS already boots from is never mounted this way:
+## What belongs there
 
-- Raspberry Pi: the boot SD
-- Orange Pi: internal eMMC
+Removable storage works well for:
 
-Only extra removable media is linked.
+- component datasheets and reference images
+- large design exports or backups
+- experiments you want to open manually in Code
 
-## Filesystems
+Dashboard projects normally live in `~/projects/<name>` and synchronize with GitHub. A folder under `~/storage` does not automatically become a dashboard project. Create ordinary projects from **Project** when you want dashboard previews and automatic board synchronization.
 
-FAT / exFAT / NTFS / ext4 are mounted when the tools are on the image. Leave the card in while T3 has files open on it.
+## Remove it safely
+
+Close files and stop sketches that use the drive. Ask the agent to unmount it safely, wait for confirmation, and then unplug it.
+
+Removing a drive makes its shortcut disappear; the `~/storage` folder remains. The SD card or eMMC that boots the board never appears here as removable storage.
+
+## If the drive does not appear
+
+1. Reconnect it and wait ten seconds.
+2. Check whether the drive needs more power than the board's USB port can supply.
+3. Try a common filesystem such as FAT, exFAT, NTFS, or ext4. Encrypted and unusual filesystems may not open automatically.
+4. Open **Devices → Debug** in Expert mode and check free space or recent messages.
+5. Ask the agent: `Help me find the removable drive without formatting or erasing it.`
+
+Never format a drive as a troubleshooting step unless its files are backed up and you explicitly intend to erase it.

@@ -1,62 +1,75 @@
-# WiFi en Bluetooth (utilisateur)
+# WiFi et Bluetooth
 
-Le tableau de bord **signe** chaque commande WiFi avec la clé privée gpio-companion et un horodatage (fenêtre de rejeu 60 secondes). Le Pi vérifie la signature et que l’UUID d’association dans la commande correspond à **cette** carte. Les écritures BLE non signées ne font rien d’utile.
+Le Bluetooth permet à un téléphone ou un ordinateur proche d’associer la carte et de lui envoyer les informations WiFi avant qu’elle soit en ligne.
 
-Une carte neuve sans RTC (Orange Pi typique) a souvent une horloge très en retard sur Cloudflare. Tant qu’elle est hors ligne (NTP non synchronisé), le Pi accepte chaque commande BLE signée **une fois** (`X-Gpio-Nonce`) et n’utilise pas la fenêtre de 60 secondes. La première commande valide peut aussi régler l’horloge. Après NTP (ou ce réglage d’horloge) la fenêtre de 60 secondes s’applique ; un nonce réutilisé est toujours refusé.
+L’appareil Bluetooth s’appelle **gpio-companion**.
 
-Vous devez être **connecté**, et la carte doit déjà être **associée** à votre compte. Choisissez-la dans le menu des appareils associés. Le tableau de bord ne signera pas une commande WiFi pour un autre UUID.
+## Avant de commencer
 
-Nom Bluetooth : **gpio-companion**.
+- Gardez la carte alimentée et à proximité.
+- Activez le Bluetooth du téléphone ou de l’ordinateur.
+- Autorisez le Bluetooth et les appareils à proximité lorsque l’application le demande.
+- Fermez LightBlue, nRF Connect, `bluetoothctl` ou toute autre application déjà connectée à la carte.
 
-## Chrome ou Edge (bureau / Android)
+Une seule application peut généralement utiliser la connexion Bluetooth de la carte à la fois.
 
-1. Associez la carte sur `/devices/pair` si ce n’est pas déjà fait
-2. Ouvrez `/devices/wifi`
-3. Sélectionnez l’appareil associé, puis un réseau connu ou saisissez le SSID et le mot de passe
-4. **Connecter en Bluetooth** et choisissez `gpio-companion`
-5. Attendez que l’état indique connecté
+## Application de bureau ou mobile
 
-Safari, Firefox et Chrome/Safari iOS **ne peuvent pas** utiliser le Web Bluetooth sur cette page. Utilisez plutôt les applications natives : `apps/mobile` (iOS/Android) ou `apps/desktop` (Windows/Linux/macOS).
+C’est l’option la plus simple sur Windows, Linux, macOS, iPhone et Android.
 
-Le sélecteur Chrome utilise le Bluetooth de **cet ordinateur** (pas celui du Pi). Quittez `bluetoothctl` d’abord. Chrome Android a besoin de la localisation autorisée pour les scans BLE. nRF Connect peut voir la carte même si le sélecteur du tableau de bord est vide si l’annonce n’a pas d’UUID de service.
+1. Ouvrez **Appareils → WiFi**.
+2. Choisissez votre carte associée.
+3. Sélectionnez un réseau enregistré ou **Saisir manuellement**.
+4. Saisissez le nom du réseau et le mot de passe.
+5. Choisissez **Envoyer à la carte**, puis **gpio-companion** si nécessaire.
+6. Attendez le message de connexion.
 
-## Bureau natif (Windows / Linux / macOS)
+L’application de bureau peut proposer les réseaux enregistrés sur l’ordinateur. L’application mobile mémorise les réseaux déjà envoyés, mais iPhone et Android ne donnent pas accès aux mots de passe enregistrés par le système.
 
-L’application Tauri dans `apps/desktop` se connecte avec GitHub, puis associe et envoie le WiFi en Bluetooth natif (pas Web Bluetooth).
+## Chrome ou Edge
 
-Sur **WiFi**, choisissez un **Réseau enregistré** pour remplir automatiquement le SSID et le mot de passe :
+Web Bluetooth fonctionne dans les versions compatibles de Chrome ou Edge sur ordinateur et Android.
 
-- **Bureau :** profils WiFi enregistrés de cet ordinateur (mot de passe si l’OS le permet) plus les réseaux déjà envoyés depuis l’application. Le réseau actuel est marqué *(cet ordinateur)*.
-- **Mobile :** réseaux déjà envoyés depuis cette application (iOS/Android ne peuvent pas lire les mots de passe WiFi de l’OS).
+1. Ouvrez **Appareils → WiFi** dans le tableau de bord.
+2. Sélectionnez la carte et saisissez les informations WiFi.
+3. Choisissez **Connecter en Bluetooth**.
+4. Sélectionnez **gpio-companion** dans la fenêtre du navigateur.
+5. Gardez la page ouverte jusqu’au message de réussite.
 
-Si le réseau n’est pas listé, choisissez **Saisir manuellement** et tapez le SSID et le mot de passe. Les champs restent modifiables après un remplissage. Les envois réussis sont mémorisés sur cet appareil seulement (pas téléversés). La déconnexion ne les efface pas.
+Le navigateur utilise le Bluetooth de l’appareil sur lequel il s’exécute. Android peut demander l’autorisation de localisation ou d’accès aux appareils à proximité.
 
-```sh
-cd apps/desktop
-bun install
-bun run tauri:dev
-```
+Safari, Firefox et les navigateurs sur iPhone ne proposent pas Web Bluetooth pour cette page. Utilisez l’application mobile gpio-companion ou la solution ci-dessous.
 
-Linux : installez les dépendances de compilation WebKitGTK/GTK (voir `apps/desktop/README.md`) et rejoignez le groupe `bluetooth`. Quittez `bluetoothctl` pendant le scan.
+## Solution iPhone avec LightBlue ou nRF Connect
 
-## Contournement iOS (en attendant l’application native)
+Utilisez-la seulement si l’application mobile gpio-companion n’est pas disponible.
 
-Safari ne peut pas parler au Pi depuis le site. Utilisez signer-et-copier :
+1. Dans le tableau de bord, ouvrez **Appareils → WiFi** et saisissez les informations du réseau.
+2. Choisissez **Signer et copier**.
+3. Ouvrez [LightBlue](https://apps.apple.com/app/lightblue/id557428110) ou [nRF Connect](https://apps.apple.com/app/nrf-connect-for-mobile/id1054366564).
+4. Recherchez **gpio-companion** et connectez-vous.
+5. Ouvrez la caractéristique d’écriture indiquée par le tableau de bord.
+6. Collez le message en **texte UTF-8**, et non en hexadécimal, puis envoyez-le.
+7. Lisez la caractéristique d’état pour vérifier la connexion.
 
-1. Sur `/devices/wifi` choisissez l’appareil associé, puis remplissez le SSID et le mot de passe WiFi
-2. **Signer et copier** — le JSON signé s’affiche dans un bloc de copie (et est copié dans le presse-papiers)
-3. Installez [LightBlue](https://apps.apple.com/app/lightblue/id557428110) ou [nRF Connect](https://apps.apple.com/app/nrf-connect-for-mobile/id1054366564)
-4. Scannez et connectez-vous à **gpio-companion** (copiez le nom Bluetooth depuis la page)
-5. Ouvrez la caractéristique d’**écriture** (copiez-la depuis la page)
-6. Collez le JSON en **texte UTF-8** (pas hex) et envoyez
-7. Lisez la caractéristique d’**état** — `{ "connected": true, "ssid": "…" }` en succès, ou `{ "error": "…", "reason": "ssid-not-found"|"password"|"no-device"|"failed" }` en échec
+Le message copié expire rapidement par sécurité. Après une attente, revenez au tableau de bord et choisissez de nouveau **Signer et copier**.
 
-Le Pi accepte ce texte JSON. Préférez `apps/mobile` (iOS/Android) ou `apps/desktop` (Windows/Linux/macOS) plutôt qu’une application BLE tierce.
+## Ethernet et console
 
-Si la copie a échoué, utilisez **Copier dans le presse-papiers** sur `/devices/wifi`. Si l’horodatage a plus d’environ une minute, signez à nouveau (protection contre le rejeu). Le premier collage réussi peut aussi régler l’horloge de la carte.
+Ethernet ne nécessite aucun réglage Bluetooth : branchez le câble et attendez que la carte apparaisse en ligne.
 
-## Si le Bluetooth manque
+Si la carte ne possède pas de Bluetooth fonctionnel, utilisez Ethernet ou branchez un écran ou une console série pour configurer le réseau localement. Demandez de l’aide à la personne qui a préparé l’image si la console ne vous est pas familière.
 
-- Orange Pi sans radio : utilisez Ethernet ou une clé WiFi USB + TTY `nmcli`
-- L’hôte peut désactiver le BLE avec `GPIO_COMPANION_BLE=0`
-- Le first-setup HDMI/série reste valable
+## Résoudre les problèmes courants
+
+| Problème | À essayer |
+| --- | --- |
+| La carte n’apparaît pas en Bluetooth | Rapprochez-vous, redémarrez le Bluetooth et vérifiez qu’aucune autre application n’est connectée |
+| Le navigateur ne propose pas Bluetooth | Utilisez Chrome, Edge ou l’application native |
+| Android ne trouve rien | Autorisez la localisation et les appareils à proximité, puis recommencez |
+| Le mot de passe est refusé | Saisissez-le à nouveau ; les majuscules et minuscules comptent |
+| Le réseau est introuvable | Vérifiez son nom exact et rapprochez la carte du point d’accès |
+| La carte est connectée mais reste hors ligne | Attendez une minute, actualisez Appareils et vérifiez l’accès à Internet |
+| Le Bluetooth n’est jamais disponible | Utilisez Ethernet ; certains Orange Pi ont besoin d’un adaptateur USB Bluetooth ou WiFi |
+
+N’ajoutez jamais un mot de passe WiFi, une clé d’association ou un message signé copié dans un projet GitHub ou une capture d’écran de discussion.

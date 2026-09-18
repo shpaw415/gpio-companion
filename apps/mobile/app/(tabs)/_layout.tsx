@@ -36,6 +36,7 @@ export default function TabsLayout() {
 						gap: 10,
 						borderBottomWidth: 1,
 						borderBottomColor: colors.border,
+						backgroundColor: colors.surface,
 					}}
 				>
 					<Image

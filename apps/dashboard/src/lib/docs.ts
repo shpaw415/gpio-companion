@@ -126,58 +126,95 @@ export function docsForLocale(locale: string): DocEntry[] {
 	return [
 		doc({
 			id: "getting-started",
-			title: "Getting started",
-			description:
-				"Power the board, get it online, sign in, pair, connect GitHub, reach the overview.",
+			title: pickRaw(locale, "Getting started", "Démarrage"),
+			description: pickRaw(
+				locale,
+				"Pair your board, connect WiFi and GitHub, then create your first project.",
+				"Associez la carte, connectez le WiFi et GitHub, puis créez votre premier projet.",
+			),
 			group: "guides",
 			raw: pickRaw(locale, gettingStartedContent, gettingStartedFr),
 		}),
 		doc({
 			id: "user-guide",
-			title: "User guide",
-			description:
-				"What ships on your bench and where each gpio-companion document fits.",
+			title: pickRaw(
+				locale,
+				"Welcome to gpio-companion",
+				"Bienvenue dans gpio-companion",
+			),
+			description: pickRaw(
+				locale,
+				"Meet your workbench, gather a starter kit, and learn the three safety rules.",
+				"Découvrez votre établi, préparez un kit de départ et retenez trois règles de sécurité.",
+			),
 			group: "guides",
 			raw: pickRaw(locale, userGuideContent, userGuideFr),
 		}),
 		doc({
 			id: "wifi-bluetooth",
-			title: "WiFi over Bluetooth",
-			description:
-				"Chrome/Edge Web Bluetooth, native apps, and the iOS LightBlue / nRF Connect paste flow.",
+			title: pickRaw(locale, "WiFi and Bluetooth", "WiFi et Bluetooth"),
+			description: pickRaw(
+				locale,
+				"Get a board online from the native apps, a browser, or an iPhone fallback.",
+				"Mettez une carte en ligne depuis une application, un navigateur ou la solution iPhone.",
+			),
 			group: "guides",
 			raw: pickRaw(locale, wifiBluetoothContent, wifiBluetoothFr),
 		}),
 		doc({
 			id: "workflows",
-			title: "Daily workflows",
-			description:
-				"Working with the on-device agent, GitHub projects, board updates, and bench safety.",
+			title: pickRaw(
+				locale,
+				"Build, run, and save",
+				"Construire, exécuter et enregistrer",
+			),
+			description: pickRaw(
+				locale,
+				"Turn an idea into a safe circuit, run it, verify it, and save it to GitHub.",
+				"Transformez une idée en circuit sûr, exécutez-le, vérifiez-le et enregistrez-le.",
+			),
 			group: "guides",
 			raw: pickRaw(locale, workflowsContent, workflowsFr),
 		}),
 		doc({
 			id: "storage",
-			title: "Removable storage",
-			description:
-				"Extra SD cards and USB sticks appear in T3 Code as ~/storage/<label>.",
+			title: pickRaw(locale, "Removable storage", "Stockage amovible"),
+			description: pickRaw(
+				locale,
+				"Open extra SD cards and USB drives in Code, then remove them safely.",
+				"Ouvrez une SD ou une clé USB dans Code, puis retirez-la en sécurité.",
+			),
 			group: "guides",
 			raw: pickRaw(locale, storageContent, storageFr),
 		}),
 		doc({
 			id: "pinout-raspberrypi",
-			title: "Raspberry Pi GPIO pinout",
-			description:
-				"40-pin header map with physical pin numbers, power and ground, I2C/SPI/UART, and safety notes.",
+			title: pickRaw(
+				locale,
+				"Raspberry Pi GPIO pinout",
+				"Brochage GPIO Raspberry Pi",
+			),
+			description: pickRaw(
+				locale,
+				"Find pin 1, wire a safe first LED, and explore the Raspberry Pi 40-pin header.",
+				"Trouvez la broche 1, câblez une première LED sûre et explorez les 40 broches.",
+			),
 			group: "hardware",
 			hardware: "raspberrypi",
 			raw: pickRaw(locale, pinoutRaspberryContent, pinoutRaspberryFr),
 		}),
 		doc({
 			id: "pinout-orangepi",
-			title: "Orange Pi GPIO pinout",
-			description:
-				"26-pin header on Orange Pi 3 LTS; 3.3V; physical pin numbers; I2C/SPI/UART seats.",
+			title: pickRaw(
+				locale,
+				"Orange Pi GPIO pinout",
+				"Brochage GPIO Orange Pi",
+			),
+			description: pickRaw(
+				locale,
+				"Find safe physical pins and wire a first LED on Orange Pi, including the 3 LTS.",
+				"Trouvez des broches physiques sûres et câblez une première LED, notamment sur le 3 LTS.",
+			),
 			group: "hardware",
 			hardware: "orangepi",
 			raw: pickRaw(locale, pinoutOrangeContent, pinoutOrangeFr),

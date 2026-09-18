@@ -36,7 +36,7 @@ export default function FlashPanel({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
-	const [fqbn, setFqbn] = useState("arduino:avr:uno");
+	const [fqbn, setFqbn] = useState("");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const [sketches, setSketches] = useState<BoardSketch[]>([]);
@@ -103,6 +103,8 @@ export default function FlashPanel({
 	return (
 		<View style={{ gap: 8, marginTop: 8 }}>
 			<Body>{t("flash.arduinoFlash")}</Body>
+			<Muted>{t("flash.replacesProxy")}</Muted>
+			<Muted>{t("flash.selectArduinoFirst")}</Muted>
 			{uuid ? <Muted>{offline.label}</Muted> : null}
 			<TextButton
 				label={busy ? t("common.loading") : t("flash.loadPorts")}

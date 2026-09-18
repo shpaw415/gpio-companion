@@ -22,7 +22,7 @@ export default function PcbViewer({
 
 	if (previewUrl) {
 		return (
-			<Paper className="overflow-hidden" elevation={1}>
+			<Paper className="workbench-panel overflow-hidden" elevation={0}>
 				<img
 					alt={t("project.pcbPreviewAlt")}
 					className="w-full bg-white"
@@ -37,7 +37,7 @@ export default function PcbViewer({
 
 	if (embeddedSvg) {
 		return (
-			<Paper className="overflow-hidden" elevation={1}>
+			<Paper className="workbench-panel overflow-hidden" elevation={0}>
 				<img
 					alt={t("project.pcbPreviewAlt")}
 					className="w-full bg-white"
@@ -52,7 +52,7 @@ export default function PcbViewer({
 
 	if (circuitJsonText) {
 		return (
-			<Paper className="p-4" elevation={1}>
+			<Paper className="workbench-panel p-4" elevation={0}>
 				<Typography variant="subtitle1" className="mb-2">
 					{label}
 				</Typography>
@@ -64,7 +64,7 @@ export default function PcbViewer({
 	}
 
 	return (
-		<Paper className="p-4 min-[900px]:p-6" elevation={1}>
+		<Paper className="workbench-empty project-preview-empty" elevation={0}>
 			<Typography color="secondary">{t("project.noPcb")}</Typography>
 		</Paper>
 	);
