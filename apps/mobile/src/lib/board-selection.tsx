@@ -7,9 +7,10 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { storageGet, storageSet, storageRemove } from "./storage.ts";
+import { storageGet, storageRemove, storageSet } from "./storage.ts";
 
 const STORAGE_KEY = "gpio-companion-selected-board";
+const LEGACY_STORAGE_KEY = "gpio-companion-t3-device";
 
 type BoardSelectionValue = {
 	uuid: string;
@@ -32,10 +33,12 @@ export function BoardSelectionProvider({
 	const [pairToken, setPairToken] = useState("");
 
 	useEffect(() => {
-		void storageGet(STORAGE_KEY).then((stored) => {
-			if (stored?.trim()) {
-				setUuidState(stored.trim());
-			}
+		void Promise.all([
+			storageGet(STORAGE_KEY),
+			storageGet(LEGACY_STORAGE_KEY),
+		]).then(([stored, legacy]) => {
+			const selected = stored?.trim() || legacy?.trim() || "";
+			if (selected) setUuidState(selected);
 		});
 	}, []);
 
@@ -49,6 +52,7 @@ export function BoardSelectionProvider({
 		});
 		if (trimmed) {
 			void storageSet(STORAGE_KEY, trimmed);
+			void storageRemove(LEGACY_STORAGE_KEY);
 		} else {
 			void storageRemove(STORAGE_KEY);
 		}
@@ -60,6 +64,7 @@ export function BoardSelectionProvider({
 			setUuidState(trimmed);
 			if (trimmed) {
 				void storageSet(STORAGE_KEY, trimmed);
+				void storageRemove(LEGACY_STORAGE_KEY);
 			}
 			setPairToken(token.trim());
 			onOpenT3?.();

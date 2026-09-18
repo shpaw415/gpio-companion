@@ -1,16 +1,11 @@
-import AppBar from "@shpaw415/mui-lite/AppBar";
 import Box from "@shpaw415/mui-lite/Box";
-import Button from "@shpaw415/mui-lite/Button";
 import CssBaseline from "@shpaw415/mui-lite/CssBaseline";
-import IconButton from "@shpaw415/mui-lite/IconButton";
 import { CircularProgress } from "@shpaw415/mui-lite/Progress";
 import Stack from "@shpaw415/mui-lite/Stack";
-import Toolbar from "@shpaw415/mui-lite/Toolbar";
-import Typography from "@shpaw415/mui-lite/Typography";
 import { useEffect, useState } from "react";
-import logo from "../../../logo/logo.png";
 import { authLogout, authSession, authToken, type Session } from "./api";
 import { useColorMode } from "./color-mode";
+import DeckShell, { type DeckSection } from "./components/DeckShell";
 import DevicesHub, { type DeviceTab } from "./components/DevicesHub";
 import GithubAppCallbackBridge from "./components/GithubAppCallbackBridge";
 import Login from "./components/Login";
@@ -18,45 +13,13 @@ import Profile from "./components/Profile";
 import Project from "./components/Project";
 import { ApiCacheProvider } from "./hooks/useApiCache";
 import { BoardSelectionProvider } from "./hooks/useBoardSelection";
-import { useDashboardMode } from "./hooks/useDashboardMode";
-import { useT } from "./locale";
-
-type Section = "project" | "devices" | "profile";
-
-function SunIcon() {
-	return (
-		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
-			<circle cx="12" cy="12" r="4" fill="currentColor" />
-			<path
-				d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"
-				stroke="currentColor"
-				strokeWidth="2"
-				strokeLinecap="round"
-				fill="none"
-			/>
-		</svg>
-	);
-}
-
-function MoonIcon() {
-	return (
-		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
-			<path
-				d="M17 13.5A7 7 0 1 1 10.5 7 5.5 5.5 0 0 0 17 13.5z"
-				fill="currentColor"
-			/>
-		</svg>
-	);
-}
 
 export default function App() {
 	const { isDark, toggleMode } = useColorMode();
-	const { isEasy, toggleMode: toggleDashboardMode } = useDashboardMode();
-	const t = useT();
 	const [ready, setReady] = useState(false);
 	const [signedIn, setSignedIn] = useState(false);
 	const [session, setSession] = useState<Session | null>(null);
-	const [section, setSection] = useState<Section>("project");
+	const [section, setSection] = useState<DeckSection>("project");
 	const [deviceTab, setDeviceTab] = useState<DeviceTab>("overview");
 
 	useEffect(() => {
@@ -89,7 +52,6 @@ export default function App() {
 		);
 	}
 
-	const onT3 = signedIn && section === "devices" && deviceTab === "t3";
 	const admin = session?.role === "admin";
 
 	return (
@@ -101,146 +63,51 @@ export default function App() {
 		>
 			<ApiCacheProvider signedIn={signedIn}>
 				{signedIn ? <GithubAppCallbackBridge /> : null}
-				<Box
-					sx={{
-						height: "100%",
-						minHeight: 0,
-						bgcolor: "bg-main",
-						display: "flex",
-						flexDirection: "column",
-						overflow: "hidden",
-					}}
-				>
-					<CssBaseline />
-					<AppBar
-						position="sticky"
-						color="default"
-						sx={{
-							flexShrink: 0,
-							borderBottom: "1px solid rgba(var(--text-main), 0.1)",
-							boxShadow: "none",
-						}}
+				<CssBaseline />
+				{signedIn ? (
+					<DeckShell
+						section={section}
+						deviceTab={deviceTab}
+						admin={Boolean(admin)}
+						isDark={isDark}
+						onNavigate={setSection}
+						onDeviceTab={setDeviceTab}
+						onToggleTheme={toggleMode}
 					>
-						<Toolbar sx={{ gap: 1, minHeight: 48 }}>
-							<Box
-								sx={{
-									display: "flex",
-									alignItems: "center",
-									gap: 1.5,
-									flexGrow: 1,
-									minWidth: 0,
-								}}
-							>
-								<img
-									src={logo}
-									alt=""
-									width={32}
-									height={32}
-									style={{
-										width: 32,
-										height: 32,
-										borderRadius: 8,
-										objectFit: "cover",
-										flexShrink: 0,
-										display: "block",
-									}}
-								/>
-								<Typography variant="h6" noWrap>
-									gpio-companion
-								</Typography>
-							</Box>
-							{signedIn
-								? (
-										[
-											["project", t("nav.project")],
-											["devices", t("nav.devices")],
-											["profile", t("nav.profile")],
-										] as const
-									).map(([id, label]) => (
-										<Button
-											key={id}
-											variant={section === id ? "contained" : "text"}
-											size="small"
-											onClick={() => setSection(id)}
-										>
-											{label}
-										</Button>
-									))
-								: null}
-							<Button
-								variant="text"
-								size="small"
-								aria-label={
-									isEasy ? t("mode.switchToExpert") : t("mode.switchToEasy")
-								}
-								onClick={toggleDashboardMode}
-							>
-								{isEasy ? t("mode.easy") : t("mode.expert")}
-							</Button>
-							<IconButton
-								aria-label={
-									isDark ? t("theme.switchToLight") : t("theme.switchToDark")
-								}
-								color="secondary"
-								onClick={toggleMode}
-								size="small"
-							>
-								{isDark ? <SunIcon /> : <MoonIcon />}
-							</IconButton>
-						</Toolbar>
-					</AppBar>
-					<Box
-						className={onT3 ? undefined : "workbench-bg"}
-						sx={{
-							flex: 1,
-							minHeight: 0,
-							width: "100%",
-							...(onT3
-								? {
-										display: "flex",
-										flexDirection: "column",
-										overflow: "hidden",
-										px: 1,
-										pt: 0,
-										pb: 0,
-									}
-								: {
-										overflow: "auto",
-										p: 1.5,
-									}),
-						}}
-					>
-						{signedIn ? (
-							section === "project" ? (
-								<Project />
-							) : section === "profile" ? (
-								<Profile
-									session={session}
-									onSignOut={() => {
-										void authLogout().then(() => {
-											setSignedIn(false);
-											setSection("devices");
-											setDeviceTab("overview");
-										});
-									}}
-								/>
-							) : (
-								<DevicesHub
-									tab={deviceTab}
-									onTab={setDeviceTab}
-									admin={Boolean(admin)}
-								/>
-							)
-						) : (
-							<Login
-								onSignedIn={() => {
-									setSignedIn(true);
-									setSection("devices");
+						{section === "project" ? (
+							<Project />
+						) : section === "profile" ? (
+							<Profile
+								session={session}
+								onSignOut={() => {
+									void authLogout().then(() => {
+										setSignedIn(false);
+										setSection("devices");
+										setDeviceTab("overview");
+									});
 								}}
 							/>
+						) : (
+							<DevicesHub
+								tab={deviceTab}
+								onTab={setDeviceTab}
+								admin={Boolean(admin)}
+							/>
 						)}
+					</DeckShell>
+				) : (
+					<Box
+						className="workbench-bg"
+						sx={{ height: "100%", overflow: "auto", p: 1.5 }}
+					>
+						<Login
+							onSignedIn={() => {
+								setSignedIn(true);
+								setSection("devices");
+							}}
+						/>
 					</Box>
-				</Box>
+				)}
 			</ApiCacheProvider>
 		</BoardSelectionProvider>
 	);

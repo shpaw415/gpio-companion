@@ -8,6 +8,7 @@ import {
 } from "react";
 
 const STORAGE_KEY = "gpio-companion-selected-board";
+const LEGACY_STORAGE_KEY = "gpio-companion-t3-device";
 
 type BoardSelectionValue = {
 	uuid: string;
@@ -21,7 +22,11 @@ const BoardSelectionCtx = createContext<BoardSelectionValue | null>(null);
 
 function readStoredUuid(): string {
 	try {
-		return window.localStorage.getItem(STORAGE_KEY)?.trim() ?? "";
+		return (
+			window.localStorage.getItem(STORAGE_KEY)?.trim() ||
+			window.localStorage.getItem(LEGACY_STORAGE_KEY)?.trim() ||
+			""
+		);
 	} catch {
 		return "";
 	}
@@ -31,6 +36,7 @@ function writeStoredUuid(uuid: string) {
 	try {
 		if (uuid) {
 			window.localStorage.setItem(STORAGE_KEY, uuid);
+			window.localStorage.removeItem(LEGACY_STORAGE_KEY);
 		} else {
 			window.localStorage.removeItem(STORAGE_KEY);
 		}

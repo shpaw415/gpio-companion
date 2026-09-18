@@ -8,6 +8,666 @@ body {
 	overflow: hidden;
 }
 
+/* B6 Split Deck shell. Kept under the b6 namespace so route content and embeds
+   retain their existing component styling. */
+.b6-deck {
+	display: flex;
+	height: 100dvh;
+	min-width: 0;
+	flex-direction: column;
+	overflow: hidden;
+	background: rgb(var(--bg-main));
+	color: rgb(var(--text-main));
+}
+
+.b6-topbar {
+	z-index: 35;
+	display: flex;
+	height: calc(44px + env(safe-area-inset-top));
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 8px;
+	padding: env(safe-area-inset-top) 10px 0;
+	border-bottom: 1px solid rgba(var(--text-main), 0.12);
+	background: color-mix(in srgb, rgb(var(--bg-surface)) 94%, transparent);
+	backdrop-filter: blur(14px);
+}
+
+.b6-topbar svg,
+.b6-rail svg,
+.b6-dock svg,
+.b6-palette svg {
+	width: 20px;
+	height: 20px;
+	fill: currentColor;
+}
+
+.b6-brand {
+	display: flex;
+	min-width: 184px;
+	align-items: center;
+	gap: 8px;
+	color: inherit;
+	font-size: 0.9rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	text-decoration: none;
+}
+
+.b6-brand img {
+	display: block;
+	width: 24px;
+	height: 24px;
+	border-radius: 7px;
+	object-fit: cover;
+}
+
+.b6-palette-trigger {
+	display: flex;
+	width: min(360px, 32vw);
+	height: 30px;
+	align-items: center;
+	gap: 8px;
+	margin-right: auto;
+	padding: 0 8px;
+	border: 1px solid rgba(var(--text-main), 0.14);
+	border-radius: 7px;
+	background: rgba(var(--text-main), 0.035);
+	color: rgb(var(--text-secondary));
+	font: inherit;
+	font-size: 0.78rem;
+	cursor: pointer;
+}
+
+.b6-palette-trigger kbd {
+	margin-left: auto;
+}
+
+.b6-mode-switch {
+	display: flex;
+	padding: 2px;
+	border: 1px solid rgba(var(--text-main), 0.12);
+	border-radius: 8px;
+	background: rgba(var(--text-main), 0.04);
+}
+
+.b6-mode-switch legend {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+.b6-mode-switch button {
+	height: 26px;
+	padding: 0 9px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: rgb(var(--text-secondary));
+	font: inherit;
+	font-size: 0.74rem;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+.b6-mode-switch button.is-active {
+	background: rgb(var(--bg-primary));
+	color: rgb(var(--text-primary));
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+.b6-body {
+	display: grid;
+	min-height: 0;
+	min-width: 0;
+	flex: 1;
+	grid-template-columns: 58px 225px minmax(0, 1fr);
+}
+
+.b6-rail {
+	z-index: 24;
+	display: flex;
+	min-height: 0;
+	flex-direction: column;
+	gap: 3px;
+	padding: 8px 6px;
+	border-right: 1px solid rgba(var(--text-main), 0.11);
+	background: color-mix(
+		in srgb,
+		rgb(var(--bg-surface)) 88%,
+		rgb(var(--bg-main))
+	);
+}
+
+.b6-rail a {
+	display: flex;
+	min-height: 48px;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	gap: 2px;
+	border-radius: 9px;
+	color: rgb(var(--text-secondary));
+	font-size: 0.65rem;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.b6-rail a:hover,
+.b6-rail a.is-active {
+	background: rgba(var(--text-primary), 0.1);
+	color: rgb(var(--text-primary));
+}
+
+.b6-context {
+	z-index: 23;
+	min-width: 0;
+	overflow: auto;
+	padding: 14px 10px;
+	border-right: 1px solid rgba(var(--text-main), 0.11);
+	background: color-mix(
+		in srgb,
+		rgb(var(--bg-surface)) 96%,
+		rgb(var(--bg-main))
+	);
+	outline: 0;
+}
+
+.b6-context.is-focused {
+	box-shadow: inset 2px 0 rgb(var(--bg-primary));
+}
+
+.b6-context-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 7px 12px;
+}
+
+.b6-context-heading > div {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.b6-context-heading span {
+	color: rgb(var(--text-secondary));
+	font-size: 0.62rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.b6-context-heading strong {
+	overflow: hidden;
+	font-size: 0.92rem;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.b6-context nav {
+	display: grid;
+	gap: 2px;
+}
+
+.b6-context nav a {
+	display: block;
+	padding: 7px 9px;
+	border-radius: 7px;
+	color: rgb(var(--text-secondary));
+	font-size: 0.82rem;
+	font-weight: 550;
+	text-decoration: none;
+}
+
+.b6-context nav a:hover,
+.b6-context nav a.is-active {
+	background: rgba(var(--text-primary), 0.09);
+	color: rgb(var(--text-primary));
+}
+
+.b6-context nav a.is-active {
+	box-shadow: inset 2px 0 rgb(var(--bg-primary));
+}
+
+.b6-focus-hint {
+	margin: 18px 7px 0;
+	color: rgb(var(--text-secondary));
+	font-size: 0.65rem;
+}
+
+.b6-workspace {
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	flex-direction: column;
+}
+
+.b6-stage {
+	position: relative;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	flex: 1;
+	overflow: hidden;
+	outline: 0;
+	background-color: rgb(var(--bg-main));
+	background-image:
+		linear-gradient(rgba(var(--text-main), 0.025) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(var(--text-main), 0.025) 1px, transparent 1px);
+	background-size: 24px 24px;
+}
+
+.b6-stage-primary,
+.b6-stage-secondary {
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
+	outline: 0;
+}
+
+.b6-stage-primary {
+	display: flex;
+	flex: 1 1 66%;
+	border-right: 1px solid rgba(var(--text-main), 0.1);
+}
+
+.b6-stage-secondary {
+	display: flex;
+	flex: 1 1 34%;
+	flex-direction: column;
+	justify-content: center;
+	gap: 8px;
+	padding: 20px;
+	color: rgb(var(--text-secondary));
+	font-size: 0.8rem;
+}
+
+.b6-stage-secondary strong {
+	color: rgb(var(--text-main));
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	text-transform: uppercase;
+}
+
+.b6-stage-primary.is-focused,
+.b6-stage-secondary.is-focused {
+	box-shadow: inset 0 2px 0 rgb(var(--bg-primary));
+}
+
+.b6-stage::after {
+	position: absolute;
+	inset: 0;
+	border: 2px solid transparent;
+	content: "";
+	pointer-events: none;
+}
+
+.b6-stage.is-focused::after {
+	border-color: rgba(var(--text-primary), 0.22);
+}
+
+.b6-stage-content {
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	width: 100%;
+	flex: 1;
+	flex-direction: column;
+	overflow: auto;
+	padding: 8px;
+}
+
+.b6-dock {
+	position: relative;
+	display: flex;
+	min-height: 64px;
+	max-height: 480px;
+	flex: 0 0 auto;
+	flex-direction: column;
+	border-top: 1px solid rgba(var(--text-main), 0.14);
+	background: rgb(var(--bg-surface));
+}
+
+.b6-dock-resizer {
+	position: absolute;
+	top: -4px;
+	right: 0;
+	left: 0;
+	z-index: 2;
+	height: 8px;
+	cursor: ns-resize;
+	touch-action: none;
+}
+
+.b6-dock-resizer::after {
+	position: absolute;
+	top: 3px;
+	left: 50%;
+	width: 34px;
+	height: 2px;
+	border-radius: 2px;
+	background: rgba(var(--text-main), 0.25);
+	content: "";
+	transform: translateX(-50%);
+}
+
+.b6-dock-tabs {
+	display: flex;
+	height: 34px;
+	flex: 0 0 auto;
+	align-items: stretch;
+	gap: 2px;
+	padding: 3px 7px 0;
+	border-bottom: 1px solid rgba(var(--text-main), 0.1);
+}
+
+.b6-dock-tabs button {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0 8px;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: rgb(var(--text-secondary));
+	font: inherit;
+	font-size: 0.72rem;
+	cursor: pointer;
+}
+
+.b6-dock-tabs button.is-active {
+	border-bottom-color: rgb(var(--bg-primary));
+	color: rgb(var(--text-primary));
+}
+
+.b6-dock-tabs svg {
+	width: 16px;
+	height: 16px;
+}
+
+.b6-dock-content {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	gap: 4px;
+	padding: 12px;
+	color: rgb(var(--text-secondary));
+	font-size: 0.8rem;
+	text-align: center;
+}
+
+.b6-dock-content strong {
+	color: rgb(var(--text-main));
+}
+
+.b6-drawer-trigger,
+.b6-drawer-close,
+.b6-scrim {
+	display: none;
+}
+
+.b6-bottom-nav {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 40;
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
+.b6-statusbar {
+	display: flex;
+	height: 28px;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 14px;
+	padding: 0 12px;
+	border-top: 1px solid rgba(var(--text-main), 0.1);
+	background: color-mix(in srgb, rgb(var(--bg-main)) 90%, black);
+	color: rgb(var(--text-secondary));
+	font:
+		0.68rem ui-monospace,
+		"SF Mono",
+		Menlo,
+		Consolas,
+		monospace;
+}
+
+.b6-statusbar > :first-child {
+	color: rgb(var(--text-success));
+}
+
+.b6-statusbar-shortcuts {
+	margin-left: auto;
+}
+
+.b6-palette-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 100;
+	display: grid;
+	place-items: start center;
+	padding: max(10dvh, 52px) 16px 16px;
+}
+
+.b6-palette-scrim {
+	position: absolute;
+	inset: 0;
+	border: 0;
+	background: rgba(0, 0, 0, 0.48);
+}
+
+.b6-palette {
+	position: relative;
+	width: min(580px, 100%);
+	overflow: hidden;
+	border: 1px solid rgba(var(--text-main), 0.18);
+	border-radius: 12px;
+	background: rgb(var(--bg-surface));
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+
+.b6-palette-search {
+	display: flex;
+	height: 48px;
+	align-items: center;
+	gap: 9px;
+	padding: 0 12px;
+	border-bottom: 1px solid rgba(var(--text-main), 0.12);
+}
+
+.b6-palette-search input {
+	min-width: 0;
+	flex: 1;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+}
+
+.b6-palette kbd,
+.b6-palette-trigger kbd {
+	padding: 1px 5px;
+	border: 1px solid rgba(var(--text-main), 0.16);
+	border-radius: 4px;
+	background: rgba(var(--text-main), 0.05);
+	color: rgb(var(--text-secondary));
+	font:
+		0.65rem ui-monospace,
+		"SFMono-Regular",
+		Consolas,
+		monospace;
+}
+
+.b6-command-list {
+	max-height: min(55dvh, 430px);
+	overflow: auto;
+	padding: 6px;
+}
+
+.b6-command-list button {
+	display: grid;
+	width: 100%;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 12px;
+	padding: 9px 10px;
+	border: 0;
+	border-radius: 7px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.b6-command-list button:hover,
+.b6-command-list button.is-top {
+	background: rgba(var(--text-primary), 0.1);
+}
+
+.b6-command-list small {
+	color: rgb(var(--text-secondary));
+}
+
+.b6-command-empty {
+	padding: 24px;
+	color: rgb(var(--text-secondary));
+	font-size: 0.85rem;
+	text-align: center;
+}
+
+@media (max-width: 1100px) {
+	.b6-stage {
+		flex-direction: column;
+	}
+
+	.b6-stage-primary {
+		border-right: 0;
+		border-bottom: 1px solid rgba(var(--text-main), 0.1);
+	}
+
+	.b6-stage-secondary {
+		min-height: 88px;
+		flex: 0 0 auto;
+	}
+}
+
+@media (max-width: 899px) {
+	.b6-body {
+		padding-bottom: calc(56px + env(safe-area-inset-bottom));
+	}
+
+	.b6-dock {
+		max-height: min(480px, 42dvh);
+	}
+
+	.b6-statusbar {
+		padding-right: 8px;
+		padding-left: 8px;
+	}
+}
+
+@media (max-width: 640px) {
+	.b6-topbar {
+		gap: 5px;
+		padding-right: 6px;
+		padding-left: 6px;
+	}
+
+	.b6-topbar .b6-drawer-trigger,
+	.b6-context-heading .b6-drawer-close {
+		display: inline-flex;
+	}
+
+	.b6-brand {
+		min-width: 0;
+		margin-right: auto;
+	}
+
+	.b6-brand span,
+	.b6-palette-trigger span,
+	.b6-palette-trigger kbd {
+		display: none;
+	}
+
+	.b6-palette-trigger {
+		width: 32px;
+		justify-content: center;
+		margin: 0;
+		padding: 0;
+	}
+
+	.b6-mode-switch button {
+		padding: 0 6px;
+		font-size: 0.68rem;
+	}
+
+	.b6-body {
+		display: block;
+	}
+
+	.b6-rail {
+		display: none;
+	}
+
+	.b6-statusbar-shortcuts {
+		display: none;
+	}
+
+	.b6-context {
+		position: fixed;
+		top: calc(44px + env(safe-area-inset-top));
+		bottom: calc(56px + env(safe-area-inset-bottom));
+		left: 0;
+		z-index: 61;
+		width: min(82vw, 280px);
+		border-right: 1px solid rgba(var(--text-main), 0.16);
+		box-shadow: 14px 0 36px rgba(0, 0, 0, 0.24);
+		transform: translateX(-105%);
+		transition: transform 160ms ease;
+	}
+
+	.b6-context.is-open {
+		transform: translateX(0);
+	}
+
+	.b6-scrim {
+		position: fixed;
+		inset: calc(44px + env(safe-area-inset-top)) 0
+			calc(56px + env(safe-area-inset-bottom));
+		z-index: 60;
+		display: block;
+		border: 0;
+		background: rgba(0, 0, 0, 0.42);
+	}
+
+	.b6-workspace {
+		height: 100%;
+	}
+
+	.b6-stage-content {
+		padding: 6px;
+	}
+
+	.b6-dock-tabs button {
+		flex: 1;
+		justify-content: center;
+		padding: 0 3px;
+	}
+
+	.b6-dock-tabs svg {
+		display: none;
+	}
+}
+
 .workbench-bg {
 	background-color: rgb(var(--bg-main));
 	background-image:

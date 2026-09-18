@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { useT } from "../hooks/useLocale.tsx";
-import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import {
-	DASHBOARD_BOTTOM_NAV_ID,
 	isEmbedPath,
 	isT3Path,
 	readT3PairLocation,
@@ -19,21 +17,9 @@ type FrameRect = {
 	height: number;
 };
 
-function frameBottom(mobile: boolean): number {
-	if (!mobile) {
-		return window.innerHeight;
-	}
-	const nav = document.getElementById(DASHBOARD_BOTTOM_NAV_ID);
-	if (!nav) {
-		return window.innerHeight;
-	}
-	return nav.getBoundingClientRect().top;
-}
-
 export default function T3Frame() {
 	const pathname = usePathname();
 	const t = useT();
-	const mobile = useMobile();
 	const { uuid, setUuid } = useBoardSelection();
 	const visible = isT3Path(pathname) && !isEmbedPath(pathname);
 	const [pairToken, setPairToken] = useState("");
@@ -85,7 +71,7 @@ export default function T3Frame() {
 				top: next.top,
 				left: next.left,
 				width: next.width,
-				height: Math.max(0, frameBottom(mobile) - next.top),
+				height: next.height,
 			});
 		};
 
@@ -115,7 +101,7 @@ export default function T3Frame() {
 			window.removeEventListener("resize", sync);
 			window.removeEventListener("scroll", sync, true);
 		};
-	}, [src, visible, mobile]);
+	}, [src, visible]);
 
 	if (!src) {
 		return null;

@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { View } from "react-native";
 import T3WebView from "../components/T3WebView.tsx";
 import { Paper, PrimaryButton, Title } from "../components/ui.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useColors } from "../lib/color-mode.tsx";
-import { deviceTabs, isAllowedDeviceTab } from "../lib/dashboard-mode.ts";
+import { isAllowedDeviceTab } from "../lib/dashboard-mode.ts";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { useT } from "../lib/locale.tsx";
@@ -24,7 +24,6 @@ export default function DevicesHub() {
 	const { mode, isEasy, setMode } = useDashboardMode();
 	const t = useT();
 	const admin = auth.session?.role === "admin";
-	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
 	const allowed = isAllowedDeviceTab(mode, admin, tab);
 	const expertOnly = tab === "debug" || tab === "admin";
@@ -37,43 +36,6 @@ export default function DevicesHub() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: colors.bg }}>
-			<ScrollView
-				horizontal
-				showsHorizontalScrollIndicator={false}
-				style={{ flexGrow: 0, flexShrink: 0 }}
-				contentContainerStyle={{
-					paddingHorizontal: 8,
-					gap: 4,
-					paddingVertical: 8,
-					alignItems: "center",
-					flexGrow: 0,
-				}}
-			>
-				{tabs.map((item) => {
-					const active = tab === item.id;
-					return (
-						<Pressable
-							key={item.id}
-							onPress={() => setTab(item.id)}
-							style={{
-								paddingHorizontal: 12,
-								paddingVertical: 8,
-								borderRadius: 999,
-								backgroundColor: active ? colors.chipBg : "transparent",
-							}}
-						>
-							<Text
-								style={{
-									color: active ? colors.primary : colors.muted,
-									fontWeight: active ? "700" : "500",
-								}}
-							>
-								{t(item.labelKey)}
-							</Text>
-						</Pressable>
-					);
-				})}
-			</ScrollView>
 			<View style={{ flex: 1, minHeight: 0 }}>
 				{isEasy && expertOnly ? (
 					<Paper>

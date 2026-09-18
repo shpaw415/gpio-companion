@@ -1,14 +1,9 @@
 import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
-import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { useEffect } from "react";
 import { useDashboardMode } from "../hooks/useDashboardMode";
-import {
-	type DeviceTabId,
-	deviceTabs,
-	isAllowedDeviceTab,
-} from "../lib/dashboard-mode";
+import { type DeviceTabId, isAllowedDeviceTab } from "../lib/dashboard-mode";
 import { useT } from "../locale";
 import Admin from "./Admin";
 import Debug from "./Debug";
@@ -32,7 +27,6 @@ export default function DevicesHub({
 }) {
 	const { mode, isEasy, setMode } = useDashboardMode();
 	const t = useT();
-	const tabs = deviceTabs(mode, admin);
 	const onT3 = tab === "t3";
 	const allowed = isAllowedDeviceTab(mode, admin, tab);
 
@@ -61,17 +55,6 @@ export default function DevicesHub({
 					: undefined),
 			}}
 		>
-			<Tabs
-				value={allowed ? tab : "overview"}
-				onChange={(_event, next) => onTab(String(next) as DeviceTab)}
-				variant="scrollable"
-				aria-label={t("nav.devicesSections")}
-				sx={{ flex: "0 0 auto", height: "auto", flexShrink: 0 }}
-			>
-				{tabs.map((item) => (
-					<Tab key={item.id} value={item.id} label={t(item.labelKey)} />
-				))}
-			</Tabs>
 			<Box
 				sx={
 					onT3
@@ -83,7 +66,7 @@ export default function DevicesHub({
 								flexDirection: "column",
 								overflow: "hidden",
 							}
-						: { mt: 1 }
+						: undefined
 				}
 			>
 				{isEasy && expertOnly ? (

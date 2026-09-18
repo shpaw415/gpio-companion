@@ -38,8 +38,10 @@ export default function Profile({
 			{error || creditsQuery.error ? (
 				<DebugLog error={translateError(t, error || creditsQuery.error)} />
 			) : null}
-			<LanguageCard />
-			<Paper sx={{ p: 1.5 }} elevation={1}>
+			<div id="profile-language">
+				<LanguageCard />
+			</div>
+			<Paper id="profile-account" sx={{ p: 1.5 }} elevation={1}>
 				<Stack spacing={0.5}>
 					<Typography variant="subtitle1">{t("profile.account")}</Typography>
 					<Typography>{session?.name || t("auth.signedIn")}</Typography>
@@ -71,8 +73,10 @@ export default function Profile({
 					</Button>
 				</Stack>
 			</Paper>
-			<Keys />
-			<Paper sx={{ p: 1.5 }} elevation={1}>
+			<div id="profile-keys">
+				<Keys />
+			</div>
+			<Paper id="profile-credits" sx={{ p: 1.5 }} elevation={1}>
 				<Stack
 					direction="row"
 					spacing={1}

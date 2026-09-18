@@ -49,6 +49,39 @@
         "wrangler": "^4.131.0",
       },
     },
+    "apps/marketplace": {
+      "name": "cloudflare-nextjs",
+      "version": "2.0.0",
+      "dependencies": {
+        "@tailwindcss/cli": "^4.3.0",
+        "frame-master": "^4.0.0-beta.7",
+        "frame-master-plugin-apply-react": "^3.0.0",
+        "frame-master-plugin-assets-to-build": "^0.1.1",
+        "frame-master-plugin-auto-sitemap": "^0.1.0",
+        "frame-master-plugin-cloudflare-pages-dynamic-ssr": "^0.3.0",
+        "frame-master-plugin-cloudflare-pages-functions-action": "^4.0.0",
+        "frame-master-plugin-cloudflare-route-file-generator": "^0.1.2",
+        "frame-master-plugin-env-in-html": "^0.1.2",
+        "frame-master-plugin-image-optimizer": "^0.2.0",
+        "frame-master-plugin-node-polyfills": "^0.1.0",
+        "frame-master-plugin-react-to-html": "^1.0.7",
+        "frame-master-plugin-seo": "^0.1.1",
+        "frame-master-plugin-serve-from-build": "^1.1.1",
+        "frame-master-plugin-tailwind": "^2.0.0",
+        "frame-master-svg-to-jsx-loader": "^0.1.0",
+        "react": "^19.2.6",
+        "react-dom": "^19.2.6",
+        "tailwindcss": "^4.3.0",
+      },
+      "devDependencies": {
+        "@cloudflare/workers-types": "^4.20260519.1",
+        "@types/bun": "latest",
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "typescript": "^5.9.3",
+        "wrangler": "^4.124.0",
+      },
+    },
     "apps/workers/device-hub": {
       "name": "gpio-companion-hub",
       "version": "0.0.0",
@@ -548,6 +581,8 @@
     "chownr": ["chownr@3.0.0", "", {}, "sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g=="],
 
     "cloudflare": ["cloudflare@5.2.0", "", { "dependencies": { "@types/node": "^18.11.18", "@types/node-fetch": "^2.6.4", "abort-controller": "^3.0.0", "agentkeepalive": "^4.2.1", "form-data-encoder": "1.7.2", "formdata-node": "^4.3.2", "node-fetch": "^2.6.7" } }, "sha512-dVzqDpPFYR9ApEC9e+JJshFJZXcw4HzM8W+3DHzO5oy9+8rLC53G7x6fEf9A7/gSuSCxuvndzui5qJKftfIM9A=="],
+
+    "cloudflare-nextjs": ["cloudflare-nextjs@workspace:apps/marketplace"],
 
     "clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
 
