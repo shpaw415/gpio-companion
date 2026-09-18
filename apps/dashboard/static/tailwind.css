@@ -293,6 +293,19 @@ body {
 	text-transform: uppercase;
 }
 
+.b6-secondary-link,
+.b6-dock-content a {
+	color: rgb(var(--text-primary));
+	font-size: 0.78rem;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.b6-secondary-link:hover,
+.b6-dock-content a:hover {
+	text-decoration: underline;
+}
+
 .b6-stage-primary.is-focused,
 .b6-stage-secondary.is-focused {
 	box-shadow: inset 0 2px 0 rgb(var(--bg-primary));

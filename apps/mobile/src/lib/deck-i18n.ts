@@ -37,6 +37,15 @@ const DECK_KEYS = {
 	"deck.resizeDock": "deck.mobile.resizeDock",
 	"deck.shrinkDock": "deck.dock.shrink",
 	"deck.growDock": "deck.dock.grow",
+	"deck.mode": "deck.command.mode",
+	"deck.theme": "deck.command.theme",
+	"deck.useEasy": "deck.command.easy",
+	"deck.useExpert": "deck.command.expert",
+	"deck.boardRun": "project.run",
+	"deck.boardFlash": "flash.flash",
+	"deck.boardVerify": "verify.verify",
+	"deck.boardSave": "project.saveToGithub",
+	"deck.boardBuy": "credits.add",
 } as const;
 
 export type DeckKey = keyof typeof DECK_KEYS;

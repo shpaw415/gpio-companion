@@ -23,6 +23,7 @@ import type {
 } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import { useColorMode } from "../../hooks/useColorMode.tsx";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
@@ -93,7 +94,12 @@ function deckLink(link: SectionTab): ContextLink {
 export default function DeckShell({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
 	const t = useT() as unknown as DeckTranslate;
+	const tAny = t as unknown as (
+		key: string,
+		vars?: Record<string, string | number>,
+	) => string;
 	const session = useAuthSession();
+	const { uuid: selectedBoardUuid } = useBoardSelection();
 	const mobile = useMobile();
 	const { isDark, toggleMode: toggleTheme } = useColorMode();
 	const { mode, setMode } = useDashboardMode();
@@ -157,19 +163,59 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 		: pathname.startsWith("/devices")
 			? t("deck.secondary.devices")
 			: t("deck.secondary.project");
+	const admin = isAdmin(session.data?.role);
+	const allNavLinks: ContextLink[] = [
+		...workLinks,
+		...deviceTabs(mode, admin).map(deckLink),
+		...PROFILE_TABS.map(deckLink),
+	];
+	const seenHrefs = new Set<string>();
+	const paletteNav = allNavLinks.filter((item) => {
+		if (seenHrefs.has(item.href)) return false;
+		seenHrefs.add(item.href);
+		return true;
+	});
+	const boardActions = [
+		{
+			name: tAny("project.run"),
+			hint: t("deck.secondary.project"),
+			run: () => navigate("/project"),
+		},
+		{
+			name: tAny("flash.flash"),
+			hint: t("deck.secondary.project"),
+			run: () => navigate("/project"),
+		},
+		{
+			name: tAny("verify.verify"),
+			hint: t("deck.secondary.project"),
+			run: () => navigate("/project"),
+		},
+		{
+			name: tAny("project.saveToGithub"),
+			hint: t("deck.secondary.project"),
+			run: () => navigate("/project"),
+		},
+		{
+			name: tAny("credits.add"),
+			hint: t("deck.secondary.profile"),
+			run: () => navigate("/profile/credits"),
+		},
+	];
 	const commands = [
 		...rail.map((item) => ({
 			name: item.label,
 			hint: t("deck.command.navigate"),
 			run: () => navigate(item.href),
 		})),
-		...contextLinks
+		...paletteNav
 			.filter((item) => !rail.some((railItem) => railItem.href === item.href))
 			.map((item) => ({
 				name: t(item.labelKey),
 				hint: contextTitle,
 				run: () => navigate(item.href),
 			})),
+		...boardActions,
 		{
 			name: t("deck.command.easy"),
 			hint: t("deck.command.mode"),
@@ -407,6 +453,19 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 						>
 							<strong>{t("deck.secondary.title")}</strong>
 							<span>{secondaryHint}</span>
+							<span>
+								{selectedBoardUuid
+									? tAny("deck.status.board", {
+											uuid: selectedBoardUuid.slice(0, 8),
+										})
+									: t("deck.status.noBoard")}
+							</span>
+							<a
+								className="b6-secondary-link"
+								href={section === "/profile" ? "/profile" : "/project"}
+							>
+								{tAny("project.boardTools")}
+							</a>
 						</aside>
 					</main>
 					<section
@@ -446,6 +505,14 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 						<div className="b6-dock-content" role="tabpanel">
 							<strong>{t(`deck.dock.${dockTab}`)}</strong>
 							<span>{t(`deck.dock.${dockTab}Hint`)}</span>
+							<span>{t("deck.dock.guidance")}</span>
+							<a
+								href={dockTab === "problems" ? "/devices/debug" : "/project"}
+							>
+								{tAny(
+									dockTab === "problems" ? "debug.title" : "project.boardTools",
+								)}
+							</a>
 						</div>
 					</section>
 				</div>

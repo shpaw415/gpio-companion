@@ -106,13 +106,43 @@ export default function DeckShell({
 		{ label: t("deck.command.fleet"), run: () => navigateRail("fleet") },
 		{ label: t("deck.command.t3"), run: () => navigateRail("t3") },
 		{ label: t("deck.command.you"), run: () => navigateRail("you") },
+		...deviceTabs(mode, admin).map((item) => ({
+			label: t(item.labelKey),
+			run: () => {
+				onNavigate("devices");
+				onDeviceTab(item.id);
+			},
+		})),
+		{
+			label: t("project.run"),
+			run: () => navigateRail("work"),
+		},
+		{
+			label: t("flash.flash"),
+			run: () => navigateRail("work"),
+		},
+		{
+			label: t("verify.verify"),
+			run: () => navigateRail("work"),
+		},
+		{
+			label: t("project.saveToGithub"),
+			run: () => navigateRail("work"),
+		},
+		{
+			label: t("credits.add"),
+			run: () => navigateRail("you"),
+		},
 		{ label: t("deck.command.mode"), run: toggleMode },
 		{ label: t("deck.command.theme"), run: onToggleTheme },
-	].filter((command) =>
-		command.label
+	].filter((command, index, all) => {
+		if (all.findIndex((other) => other.label === command.label) !== index) {
+			return false;
+		}
+		return command.label
 			.toLocaleLowerCase()
-			.includes(query.trim().toLocaleLowerCase()),
-	);
+			.includes(query.trim().toLocaleLowerCase());
+	});
 
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
@@ -341,6 +371,22 @@ export default function DeckShell({
 					<Typography color="secondary" variant="body2">
 						{contextMessage}
 					</Typography>
+					<Typography color="secondary" variant="body2">
+						{uuid
+							? t("deck.status.board", { uuid: uuid.slice(0, 8) })
+							: t("deck.status.noBoard")}
+					</Typography>
+					<Button
+						size="small"
+						variant="text"
+						onClick={() =>
+							section === "profile"
+								? onNavigate("profile")
+								: onNavigate("project")
+						}
+					>
+						{t("project.boardTools")}
+					</Button>
 				</aside>
 			</main>
 
@@ -377,6 +423,22 @@ export default function DeckShell({
 				<div className="b6-dock-copy">
 					<strong>{t(`deck.dock.${dockTab}`)}</strong>
 					<span>{t("deck.dock.guidance")}</span>
+					<Button
+						size="small"
+						variant="text"
+						onClick={() => {
+							if (dockTab === "problems") {
+								onNavigate("devices");
+								onDeviceTab("debug");
+							} else {
+								onNavigate("project");
+							}
+						}}
+					>
+						{dockTab === "problems"
+							? t("debug.title")
+							: t("project.boardTools")}
+					</Button>
 				</div>
 			</section>
 			<footer className="b6-status">

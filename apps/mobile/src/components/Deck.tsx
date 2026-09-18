@@ -36,10 +36,7 @@ const TAB_BAR_HEIGHT = 56;
 
 type Command = {
 	id: string;
-	labelKey: Extract<
-		DeckKey,
-		`deck.${"project" | "devices" | "profile" | DeviceTabId}`
-	>;
+	labelKey: DeckKey;
 	run: () => void;
 };
 
@@ -94,17 +91,82 @@ export default function Deck({ children }: { children: ReactNode }) {
 				run: () => navigate("/profile"),
 			},
 		];
-		return base.concat(
-			deviceTabs(mode, auth.session?.role === "admin").map<Command>((item) => ({
-				id: `device-${item.id}`,
-				labelKey: deviceLabelKeys[item.id],
+		const deviceCommands = deviceTabs(
+			mode,
+			auth.session?.role === "admin",
+		).map<Command>((item) => ({
+			id: `device-${item.id}`,
+			labelKey: deviceLabelKeys[item.id],
+			run: () => {
+				setTab(item.id);
+				navigate("/");
+			},
+		}));
+		const boardCommands: Command[] = [
+			{
+				id: "action-run",
+				labelKey: "deck.boardRun",
+				run: () => navigate("/project"),
+			},
+			{
+				id: "action-flash",
+				labelKey: "deck.boardFlash",
+				run: () => navigate("/project"),
+			},
+			{
+				id: "action-verify",
+				labelKey: "deck.boardVerify",
+				run: () => navigate("/project"),
+			},
+			{
+				id: "action-save",
+				labelKey: "deck.boardSave",
+				run: () => navigate("/project"),
+			},
+			{
+				id: "action-buy",
+				labelKey: "deck.boardBuy",
+				run: () => navigate("/profile"),
+			},
+			{
+				id: "mode-easy",
+				labelKey: "deck.useEasy",
 				run: () => {
-					setTab(item.id);
-					navigate("/");
+					if (!isEasy) toggleMode();
 				},
-			})),
-		);
-	}, [auth.session?.role, mode, navigate, setTab]);
+			},
+			{
+				id: "mode-expert",
+				labelKey: "deck.useExpert",
+				run: () => {
+					if (isEasy) toggleMode();
+				},
+			},
+			{
+				id: "theme",
+				labelKey: "deck.theme",
+				run: () => toggleTheme(),
+			},
+		];
+		const seen = new Set<string>();
+		return base
+			.concat(deviceCommands)
+			.concat(boardCommands)
+			.filter((command) => {
+				const label = command.labelKey;
+				if (seen.has(label)) return false;
+				seen.add(label);
+				return true;
+			});
+	}, [
+		auth.session?.role,
+		isEasy,
+		mode,
+		navigate,
+		setTab,
+		toggleMode,
+		toggleTheme,
+	]);
 
 	const filtered = commands.filter((command) =>
 		t(command.labelKey)
