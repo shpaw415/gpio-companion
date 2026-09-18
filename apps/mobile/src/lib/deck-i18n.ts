@@ -46,6 +46,10 @@ const DECK_KEYS = {
 	"deck.boardVerify": "verify.verify",
 	"deck.boardSave": "project.saveToGithub",
 	"deck.boardBuy": "credits.add",
+	"deck.openBoardTools": "project.boardTools",
+	"deck.openDebug": "debug.title",
+	"deck.collapseDock": "project.hide",
+	"deck.expandDock": "project.show",
 } as const;
 
 export type DeckKey = keyof typeof DECK_KEYS;

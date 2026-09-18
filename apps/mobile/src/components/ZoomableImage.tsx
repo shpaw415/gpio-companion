@@ -129,7 +129,7 @@ function ZoomModal({
 	);
 
 	return (
-		<View style={{ flex: 1, backgroundColor: "#020617" }}>
+		<View style={{ flex: 1, backgroundColor: "#090b10" }}>
 			<View
 				style={{
 					paddingTop: insets.top + 8,
@@ -140,9 +140,9 @@ function ZoomModal({
 					alignItems: "center",
 				}}
 			>
-				<Text style={{ color: "#e2e8f0", fontWeight: "600" }}>{title}</Text>
+				<Text style={{ color: "#e9eef4", fontWeight: "600" }}>{title}</Text>
 				<Pressable onPress={onClose} style={{ paddingVertical: 8 }}>
-					<Text style={{ color: "#8ab4f8", fontWeight: "600" }}>
+					<Text style={{ color: "#00d4ff", fontWeight: "600" }}>
 						{t("common.close")}
 					</Text>
 				</Pressable>

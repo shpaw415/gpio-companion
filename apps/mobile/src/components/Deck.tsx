@@ -29,6 +29,7 @@ import { storageGet, storageSet } from "../lib/storage.ts";
 
 const logo = require("../../assets/logo.png");
 const DOCK_STORAGE_KEY = "b6-dockH";
+const DOCK_COLLAPSED_KEY = "b6-dockCollapsed";
 const DOCK_MIN = 64;
 const DOCK_MAX = 480;
 const DOCK_DEFAULT = 150;
@@ -324,7 +325,7 @@ export default function Deck({ children }: { children: ReactNode }) {
 					<Pressable
 						onPress={() => setDrawerOpen(false)}
 						accessibilityLabel={t("deck.close")}
-						style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.42)" }}
+						style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)" }}
 					/>
 				</View>
 			</Modal>
@@ -340,7 +341,7 @@ export default function Deck({ children }: { children: ReactNode }) {
 					style={{
 						flex: 1,
 						paddingTop: insets.top + 8,
-						backgroundColor: "rgba(0,0,0,0.55)",
+						backgroundColor: "rgba(0,0,0,0.6)",
 					}}
 				>
 					<Pressable
@@ -412,20 +413,27 @@ type DockTab = "console" | "gpio" | "flash" | "problems";
 function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 	const colors = useColorMode().colors;
 	const t = useDeckT();
+	const router = useRouter();
+	const { setTab: setDeviceTab } = useDeviceHub();
 	const [height, setHeight] = useState(DOCK_DEFAULT);
 	const [tab, setTab] = useState<DockTab>("console");
+	const [collapsed, setCollapsed] = useState(false);
 	const dragStart = useRef(DOCK_DEFAULT);
 	const currentHeight = useRef(DOCK_DEFAULT);
 	const lastTap = useRef(0);
 
 	useEffect(() => {
 		void storageGet(DOCK_STORAGE_KEY).then((stored) => {
+			if (stored === null || stored.trim() === "") return;
 			const parsed = Number(stored);
 			if (Number.isFinite(parsed)) {
 				const next = Math.max(DOCK_MIN, Math.min(DOCK_MAX, parsed));
 				currentHeight.current = next;
 				setHeight(next);
 			}
+		});
+		void storageGet(DOCK_COLLAPSED_KEY).then((stored) => {
+			if (stored === "1") setCollapsed(true);
 		});
 	}, []);
 
@@ -439,14 +447,21 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 		setHeight(value);
 		void storageSet(DOCK_STORAGE_KEY, String(value));
 	}, []);
+	const setDockCollapsed = useCallback((next: boolean) => {
+		setCollapsed(next);
+		void storageSet(DOCK_COLLAPSED_KEY, next ? "1" : "0");
+	}, []);
 	const pan = useMemo(
 		() =>
 			PanResponder.create({
-				onStartShouldSetPanResponder: () => true,
+				onStartShouldSetPanResponder: () => false,
+				onMoveShouldSetPanResponder: (_event, gesture) =>
+					Math.abs(gesture.dy) > 4,
 				onPanResponderGrant: () => {
 					dragStart.current = currentHeight.current;
 				},
 				onPanResponderMove: (_event, gesture) => {
+					if (collapsed) setDockCollapsed(false);
 					const next = Math.max(
 						DOCK_MIN,
 						Math.min(DOCK_MAX, dragStart.current - gesture.dy),
@@ -455,8 +470,9 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 					setHeight(next);
 				},
 				onPanResponderRelease: () => updateHeight(currentHeight.current),
+				onPanResponderTerminate: () => updateHeight(currentHeight.current),
 			}),
-		[updateHeight],
+		[updateHeight, collapsed, setDockCollapsed],
 	);
 	const tabs: DockTab[] = isEasy
 		? ["console", "gpio", "flash"]
@@ -470,7 +486,7 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 				left: 0,
 				right: 0,
 				bottom,
-				height,
+				...(collapsed ? undefined : { height }),
 				backgroundColor: colors.surface,
 				borderTopWidth: 1,
 				borderTopColor: colors.border,
@@ -480,7 +496,10 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 				{...pan.panHandlers}
 				onPress={() => {
 					const now = Date.now();
-					if (now - lastTap.current < 300) updateHeight(DOCK_DEFAULT);
+					if (now - lastTap.current < 300) {
+						setDockCollapsed(false);
+						updateHeight(DOCK_DEFAULT);
+					}
 					lastTap.current = now;
 				}}
 				accessibilityRole="adjustable"
@@ -495,7 +514,8 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 					{ name: "increment", label: t("deck.growDock") },
 					{ name: "decrement", label: t("deck.shrinkDock") },
 				]}
-				style={{ height: 12, alignItems: "center", justifyContent: "center" }}
+				hitSlop={8}
+				style={{ height: 24, alignItems: "center", justifyContent: "center" }}
 			>
 				<View
 					style={{
@@ -510,7 +530,10 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 				{tabs.map((item) => (
 					<Pressable
 						key={item}
-						onPress={() => setTab(item)}
+						onPress={() => {
+							setTab(item);
+							if (collapsed) setDockCollapsed(false);
+						}}
 						style={{
 							flex: 1,
 							alignItems: "center",
@@ -530,13 +553,44 @@ function DeckDock({ bottom, isEasy }: { bottom: number; isEasy: boolean }) {
 						</Text>
 					</Pressable>
 				))}
-			</View>
-			{height > 96 ? (
-				<Text
-					style={{ color: colors.muted, paddingHorizontal: 14, paddingTop: 10 }}
+				<Pressable
+					onPress={() => setDockCollapsed(!collapsed)}
+					accessibilityRole="button"
+					accessibilityLabel={t(collapsed ? "deck.expandDock" : "deck.collapseDock")}
+					hitSlop={8}
+					style={{
+						alignItems: "center",
+						justifyContent: "center",
+						paddingHorizontal: 10,
+						paddingVertical: 7,
+					}}
 				>
-					{t(helpKey)}
-				</Text>
+					<MaterialIcons
+						name={collapsed ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+						size={20}
+						color={colors.muted}
+					/>
+				</Pressable>
+			</View>
+			{!collapsed && height > 96 ? (
+				<View style={{ paddingHorizontal: 14, paddingTop: 10, gap: 6 }}>
+					<Text style={{ color: colors.muted }}>{t(helpKey)}</Text>
+					<Pressable
+						onPress={() => {
+							if (tab === "problems") {
+								setDeviceTab("debug");
+								router.navigate("/");
+							} else {
+								router.navigate("/project");
+							}
+						}}
+						accessibilityRole="button"
+					>
+						<Text style={{ color: colors.primary, fontWeight: "700" }}>
+							{t(tab === "problems" ? "deck.openDebug" : "deck.openBoardTools")}
+						</Text>
+					</Pressable>
+				</View>
 			) : null}
 		</View>
 	);
