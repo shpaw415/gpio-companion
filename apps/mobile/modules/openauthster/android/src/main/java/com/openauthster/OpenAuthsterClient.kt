@@ -2,6 +2,7 @@ package com.openauthster
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Base64
 import androidx.browser.customtabs.CustomTabsIntent
@@ -22,14 +23,7 @@ class OpenAuthsterClient(
 	context: Context,
 	private val config: OpenAuthsterConfig,
 ) {
-	private val prefs =
-		EncryptedSharedPreferences.create(
-			context,
-			"openauthster.${config.clientId}",
-			MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-			EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-			EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-		)
+	private val prefs = encryptedPrefs(context, "openauthster.${config.clientId}")
 
 	private val refreshLock = Any()
 
@@ -191,6 +185,31 @@ class OpenAuthsterClient(
 		private const val CONNECTION_TIMEOUT_MS = 10_000
 		private const val READ_TIMEOUT_MS = 10_000
 		private const val REFRESH_MARGIN_MS = 30_000L
+		private val prefsLock = Any()
+		private val prefsCache = mutableMapOf<String, SharedPreferences>()
+
+		private fun encryptedPrefs(context: Context, name: String): SharedPreferences {
+			val app = context.applicationContext
+			synchronized(prefsLock) {
+				prefsCache[name]?.let { return it }
+				return try {
+					createEncrypted(app, name)
+				} catch (_: Exception) {
+					app.deleteSharedPreferences(name)
+					createEncrypted(app, name)
+				}.also { prefsCache[name] = it }
+			}
+		}
+
+		private fun createEncrypted(context: Context, name: String): SharedPreferences {
+			return EncryptedSharedPreferences.create(
+				context,
+				name,
+				MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+				EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+				EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+			)
+		}
 
 		private fun randomUrlSafe(bytes: Int): String {
 			val buffer = ByteArray(bytes)

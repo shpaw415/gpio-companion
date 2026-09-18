@@ -1,6 +1,6 @@
+import CloseIcon from "@material-design-icons/svg/filled/close.svg";
 import FitScreenIcon from "@material-design-icons/svg/filled/fit_screen.svg";
 import FullscreenIcon from "@material-design-icons/svg/filled/fullscreen.svg";
-import FullscreenExitIcon from "@material-design-icons/svg/filled/fullscreen_exit.svg";
 import ZoomInIcon from "@material-design-icons/svg/filled/zoom_in.svg";
 import ZoomOutIcon from "@material-design-icons/svg/filled/zoom_out.svg";
 import IconButton from "@shpaw415/mui-lite/IconButton";
@@ -464,12 +464,22 @@ function BoardShell({
 					aria-label={
 						expanded ? t("board.exitFullScreen") : t("board.fullScreen")
 					}
-					color="secondary"
+					color={expanded ? "error" : "secondary"}
 					onClick={onToggleExpand}
 					size="small"
+					sx={
+						expanded
+							? {
+									backgroundColor: "rgba(var(--bg-error), 0.18)",
+									"&:hover": {
+										backgroundColor: "rgba(var(--bg-error), 0.3) !important",
+									},
+								}
+							: undefined
+					}
 				>
 					{expanded ? (
-						<FullscreenExitIcon fill="currentColor" />
+						<CloseIcon fill="currentColor" />
 					) : (
 						<FullscreenIcon fill="currentColor" />
 					)}

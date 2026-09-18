@@ -51,6 +51,13 @@ public class OpenAuthsterModule: Module {
 	}
 
 	private func applyConfig(issuer: URL, clientID: String, redirectURI: URL) {
+		if client != nil,
+		   self.issuer == issuer,
+		   self.clientID == clientID,
+		   self.redirectURI == redirectURI
+		{
+			return
+		}
 		self.issuer = issuer
 		self.clientID = clientID
 		self.redirectURI = redirectURI

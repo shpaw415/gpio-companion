@@ -53,7 +53,16 @@ class OpenAuthsterModule : Module() {
 			?: throw IllegalStateException("no android context")
 	}
 
+	@Synchronized
 	private fun applyConfig(issuer: String, clientId: String, redirectUri: String) {
+		if (
+			client != null &&
+			this.issuer == issuer &&
+			this.clientId == clientId &&
+			this.redirectUri == redirectUri
+		) {
+			return
+		}
 		this.issuer = issuer
 		this.clientId = clientId
 		this.redirectUri = redirectUri

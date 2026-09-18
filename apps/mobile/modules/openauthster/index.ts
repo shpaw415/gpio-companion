@@ -39,19 +39,27 @@ export function isNativeAuthAvailable(): boolean {
 
 export async function configureAuth(options: AuthOptions): Promise<void> {
 	lastOptions = options;
-	const run = (async () => {
-		await getNative().configure(
-			options.issuer,
-			options.clientId,
-			options.redirectUri,
-		);
-	})();
-	configuring = run;
-	try {
-		await run;
-	} finally {
-		if (configuring === run) {
+	if (!configuring) {
+		configuring = runConfigure().finally(() => {
 			configuring = null;
+		});
+	}
+	await configuring;
+}
+
+async function runConfigure(): Promise<void> {
+	for (;;) {
+		const current: AuthOptions | null = lastOptions;
+		if (!current) {
+			return;
+		}
+		await getNative().configure(
+			current.issuer,
+			current.clientId,
+			current.redirectUri,
+		);
+		if (lastOptions === current) {
+			return;
 		}
 	}
 }

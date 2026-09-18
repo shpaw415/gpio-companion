@@ -112,11 +112,11 @@ function FullscreenIcon() {
 	);
 }
 
-function FullscreenExitIcon() {
+function CloseIcon() {
 	return (
 		<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
 			<path
-				d="M5 16h3v3h2v-5H5zm3-8H5v2h5V5H8zm6 11h2v-3h3v-2h-5zm2-11V5h-2v5h5V8z"
+				d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
 				fill="currentColor"
 			/>
 		</svg>
@@ -537,11 +537,21 @@ function BoardShell({
 					aria-label={
 						expanded ? t("board.exitFullScreen") : t("board.fullScreen")
 					}
-					color="secondary"
+					color={expanded ? "error" : "secondary"}
 					onClick={onToggleExpand}
 					size="small"
+					sx={
+						expanded
+							? {
+									backgroundColor: "rgba(var(--bg-error), 0.18)",
+									"&:hover": {
+										backgroundColor: "rgba(var(--bg-error), 0.3) !important",
+									},
+								}
+							: undefined
+					}
 				>
-					{expanded ? <FullscreenExitIcon /> : <FullscreenIcon />}
+					{expanded ? <CloseIcon /> : <FullscreenIcon />}
 				</IconButton>
 			</Stack>
 			{children}
