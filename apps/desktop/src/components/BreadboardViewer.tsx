@@ -408,8 +408,14 @@ function DiagramBoard({
 									cursor: "pointer",
 									whiteSpace: "normal",
 									overflowWrap: "anywhere",
-									background: index === activeStep ? "#1e293b" : "transparent",
-									color: index === activeStep ? "#fff" : "#cbd5e1",
+									background:
+										index === activeStep
+											? "rgba(var(--text-primary), 0.16)"
+											: "transparent",
+									color:
+										index === activeStep
+											? "rgb(var(--text-primary))"
+											: "rgb(var(--text-secondary))",
 								}}
 								type="button"
 							>
@@ -606,7 +612,7 @@ function ZoomSurface({
 			style={{
 				position: "relative",
 				overflow: "hidden",
-				background: "#020617",
+				background: "rgb(var(--bg-main))",
 				minHeight: 0,
 				touchAction: "none",
 				cursor: "grab",

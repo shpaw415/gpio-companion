@@ -8,9 +8,6 @@
       "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
-    --color-slate-300: oklch(86.9% 0.022 252.894);
-    --color-slate-800: oklch(27.9% 0.041 260.031);
-    --color-slate-950: oklch(12.9% 0.042 264.695);
     --color-black: #000;
     --color-white: #fff;
     --spacing: 0.25rem;
@@ -349,9 +346,6 @@
   .transform {
     transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
   }
-  .cursor-pointer {
-    cursor: pointer;
-  }
   .touch-none {
     touch-action: none;
   }
@@ -433,17 +427,8 @@
     border-style: var(--tw-border-style);
     border-width: 1px;
   }
-  .bg-slate-800 {
-    background-color: var(--color-slate-800);
-  }
-  .bg-slate-950 {
-    background-color: var(--color-slate-950);
-  }
   .bg-white {
     background-color: var(--color-white);
-  }
-  .p-2 {
-    padding: calc(var(--spacing) * 2);
   }
   .p-3 {
     padding: calc(var(--spacing) * 3);
@@ -515,12 +500,6 @@
   }
   .text-black {
     color: var(--color-black);
-  }
-  .text-slate-300 {
-    color: var(--color-slate-300);
-  }
-  .text-white {
-    color: var(--color-white);
   }
   .tabular-nums {
     --tw-numeric-spacing: tabular-nums;
@@ -7219,7 +7198,159 @@ html, body {
   height: 100dvh;
   overflow: hidden;
 }
+.workbench-bg {
+  background-color: rgb(var(--bg-main));
+  background-image: linear-gradient(rgba(var(--text-main), 0.035) 1px, transparent 1px),	linear-gradient(90deg, rgba(var(--text-main), 0.035) 1px, transparent 1px),	linear-gradient(rgba(var(--text-primary), 0.025) 1px, transparent 1px),	linear-gradient(	90deg,	rgba(var(--text-primary), 0.025) 1px,	transparent 1px	);
+  background-position: -1px -1px;
+  background-size: 24px 24px,	24px 24px,	120px 120px,	120px 120px;
+}
+.workbench-panel, .workbench-control-rail, .project-canvas {
+  border: 1px solid rgba(var(--text-main), 0.1);
+  border-radius: 14px;
+  background: rgb(var(--bg-surface));
+}
+.workbench-control-rail {
+  background: rgb(var(--bg-surface));
+  @supports (color: color-mix(in lab, red, red)) {
+    background: color-mix(	in srgb,	rgb(var(--bg-surface)) 88%,	rgb(var(--bg-main))	);
+  }
+}
+.project-canvas {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.1);
+}
+.project-canvas-toolbar {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(var(--text-main), 0.1);
+}
+.project-preview-grid, .project-assets-grid {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+.project-preview-grid > *, .project-assets-grid > * {
+  min-width: 0;
+}
+.breadboard-canvas {
+  background: rgb(var(--bg-main));
+}
+.breadboard-step {
+  color: rgb(var(--text-secondary));
+}
+.breadboard-step.is-active {
+  background: rgba(var(--text-primary), 0.16);
+  color: rgb(var(--text-primary));
+}
+.workbench-empty {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  padding: 24px;
+  border: 1px dashed rgba(var(--text-main), 0.22);
+  border-radius: 14px;
+  background: rgba(var(--bg-surface), 0.78);
+  text-align: center;
+}
+.project-preview-empty {
+  min-height: 260px;
+}
+.device-board-row {
+  overflow: hidden;
+  border: 1px solid rgba(var(--text-main), 0.1);
+  border-radius: 12px;
+  background: rgb(var(--bg-surface));
+  transition: border-color 180ms ease,	background-color 180ms ease;
+}
+.device-board-row.is-selected {
+  border-color: rgba(var(--text-primary), 0.48);
+  box-shadow: inset 3px 0 0 rgb(var(--bg-primary));
+}
+.device-board-summary {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto auto 24px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.device-board-summary:hover {
+  background: rgba(var(--text-primary), 0.055);
+}
+.device-board-summary:focus-visible {
+  outline: 2px solid rgb(var(--text-primary));
+  outline-offset: -2px;
+}
+.device-board-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(var(--bg-primary), 0.13);
+  color: rgb(var(--text-primary));
+}
+.device-board-icon svg, .device-board-chevron {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+.device-board-copy {
+  min-width: 0;
+}
+.device-board-copy > * {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--text-main), 0.28);
+}
+.device-status-dot.is-online {
+  background: rgb(var(--bg-success));
+  box-shadow: 0 0 0 3px rgba(var(--bg-success), 0.14);
+}
+.device-board-chevron {
+  color: rgb(var(--text-secondary));
+  transition: transform 180ms ease;
+}
+.device-board-chevron.is-expanded {
+  transform: rotate(180deg);
+}
+.device-board-details {
+  padding: 12px 12px 12px 54px;
+  border-top: 1px solid rgba(var(--text-main), 0.08);
+}
+@media (min-width: 1100px) {
+  .project-preview-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  }
+  .project-assets-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @media (max-width: 899px) {
+  .device-board-summary {
+    grid-template-columns: 36px minmax(0, 1fr) auto 24px;
+  }
+  .device-board-status-label {
+    display: none;
+  }
+  .device-board-details {
+    padding-left: 12px;
+  }
   .MUI_table_pagination_toolbar {
     flex-wrap: wrap;
     row-gap: 8px;

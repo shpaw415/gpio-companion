@@ -119,9 +119,10 @@ function EmbedModal({
 	onFail: () => void;
 }) {
 	const t = useT();
+	const colors = useColors();
 	const insets = useSafeAreaInsets();
 	return (
-		<View style={{ flex: 1, backgroundColor: "#020617" }}>
+		<View style={{ flex: 1, backgroundColor: colors.bg }}>
 			<View
 				style={{
 					paddingTop: insets.top + 8,
@@ -132,9 +133,9 @@ function EmbedModal({
 					alignItems: "center",
 				}}
 			>
-				<Text style={{ color: "#e2e8f0", fontWeight: "600" }}>{title}</Text>
+				<Text style={{ color: colors.text, fontWeight: "600" }}>{title}</Text>
 				<Pressable onPress={onClose} style={{ paddingVertical: 8 }}>
-					<Text style={{ color: "#8ab4f8", fontWeight: "600" }}>
+					<Text style={{ color: colors.primary, fontWeight: "600" }}>
 						{t("common.close")}
 					</Text>
 				</Pressable>

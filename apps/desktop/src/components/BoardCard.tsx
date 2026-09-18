@@ -59,7 +59,7 @@ export default function BoardCard({
 	const [label, setLabel] = useState(device.label ?? "");
 	const [saving, setSaving] = useState(false);
 	const [open, setOpen] = useState(false);
-	const expanded = onSelect ? Boolean(selected) : open;
+	const expanded = open;
 
 	async function saveLabel() {
 		setSaving(true);
@@ -72,11 +72,11 @@ export default function BoardCard({
 	}
 
 	function toggle() {
-		if (onSelect) {
+		const next = !open;
+		setOpen(next);
+		if (next && onSelect) {
 			onSelect(device.uuid);
-			return;
 		}
-		setOpen((current) => !current);
 	}
 
 	return (

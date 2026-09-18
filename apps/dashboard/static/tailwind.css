@@ -14,9 +14,17 @@ body {
 		linear-gradient(rgba(var(--text-main), 0.035) 1px, transparent 1px),
 		linear-gradient(90deg, rgba(var(--text-main), 0.035) 1px, transparent 1px),
 		linear-gradient(rgba(var(--text-primary), 0.025) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(var(--text-primary), 0.025) 1px, transparent 1px);
+		linear-gradient(
+			90deg,
+			rgba(var(--text-primary), 0.025) 1px,
+			transparent 1px
+		);
 	background-position: -1px -1px;
-	background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+	background-size:
+		24px 24px,
+		24px 24px,
+		120px 120px,
+		120px 120px;
 }
 
 .workbench-panel,
@@ -28,7 +36,11 @@ body {
 }
 
 .workbench-control-rail {
-	background: color-mix(in srgb, rgb(var(--bg-surface)) 88%, rgb(var(--bg-main)));
+	background: color-mix(
+		in srgb,
+		rgb(var(--bg-surface)) 88%,
+		rgb(var(--bg-main))
+	);
 }
 
 .project-canvas {
@@ -55,6 +67,19 @@ body {
 	min-width: 0;
 }
 
+.breadboard-canvas {
+	background: rgb(var(--bg-main));
+}
+
+.breadboard-step {
+	color: rgb(var(--text-secondary));
+}
+
+.breadboard-step.is-active {
+	background: rgba(var(--text-primary), 0.16);
+	color: rgb(var(--text-primary));
+}
+
 .workbench-empty {
 	display: grid;
 	min-height: 180px;
@@ -75,7 +100,9 @@ body {
 	border: 1px solid rgba(var(--text-main), 0.1);
 	border-radius: 12px;
 	background: rgb(var(--bg-surface));
-	transition: border-color 180ms ease, background-color 180ms ease;
+	transition:
+		border-color 180ms ease,
+		background-color 180ms ease;
 }
 
 .device-board-row.is-selected {

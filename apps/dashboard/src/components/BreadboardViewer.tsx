@@ -349,10 +349,8 @@ function DiagramBoard({
 						{diagram.steps.map((step, index) => (
 							<button
 								key={step.text}
-								className={`whitespace-normal rounded px-3 py-2 text-left text-sm [overflow-wrap:anywhere] ${
-									index === activeStep
-										? "bg-slate-800 text-white"
-										: "text-slate-300"
+								className={`whitespace-normal rounded px-3 py-2 text-left text-sm [overflow-wrap:anywhere] breadboard-step ${
+									index === activeStep ? "is-active" : ""
 								}`}
 								onClick={() => selectStep(index)}
 								ref={(el) => {
@@ -561,7 +559,7 @@ function ZoomSurface({
 	return (
 		<div
 			aria-label={t("board.canvas")}
-			className={`relative min-h-0 touch-none overflow-hidden bg-slate-950 ${
+			className={`relative breadboard-canvas min-h-0 touch-none overflow-hidden ${
 				expanded || fill ? "flex-1" : "h-[320px] min-[900px]:h-[520px]"
 			}`}
 			onDoubleClick={() => camera.fit()}

@@ -59,7 +59,7 @@ export default function DeviceBoardCard({
 	const { isEasy } = useDashboardMode();
 	const t = useT();
 	const [open, setOpen] = useState(Boolean(t3AutoStart));
-	const expanded = Boolean(t3AutoStart) || (onSelect ? selected : open);
+	const expanded = Boolean(t3AutoStart) || open;
 	const online = Boolean(status);
 	const networkLabel =
 		status?.network?.type === "ethernet"
@@ -73,11 +73,11 @@ export default function DeviceBoardCard({
 	const showCodePair = !isEasy || t3AutoStart || !codeReady;
 
 	function toggle() {
-		if (onSelect) {
+		const next = !open;
+		setOpen(next);
+		if (next && onSelect) {
 			onSelect(device.uuid);
-			return;
 		}
-		setOpen((current) => !current);
 	}
 
 	return (
