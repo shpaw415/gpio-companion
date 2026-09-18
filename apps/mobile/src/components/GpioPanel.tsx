@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../lib/auth.tsx";
 import { sendEnvelope } from "../lib/ble.ts";
 import { useColors } from "../lib/color-mode.tsx";
+import { gpioLiveValues } from "../lib/hub.ts";
 import {
 	type Messages,
 	type Translate,
@@ -130,10 +131,12 @@ export default function GpioPanel({
 	uuid,
 	connected,
 	poll = false,
+	onLivePins,
 }: {
 	uuid: string;
 	connected?: boolean;
 	poll?: boolean;
+	onLivePins?: (pins: Record<number, 0 | 1>, target?: GpioTarget) => void;
 }) {
 	const auth = useAuth();
 	const t = useT();
@@ -143,15 +146,31 @@ export default function GpioPanel({
 	const [selected, setSelected] = useState<number | undefined>();
 	const [target, setTarget] = useState<GpioTarget>("header");
 	const snapshotRef = useRef<GpioSnapshot | null>(null);
+	const livePinsRef = useRef("");
 	const token = auth.token;
 	const offline = useOfflineBleKey(uuid);
 	const pins = snapshot?.pins ?? [];
 	const selectedPin = pins.find((pin) => pin.physical === selected);
 	const available = Boolean(uuid) && connected !== false;
-	const onGpio = useCallback((next: GpioSnapshot) => {
-		snapshotRef.current = next;
-		setSnapshot(next);
-	}, []);
+	const applyLive = useCallback(
+		(next: GpioSnapshot | null) => {
+			const live = gpioLiveValues(next);
+			const key = `${next?.target ?? "header"}:${JSON.stringify(live)}`;
+			if (key !== livePinsRef.current) {
+				livePinsRef.current = key;
+				onLivePins?.(live, next?.target ?? "header");
+			}
+		},
+		[onLivePins],
+	);
+	const onGpio = useCallback(
+		(next: GpioSnapshot) => {
+			snapshotRef.current = next;
+			setSnapshot(next);
+			applyLive(next);
+		},
+		[applyLive],
+	);
 	const tunnel = useGpioTunnel(
 		poll && available ? uuid : "",
 		token,
@@ -162,6 +181,7 @@ export default function GpioPanel({
 	function applySnapshot(next: GpioSnapshot | null) {
 		snapshotRef.current = next;
 		setSnapshot(next);
+		applyLive(next);
 	}
 
 	function start(task: () => Promise<GpioSnapshot>) {

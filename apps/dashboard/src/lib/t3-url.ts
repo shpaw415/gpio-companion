@@ -1,9 +1,16 @@
 import {
+	isEmbedPath as isDashboardEmbedPath,
 	parseDashboardT3PairLocation,
 	publicDeviceUrl,
 	t3PairPageUrl,
 	tunnelHostnames,
 } from "gpio-companion";
+
+export { BREADBOARD_EMBED_PATH } from "gpio-companion";
+
+export function isEmbedPath(pathname: string): boolean {
+	return isDashboardEmbedPath(pathname);
+}
 
 export const T3_PATH = "/devices/t3";
 export const T3_EMBED_PREFIX = "/api/t3-embed";

@@ -4,6 +4,7 @@ import {
 	asFlashStatus,
 	asGpioSnapshot,
 	asHubT3Status,
+	gpioLiveValues,
 	parseHubMessage,
 	startHubClient,
 } from "./hub.ts";
@@ -49,6 +50,15 @@ describe("hub protocol", () => {
 			"orangepi",
 		);
 		expect(asGpioSnapshot({ hardware: "x86", pins: [] })).toBeNull();
+		expect(
+			gpioLiveValues({
+				hardware: "orangepi",
+				pins: [
+					{ physical: 7, name: "PD22", type: "gpio", value: 1 },
+					{ physical: 1, name: "3V3", type: "power" },
+				],
+			})[7],
+		).toBe(1);
 		expect(asFlashStatus({ running: true, last: null })?.running).toBe(true);
 		expect(asHubT3Status({ paired: true })?.paired).toBe(true);
 		expect(asHubT3Status({})).toBeNull();

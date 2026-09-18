@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	isEmbedPath,
 	isT3Path,
 	parseT3EmbedPath,
 	pickT3DeviceUuid,
@@ -88,6 +89,13 @@ describe("t3 path", () => {
 		expect(isT3Path("/devices/t3/")).toBe(true);
 		expect(isT3Path("/devices")).toBe(false);
 		expect(isT3Path("/devices/pair")).toBe(false);
+	});
+});
+
+describe("embed path", () => {
+	test("matches chrome-less embed routes", () => {
+		expect(isEmbedPath("/embed/breadboard")).toBe(true);
+		expect(isEmbedPath("/project")).toBe(false);
 	});
 });
 

@@ -6,7 +6,8 @@
 		"allowImportingTsExtensions": true,
 		"paths": {
 			"openauthster": ["./modules/openauthster/index.ts"],
-			"gpio-companion-i18n": ["../../packages/core/src/i18n/index.ts"]
+			"gpio-companion-i18n": ["../../packages/core/src/i18n/index.ts"],
+			"gpio-companion-embed": ["../../packages/core/src/breadboard-embed.ts"]
 		}
 	},
 	"include": ["**/*.ts", "**/*.tsx"],

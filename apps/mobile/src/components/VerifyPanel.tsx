@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import {
 	type CircuitVerifyState,
@@ -17,9 +17,11 @@ import { Body, Chip, ErrorText, Muted, TextButton } from "./ui.tsx";
 export default function VerifyPanel({
 	uuid,
 	project,
+	onResults,
 }: {
 	uuid: string;
 	project?: string;
+	onResults?: (results: CircuitVerifyState["results"]) => void;
 }) {
 	const auth = useAuth();
 	const t = useT();
@@ -32,17 +34,27 @@ export default function VerifyPanel({
 		? status.results
 		: (status?.last?.results ?? []);
 
+	const applyStatus = useCallback(
+		(next: CircuitVerifyState) => {
+			setStatus(next);
+			onResults?.(
+				next.results.length ? next.results : (next.last?.results ?? []),
+			);
+		},
+		[onResults],
+	);
+
 	useEffect(() => {
 		if (!uuid || !token || !status?.running) {
 			return;
 		}
 		const timer = setInterval(() => {
 			void loadVerify(token, uuid)
-				.then(setStatus)
+				.then(applyStatus)
 				.catch(() => undefined);
 		}, 400);
 		return () => clearInterval(timer);
-	}, [uuid, token, status?.running]);
+	}, [uuid, token, status?.running, applyStatus]);
 
 	function start(task: () => Promise<void>) {
 		setBusy(true);
@@ -71,7 +83,7 @@ export default function VerifyPanel({
 					}
 					start(async () => {
 						await startVerify(token, { uuid, repo: project?.trim() ?? "" });
-						setStatus(await loadVerify(token, uuid));
+						applyStatus(await loadVerify(token, uuid));
 					});
 				}}
 			/>
@@ -84,7 +96,7 @@ export default function VerifyPanel({
 					}
 					start(async () => {
 						await stopVerify(token, uuid);
-						setStatus(await loadVerify(token, uuid));
+						applyStatus(await loadVerify(token, uuid));
 					});
 				}}
 			/>
@@ -107,7 +119,7 @@ export default function VerifyPanel({
 						} finally {
 							await paired.session.close();
 						}
-						setStatus({
+						applyStatus({
 							running: true,
 							results: status?.results ?? [],
 							last: status?.last ?? null,

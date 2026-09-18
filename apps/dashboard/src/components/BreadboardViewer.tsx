@@ -71,6 +71,7 @@ type Props = {
 	arduinoLivePins?: Record<number, 0 | 1>;
 	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
+	fill?: boolean;
 };
 
 type PinInfo = PartPinInfo;
@@ -100,6 +101,7 @@ export default function BreadboardViewer({
 	arduinoLivePins,
 	verifyOverlay,
 	boardModel,
+	fill = false,
 }: Props) {
 	const t = useT();
 	const parsed = useMemo(() => parseDiagram(diagramText), [diagramText]);
@@ -112,17 +114,21 @@ export default function BreadboardViewer({
 				arduinoLivePins={arduinoLivePins}
 				verifyOverlay={verifyOverlay}
 				boardModel={boardModel}
+				fill={fill}
 			/>
 		);
 	}
 
 	if (previewUrl) {
-		return <PreviewBoard previewUrl={previewUrl} />;
+		return <PreviewBoard previewUrl={previewUrl} fill={fill} />;
 	}
 
 	if (diagramText) {
 		return (
-			<Paper className="p-4" elevation={1}>
+			<Paper
+				className={fill ? "flex h-full flex-col overflow-hidden p-4" : "p-4"}
+				elevation={fill ? 0 : 1}
+			>
 				<Typography variant="subtitle1" className="mb-2">
 					{t("board.breadboard")}
 				</Typography>
@@ -139,7 +145,10 @@ export default function BreadboardViewer({
 	}
 
 	return (
-		<Paper className="p-4 min-[900px]:p-6" elevation={1}>
+		<Paper
+			className={fill ? "flex h-full items-center p-4" : "p-4 min-[900px]:p-6"}
+			elevation={fill ? 0 : 1}
+		>
 			<Typography color="secondary">{t("project.noBreadboard")}</Typography>
 		</Paper>
 	);
@@ -151,12 +160,14 @@ function DiagramBoard({
 	arduinoLivePins,
 	verifyOverlay,
 	boardModel,
+	fill,
 }: {
 	diagram: WokwiDiagram;
 	livePins?: Record<number, 0 | 1>;
 	arduinoLivePins?: Record<number, 0 | 1>;
 	verifyOverlay?: CircuitVerifyOverlay;
 	boardModel?: string | null;
+	fill: boolean;
 }) {
 	const t = useT();
 	const [activeStep, setActiveStep] = useState(0);
@@ -248,9 +259,10 @@ function DiagramBoard({
 		<BoardShell
 			camera={camera}
 			expanded={expanded}
+			fill={fill}
 			onToggleExpand={() => setExpanded((value) => !value)}
 		>
-			<ZoomSurface camera={camera} expanded={expanded}>
+			<ZoomSurface camera={camera} expanded={expanded} fill={fill}>
 				<div
 					className="relative"
 					style={{
@@ -324,7 +336,7 @@ function DiagramBoard({
 			{diagram.steps?.length ? (
 				<div
 					className={
-						expanded
+						expanded || fill
 							? "mt-3 min-h-0 max-h-[min(40vh,16rem)] shrink-0 overflow-y-auto overscroll-contain"
 							: "mt-3"
 					}
@@ -354,7 +366,13 @@ function DiagramBoard({
 	);
 }
 
-function PreviewBoard({ previewUrl }: { previewUrl: string }) {
+function PreviewBoard({
+	previewUrl,
+	fill,
+}: {
+	previewUrl: string;
+	fill: boolean;
+}) {
 	const t = useT();
 	const [expanded, setExpanded] = useState(false);
 	const [natural, setNatural] = useState({ width: 800, height: 600 });
@@ -377,9 +395,10 @@ function PreviewBoard({ previewUrl }: { previewUrl: string }) {
 		<BoardShell
 			camera={camera}
 			expanded={expanded}
+			fill={fill}
 			onToggleExpand={() => setExpanded((value) => !value)}
 		>
-			<ZoomSurface camera={camera} expanded={expanded}>
+			<ZoomSurface camera={camera} expanded={expanded} fill={fill}>
 				<img
 					alt={t("board.previewAlt")}
 					height={natural.height * camera.view.scale}
@@ -403,30 +422,37 @@ function PreviewBoard({ previewUrl }: { previewUrl: string }) {
 function BoardShell({
 	camera,
 	expanded,
+	fill,
 	onToggleExpand,
 	children,
 }: {
 	camera: ZoomCamera;
 	expanded: boolean;
+	fill: boolean;
 	onToggleExpand: () => void;
 	children: ReactNode;
 }) {
 	const t = useT();
+	const overlay = expanded && !fill;
 	return (
 		<Paper
 			className={
-				expanded
+				overlay
 					? "fixed inset-0 z-[1300] flex h-full flex-col overflow-hidden rounded-none p-4"
-					: "overflow-hidden p-4"
+					: fill
+						? "flex h-full min-h-0 flex-col overflow-hidden rounded-none p-3"
+						: "overflow-hidden p-4"
 			}
-			elevation={expanded ? 8 : 1}
+			elevation={overlay ? 8 : fill ? 0 : 1}
 			sx={
-				expanded
+				overlay
 					? {
 							paddingTop: "max(1rem, env(safe-area-inset-top))",
 							paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
 						}
-					: undefined
+					: fill
+						? { height: "100%", minHeight: 0 }
+						: undefined
 			}
 		>
 			<Stack direction="row" spacing={0.5} className="mb-2 items-center">
@@ -460,30 +486,32 @@ function BoardShell({
 				>
 					<FitScreenIcon fill="currentColor" />
 				</IconButton>
-				<IconButton
-					aria-label={
-						expanded ? t("board.exitFullScreen") : t("board.fullScreen")
-					}
-					color={expanded ? "error" : "secondary"}
-					onClick={onToggleExpand}
-					size="small"
-					sx={
-						expanded
-							? {
-									backgroundColor: "rgba(var(--bg-error), 0.18)",
-									"&:hover": {
-										backgroundColor: "rgba(var(--bg-error), 0.3) !important",
-									},
-								}
-							: undefined
-					}
-				>
-					{expanded ? (
-						<CloseIcon fill="currentColor" />
-					) : (
-						<FullscreenIcon fill="currentColor" />
-					)}
-				</IconButton>
+				{fill ? null : (
+					<IconButton
+						aria-label={
+							expanded ? t("board.exitFullScreen") : t("board.fullScreen")
+						}
+						color={expanded ? "error" : "secondary"}
+						onClick={onToggleExpand}
+						size="small"
+						sx={
+							expanded
+								? {
+										backgroundColor: "rgba(var(--bg-error), 0.18)",
+										"&:hover": {
+											backgroundColor: "rgba(var(--bg-error), 0.3) !important",
+										},
+									}
+								: undefined
+						}
+					>
+						{expanded ? (
+							<CloseIcon fill="currentColor" />
+						) : (
+							<FullscreenIcon fill="currentColor" />
+						)}
+					</IconButton>
+				)}
 			</Stack>
 			{children}
 		</Paper>
@@ -493,10 +521,12 @@ function BoardShell({
 function ZoomSurface({
 	camera,
 	expanded,
+	fill,
 	children,
 }: {
 	camera: ZoomCamera;
 	expanded: boolean;
+	fill: boolean;
 	children: ReactNode;
 }) {
 	const t = useT();
@@ -528,7 +558,7 @@ function ZoomSurface({
 		<div
 			aria-label={t("board.canvas")}
 			className={`relative min-h-0 touch-none overflow-hidden bg-slate-950 ${
-				expanded ? "flex-1" : "h-[320px] min-[900px]:h-[520px]"
+				expanded || fill ? "flex-1" : "h-[320px] min-[900px]:h-[520px]"
 			}`}
 			onDoubleClick={() => camera.fit()}
 			onPointerDown={camera.onPointerDown}

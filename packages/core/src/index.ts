@@ -198,6 +198,16 @@ export {
 	isArduinoProxyPartType,
 } from "./breadboard-arduino.ts";
 export {
+	BREADBOARD_EMBED_MESSAGE_TYPE,
+	BREADBOARD_EMBED_PATH,
+	type BreadboardEmbedLivePins,
+	type BreadboardEmbedPayload,
+	type BreadboardEmbedVerifyItem,
+	breadboardEmbedUrl,
+	isEmbedPath,
+	parseBreadboardEmbedMessage,
+} from "./breadboard-embed.ts";
+export {
 	type DeviceConfig,
 	emptyDeviceConfig,
 	emptyTunnelConfig,
@@ -648,9 +658,9 @@ export {
 } from "./verify.ts";
 export {
 	encodeVoiceMessage,
+	foldWakeText,
 	isVoiceAccessToken,
 	isVoiceMicMode,
-	foldWakeText,
 	matchesWakePhrase,
 	parseVoiceClientMessage,
 	parseVoiceId,

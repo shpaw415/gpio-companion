@@ -5,6 +5,7 @@ import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
 import {
 	DASHBOARD_BOTTOM_NAV_ID,
+	isEmbedPath,
 	isT3Path,
 	readT3PairLocation,
 	T3_FRAME_SLOT_ID,
@@ -34,7 +35,7 @@ export default function T3Frame() {
 	const t = useT();
 	const mobile = useMobile();
 	const { uuid, setUuid } = useBoardSelection();
-	const visible = isT3Path(pathname);
+	const visible = isT3Path(pathname) && !isEmbedPath(pathname);
 	const [pairToken, setPairToken] = useState("");
 	const nextSrc = t3IframeSrc(uuid, pairToken);
 	const [src, setSrc] = useState("");

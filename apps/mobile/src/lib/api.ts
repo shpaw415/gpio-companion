@@ -199,6 +199,8 @@ export type ProjectBundle = {
 	technical: GithubContent[];
 	pcbPreviewUrl: string | null;
 	breadboardPreviewUrl: string | null;
+	breadboardDiagramUrl?: string | null;
+	breadboardCircuitJsonUrl?: string | null;
 };
 
 export type GithubAppStatus = {
@@ -446,6 +448,20 @@ export function loadProject(
 		method: "POST",
 		cache: "no-store",
 		body: JSON.stringify({ owner, repo, ...(ref ? { ref } : {}) }),
+	});
+}
+
+export function readProjectFile(
+	token: string,
+	owner: string,
+	repo: string,
+	path: string,
+	ref?: string,
+) {
+	return request<{ text: string }>(token, "/api/mobile/projects", {
+		method: "PUT",
+		cache: "no-store",
+		body: JSON.stringify({ owner, repo, path, ...(ref ? { ref } : {}) }),
 	});
 }
 

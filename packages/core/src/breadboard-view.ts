@@ -11,6 +11,16 @@ export {
 	arduinoProxyResolvePad,
 	isArduinoProxyPartType,
 } from "./breadboard-arduino.ts";
+export {
+	BREADBOARD_EMBED_MESSAGE_TYPE,
+	BREADBOARD_EMBED_PATH,
+	type BreadboardEmbedLivePins,
+	type BreadboardEmbedPayload,
+	type BreadboardEmbedVerifyItem,
+	breadboardEmbedUrl,
+	isEmbedPath,
+	parseBreadboardEmbedMessage,
+} from "./breadboard-embed.ts";
 export { isHardwareId } from "./config.ts";
 export {
 	gpioLiveValues,

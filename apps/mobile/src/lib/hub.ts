@@ -71,6 +71,18 @@ export function asGpioSnapshot(payload: unknown): GpioSnapshot | null {
 	return record;
 }
 
+export function gpioLiveValues(
+	snapshot: GpioSnapshot | null,
+): Record<number, 0 | 1> {
+	const pins: Record<number, 0 | 1> = {};
+	for (const pin of snapshot?.pins ?? []) {
+		if (pin.type === "gpio" && (pin.value === 0 || pin.value === 1)) {
+			pins[pin.physical] = pin.value;
+		}
+	}
+	return pins;
+}
+
 export function gpioSnapshotStatusKey(snapshot: GpioSnapshot): string {
 	return `${snapshot.target ?? "header"}|${snapshot.pins
 		.map(

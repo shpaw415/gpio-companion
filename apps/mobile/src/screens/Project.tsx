@@ -1,6 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Linking, Modal, Pressable, Text, View } from "react-native";
+import BreadboardWebView from "../components/BreadboardWebView.tsx";
 import FlashPanel from "../components/FlashPanel.tsx";
 import GpioPanel from "../components/GpioPanel.tsx";
 import RunPanel from "../components/RunPanel.tsx";
@@ -21,10 +22,12 @@ import VerifyPanel from "../components/VerifyPanel.tsx";
 import ZoomableImage from "../components/ZoomableImage.tsx";
 import {
 	type BoardSketch,
+	type CircuitVerifyState,
 	createProject,
 	deleteProject,
 	type GithubContent,
 	type GithubRepo,
+	type GpioTarget,
 	getGithubApp,
 	listProjects,
 	loadFlash,
@@ -35,6 +38,7 @@ import {
 	type ProjectBundle,
 	pushProject,
 	type RunStatus,
+	readProjectFile,
 	startFlash,
 	startRun,
 	stopRun,
@@ -215,6 +219,14 @@ export default function Project() {
 		owner: string;
 		name: string;
 	} | null>(null);
+	const [breadboardJson, setBreadboardJson] = useState<string | null>(null);
+	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
+	const [arduinoLivePins, setArduinoLivePins] = useState<Record<number, 0 | 1>>(
+		{},
+	);
+	const [verifyResults, setVerifyResults] = useState<
+		CircuitVerifyState["results"]
+	>([]);
 	const activeBoard =
 		boards.find((board) => board.device.uuid === selectedUuid) ?? boards[0];
 	const activeUuid = activeBoard?.device.uuid ?? "";
@@ -260,6 +272,43 @@ export default function Project() {
 			cancelled = true;
 		};
 	}, [activeUuid, token]);
+
+	useEffect(() => {
+		if (!bundle || !token) {
+			setBreadboardJson(null);
+			return;
+		}
+		const hasDiagram = bundle.breadboard.some(
+			(file) =>
+				file.name === "diagram.json" || file.path.endsWith("/diagram.json"),
+		);
+		const path = bundle.breadboardDiagramUrl
+			? "breadboard/diagram.json"
+			: bundle.breadboardCircuitJsonUrl
+				? "breadboard/circuit.json"
+				: hasDiagram
+					? "breadboard/diagram.json"
+					: null;
+		if (!path) {
+			setBreadboardJson(null);
+			return;
+		}
+		let cancelled = false;
+		void readProjectFile(token, bundle.owner, bundle.repo, path, bundle.ref)
+			.then((file) => {
+				if (!cancelled) {
+					setBreadboardJson(file.text);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setBreadboardJson(null);
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [bundle, token]);
 
 	const onRun = useCallback((next: RunStatus) => {
 		setRunRunning(next.running);
@@ -831,10 +880,13 @@ export default function Project() {
 						hint={t("project.noPcbHintDesktop")}
 						url={bundle.pcbPreviewUrl}
 					/>
-					<PreviewCard
-						title={t("project.breadboard")}
-						hint={t("project.noBreadboardPreview")}
-						url={bundle.breadboardPreviewUrl}
+					<BreadboardWebView
+						diagramText={breadboardJson}
+						previewUrl={bundle.breadboardPreviewUrl}
+						livePins={livePins}
+						arduinoLivePins={arduinoLivePins}
+						verifyResults={verifyResults}
+						boardModel={activeBoard?.status?.model}
 					/>
 					<FileGroup title={t("project.pcb")} files={bundle.pcb} />
 					<FileGroup
@@ -929,12 +981,26 @@ export default function Project() {
 								uuid={activeUuid}
 								connected={Boolean(activeBoard?.status)}
 								poll
+								onLivePins={(
+									pins: Record<number, 0 | 1>,
+									target?: GpioTarget,
+								) => {
+									if (target === "arduino-proxy") {
+										setArduinoLivePins(pins);
+									} else {
+										setLivePins(pins);
+									}
+								}}
 							/>
 							<Body>{t("flash.title")}</Body>
 							<FlashPanel uuid={activeUuid} project={bundle.repo} />
 							<Body>{t("run.title")}</Body>
 							<RunPanel uuid={activeUuid} project={bundle.repo} />
-							<VerifyPanel uuid={activeUuid} project={bundle.repo} />
+							<VerifyPanel
+								uuid={activeUuid}
+								project={bundle.repo}
+								onResults={setVerifyResults}
+							/>
 						</>
 					) : null}
 				</Paper>

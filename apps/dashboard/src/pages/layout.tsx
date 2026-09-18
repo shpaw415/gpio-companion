@@ -21,7 +21,11 @@ import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
 import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
 import { usePathname } from "../hooks/usePathname.tsx";
-import { DASHBOARD_BOTTOM_NAV_ID, isT3Path } from "../lib/t3-url.ts";
+import {
+	DASHBOARD_BOTTOM_NAV_ID,
+	isEmbedPath,
+	isT3Path,
+} from "../lib/t3-url.ts";
 
 function currentSection(pathname: string) {
 	if (pathname.startsWith("/devices")) {
@@ -39,6 +43,7 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 	const t = useT();
 	const pathname = usePathname();
 	const onT3 = isT3Path(pathname);
+	const onEmbed = isEmbedPath(pathname);
 	const mobile = useMobile();
 	const sections: Array<{ href: string; label: string; icon: ReactNode }> = [
 		{ href: "/project", label: t("nav.project"), icon: <FolderIcon /> },
@@ -47,6 +52,24 @@ export default function Layout({ children }: { children: React.JSX.Element }) {
 	];
 
 	const section = currentSection(pathname);
+
+	if (onEmbed) {
+		return (
+			<ActionErrorProvider>
+				<Box
+					sx={{
+						height: "100dvh",
+						overflow: "hidden",
+						bgcolor: "bg-main",
+						display: "flex",
+						flexDirection: "column",
+					}}
+				>
+					{children}
+				</Box>
+			</ActionErrorProvider>
+		);
+	}
 
 	return (
 		<ActionErrorProvider>
