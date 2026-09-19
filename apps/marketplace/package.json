@@ -29,7 +29,8 @@
 		"frame-master-svg-to-jsx-loader": "^0.1.0",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
-		"tailwindcss": "^4.3.0"
+		"tailwindcss": "^4.3.0",
+		"@shpaw415/mui-lite": "0.1.8"
 	},
 	"scripts": {
 		"dev": "NODE_ENV=development bun frame-master start",
