@@ -15,7 +15,7 @@ import CompanionInfo from "./CompanionInfo.tsx";
 import FlashProxyButton from "./FlashProxyButton.tsx";
 import GpioPanel from "./GpioPanel.tsx";
 import T3Pairing from "./T3Pairing.tsx";
-import { Chip, Field, Paper, Row, TextButton } from "./ui.tsx";
+import { Chip, Field, Paper, PrimaryButton, Row, TextButton } from "./ui.tsx";
 
 export default function BoardCard({
 	board,
@@ -123,6 +123,14 @@ export default function BoardCard({
 			</Pressable>
 			{expanded ? (
 				<View style={{ gap: 8 }}>
+					{selected ? (
+						<Chip label={t("devices.selected")} tone="success" />
+					) : (
+						<PrimaryButton
+							label={t("devices.selectBoard")}
+							onPress={() => onSelect?.(device.uuid)}
+						/>
+					)}
 					{isEasy ? null : (
 						<>
 							<Text style={{ color: colors.muted }} selectable>

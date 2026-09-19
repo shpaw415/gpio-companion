@@ -48,6 +48,9 @@ const DECK_KEYS = {
 	"deck.boardBuy": "credits.add",
 	"deck.openBoardTools": "project.boardTools",
 	"deck.openDebug": "debug.title",
+	"deck.noBoard": "deck.status.noBoard",
+	"deck.boardLine": "deck.status.board",
+	"deck.selectBoard": "devices.selectBoard",
 	"deck.collapseDock": "project.hide",
 	"deck.expandDock": "project.show",
 } as const;
