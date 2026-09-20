@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marketplace B3 — Dense Admin</title>
+<style>
+:root{--bg:#f3f5ef;--surface:#fcfdf8;--low:#e8eeea;--ink:#17201e;--mut:#52615e;--line:#bccac5;--teal:#006b61;--amber:#ffe08a;--sh:0 8px 24px rgb(14 49 43/.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,sans-serif}
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top div{width:min(100% - 2rem,1240px);margin:auto;display:flex;align-items:center;gap:1rem;min-height:64px}
+.tabs{width:min(100% - 2rem,1240px);margin:0 auto;display:flex;gap:.25rem;border-bottom:1px solid var(--line);overflow:auto}
+.tabs a{padding:.8rem 1rem;color:var(--mut);text-decoration:none;font-weight:650;white-space:nowrap}.tabs a[aria-current]{color:var(--teal);border-bottom:3px solid #b48200;background:var(--amber)}
+.wrap{width:min(100% - 2rem,1240px);margin:1.25rem auto;display:grid;gap:1rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh)}
+.pad{padding:1.2rem}h2{margin:.2rem 0 .6rem;font-size:1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}label{display:block;font-size:.76rem;font-weight:700;color:var(--mut);margin:.6rem 0 .3rem}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:.55rem .7rem;background:var(--surface);color:var(--ink);font:inherit}textarea{min-height:76px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}th{font-size:.7rem;letter-spacing:.08em;color:var(--mut);text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--line)}td{padding:.6rem .8rem;border-bottom:1px solid var(--line)}
+.pill{border-radius:99px;padding:.15rem .6rem;font-size:.7rem;font-weight:800;background:var(--low);color:var(--mut)}.pill.block{background:#fff4c2;color:#5c4300}.pill.ok{background:#dff2e4;color:#245c3b}
+.btn{background:var(--teal);color:#fff;border:0;border-radius:8px;padding:.55rem .9rem;font-weight:700}.ghost{background:transparent;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:.5rem .85rem;font-weight:700}
+.bar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}.bar input,.bar select{width:auto}
+.note{width:min(100% - 2rem,1240px);margin:1.5rem auto;color:var(--mut);font-size:.85rem}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top"><div><b style="font-family:ui-monospace,monospace">▦ gpio-companion</b><span style="color:var(--mut)">MARKET · B3 ADMIN</span><span style="margin-left:auto;color:var(--mut)">admin only · server requireAdmin</span></div></header>
+<nav class="tabs"><a href="#" aria-current="page">Products</a><a href="#">Inventory</a><a href="#">Orders</a><a href="#">Shipping</a><a href="#">Policies</a></nav>
+<div class="wrap">
+<section class="card pad"><h2>Product editor — gpio-companion starter kit <span class="pill block">BLOCKED: price · photos · policies</span></h2>
+<div class="grid2"><div><label>Name EN</label><input value="gpio-companion starter kit"><label>Name FR</label><input value="Kit de demarrage gpio-companion"><label>SKU / slug</label><input value="GPIO-COMPANION-STARTER-KIT / gpio-companion-starter-kit"></div>
+<div><label>Description EN</label><textarea>A configured gpio-companion board with its power supply, a breadboard, one LED, one 220 ohm to 1 kohm resistor, and two jumper wires.</textarea><label>Price USD cents (integer, tax-inclusive)</label><input placeholder="empty — admin must set"><label>Status</label><select><option>draft</option><option>published (blocked)</option><option>archived</option></select></div></div>
+<div class="bar" style="margin-top:.8rem"><button class="btn">Save draft</button><button class="ghost">Upload R2 image</button><button class="ghost" disabled>Publish (blocked)</button></div></section>
+<section class="card"><div class="pad bar"><b>Inventory</b><span class="pill">reserve → capture only</span><span style="margin-left:auto"></span><input placeholder="Reason (required)" style="max-width:220px"><input placeholder="± qty" style="max-width:110px"><button class="btn">Adjust</button></div>
+<table><thead><tr><th>WHEN</th><th>SKU</th><th>DELTA</th><th>REASON</th><th>BY</th></tr></thead><tbody><tr><td>—</td><td>GPIO-COMPANION-STARTER-KIT</td><td>—</td><td>seed: no stock yet</td><td>system</td></tr></tbody></table></section>
+<section class="card"><div class="pad bar"><b>Orders</b><input placeholder="Filter id / customer" style="max-width:220px"><select><option>All payment states</option><option>needs capture</option><option>completed</option><option>refunded</option></select><span style="margin-left:auto;color:var(--mut)">Rows per page: 10 · 0–0 of 0</span></div>
+<table><thead><tr><th>ORDER</th><th>PAYPAL</th><th>TOTAL</th><th>FULFILLMENT</th><th></th></tr></thead><tbody><tr><td colspan="5" style="color:var(--mut)">No orders yet — captures, denies, reversals, refunds reconcile here via webhook.</td></tr></tbody></table></section>
+</div>
+<p class="note">B3 — Dense admin. mui-lite pattern: Tabs, form above, full-width Table, TablePagination. Maps to <code>/admin/*</code>. Publish gate enforced server-side; UI hiding is not auth.</p>
+</body></html>

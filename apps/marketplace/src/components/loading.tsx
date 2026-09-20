@@ -10,7 +10,7 @@ export default function Loading() {
 			aria-live="polite"
 		>
 			<div className="market-loader-board">
-				<CircularProgress color="primary" size={52} />
+				<CircularProgress color="primary" size="52px" />
 				<span className="market-loader-led" />
 			</div>
 			<Typography variant="h5" component="p">

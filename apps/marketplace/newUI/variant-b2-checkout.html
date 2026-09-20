@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marketplace B2 — Dense Checkout</title>
+<style>
+:root{--bg:#f3f5ef;--surface:#fcfdf8;--low:#e8eeea;--ink:#17201e;--mut:#52615e;--line:#bccac5;--teal:#006b61;--amber:#ffe08a;--err:#ba1a1a;--ok:#2d6b45;--sh:0 8px 24px rgb(14 49 43/.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,sans-serif}
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top div{width:min(100% - 2rem,1240px);margin:auto;display:flex;align-items:center;gap:1rem;min-height:64px}
+.steps{width:min(100% - 2rem,1240px);margin:0 auto;display:flex;gap:0;border-bottom:1px solid var(--line)}
+.steps span{padding:.8rem 1.2rem;color:var(--mut);font-weight:650;border-bottom:3px solid transparent}.steps span.on{color:var(--teal);border-color:var(--teal)}.steps span.done{color:var(--ok)}
+.wrap{width:min(100% - 2rem,1240px);margin:1.25rem auto;display:grid;grid-template-columns:1fr 340px;gap:1rem;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh)}
+.pad{padding:1.2rem}h2{margin:.2rem 0 .8rem;font-size:1.05rem}label{display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin:.7rem 0 .3rem}
+input,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:.6rem .75rem;background:var(--surface);color:var(--ink)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+table{width:100%;border-collapse:collapse;font-size:.88rem}td{padding:.6rem .4rem;border-bottom:1px solid var(--line)}
+.tot{display:flex;justify-content:space-between;padding:.3rem 0}.tot.grand{font-weight:800;font-size:1rem;border-top:2px solid var(--line);margin-top:.5rem;padding-top:.7rem}
+.btn{background:var(--teal);color:#fff;border:0;border-radius:8px;padding:.7rem 1rem;font-weight:700;width:100%}.btn:disabled{opacity:.5}.ghost{background:transparent;color:var(--teal);border:1px solid var(--teal);border-radius:8px;padding:.6rem 1rem;font-weight:700}
+.warn{border:1px solid var(--err);color:var(--err);border-radius:8px;padding:.6rem .8rem;font-size:.82rem;background:#fff}.okbox{border:1px solid var(--ok);color:var(--ok);border-radius:8px;padding:.6rem .8rem;font-size:.82rem}
+.note{width:min(100% - 2rem,1240px);margin:1.5rem auto;color:var(--mut);font-size:.85rem}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top"><div><b style="font-family:ui-monospace,monospace">▦ gpio-companion</b><span style="color:var(--mut)">MARKET · B2 CHECKOUT</span><span style="margin-left:auto;color:var(--mut)">GitHub sign-in required · EN/FR</span></div></header>
+<div class="steps"><span class="done">1 · Cart ✓</span><span class="on">2 · Shipping</span><span>3 · PayPal capture</span></div>
+<div class="wrap">
+<main class="card pad"><h2>Shipping address (sent to PayPal as-is)</h2>
+<div class="warn">Demo state: starter kit is DRAFT — checkout stays disabled until admin publishes price, stock, photos, policies. Form below is the real layout.</div>
+<div class="row"><div><label>Full name</label><input placeholder="Ada Lovelace"></div><div><label>Country</label><select><option>France</option><option>United States</option><option>Canada</option></select></div></div>
+<div class="row"><div><label>Address</label><input placeholder="12 rue des Pins"></div><div><label>City / Postal</label><input placeholder="Paris 75011"></div></div>
+<label>Shipping method (admin flat-rate table, USD)</label><select><option>Standard — rate TBD by admin</option><option>Tracked — rate TBD by admin</option></select>
+<div class="okbox" style="margin-top:.8rem">Reservation rule: D1 atomic reserve at checkout start → sold only after verified capture. Fail whole cart if any line goes unavailable.</div>
+</main>
+<aside class="card pad"><h2>Order summary</h2>
+<table><tr><td>starter-kit × 1</td><td style="text-align:right">—</td></tr><tr><td style="color:var(--mut)">Shipping (FR standard)</td><td style="text-align:right">—</td></tr></table>
+<div class="tot"><span>Subtotal</span><span>—</span></div><div class="tot"><span>Shipping</span><span>—</span></div><div class="tot grand"><span>Total USD</span><span>—</span></div>
+<button class="btn" disabled style="margin-top:.8rem">Pay with PayPal (disabled · draft)</button>
+<button class="ghost" style="width:100%;margin-top:.5rem">Back to cart</button>
+<p style="color:var(--mut);font-size:.8rem">Orders v2 immediate capture · PayPal-Request-Id + custom_id · webhook reconciles closed-browser captures.</p></aside>
+</div>
+<p class="note">B2 — Dense checkout. Stepper + form-above + summary rail. Maps to <code>/cart → /checkout → /orders/[id]</code>. Honest disabled state; no fake totals.</p>
+</body></html>

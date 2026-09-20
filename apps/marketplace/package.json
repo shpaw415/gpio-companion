@@ -3,37 +3,44 @@
 	"private": true,
 	"version": "2.0.0",
 	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260702.1",
 		"@types/bun": "latest",
-		"@types/react": "^19.2.14",
-		"@types/react-dom": "^19.2.3",
-		"@cloudflare/workers-types": "^4.20260519.1",
-		"wrangler": "^4.124.0",
-		"typescript": "^5.9.3"
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"drizzle-kit": "^0.31.10",
+		"typescript": "^5.9.3",
+		"wrangler": "^4.135.0"
 	},
 	"dependencies": {
-		"@tailwindcss/cli": "^4.3.0",
-		"frame-master": "^4.0.0-beta.7",
-		"frame-master-plugin-apply-react": "^3.0.0",
+		"@shpaw415/mui-lite": "^0.1.8",
+		"@tailwindcss/cli": "^4.3.3",
+		"drizzle-orm": "^0.45.2",
+		"frame-master": "^4.0.0",
+		"frame-master-plugin-apply-react": "^3.0.1",
 		"frame-master-plugin-assets-to-build": "^0.1.1",
 		"frame-master-plugin-auto-sitemap": "^0.1.0",
-		"frame-master-plugin-cloudflare-pages-dynamic-ssr": "^0.3.0",
-		"frame-master-plugin-cloudflare-pages-functions-action": "^4.0.0",
+		"frame-master-plugin-cloudflare-pages-dynamic-ssr": "^0.3.1",
+		"frame-master-plugin-cloudflare-pages-functions-action": "^4.0.1",
 		"frame-master-plugin-cloudflare-route-file-generator": "^0.1.2",
 		"frame-master-plugin-env-in-html": "^0.1.2",
-		"frame-master-plugin-image-optimizer": "^0.2.0",
+		"frame-master-plugin-image-optimizer": "^0.2.2",
 		"frame-master-plugin-node-polyfills": "^0.1.0",
 		"frame-master-plugin-react-to-html": "^1.0.7",
 		"frame-master-plugin-seo": "^0.1.1",
 		"frame-master-plugin-serve-from-build": "^1.1.1",
-		"frame-master-plugin-tailwind": "^2.0.0",
+		"frame-master-plugin-tailwind": "^2.0.2",
 		"frame-master-svg-to-jsx-loader": "^0.1.0",
-		"react": "^19.2.6",
-		"react-dom": "^19.2.6",
-		"tailwindcss": "^4.3.0"
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
+		"superjson": "^2.2.6",
+		"tailwindcss": "^4.3.3"
 	},
 	"scripts": {
 		"dev": "NODE_ENV=development bun frame-master start",
 		"build": "NODE_ENV=production bun frame-master build",
-		"build:dev": "NODE_ENV=development bun frame-master build"
+		"build:dev": "NODE_ENV=development bun frame-master build",
+		"db:generate": "drizzle-kit generate",
+		"db:apply:local": "wrangler d1 migrations apply MARKETPLACE_DB --local",
+		"db:apply:remote": "wrangler d1 migrations apply MARKETPLACE_DB --remote"
 	}
 }

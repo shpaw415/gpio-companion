@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, sql } from "drizzle-orm";
 import type { CommerceDatabase } from "../db/client";
 import {
 	inventory,
@@ -196,6 +196,26 @@ export async function setProductStatus(
 	return updated ?? null;
 }
 
+export async function listProductImages(
+	db: CommerceDatabase,
+	productId: string,
+) {
+	return db
+		.select()
+		.from(productImages)
+		.where(eq(productImages.productId, productId))
+		.orderBy(asc(productImages.sortOrder), asc(productImages.id));
+}
+
+export async function getProductImage(db: CommerceDatabase, id: string) {
+	const [image] = await db
+		.select()
+		.from(productImages)
+		.where(eq(productImages.id, id))
+		.limit(1);
+	return image ?? null;
+}
+
 export async function addProductImage(
 	db: CommerceDatabase,
 	productId: string,
@@ -344,6 +364,28 @@ export async function adjustInventory(
 	if (!adjustment)
 		throw new Error("Inventory adjustment would make stock invalid");
 	return adjustment;
+}
+
+export async function listInventoryAdjustments(
+	db: CommerceDatabase,
+	productId?: string,
+) {
+	if (productId) {
+		return db
+			.select()
+			.from(inventoryAdjustments)
+			.where(eq(inventoryAdjustments.productId, productId))
+			.orderBy(
+				desc(inventoryAdjustments.createdAt),
+				desc(inventoryAdjustments.id),
+			)
+			.limit(100);
+	}
+	return db
+		.select()
+		.from(inventoryAdjustments)
+		.orderBy(desc(inventoryAdjustments.createdAt), desc(inventoryAdjustments.id))
+		.limit(100);
 }
 
 export async function listShippingRates(db: CommerceDatabase) {

@@ -1143,3 +1143,22 @@ mark {
 		opacity: 0;
 	}
 }
+
+/* mui-lite filled warning Chips inherit text-main (white in dark mode) on an
+   orange background, which fails contrast. Warning fill always uses dark ink,
+   matching MUI's warning contrastText. */
+.MUI_Chip_Root._warning._filled {
+	color: #201500;
+}
+
+.MUI_Chip_Root._warning._filled
+	> .MUI_Chip_Delete_Icon_Wrapper
+	> svg {
+	color: rgba(32, 21, 0, 0.6);
+}
+
+.MUI_Chip_Root._warning._filled
+	> .MUI_Chip_Delete_Icon_Wrapper
+	> svg:hover {
+	color: rgba(32, 21, 0, 0.9);
+}

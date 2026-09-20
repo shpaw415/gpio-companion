@@ -1,45 +1,63 @@
+import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
+import { navigate } from "frame-master-plugin-apply-react/utils";
+import AppHeader from "../components/AppHeader.tsx";
+import Footer from "../components/Footer.tsx";
+import MarketplaceProviders from "../components/MarketplaceProviders.tsx";
+import { useT } from "../hooks/useLocale.tsx";
+import { usePath } from "../hooks/usePath.ts";
+
+function DenseTabs({ activePath }: { activePath: string }) {
+	const t = useT();
+	const tabs = [
+		{ value: "/", label: t("nav.home") },
+		{ value: "/kits", label: t("nav.kits") },
+		{ value: "/cart", label: t("nav.cart") },
+		{ value: "/orders", label: t("nav.orders") },
+		{ value: "/admin", label: t("admin.overview") },
+	];
+	const value = tabs.some((tab) => tab.value === activePath)
+		? activePath
+		: activePath.startsWith("/kits")
+			? "/kits"
+			: activePath.startsWith("/cart") || activePath.startsWith("/checkout")
+				? "/cart"
+				: activePath.startsWith("/admin")
+					? "/admin"
+					: "/";
+	return (
+		<div className="market-dense-tabs">
+			<Tabs
+				value={value}
+				variant="scrollable"
+				aria-label={t("nav.label")}
+				onChange={(_, next) => {
+					navigate(String(next));
+				}}
+			>
+				{tabs.map((tab) => (
+					<Tab key={tab.value} value={tab.value} label={tab.label} />
+				))}
+			</Tabs>
+		</div>
+	);
+}
+
+function Chrome({ children }: { children: React.JSX.Element }) {
+	const activePath = usePath() ?? "/";
+	return (
+		<div className="min-h-screen market-theme-root">
+			<AppHeader activePath={activePath} />
+			<DenseTabs activePath={activePath} />
+			<main className="market-dense-main">{children}</main>
+			<Footer />
+		</div>
+	);
+}
+
 export default function Layout({ children }: { children: React.JSX.Element }) {
 	return (
-		<div className="min-h-screen bg-slate-950 text-white selection:bg-blue-500/30">
-			{/* Layout Header - Persists across pages */}
-			<nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-				<div className="container mx-auto px-4 h-16 flex items-center justify-between">
-					<div className="flex items-center gap-3">
-						<div className="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
-							FM
-						</div>
-						<div className="flex flex-col">
-							<span className="font-bold text-lg tracking-tight leading-none bg-clip-text text-transparent bg-linear-to-r from-white to-slate-400">
-								Frame Master
-							</span>
-							<span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider leading-none mt-1">
-								cloudflare-pages-react-tailwind
-							</span>
-						</div>
-					</div>
-
-					<div className="flex items-center gap-6 text-sm font-medium text-slate-400">
-						<div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-							<span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-							<span className="text-blue-400 text-xs">Layout Active</span>
-						</div>
-						<a href="/" className="hover:text-white transition-colors">
-							Home
-						</a>
-						<a
-							href="https://github.com/shpaw415"
-							target="_blank"
-							rel="noreferrer"
-							className="hover:text-white transition-colors"
-						>
-							GitHub
-						</a>
-					</div>
-				</div>
-			</nav>
-
-			{/* Main Content */}
-			<main className="pt-16">{children}</main>
-		</div>
+		<MarketplaceProviders>
+			<Chrome>{children}</Chrome>
+		</MarketplaceProviders>
 	);
 }

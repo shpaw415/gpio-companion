@@ -13,7 +13,23 @@
 	"kv_namespaces": [
 		{
 			"binding": "DYNAMIC_PAGE_KV",
-			"id": "<kv-binding-id>"
+			"id": "15c5167369a74c7eac772c9432e82922"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "MARKETPLACE_DB",
+			"database_name": "marketplace-db",
+			"database_id": "2a46331a-11e3-483d-a2f2-7a80a0455dbc",
+			"migrations_dir": "drizzle",
+			"remote": true
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "MARKETPLACE_MEDIA",
+			"bucket_name": "gpio-companion-marketplace-media",
+			"remote": true
 		}
 	]
 }
