@@ -8,26 +8,7 @@
       "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
-    --color-red-400: oklch(70.4% 0.191 22.216);
-    --color-red-500: oklch(63.7% 0.237 25.331);
-    --color-blue-300: oklch(80.9% 0.105 251.813);
-    --color-blue-500: oklch(62.3% 0.214 259.815);
-    --color-blue-600: oklch(54.6% 0.245 262.881);
-    --color-slate-500: oklch(55.4% 0.046 257.417);
-    --color-slate-950: oklch(12.9% 0.042 264.695);
-    --color-white: #fff;
     --spacing: 0.25rem;
-    --text-sm: 0.875rem;
-    --text-sm--line-height: calc(1.25 / 0.875);
-    --font-weight-semibold: 600;
-    --radius-xl: 0.75rem;
-<<<<<<< HEAD
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-=======
->>>>>>> origin/feature/new-ui
-    --animate-spin: spin 1s linear infinite;
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
   }
@@ -190,6 +171,9 @@
   .absolute {
     position: absolute;
   }
+  .fixed {
+    position: fixed;
+  }
   .relative {
     position: relative;
   }
@@ -199,56 +183,32 @@
   .sticky {
     position: sticky;
   }
-  .mr-2 {
-    margin-right: calc(var(--spacing) * 2);
-  }
-<<<<<<< HEAD
   .block {
     display: block;
   }
-=======
->>>>>>> origin/feature/new-ui
   .contents {
     display: contents;
   }
   .flex {
     display: flex;
   }
+  .grid {
+    display: grid;
+  }
+  .hidden {
+    display: none;
+  }
   .inline {
     display: inline;
-  }
-  .inline-flex {
-    display: inline-flex;
-  }
-  .inline-grid {
-    display: inline-grid;
   }
   .table {
     display: table;
   }
-<<<<<<< HEAD
-  .h-3 {
-    height: calc(var(--spacing) * 3);
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .h-3\.5 {
-    height: calc(var(--spacing) * 3.5);
-  }
   .h-6 {
     height: calc(var(--spacing) * 6);
   }
-<<<<<<< HEAD
   .min-h-screen {
     min-height: 100vh;
-  }
-  .w-3 {
-    width: calc(var(--spacing) * 3);
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .w-3\.5 {
-    width: calc(var(--spacing) * 3.5);
   }
   .w-6 {
     width: calc(var(--spacing) * 6);
@@ -256,237 +216,37 @@
   .w-full {
     width: 100%;
   }
-<<<<<<< HEAD
-  .flex-shrink {
-    flex-shrink: 1;
-  }
-  .flex-grow {
-    flex-grow: 1;
-  }
   .grow {
     flex-grow: 1;
   }
-  .border-collapse {
-    border-collapse: collapse;
-  }
-=======
-  .grow {
-    flex-grow: 1;
-  }
->>>>>>> origin/feature/new-ui
   .transform {
     transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
-  }
-  .animate-spin {
-    animation: var(--animate-spin);
-  }
-<<<<<<< HEAD
-  .resize {
-    resize: both;
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .flex-col {
-    flex-direction: column;
-  }
-  .items-center {
-    align-items: center;
-  }
-  .gap-2 {
-    gap: calc(var(--spacing) * 2);
-  }
-  .gap-4 {
-    gap: calc(var(--spacing) * 4);
-  }
-  .self-start {
-    align-self: flex-start;
   }
   .truncate {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .rounded-full {
-    border-radius: calc(infinity * 1px);
-  }
-  .rounded-xl {
-    border-radius: var(--radius-xl);
-  }
   .border {
     border-style: var(--tw-border-style);
     border-width: 1px;
-  }
-  .border-2 {
-    border-style: var(--tw-border-style);
-    border-width: 2px;
-  }
-<<<<<<< HEAD
-  .border-blue-500 {
-    border-color: var(--color-blue-500);
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .border-blue-500\/30 {
-    border-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 30%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      border-color: color-mix(in oklab, var(--color-blue-500) 30%, transparent);
-    }
-  }
-  .border-red-500 {
-    border-color: var(--color-red-500);
-  }
-  .border-red-500\/30 {
-    border-color: color-mix(in srgb, oklch(63.7% 0.237 25.331) 30%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      border-color: color-mix(in oklab, var(--color-red-500) 30%, transparent);
-    }
-  }
-<<<<<<< HEAD
-  .border-white {
-    border-color: var(--color-white);
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .border-white\/30 {
-    border-color: color-mix(in srgb, #fff 30%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      border-color: color-mix(in oklab, var(--color-white) 30%, transparent);
-    }
-  }
-  .border-t-white {
-    border-top-color: var(--color-white);
-  }
-  .bg-blue-600 {
-    background-color: var(--color-blue-600);
-  }
-  .bg-slate-950 {
-    background-color: var(--color-slate-950);
-  }
-  .px-5 {
-    padding-inline: calc(var(--spacing) * 5);
-  }
-<<<<<<< HEAD
-  .py-2 {
-    padding-block: calc(var(--spacing) * 2);
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .py-2\.5 {
-    padding-block: calc(var(--spacing) * 2.5);
-  }
-  .py-4 {
-    padding-block: calc(var(--spacing) * 4);
-  }
-  .font-mono {
-    font-family: var(--font-mono);
-  }
-  .text-sm {
-    font-size: var(--text-sm);
-    line-height: var(--tw-leading, var(--text-sm--line-height));
-  }
-  .font-semibold {
-    --tw-font-weight: var(--font-weight-semibold);
-    font-weight: var(--font-weight-semibold);
-  }
-  .text-blue-300 {
-    color: var(--color-blue-300);
-  }
-  .text-red-400 {
-    color: var(--color-red-400);
-  }
-  .text-slate-500 {
-    color: var(--color-slate-500);
-  }
-  .text-white {
-    color: var(--color-white);
   }
   .lowercase {
     text-transform: lowercase;
   }
   .overline {
     text-decoration-line: overline;
-<<<<<<< HEAD
-  }
-  .underline {
-    text-decoration-line: underline;
-=======
->>>>>>> origin/feature/new-ui
   }
   .shadow {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
-  .shadow-lg {
-    --tw-shadow: 0 10px 15px -3px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 4px 6px -4px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
-    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
-  }
-<<<<<<< HEAD
-  .shadow-blue-500 {
-    --tw-shadow-color: oklch(62.3% 0.214 259.815);
-    @supports (color: color-mix(in lab, red, red)) {
-      --tw-shadow-color: color-mix(in oklab, var(--color-blue-500) var(--tw-shadow-alpha), transparent);
-    }
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .shadow-blue-500\/25 {
-    --tw-shadow-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 25%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-blue-500) 25%, transparent) var(--tw-shadow-alpha), transparent);
-    }
-  }
-<<<<<<< HEAD
-  .outline {
-    outline-style: var(--tw-outline-style);
-    outline-width: 1px;
-  }
-=======
->>>>>>> origin/feature/new-ui
   .blur {
     --tw-blur: blur(8px);
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
   }
   .filter {
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
-  }
-<<<<<<< HEAD
-  .backdrop-filter {
-    -webkit-backdrop-filter: var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);
-    backdrop-filter: var(--tw-backdrop-blur,) var(--tw-backdrop-brightness,) var(--tw-backdrop-contrast,) var(--tw-backdrop-grayscale,) var(--tw-backdrop-hue-rotate,) var(--tw-backdrop-invert,) var(--tw-backdrop-opacity,) var(--tw-backdrop-saturate,) var(--tw-backdrop-sepia,);
-  }
-  .transition {
-    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .transition-all {
-    transition-property: all;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
-  }
-<<<<<<< HEAD
-  .ease-in-out {
-    --tw-ease: var(--ease-in-out);
-    transition-timing-function: var(--ease-in-out);
-  }
-=======
->>>>>>> origin/feature/new-ui
-  .select-none {
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  @media (hover: hover) {
-    .hover\:bg-blue-500:hover {
-      background-color: var(--color-blue-500);
-    }
-  }
-  .disabled\:cursor-not-allowed:disabled {
-    cursor: not-allowed;
-  }
-  .disabled\:opacity-50:disabled {
-    opacity: 50%;
   }
 }
 @font-face {
@@ -7167,7 +6927,6 @@ body {
   color: #241b00;
 }
 :focus-visible {
-<<<<<<< HEAD
   outline: 3px solid var(--market-teal);
   @supports (color: color-mix(in lab, red, red)) {
     outline: 3px solid color-mix(in srgb, var(--market-teal) 70%, white);
@@ -7178,14 +6937,6 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--market-teal) !important;
 }
-=======
-  outline: 3px solid var(--market-amber);
-  @supports (color: color-mix(in lab, red, red)) {
-    outline: 3px solid color-mix(in srgb, var(--market-amber) 80%, white);
-  }
-  outline-offset: 3px;
-}
->>>>>>> origin/feature/new-ui
 .market-theme-root {
   min-height: 100vh;
   background: transparent;
@@ -7701,7 +7452,6 @@ input:focus, select:focus, textarea:focus {
 .market-table-shell table {
   min-width: 680px;
 }
-<<<<<<< HEAD
 .market-dense-tabs {
   width: min(100% - 2rem, 1240px);
   margin: 0 auto;
@@ -7841,8 +7591,6 @@ input:focus, select:focus, textarea:focus {
   flex-wrap: wrap;
   margin-top: 0.8rem;
 }
-=======
->>>>>>> origin/feature/new-ui
 @keyframes market-pulse {
   50% {
     opacity: 0.25;
@@ -7940,7 +7688,6 @@ input:focus, select:focus, textarea:focus {
   .market-product-card:hover {
     translate: none;
   }
-<<<<<<< HEAD
 }
 .MUI_Chip_Root._warning._filled {
   color: #201500;
@@ -7950,8 +7697,6 @@ input:focus, select:focus, textarea:focus {
 }
 .MUI_Chip_Root._warning._filled	> .MUI_Chip_Delete_Icon_Wrapper	> svg:hover {
   color: rgba(32, 21, 0, 0.9);
-=======
->>>>>>> origin/feature/new-ui
 }
 @property --tw-rotate-x {
   syntax: "*";
@@ -7977,10 +7722,6 @@ input:focus, select:focus, textarea:focus {
   syntax: "*";
   inherits: false;
   initial-value: solid;
-}
-@property --tw-font-weight {
-  syntax: "*";
-  inherits: false;
 }
 @property --tw-shadow {
   syntax: "*";
@@ -8047,11 +7788,6 @@ input:focus, select:focus, textarea:focus {
   inherits: false;
   initial-value: 0 0 #0000;
 }
-@property --tw-outline-style {
-  syntax: "*";
-  inherits: false;
-  initial-value: solid;
-}
 @property --tw-blur {
   syntax: "*";
   inherits: false;
@@ -8105,54 +7841,6 @@ input:focus, select:focus, textarea:focus {
   syntax: "*";
   inherits: false;
 }
-<<<<<<< HEAD
-@property --tw-backdrop-blur {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-brightness {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-contrast {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-grayscale {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-hue-rotate {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-invert {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-opacity {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-saturate {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-backdrop-sepia {
-  syntax: "*";
-  inherits: false;
-}
-@property --tw-ease {
-  syntax: "*";
-  inherits: false;
-}
-=======
->>>>>>> origin/feature/new-ui
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
     *, ::before, ::after, ::backdrop {
@@ -8162,7 +7850,6 @@ input:focus, select:focus, textarea:focus {
       --tw-skew-x: initial;
       --tw-skew-y: initial;
       --tw-border-style: solid;
-      --tw-font-weight: initial;
       --tw-shadow: 0 0 #0000;
       --tw-shadow-color: initial;
       --tw-shadow-alpha: 100%;
@@ -8177,7 +7864,6 @@ input:focus, select:focus, textarea:focus {
       --tw-ring-offset-width: 0px;
       --tw-ring-offset-color: #fff;
       --tw-ring-offset-shadow: 0 0 #0000;
-      --tw-outline-style: solid;
       --tw-blur: initial;
       --tw-brightness: initial;
       --tw-contrast: initial;
@@ -8191,19 +7877,6 @@ input:focus, select:focus, textarea:focus {
       --tw-drop-shadow-color: initial;
       --tw-drop-shadow-alpha: 100%;
       --tw-drop-shadow-size: initial;
-<<<<<<< HEAD
-      --tw-backdrop-blur: initial;
-      --tw-backdrop-brightness: initial;
-      --tw-backdrop-contrast: initial;
-      --tw-backdrop-grayscale: initial;
-      --tw-backdrop-hue-rotate: initial;
-      --tw-backdrop-invert: initial;
-      --tw-backdrop-opacity: initial;
-      --tw-backdrop-saturate: initial;
-      --tw-backdrop-sepia: initial;
-      --tw-ease: initial;
-=======
->>>>>>> origin/feature/new-ui
     }
   }
 }

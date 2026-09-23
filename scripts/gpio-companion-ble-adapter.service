@@ -1,0 +1,14 @@
+[Unit]
+Description=gpio-companion BLE adapter LE-only
+After=bluetooth.service
+Wants=bluetooth.service
+Before=gpio-companion.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=90
+ExecStart=/usr/local/lib/gpio-companion/ble-adapter.sh
+
+[Install]
+WantedBy=gpio-companion.service

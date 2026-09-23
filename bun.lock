@@ -53,7 +53,7 @@
       "name": "cloudflare-nextjs",
       "version": "2.0.0",
       "dependencies": {
-        "@shpaw415/mui-lite": "^0.1.8",
+        "@shpaw415/mui-lite": "0.1.8",
         "@tailwindcss/cli": "^4.3.3",
         "drizzle-orm": "^0.45.2",
         "frame-master": "^4.0.0",
@@ -63,6 +63,7 @@
         "frame-master-plugin-cloudflare-pages-dynamic-ssr": "^0.3.1",
         "frame-master-plugin-cloudflare-pages-functions-action": "^4.0.1",
         "frame-master-plugin-cloudflare-route-file-generator": "^0.1.2",
+        "frame-master-plugin-cloudflare-update-manager": "^0.1.2",
         "frame-master-plugin-env-in-html": "^0.1.2",
         "frame-master-plugin-image-optimizer": "^0.2.2",
         "frame-master-plugin-node-polyfills": "^0.1.0",
@@ -71,10 +72,10 @@
         "frame-master-plugin-serve-from-build": "^1.1.1",
         "frame-master-plugin-tailwind": "^2.0.2",
         "frame-master-svg-to-jsx-loader": "^0.1.0",
-        "react": "^19.3.0",
-        "react-dom": "^19.3.0",
-        "superjson": "^2.2.6",
-        "tailwindcss": "^4.3.3",
+        "react": "^19.2.6",
+        "react-dom": "^19.2.6",
+        "superjson": "2.2.6",
+        "tailwindcss": "^4.3.0",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "^4.20260702.1",
@@ -706,6 +707,8 @@
 
     "frame-master-plugin-cloudflare-route-file-generator": ["frame-master-plugin-cloudflare-route-file-generator@0.1.2", "", { "peerDependencies": { "frame-master": "^3.1.5", "typescript": "^6.0.3" } }, "sha512-OslPe9+TDBVdXXnxK0hUFy/FjYocuq14OcWfgnyd6FZa9Cxawi9UYTEfIksZe2YdKfylfdkzPO03Vvrf+O8Tmg=="],
 
+    "frame-master-plugin-cloudflare-update-manager": ["frame-master-plugin-cloudflare-update-manager@0.1.2", "", { "peerDependencies": { "frame-master": "^4.0.2", "frame-master-plugin-cloudflare-pages-functions-action": "^4.0.1", "typescript": "^7" } }, "sha512-kzJ37tP+NmlrVHxGMpF9o0ViVbKUmzj5x3ia2AF8w0xPpYPm2zHBmK27WmtPoPCIhKQnXHq8y6NkkHipGjXkLg=="],
+
     "frame-master-plugin-env-in-html": ["frame-master-plugin-env-in-html@0.1.2", "", { "peerDependencies": { "frame-master": "^3.0.0", "typescript": "^5" } }, "sha512-KGkMuaEdjVQvmQ73h9ZCy3izMYQlFvvLpv21Twl4Tbufh2C5GK3k7BOWmJ2cT4smYyleqsDQzBMc6PtSCqOipg=="],
 
     "frame-master-plugin-image-optimizer": ["frame-master-plugin-image-optimizer@0.2.2", "", { "peerDependencies": { "frame-master": "^3.0.2", "typescript": "^5" } }, "sha512-w42hjxqytlMwS/ucbYcxQHuf1Fv3CAYgPADWF+uZK/GcNxS+Pf9CNMBXTI228vikMEyCErXW0ypA/REjx5SsEg=="],
@@ -1057,6 +1060,8 @@
     "frame-master-plugin-apply-react/react-dom": ["react-dom@19.2.8", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.8" } }, "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ=="],
 
     "frame-master-plugin-cloudflare-route-file-generator/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
+
+    "frame-master-plugin-cloudflare-update-manager/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "gpio-companion-dashboard/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 

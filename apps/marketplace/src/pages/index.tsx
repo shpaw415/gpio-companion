@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import Paper from "@shpaw415/mui-lite/Paper";
 import Typography from "@shpaw415/mui-lite/Typography";
 import CatalogTable from "../components/CatalogTable.tsx";
@@ -25,8 +24,4 @@ export default function HomePage() {
 			<CatalogTable items={DEMO_CATALOG} />
 		</div>
 	);
-=======
-export default function IndexPage() {
-	return <h1>Welcome to the Marketplace</h1>;
->>>>>>> origin/feature/new-ui
 }

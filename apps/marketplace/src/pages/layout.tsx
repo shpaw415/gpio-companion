@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import Tabs, { Tab } from "@shpaw415/mui-lite/Tabs";
 import { navigate } from "frame-master-plugin-apply-react/utils";
 import AppHeader from "../components/AppHeader.tsx";
@@ -41,10 +40,6 @@ function DenseTabs({ activePath }: { activePath: string }) {
 			</Tabs>
 		</div>
 	);
-=======
-export default function Layout({ children }: { children: React.JSX.Element }) {
-	return <main>{children}</main>;
->>>>>>> origin/feature/new-ui
 }
 
 function Chrome({ children }: { children: React.JSX.Element }) {

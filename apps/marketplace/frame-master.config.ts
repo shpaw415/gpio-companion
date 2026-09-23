@@ -7,6 +7,7 @@ import type {
 import {
 	BuildUnifier,
 	directiveToolSingleton,
+	getBuildUnifierContext,
 	getGlobalPluginContext,
 } from "frame-master/plugin";
 import type { FrameMasterConfig } from "frame-master/server/types";
@@ -17,6 +18,7 @@ import AutoSiteMap from "frame-master-plugin-auto-sitemap";
 import SSRPlugin from "frame-master-plugin-cloudflare-pages-dynamic-ssr";
 import CFActionPlugin from "frame-master-plugin-cloudflare-pages-functions-action";
 import CloudflareRouteFilePlugin from "frame-master-plugin-cloudflare-route-file-generator";
+import cloudflareUpdateManager from "frame-master-plugin-cloudflare-update-manager";
 import EnvInHTML from "frame-master-plugin-env-in-html";
 import imageOptimizer from "frame-master-plugin-image-optimizer";
 import NodePolyfills from "frame-master-plugin-node-polyfills";
@@ -85,6 +87,14 @@ const catchAllPatch: FrameMasterPlugin = {
 };
 
 const nodePolyfillPlugin = NodePolyfills();
+const imageOptimizerPlugin = imageOptimizer({
+	input: "images",
+	output: "optimized",
+	skipExisting: true,
+	formats: ["webp"],
+	keepOriginal: true,
+	sizes: [320, 720, 1280],
+});
 
 export default {
 	HTTPServer: {
@@ -184,6 +194,22 @@ export default {
 						);
 					},
 				},
+				{
+					name: "image-optimizer-cloudflare",
+					version: "1.0.0",
+					createContext() {
+						getBuildUnifierContext()?.setBuildConfig?.(
+							"image-optimizer-cloudflare",
+							imageOptimizerPlugin.build as BuildOptionsPlugin,
+						);
+					},
+				},
+				cloudflareUpdateManager({
+					paths: {
+						notFound: "src/404.html",
+						actionBasePath: "src/actions",
+					},
+				}),
 			],
 		}),
 		ServeFromBuild({
@@ -203,14 +229,7 @@ export default {
 				runtime: "bun",
 			},
 		}),
-		imageOptimizer({
-			input: "images",
-			output: "optimized",
-			skipExisting: true,
-			formats: ["webp"],
-			keepOriginal: true,
-			sizes: [320, 720, 1280],
-		}),
+		imageOptimizerPlugin,
 		SVGLoader(),
 		AssetsToBuild({
 			paths: [
@@ -229,10 +248,6 @@ export default {
 				{
 					src: "robots.txt",
 					dist: "robots.txt",
-				},
-				{
-					src: "src/404.html",
-					dist: "404.html",
 				},
 			],
 		}),
