@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { Linking, Text, View } from "react-native";
 import { useColors } from "../lib/color-mode.tsx";
 
@@ -130,9 +131,11 @@ function Inline({
 export default function DocsMarkdown({
 	content,
 	onOpenDoc,
+	headingRefs,
 }: {
 	content: string;
 	onOpenDoc?: (id: string) => void;
+	headingRefs?: RefObject<Record<string, View | null>>;
 }) {
 	const colors = useColors();
 	const blocks = parseBlocks(content);
@@ -142,13 +145,27 @@ export default function DocsMarkdown({
 				if (block.type === "h") {
 					const size = block.level === 1 ? 22 : block.level === 2 ? 18 : 16;
 					return (
-						<Text
+						<View
 							key={`${block.id}-${index}`}
+							collapsable={false}
+							ref={(node) => {
+								if (headingRefs) {
+									headingRefs.current[block.id] = node;
+								}
+							}}
+						>
+						<Text
 							nativeID={block.id}
-							style={{ color: colors.text, fontWeight: "700", fontSize: size, marginTop: 8 }}
+							style={{
+								color: colors.text,
+								fontWeight: "700",
+								fontSize: size,
+								marginTop: 8,
+							}}
 						>
 							{block.text}
 						</Text>
+						</View>
 					);
 				}
 				if (block.type === "code") {

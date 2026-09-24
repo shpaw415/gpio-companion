@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import {
 	BREADBOARD_EMBED_MESSAGE_TYPE,
+	BREADBOARD_EMBED_READY_TYPE,
 	type BreadboardEmbedPayload,
 	breadboardEmbedScript,
 	mobileBreadboardEmbedUrl,
@@ -93,10 +94,6 @@ export default function BreadboardWebView({
 					payload={payload}
 					theme={mode}
 					title={t("project.breadboard")}
-					onFail={() => {
-						setOpen(false);
-						setFailed(true);
-					}}
 				/>
 			</Modal>
 		</Paper>
@@ -109,14 +106,12 @@ function EmbedModal({
 	theme,
 	title,
 	onClose,
-	onFail,
 }: {
 	payload: BreadboardEmbedPayload;
 	locale: string;
 	theme: string;
 	title: string;
 	onClose: () => void;
-	onFail: () => void;
 }) {
 	const t = useT();
 	const colors = useColors();
@@ -145,7 +140,7 @@ function EmbedModal({
 					payload={payload}
 					locale={locale}
 					theme={theme}
-					onFail={onFail}
+					onFail={onClose}
 				/>
 			</View>
 		</View>
@@ -167,8 +162,24 @@ function EmbedFrame({
 	const uri = mobileBreadboardEmbedUrl(dashboardUrl, { locale, theme });
 	const script = breadboardEmbedScript(payload);
 
+	const scriptRef = useRef(script);
+	scriptRef.current = script;
+
+	function push() {
+		webRef.current?.injectJavaScript(scriptRef.current);
+	}
+
 	useEffect(() => {
-		webRef.current?.injectJavaScript(script);
+		const inject = () => {
+			webRef.current?.injectJavaScript(script);
+		};
+		inject();
+		const timers = [250, 1000].map((ms) => setTimeout(inject, ms));
+		return () => {
+			for (const timer of timers) {
+				clearTimeout(timer);
+			}
+		};
 	}, [script]);
 
 	return (
@@ -181,10 +192,22 @@ function EmbedFrame({
 			nestedScrollEnabled
 			originWhitelist={["https://*"]}
 			setSupportMultipleWindows={false}
+			injectedJavaScript={script}
+			injectedJavaScriptBeforeContentLoaded={script}
 			onError={onFail}
 			onHttpError={onFail}
-			onLoadEnd={() => {
-				webRef.current?.injectJavaScript(script);
+			onLoadEnd={push}
+			onMessage={(event) => {
+				try {
+					const data = JSON.parse(event.nativeEvent.data) as {
+						type?: string;
+					};
+					if (data.type === BREADBOARD_EMBED_READY_TYPE) {
+						push();
+					}
+				} catch {
+					return;
+				}
 			}}
 		/>
 	);

@@ -1,4 +1,7 @@
 export const BREADBOARD_EMBED_MESSAGE_TYPE = "gpio-breadboard";
+export const BREADBOARD_EMBED_READY_TYPE = "gpio-breadboard-ready";
+export const BREADBOARD_EMBED_BRIDGE_KEY = "__gpioBreadboardEmbed";
+export const BREADBOARD_EMBED_PENDING_KEY = "__gpioBreadboardPending";
 export const BREADBOARD_EMBED_PATH = "/embed/breadboard";
 
 export type BreadboardEmbedLivePins = Record<number, 0 | 1>;
@@ -37,6 +40,13 @@ export function breadboardEmbedUrl(
 		url.searchParams.set("theme", opts.theme);
 	}
 	return url.toString();
+}
+
+export function breadboardEmbedInjectSource(
+	payload: BreadboardEmbedPayload,
+): string {
+	const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+	return `window.${BREADBOARD_EMBED_PENDING_KEY}=${json};if(window.${BREADBOARD_EMBED_BRIDGE_KEY}){window.${BREADBOARD_EMBED_BRIDGE_KEY}(window.${BREADBOARD_EMBED_PENDING_KEY});}true;`;
 }
 
 export function parseBreadboardEmbedMessage(

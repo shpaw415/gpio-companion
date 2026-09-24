@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { findNodeHandle, ScrollView, View } from "react-native";
 import DocsMarkdown from "../components/DocsMarkdown.tsx";
 import {
 	Chip,
@@ -21,6 +22,7 @@ import {
 	hardwareFromStatus,
 	searchDocs,
 } from "../lib/docs.ts";
+import { useDeckNav } from "../lib/deck-nav.tsx";
 import { useLocale, useT } from "../lib/locale.tsx";
 
 export default function Docs() {
@@ -52,9 +54,48 @@ export default function Docs() {
 
 	const hits = useMemo(() => searchDocs(query, catalog), [query, catalog]);
 	const doc = findDoc(docId, docs);
+	const { setDocsItems } = useDeckNav();
+	const scrollRef = useRef<ScrollView>(null);
+	const headingRefs = useRef<Record<string, View | null>>({});
+	const sections = useMemo(
+		() =>
+			doc
+				? docSections(doc.content).filter(
+						(section) => section.level >= 2 && section.level <= 3,
+					)
+				: [],
+		[doc],
+	);
+
+	function scrollToSection(id: string) {
+		const node = headingRefs.current[id];
+		const scroll = scrollRef.current;
+		const handle = scroll ? findNodeHandle(scroll) : null;
+		if (!node || !scroll || !handle) {
+			return;
+		}
+		node.measureLayout(
+			handle,
+			(_x, y) => {
+				scroll.scrollTo({ y: Math.max(0, y - 8), animated: true });
+			},
+			() => undefined,
+		);
+	}
+
+	useEffect(() => {
+		setDocsItems(
+			sections.map((section) => ({
+				id: section.id,
+				label: section.title,
+				onSelect: () => scrollToSection(section.id),
+			})),
+		);
+		return () => setDocsItems([]);
+	}, [sections, setDocsItems]);
 
 	return (
-		<Screen>
+		<Screen scrollRef={scrollRef}>
 			<Row>
 				<Chip
 					label={t("docs.all")}
@@ -90,7 +131,11 @@ export default function Docs() {
 						.map((section) => (
 							<Muted key={section.id}>{section.title}</Muted>
 						))}
-					<DocsMarkdown content={doc.content} onOpenDoc={setDocId} />
+					<DocsMarkdown
+						content={doc.content}
+						onOpenDoc={setDocId}
+						headingRefs={headingRefs}
+					/>
 				</Paper>
 			) : hits.length > 0 ? (
 				hits.map((hit) => {

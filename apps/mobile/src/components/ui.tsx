@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import {
 	ActivityIndicator,
 	Pressable,
+	ScrollView,
 	Text,
 	TextInput,
 	View,
@@ -13,9 +14,11 @@ import { useColors } from "../lib/color-mode.tsx";
 export function Screen({
 	children,
 	scroll = true,
+	scrollRef,
 }: {
 	children: ReactNode;
 	scroll?: boolean;
+	scrollRef?: Ref<ScrollView>;
 }) {
 	const colors = useColors();
 	if (!scroll) {
@@ -34,6 +37,7 @@ export function Screen({
 	}
 	return (
 		<KeyboardAwareScrollView
+			ref={scrollRef}
 			style={{ flex: 1, backgroundColor: colors.bg }}
 			contentContainerStyle={{
 				paddingHorizontal: 12,

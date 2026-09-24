@@ -1,5 +1,12 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Linking, Modal, Pressable, Text, View } from "react-native";
 import BreadboardWebView from "../components/BreadboardWebView.tsx";
 import FlashPanel from "../components/FlashPanel.tsx";
@@ -50,6 +57,7 @@ import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
+import { useDeckNav } from "../lib/deck-nav.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 import { storageGet, storageRemove, storageSet } from "../lib/storage.ts";
@@ -135,6 +143,88 @@ function BoardSketchGroup({
 	);
 }
 
+type BoardTool = "gpio" | "flash" | "run" | "verify";
+
+function ToolSection({
+	title,
+	hint,
+	open,
+	onToggle,
+	children,
+}: {
+	title: string;
+	hint: string;
+	open: boolean;
+	onToggle: () => void;
+	children: ReactNode;
+}) {
+	const colors = useColors();
+	const [seen, setSeen] = useState(false);
+	useEffect(() => {
+		if (open) {
+			setSeen(true);
+		}
+	}, [open]);
+	return (
+		<View
+			style={{
+				borderWidth: 1,
+				borderLeftWidth: 3,
+				borderColor: open ? colors.primary : colors.border,
+				borderRadius: 10,
+				overflow: "hidden",
+				backgroundColor: colors.bg,
+			}}
+		>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityState={{ expanded: open }}
+				accessibilityLabel={title}
+				onPress={onToggle}
+				style={{
+					minHeight: 48,
+					paddingHorizontal: 12,
+					paddingVertical: 8,
+					flexDirection: "row",
+					alignItems: "center",
+					gap: 8,
+				}}
+			>
+				<View style={{ flex: 1, gap: 2 }}>
+					<Text style={{ color: colors.text, fontWeight: "600" }}>{title}</Text>
+					{open ? null : (
+						<Text
+							numberOfLines={2}
+							style={{ color: colors.muted, fontSize: 12 }}
+						>
+							{hint}
+						</Text>
+					)}
+				</View>
+				<Text style={{ color: open ? colors.primary : colors.muted }}>
+					{open ? "▾" : "▸"}
+				</Text>
+			</Pressable>
+			{seen ? (
+				<View
+					style={
+						open
+							? {
+									borderTopWidth: 1,
+									borderTopColor: colors.border,
+									padding: 10,
+									gap: 8,
+								}
+							: { display: "none" }
+					}
+				>
+					{children}
+				</View>
+			) : null}
+		</View>
+	);
+}
+
 function FileGroup({
 	title,
 	files,
@@ -189,6 +279,7 @@ export default function Project() {
 	const { boards, paired } = useUserBoards();
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const { setTab } = useDeviceHub();
+	const { setWorkItems } = useDeckNav();
 	const app = githubQuery.data ?? null;
 	const repos = projectsQuery.data?.repos ?? [];
 	const configured = projectsQuery.data?.configured ?? false;
@@ -201,7 +292,10 @@ export default function Project() {
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
 	const [justCreated, setJustCreated] = useState("");
-	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
+	const [toolState, setToolState] = useState<{
+		key: string;
+		tool: BoardTool | null;
+	}>({ key: "", tool: null });
 	const [saving, setSaving] = useState(false);
 	const [reloading, setReloading] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
@@ -558,6 +652,10 @@ export default function Project() {
 		}
 	}
 
+	const openRepoRef = useRef<(repo: GithubRepo, created?: boolean) => void>(
+		() => undefined,
+	);
+
 	async function openRepo(repo: GithubRepo, created = false) {
 		if (!token) {
 			return;
@@ -599,6 +697,32 @@ export default function Project() {
 			setOpening(false);
 		}
 	}
+	openRepoRef.current = openRepo;
+
+	useEffect(() => {
+		const repoEntries = filtered.slice(0, 8).map((repo) => ({
+			id: `repo:${repo.owner}/${repo.name}`,
+			label: repo.name,
+			active: bundle?.repo === repo.name && bundle.owner === repo.owner,
+			onSelect: () => {
+				void openRepoRef.current(repo);
+			},
+		}));
+		const files = bundle
+			? [...bundle.pcb, ...bundle.breadboard, ...bundle.technical].slice(0, 16)
+			: [];
+		const fileEntries = files.map((file) => ({
+			id: `file:${file.path}`,
+			label: file.name || file.path,
+			onSelect: file.download_url
+				? () => {
+						void Linking.openURL(file.download_url ?? "");
+					}
+				: undefined,
+		}));
+		setWorkItems([...repoEntries, ...fileEntries]);
+		return () => setWorkItems([]);
+	}, [bundle, filtered, setWorkItems]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: open last/first repo once the list is ready
 	useEffect(() => {
@@ -618,11 +742,16 @@ export default function Project() {
 	const empty = !loading && configured && repos.length === 0;
 	const canCreate = app?.canCreate !== false;
 
-	useEffect(() => {
-		if (!bundle) {
-			setBoardToolsOpen(false);
-		}
-	}, [bundle]);
+	const openTool = toolState.key === selectedKey ? toolState.tool : null;
+	function toggleTool(tool: BoardTool) {
+		setToolState((current) => {
+			const active = current.key === selectedKey ? current.tool : null;
+			return {
+				key: selectedKey,
+				tool: active === tool ? null : tool,
+			};
+		});
+	}
 
 	return (
 		<Screen>
@@ -917,6 +1046,7 @@ export default function Project() {
 			{paired && activeUuid && bundle ? (
 				<Paper>
 					<Body>{t("project.boardTools")}</Body>
+					<Muted>{t("project.boardToolsHint")}</Muted>
 					<Muted>
 						{t("project.selectedBoardContext", {
 							board:
@@ -925,75 +1055,90 @@ export default function Project() {
 								activeUuid.slice(0, 8),
 						})}
 					</Muted>
-					<TextButton
-						label={boardToolsOpen ? t("project.hide") : t("project.show")}
-						onPress={() => setBoardToolsOpen((open) => !open)}
-					/>
-					{boardToolsOpen ? (
-						<>
-							<ErrorText>{t("project.safetyHint")}</ErrorText>
-							<Body>{t("docs.board")}</Body>
-							<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-								{boards.map((board) => (
-									<Pressable
-										key={board.device.uuid}
-										onPress={() => selectBoard(board.device.uuid)}
-										style={{
-											borderWidth: 1,
-											borderColor:
-												activeUuid === board.device.uuid
-													? colors.primary
-													: colors.border,
-											borderRadius: 999,
-											paddingHorizontal: 10,
-											paddingVertical: 6,
-										}}
-									>
-										<Text
-											style={{
-												color:
-													activeUuid === board.device.uuid
-														? colors.primary
-														: colors.text,
-											}}
-										>
-											{board.device.label || board.device.uuid.slice(0, 8)}
-										</Text>
-									</Pressable>
-								))}
-							</View>
-							{isEasy ? null : (
-								<>
-									<Body>{t("gpio.live")}</Body>
-									<Muted>{t("project.liveGpioHint")}</Muted>
-									<GpioPanel
-										uuid={activeUuid}
-										connected={Boolean(activeBoard?.status)}
-										poll
-										onLivePins={(
-											pins: Record<number, 0 | 1>,
-											target?: GpioTarget,
-										) => {
-											if (target === "arduino-proxy") {
-												setArduinoLivePins(pins);
-											} else {
-												setLivePins(pins);
-											}
-										}}
-									/>
-								</>
-							)}
-							<Body>{t("flash.title")}</Body>
+					<ErrorText>{t("project.safetyHint")}</ErrorText>
+					<View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+						{boards.map((board) => (
+							<Pressable
+								key={board.device.uuid}
+								onPress={() => selectBoard(board.device.uuid)}
+								style={{
+									borderWidth: 1,
+									borderColor:
+										activeUuid === board.device.uuid
+											? colors.primary
+											: colors.border,
+									borderRadius: 999,
+									paddingHorizontal: 10,
+									paddingVertical: 6,
+								}}
+							>
+								<Text
+									style={{
+										color:
+											activeUuid === board.device.uuid
+												? colors.primary
+												: colors.text,
+									}}
+								>
+									{board.device.label || board.device.uuid.slice(0, 8)}
+								</Text>
+							</Pressable>
+						))}
+					</View>
+					<View style={{ gap: 8 }}>
+						{isEasy ? null : (
+							<ToolSection
+								title={t("project.advancedBoardTools")}
+								hint={t("project.liveGpioHint")}
+								open={openTool === "gpio"}
+								onToggle={() => toggleTool("gpio")}
+							>
+								<GpioPanel
+									uuid={activeUuid}
+									connected={Boolean(activeBoard?.status)}
+									poll={openTool === "gpio"}
+									onLivePins={(
+										pins: Record<number, 0 | 1>,
+										target?: GpioTarget,
+									) => {
+										if (target === "arduino-proxy") {
+											setArduinoLivePins(pins);
+										} else {
+											setLivePins(pins);
+										}
+									}}
+								/>
+							</ToolSection>
+						)}
+						<ToolSection
+							title={t("flash.title")}
+							hint={t("project.flashHint")}
+							open={openTool === "flash"}
+							onToggle={() => toggleTool("flash")}
+						>
 							<FlashPanel uuid={activeUuid} project={bundle.repo} />
-							<Body>{t("run.title")}</Body>
+						</ToolSection>
+						<ToolSection
+							title={t("run.title")}
+							hint={t("project.runHint")}
+							open={openTool === "run"}
+							onToggle={() => toggleTool("run")}
+						>
 							<RunPanel uuid={activeUuid} project={bundle.repo} />
+						</ToolSection>
+						<ToolSection
+							title={t("verify.title")}
+							hint={t("verify.hint")}
+							open={openTool === "verify"}
+							onToggle={() => toggleTool("verify")}
+						>
 							<VerifyPanel
 								uuid={activeUuid}
 								project={bundle.repo}
 								onResults={setVerifyResults}
 							/>
-						</>
-					) : null}
+						</ToolSection>
+					</View>
 				</Paper>
 			) : null}
 			<Modal

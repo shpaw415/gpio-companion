@@ -1,11 +1,14 @@
 import {
 	BREADBOARD_EMBED_MESSAGE_TYPE,
+	BREADBOARD_EMBED_READY_TYPE,
 	type BreadboardEmbedPayload,
+	breadboardEmbedInjectSource,
 	breadboardEmbedUrl,
 } from "gpio-companion-embed";
 
 export {
 	BREADBOARD_EMBED_MESSAGE_TYPE,
+	BREADBOARD_EMBED_READY_TYPE,
 	type BreadboardEmbedPayload,
 	breadboardEmbedUrl,
 };
@@ -18,6 +21,5 @@ export function mobileBreadboardEmbedUrl(
 }
 
 export function breadboardEmbedScript(payload: BreadboardEmbedPayload): string {
-	const json = JSON.stringify(payload);
-	return `window.__gpioBreadboardEmbed && window.__gpioBreadboardEmbed(${json}); true;`;
+	return breadboardEmbedInjectSource(payload);
 }

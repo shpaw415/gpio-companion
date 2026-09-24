@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+	BREADBOARD_EMBED_BRIDGE_KEY,
 	BREADBOARD_EMBED_MESSAGE_TYPE,
 	BREADBOARD_EMBED_PATH,
+	BREADBOARD_EMBED_PENDING_KEY,
 	type BreadboardEmbedPayload,
+	breadboardEmbedInjectSource,
 	breadboardEmbedUrl,
 	isEmbedPath,
 	parseBreadboardEmbedMessage,
@@ -29,6 +32,19 @@ describe("breadboard embed url", () => {
 				theme: "dark",
 			}),
 		).toBe("https://gpio-companion.com/embed/breadboard?locale=fr&theme=dark");
+	});
+});
+
+describe("breadboard embed inject", () => {
+	test("stashes the payload until the bridge exists", () => {
+		const script = breadboardEmbedInjectSource({
+			type: BREADBOARD_EMBED_MESSAGE_TYPE,
+			diagramText: "</script>",
+		});
+		expect(script).toContain(`window.${BREADBOARD_EMBED_PENDING_KEY}=`);
+		expect(script).toContain(`window.${BREADBOARD_EMBED_BRIDGE_KEY}`);
+		expect(script).not.toContain("</script>");
+		expect(script.endsWith("true;")).toBe(true);
 	});
 });
 

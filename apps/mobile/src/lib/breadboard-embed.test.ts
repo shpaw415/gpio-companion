@@ -20,6 +20,7 @@ describe("mobile breadboard embed", () => {
 			type: BREADBOARD_EMBED_MESSAGE_TYPE,
 			diagramText: '{"version":1}',
 		});
+		expect(script).toContain("window.__gpioBreadboardPending");
 		expect(script).toContain("window.__gpioBreadboardEmbed");
 		expect(script).toContain(BREADBOARD_EMBED_MESSAGE_TYPE);
 		expect(script.endsWith("true;")).toBe(true);

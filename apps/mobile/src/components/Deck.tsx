@@ -17,6 +17,7 @@ import {
 	ScrollView,
 	Text,
 	TextInput,
+	useWindowDimensions,
 	View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,12 +37,19 @@ import {
 	startFlash,
 	startFlashProxy,
 } from "../lib/api.ts";
+import { useUserBoards } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColorMode } from "../lib/color-mode.tsx";
 import { type DeviceTabId, deviceTabs } from "../lib/dashboard-mode.ts";
 import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { type DeckKey, useDeckT } from "../lib/deck-i18n.ts";
+import {
+	DeckNavProvider,
+	type ProfileSection,
+	type SidebarEntry,
+	useDeckNav,
+} from "../lib/deck-nav.tsx";
 import { useDeviceHub } from "../lib/device-hub.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 import { storageGet, storageSet } from "../lib/storage.ts";
@@ -105,7 +113,30 @@ const deviceLabelKeys: Record<DeviceTabId, NavigationDeckKey> = {
 	admin: "deck.admin",
 };
 
+function publicBoardName(
+	board: BoardView,
+	expert: boolean,
+	unnamed: string,
+): string {
+	const label = board.device.label?.trim();
+	if (label && label !== board.device.uuid) {
+		return label;
+	}
+	if (board.status?.model) {
+		return board.status.model;
+	}
+	return expert ? board.device.uuid.slice(0, 8) : unnamed;
+}
+
 export default function Deck({ children }: { children: ReactNode }) {
+	return (
+		<DeckNavProvider>
+			<DeckFrame>{children}</DeckFrame>
+		</DeckNavProvider>
+	);
+}
+
+function DeckFrame({ children }: { children: ReactNode }) {
 	const colors = useColorMode().colors;
 	const { isDark, toggleMode: toggleTheme } = useColorMode();
 	const { mode, isEasy, toggleMode } = useDashboardMode();
@@ -114,17 +145,31 @@ export default function Deck({ children }: { children: ReactNode }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const insets = useSafeAreaInsets();
+	const { width: windowWidth } = useWindowDimensions();
 	const t = useDeckT();
+	const { boards } = useUserBoards();
+	const { uuid: selectedBoardUuid, setUuid: selectBoard } = useBoardSelection();
+	const {
+		workItems,
+		docsItems,
+		profileSection,
+		setProfileSection,
+		jumpProfile,
+	} = useDeckNav();
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	const [query, setQuery] = useState("");
-	const drawerX = useRef(new Animated.Value(-320)).current;
+	const drawerWidth = Math.min(windowWidth * 0.82, 280);
+	const drawerX = useRef(new Animated.Value(-280)).current;
 
 	const navigate = useCallback(
 		(path: "/project" | "/" | "/profile") => {
+			if (path === "/profile") {
+				setProfileSection("account");
+			}
 			router.navigate(path);
 		},
-		[router],
+		[router, setProfileSection],
 	);
 	const commands = useMemo<Command[]>(() => {
 		const base: Command[] = [
@@ -231,11 +276,15 @@ export default function Deck({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		Animated.timing(drawerX, {
-			toValue: drawerOpen ? 0 : -320,
-			duration: 180,
+			toValue: drawerOpen ? 0 : -drawerWidth,
+			duration: 160,
 			useNativeDriver: true,
 		}).start();
-	}, [drawerOpen, drawerX]);
+	}, [drawerOpen, drawerWidth, drawerX]);
+
+	useEffect(() => {
+		setDrawerOpen(false);
+	}, [pathname, tab]);
 
 	const contextKey: DeckKey = pathname.includes("project")
 		? "deck.project"
@@ -349,39 +398,67 @@ export default function Deck({ children }: { children: ReactNode }) {
 				animationType="none"
 				onRequestClose={() => setDrawerOpen(false)}
 			>
-				<View style={{ flex: 1, flexDirection: "row" }}>
-					<Animated.View
-						style={{
-							width: 300,
-							paddingTop: insets.top + 12,
-							paddingHorizontal: 12,
-							backgroundColor: colors.surface,
-							transform: [{ translateX: drawerX }],
-						}}
-					>
-						<Text
+				<View
+					style={{
+						flex: 1,
+						paddingTop: insets.top + 48,
+						paddingBottom: 56 + Math.max(insets.bottom - 8, 0),
+					}}
+				>
+					<View style={{ flex: 1, flexDirection: "row" }}>
+						<Animated.View
 							style={{
-								color: colors.text,
-								fontSize: 20,
-								fontWeight: "700",
-								marginBottom: 12,
+								width: drawerWidth,
+								backgroundColor: colors.surface,
+								borderRightWidth: 1,
+								borderRightColor: colors.border,
+								transform: [{ translateX: drawerX }],
 							}}
 						>
-							{t("deck.navigation")}
-						</Text>
-						{commands.map((command) => (
-							<CommandRow
-								key={command.id}
-								label={t(command.labelKey)}
-								onPress={() => run(command)}
+							<ContextDrawer
+								onClose={() => setDrawerOpen(false)}
+								onOpenDevice={(id) => {
+									setTab(id);
+									navigate("/");
+								}}
+								onOpenProfile={(section) => {
+									jumpProfile(section);
+									router.navigate("/profile");
+								}}
+								onOpenLearn={() => {
+									setTab("docs");
+									navigate("/");
+								}}
+								onSelectBoard={(uuid) => {
+									selectBoard(uuid);
+									setDrawerOpen(false);
+								}}
+								boards={boards}
+								selectedBoardUuid={selectedBoardUuid}
+								expert={!isEasy}
+								workItems={workItems}
+								docsItems={docsItems}
+								profileSection={profileSection}
+								deviceTabs={deviceTabs(
+									mode,
+									auth.session?.role === "admin",
+								)}
+								activeTab={tab}
+								section={
+									pathname.includes("profile")
+										? "profile"
+										: pathname.includes("project")
+											? "project"
+											: "devices"
+								}
 							/>
-						))}
-					</Animated.View>
-					<Pressable
-						onPress={() => setDrawerOpen(false)}
-						accessibilityLabel={t("deck.close")}
-						style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)" }}
-					/>
+						</Animated.View>
+						<Pressable
+							onPress={() => setDrawerOpen(false)}
+							accessibilityLabel={t("deck.closeNavigation")}
+							style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.42)" }}
+						/>
+					</View>
 				</View>
 			</Modal>
 
@@ -502,6 +579,266 @@ function BottomNav({
 				);
 			})}
 		</View>
+	);
+}
+
+function ContextDrawer({
+	onClose,
+	onOpenDevice,
+	onOpenProfile,
+	onOpenLearn,
+	onSelectBoard,
+	boards,
+	selectedBoardUuid,
+	expert,
+	workItems,
+	docsItems,
+	profileSection,
+	deviceTabs: pages,
+	activeTab,
+	section,
+}: {
+	onClose: () => void;
+	onOpenDevice: (id: DeviceTabId) => void;
+	onOpenProfile: (section: ProfileSection) => void;
+	onOpenLearn: () => void;
+	onSelectBoard: (uuid: string) => void;
+	boards: BoardView[];
+	selectedBoardUuid: string;
+	expert: boolean;
+	workItems: SidebarEntry[];
+	docsItems: SidebarEntry[];
+	profileSection: ProfileSection;
+	deviceTabs: Array<{ id: DeviceTabId; labelKey: string }>;
+	activeTab: DeviceTabId;
+	section: "project" | "devices" | "profile";
+}) {
+	const colors = useColorMode().colors;
+	const t = useDeckT();
+	const title =
+		section === "profile"
+			? t("deck.contextYou")
+			: section === "devices"
+				? t("deck.contextFleet")
+				: t("deck.contextWork");
+	const repos = workItems.filter((item) => item.id.startsWith("repo:"));
+	const files = workItems.filter((item) => item.id.startsWith("file:"));
+	const profileLinks: Array<{ id: ProfileSection; label: string }> = [
+		{ id: "account", label: t("deck.account") },
+		{ id: "github", label: t("deck.github") },
+		{ id: "credits", label: t("deck.credits") },
+	];
+
+	function press(action: () => void) {
+		onClose();
+		requestAnimationFrame(action);
+	}
+
+	return (
+		<View style={{ flex: 1, paddingTop: 14, paddingHorizontal: 10 }}>
+			<View
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					justifyContent: "space-between",
+					paddingHorizontal: 7,
+					paddingBottom: 12,
+				}}
+			>
+				<View style={{ flex: 1, minWidth: 0 }}>
+					<Text
+						style={{
+							color: colors.muted,
+							fontSize: 10,
+							fontWeight: "700",
+							letterSpacing: 1.2,
+							textTransform: "uppercase",
+						}}
+					>
+						{t("deck.contextEyebrow")}
+					</Text>
+					<Text
+						numberOfLines={1}
+						style={{ color: colors.text, fontSize: 15, fontWeight: "700" }}
+					>
+						{title}
+					</Text>
+				</View>
+				<Pressable
+					onPress={onClose}
+					accessibilityRole="button"
+					accessibilityLabel={t("deck.closeNavigation")}
+					style={{ padding: 6 }}
+				>
+					<MaterialIcons name="close" size={20} color={colors.text} />
+				</Pressable>
+			</View>
+			<ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+				{section === "profile"
+					? profileLinks.map((item) => (
+							<DrawerItem
+								key={item.id}
+								label={item.label}
+								active={profileSection === item.id}
+								onPress={() => press(() => onOpenProfile(item.id))}
+							/>
+						))
+					: null}
+				{section === "devices" ? (
+					<>
+						{docsItems.length && activeTab === "docs" ? (
+							<>
+								<DrawerLabel label={t("deck.sidebarToc")} />
+								{docsItems.map((item) => (
+									<DrawerItem
+										key={item.id}
+										label={item.label}
+										onPress={
+											item.onSelect
+												? () => press(item.onSelect as () => void)
+												: undefined
+										}
+									/>
+								))}
+							</>
+						) : null}
+						<DrawerLabel label={t("deck.sidebarBoards")} />
+						{boards.length ? (
+							boards.map((board) => (
+								<DrawerItem
+									key={board.device.uuid}
+									label={publicBoardName(board, expert, t("deck.unnamed"))}
+									active={board.device.uuid === selectedBoardUuid}
+									onPress={() => onSelectBoard(board.device.uuid)}
+								/>
+							))
+						) : (
+							<DrawerLabel label={t("deck.noBoard")} />
+						)}
+						<DrawerLabel label={t("deck.sidebarPages")} />
+						{pages.map((item) => (
+							<DrawerItem
+								key={item.id}
+								label={t(deviceLabelKeys[item.id])}
+								active={activeTab === item.id}
+								child
+								onPress={() => press(() => onOpenDevice(item.id))}
+							/>
+						))}
+					</>
+				) : null}
+				{section === "project" ? (
+					<>
+						<DrawerLabel label={t("deck.sidebarRepos")} />
+						{repos.length ? (
+							repos.map((item) => (
+								<DrawerItem
+									key={item.id}
+									label={item.label}
+									active={item.active}
+									onPress={
+										item.onSelect
+											? () => press(item.onSelect as () => void)
+											: undefined
+									}
+								/>
+							))
+						) : (
+							<DrawerLabel label={t("deck.sidebarEmpty")} />
+						)}
+						<DrawerLabel label={t("deck.sidebarFiles")} />
+						{files.map((item) =>
+							item.onSelect ? (
+								<DrawerItem
+									key={item.id}
+									label={item.label}
+									child
+									onPress={() => press(item.onSelect as () => void)}
+								/>
+							) : (
+								<DrawerLabel key={item.id} label={item.label} />
+							),
+						)}
+						<DrawerItem
+							label={t("deck.learn")}
+							onPress={() => press(onOpenLearn)}
+						/>
+					</>
+				) : null}
+			</ScrollView>
+			<Text
+				style={{
+					color: colors.muted,
+					fontSize: 11,
+					marginHorizontal: 7,
+					marginBottom: 12,
+					marginTop: 8,
+				}}
+			>
+				{t("deck.contextHint")}
+			</Text>
+		</View>
+	);
+}
+
+function DrawerLabel({ label }: { label: string }) {
+	const colors = useColorMode().colors;
+	return (
+		<Text
+			style={{
+				marginTop: 10,
+				marginBottom: 2,
+				marginHorizontal: 9,
+				color: colors.muted,
+				fontSize: 10,
+				fontWeight: "700",
+				letterSpacing: 0.8,
+				textTransform: "uppercase",
+			}}
+		>
+			{label}
+		</Text>
+	);
+}
+
+function DrawerItem({
+	label,
+	active,
+	child,
+	onPress,
+}: {
+	label: string;
+	active?: boolean;
+	child?: boolean;
+	onPress?: () => void;
+}) {
+	const colors = useColorMode().colors;
+	return (
+		<Pressable
+			onPress={onPress}
+			disabled={!onPress}
+			accessibilityRole="button"
+			accessibilityState={{ selected: Boolean(active) }}
+			style={{
+				paddingVertical: 7,
+				paddingRight: 9,
+				paddingLeft: child ? 18 : 9,
+				borderRadius: 7,
+				backgroundColor: active ? colors.chipBg : "transparent",
+				borderLeftWidth: active ? 2 : 0,
+				borderLeftColor: colors.primary,
+			}}
+		>
+			<Text
+				style={{
+					color: active ? colors.text : colors.muted,
+					fontSize: child ? 13 : 14,
+					fontWeight: "600",
+				}}
+			>
+				{label}
+			</Text>
+		</Pressable>
 	);
 }
 
@@ -812,6 +1149,8 @@ function DockFlash({
 
 function DeckDock({ isEasy }: { isEasy: boolean }) {
 	const colors = useColorMode().colors;
+	const insets = useSafeAreaInsets();
+	const { height: windowHeight } = useWindowDimensions();
 	const t = useDeckT();
 	const tCore = useT();
 	const router = useRouter();
@@ -1220,46 +1559,101 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 					)}
 				</View>
 			) : null}
-			<Modal visible={pickerOpen} transparent animationType="fade">
-				<Pressable
-					style={{
-						flex: 1,
-						justifyContent: "flex-end",
-						backgroundColor: "rgba(0,0,0,0.4)",
-					}}
-					onPress={() => setPickerOpen(false)}
-				>
+			<Modal
+				visible={pickerOpen}
+				transparent
+				animationType="fade"
+				statusBarTranslucent
+				navigationBarTranslucent
+				onRequestClose={() => setPickerOpen(false)}
+			>
+				<View style={{ flex: 1, justifyContent: "flex-end" }}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel={t("deck.close")}
+						onPress={() => setPickerOpen(false)}
+						style={{
+							position: "absolute",
+							top: 0,
+							right: 0,
+							bottom: 0,
+							left: 0,
+							backgroundColor: "rgba(0,0,0,0.4)",
+						}}
+					/>
 					<View
 						style={{
+							maxHeight: Math.min(320, Math.round(windowHeight * 0.45)),
+							marginHorizontal: 12,
+							marginBottom: Math.max(insets.bottom, 12),
 							backgroundColor: colors.surface,
-							padding: 16,
-							gap: 8,
+							borderWidth: 1,
+							borderColor: colors.border,
+							borderRadius: 12,
+							overflow: "hidden",
 						}}
 					>
-						<Text style={{ color: colors.text, fontWeight: "700" }}>
+						<Text
+							style={{
+								color: colors.text,
+								fontWeight: "700",
+								paddingHorizontal: 16,
+								paddingTop: 12,
+								paddingBottom: 4,
+							}}
+						>
 							{tCore("deck.dock.connectBoard")}
 						</Text>
-						{pairedBoards.map((board) => (
-							<Pressable
-								key={board.device.uuid}
-								onPress={() => {
-									setUuid(board.device.uuid);
-									setTab("console");
-									setDockCollapsed(false);
-									setPickerOpen(false);
-								}}
-								style={{ paddingVertical: 10 }}
-							>
-								<Text style={{ color: colors.text }}>
-									{isEasy &&
-									deviceDisplayName(board.device) === board.device.uuid
-										? tCore("deck.status.unnamed")
-										: deviceDisplayName(board.device)}
+						<ScrollView
+							keyboardShouldPersistTaps="handled"
+							style={{
+								maxHeight: Math.min(320, Math.round(windowHeight * 0.45)) - 40,
+							}}
+						>
+							{pairedBoards.length === 0 ? (
+								<Text style={{ color: colors.muted, padding: 16 }}>
+									{tCore("devices.noBoardsYetBle")}
 								</Text>
-							</Pressable>
-						))}
+							) : (
+								pairedBoards.map((board) => {
+									const selected = board.device.uuid === uuid;
+									return (
+										<Pressable
+											key={board.device.uuid}
+											accessibilityRole="button"
+											accessibilityState={{ selected }}
+											onPress={() => {
+												setUuid(board.device.uuid);
+												setTab("console");
+												setDockCollapsed(false);
+												setPickerOpen(false);
+											}}
+											style={{
+												paddingHorizontal: 16,
+												paddingVertical: 12,
+												backgroundColor: selected
+													? colors.chipBg
+													: "transparent",
+											}}
+										>
+											<Text
+												style={{
+													color: selected ? colors.primary : colors.text,
+													fontWeight: selected ? "700" : "400",
+												}}
+											>
+												{isEasy &&
+												deviceDisplayName(board.device) === board.device.uuid
+													? tCore("deck.status.unnamed")
+													: deviceDisplayName(board.device)}
+											</Text>
+										</Pressable>
+									);
+								})
+							)}
+						</ScrollView>
 					</View>
-				</Pressable>
+				</View>
 			</Modal>
 		</View>
 	);

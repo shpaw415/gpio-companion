@@ -583,6 +583,60 @@ body {
 	box-shadow: inset 3px 0 0 rgb(var(--bg-primary));
 }
 
+.board-tool {
+	overflow: hidden;
+	border: 1px solid rgba(var(--text-main), 0.14);
+	border-left: 3px solid rgba(var(--text-main), 0.2);
+	border-radius: 10px;
+	background: rgb(var(--bg-main));
+}
+
+.board-tool.is-open {
+	border-color: rgba(var(--text-primary), 0.55);
+	border-left-color: rgb(var(--bg-primary));
+}
+
+.board-tool-summary {
+	display: flex;
+	width: 100%;
+	min-height: 48px;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.board-tool-summary:hover {
+	background: rgba(var(--text-primary), 0.055);
+}
+
+.board-tool-copy {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.board-tool.is-open > :last-child {
+	border-top: 1px solid rgba(var(--text-main), 0.1);
+}
+
+.board-tool-chevron {
+	flex: 0 0 auto;
+	color: rgb(var(--text-secondary));
+	font-size: 0.9rem;
+}
+
+.board-tool.is-open .board-tool-chevron {
+	color: rgb(var(--text-primary));
+}
+
 .device-board-summary {
 	display: grid;
 	grid-template-columns: 36px minmax(0, 1fr) auto auto 24px;

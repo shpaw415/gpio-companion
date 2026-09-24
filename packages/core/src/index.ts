@@ -198,11 +198,15 @@ export {
 	isArduinoProxyPartType,
 } from "./breadboard-arduino.ts";
 export {
+	BREADBOARD_EMBED_BRIDGE_KEY,
 	BREADBOARD_EMBED_MESSAGE_TYPE,
 	BREADBOARD_EMBED_PATH,
+	BREADBOARD_EMBED_PENDING_KEY,
+	BREADBOARD_EMBED_READY_TYPE,
 	type BreadboardEmbedLivePins,
 	type BreadboardEmbedPayload,
 	type BreadboardEmbedVerifyItem,
+	breadboardEmbedInjectSource,
 	breadboardEmbedUrl,
 	isEmbedPath,
 	parseBreadboardEmbedMessage,

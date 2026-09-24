@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Linking } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { findNodeHandle, Linking, ScrollView, View } from "react-native";
 import LanguageCard from "../components/LanguageCard.tsx";
 import {
 	Body,
@@ -15,6 +16,7 @@ import { getCredits } from "../lib/api.ts";
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { dashboardUrl } from "../lib/config.ts";
+import { type ProfileSection, useDeckNav } from "../lib/deck-nav.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 import Keys from "./Keys.tsx";
 
@@ -30,13 +32,59 @@ export default function Profile() {
 	const credits = creditsQuery.data ?? null;
 	const t = useT();
 	const [error, setError] = useState("");
+	const { registerProfileJump, consumeProfileJump } = useDeckNav();
+	const scrollRef = useRef<ScrollView>(null);
+	const sectionRefs = useRef<Record<ProfileSection, View | null>>({
+		account: null,
+		github: null,
+		credits: null,
+	});
+
+	function scrollToSection(section: ProfileSection) {
+		const node = sectionRefs.current[section];
+		const scroll = scrollRef.current;
+		const handle = scroll ? findNodeHandle(scroll) : null;
+		if (!node || !scroll || !handle) {
+			return;
+		}
+		node.measureLayout(
+			handle,
+			(_x, y) => {
+				scroll.scrollTo({ y: Math.max(0, y - 8), animated: true });
+			},
+			() => undefined,
+		);
+	}
+
+	useEffect(() => {
+		registerProfileJump(scrollToSection);
+		return () => registerProfileJump(null);
+	}, [registerProfileJump]);
+
+	useFocusEffect(
+		useCallback(() => {
+			const timer = setTimeout(() => {
+				const section = consumeProfileJump();
+				if (section) {
+					scrollToSection(section);
+				}
+			}, 60);
+			return () => clearTimeout(timer);
+		}, [consumeProfileJump]),
+	);
 
 	return (
-		<Screen>
+		<Screen scrollRef={scrollRef}>
 			<ErrorText>
 				{translateError(t, error || creditsQuery.error || "")}
 			</ErrorText>
 			<LanguageCard />
+			<View
+				collapsable={false}
+				ref={(node) => {
+					sectionRefs.current.account = node;
+				}}
+			>
 			<Paper>
 				<Body>{t("profile.account")}</Body>
 				<Body>{auth.session?.name || t("auth.signedIn")}</Body>
@@ -51,7 +99,21 @@ export default function Profile() {
 					onPress={() => void auth.logout()}
 				/>
 			</Paper>
-			<Keys />
+			</View>
+			<View
+				collapsable={false}
+				ref={(node) => {
+					sectionRefs.current.github = node;
+				}}
+			>
+				<Keys />
+			</View>
+			<View
+				collapsable={false}
+				ref={(node) => {
+					sectionRefs.current.credits = node;
+				}}
+			>
 			<Paper>
 				<Body>{t("credits.title")}</Body>
 				{creditsQuery.loading ? (
@@ -82,6 +144,7 @@ export default function Profile() {
 					}}
 				/>
 			</Paper>
+			</View>
 		</Screen>
 	);
 }

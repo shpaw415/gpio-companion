@@ -534,6 +534,49 @@ body {
 	color: rgb(var(--text-main));
 }
 
+.b6-tool {
+	border: 1px solid rgba(var(--text-main), 0.14);
+	border-left: 3px solid rgba(var(--text-main), 0.22);
+	border-radius: 10px;
+	background: rgba(var(--text-main), 0.03);
+}
+
+.b6-tool[open] {
+	border-color: rgba(var(--text-primary), 0.55);
+	border-left-color: rgb(var(--bg-primary));
+}
+
+.b6-tool > summary {
+	display: flex;
+	min-height: 40px;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	color: rgb(var(--text-main));
+	font-weight: 650;
+	cursor: pointer;
+	list-style: none;
+}
+
+.b6-tool > summary::-webkit-details-marker {
+	display: none;
+}
+
+.b6-tool > summary::before {
+	content: "▸";
+	color: rgb(var(--text-secondary));
+}
+
+.b6-tool[open] > summary::before {
+	content: "▾";
+	color: rgb(var(--text-primary));
+}
+
+.b6-tool > :not(summary) {
+	border-top: 1px solid rgba(var(--text-main), 0.1);
+	padding: 8px 10px 10px;
+}
+
 .b6-drawer-trigger,
 .b6-drawer-close,
 .b6-scrim {

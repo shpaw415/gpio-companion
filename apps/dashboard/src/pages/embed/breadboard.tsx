@@ -1,7 +1,10 @@
 import BreadboardViewer from "@components/BreadboardViewer";
 import Box from "@shpaw415/mui-lite/Box";
 import {
+	BREADBOARD_EMBED_BRIDGE_KEY,
 	BREADBOARD_EMBED_MESSAGE_TYPE,
+	BREADBOARD_EMBED_PENDING_KEY,
+	BREADBOARD_EMBED_READY_TYPE,
 	type BreadboardEmbedPayload,
 	type CircuitVerifyItem,
 	circuitVerifyOverlay,
@@ -57,19 +60,22 @@ export default function BreadboardEmbedPage() {
 			}
 			apply(event.data);
 		}
-		const bridge = window as Window & {
-			__gpioBreadboardEmbed?: (data: unknown) => void;
+		const bridge = window as unknown as Window & {
 			ReactNativeWebView?: { postMessage: (message: string) => void };
-		};
-		bridge.__gpioBreadboardEmbed = apply;
+		} & Record<string, unknown>;
+		const pending = bridge[BREADBOARD_EMBED_PENDING_KEY];
+		if (pending) {
+			apply(pending);
+		}
+		bridge[BREADBOARD_EMBED_BRIDGE_KEY] = apply;
 		window.addEventListener("message", onMessage);
-		window.parent.postMessage({ type: "gpio-breadboard-ready" }, "*");
+		window.parent.postMessage({ type: BREADBOARD_EMBED_READY_TYPE }, "*");
 		bridge.ReactNativeWebView?.postMessage(
-			JSON.stringify({ type: "gpio-breadboard-ready" }),
+			JSON.stringify({ type: BREADBOARD_EMBED_READY_TYPE }),
 		);
 		return () => {
 			window.removeEventListener("message", onMessage);
-			delete bridge.__gpioBreadboardEmbed;
+			delete bridge[BREADBOARD_EMBED_BRIDGE_KEY];
 		};
 	}, []);
 

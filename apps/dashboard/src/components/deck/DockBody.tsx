@@ -2,7 +2,7 @@ import FlashPanel from "@components/FlashPanel";
 import GpioPanel from "@components/GpioPanel";
 import RunPanel from "@components/RunPanel";
 import VerifyPanel from "@components/VerifyPanel";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import { useConsoleTunnel } from "../../hooks/useConsoleTunnel.ts";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
@@ -51,16 +51,21 @@ export default function DockBody() {
 	}
 
 	if (dockTab === "flash") {
+		if (!isEasy) {
+			return <FlashPanel uuid={uuid} project={project} />;
+		}
 		return (
 			<>
-				<FlashPanel uuid={uuid} project={project} />
-				{isEasy ? (
+				<DockTool title={t("flash.title")} startOpen>
+					<FlashPanel uuid={uuid} project={project} />
+				</DockTool>
+				<DockTool title={t("verify.title")}>
 					<VerifyPanel
 						uuid={uuid}
 						project={project}
 						onResults={setVerifyResults}
 					/>
-				) : null}
+				</DockTool>
 			</>
 		);
 	}
@@ -78,6 +83,28 @@ export default function DockBody() {
 				<RunPanel uuid={uuid} project={project} watchConsole={false} />
 			</div>
 		</>
+	);
+}
+
+function DockTool({
+	title,
+	startOpen = false,
+	children,
+}: {
+	title: string;
+	startOpen?: boolean;
+	children: ReactNode;
+}) {
+	const [open, setOpen] = useState(startOpen);
+	return (
+		<details
+			className={`b6-tool${open ? " is-open" : ""}`}
+			open={open}
+			onToggle={(event) => setOpen(event.currentTarget.open)}
+		>
+			<summary>{title}</summary>
+			{open ? children : null}
+		</details>
 	);
 }
 

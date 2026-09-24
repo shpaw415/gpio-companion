@@ -25,7 +25,14 @@ import {
 	parseWokwiDiagram,
 } from "gpio-companion";
 import { translateError } from "gpio-companion-i18n";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	type BoardSketch,
 	createProject,
@@ -67,6 +74,59 @@ import { ListSkeleton, PreviewSkeleton } from "./skeletons";
 import VerifyPanel from "./VerifyPanel";
 
 const LAST_REPO_KEY = "gpio-companion-selected-project";
+
+type BoardTool = "gpio" | "flash" | "run" | "verify";
+
+function ToolSection({
+	title,
+	hint,
+	open,
+	onToggle,
+	children,
+}: {
+	title: string;
+	hint: string;
+	open: boolean;
+	onToggle: () => void;
+	children: ReactNode;
+}) {
+	const [seen, setSeen] = useState(false);
+	useEffect(() => {
+		if (open) {
+			setSeen(true);
+		}
+	}, [open]);
+	return (
+		<Box
+			className={`board-tool ${open ? "is-open" : ""}`}
+			sx={{ minWidth: 0, overflow: "hidden" }}
+		>
+			<button
+				type="button"
+				className="board-tool-summary"
+				onClick={onToggle}
+				aria-expanded={open}
+			>
+				<span className="board-tool-copy">
+					<Typography variant="subtitle2">{title}</Typography>
+					{open ? null : (
+						<Typography variant="caption" color="secondary">
+							{hint}
+						</Typography>
+					)}
+				</span>
+				<span className="board-tool-chevron" aria-hidden="true">
+					{open ? "▾" : "▸"}
+				</span>
+			</button>
+			{seen ? (
+				<Box sx={open ? { p: 1.5, minWidth: 0 } : { display: "none" }}>
+					{children}
+				</Box>
+			) : null}
+		</Box>
+	);
+}
 
 function lastRepoKey(repo: GithubRepo) {
 	return `${repo.owner}/${repo.name}`;
@@ -267,7 +327,10 @@ export default function Project() {
 	const [createName, setCreateName] = useState("");
 	const [creating, setCreating] = useState(false);
 	const [justCreated, setJustCreated] = useState("");
-	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
+	const [toolState, setToolState] = useState<{
+		key: string;
+		tool: BoardTool | null;
+	}>({ key: "", tool: null });
 	const [saving, setSaving] = useState(false);
 	const [reloading, setReloading] = useState(false);
 	const [saveHint, setSaveHint] = useState("");
@@ -658,11 +721,16 @@ export default function Project() {
 	const empty = !loading && configured && repos.length === 0;
 	const canCreate = app?.canCreate !== false;
 
-	useEffect(() => {
-		if (!bundle) {
-			setBoardToolsOpen(false);
-		}
-	}, [bundle]);
+	const openTool = toolState.key === selectedKey ? toolState.tool : null;
+	function toggleTool(tool: BoardTool) {
+		setToolState((current) => {
+			const active = current.key === selectedKey ? current.tool : null;
+			return {
+				key: selectedKey,
+				tool: active === tool ? null : tool,
+			};
+		});
+	}
 
 	function openCode() {
 		if (!activeUuid) {
@@ -1120,17 +1188,12 @@ export default function Project() {
 					elevation={0}
 				>
 					<Stack spacing={2} sx={{ minWidth: 0 }}>
-						<Stack
-							direction="row"
-							spacing={2}
-							sx={{
-								alignItems: "center",
-								justifyContent: "space-between",
-								flexWrap: "wrap",
-							}}
-						>
+						<Stack spacing={0.5}>
 							<Typography variant="subtitle1">
 								{t("project.boardTools")}
+							</Typography>
+							<Typography color="secondary" variant="body2">
+								{t("project.boardToolsHint")}
 							</Typography>
 							<Typography color="secondary" variant="body2">
 								{t("project.selectedBoardContext", {
@@ -1140,63 +1203,72 @@ export default function Project() {
 										activeUuid.slice(0, 8),
 								})}
 							</Typography>
-							<Button
-								variant="outlined"
-								size="small"
-								onClick={() => setBoardToolsOpen((open) => !open)}
-							>
-								{boardToolsOpen ? t("project.hide") : t("project.show")}
-							</Button>
 						</Stack>
-						{boardToolsOpen ? (
-							<>
-								<Alert severity="warning">{t("project.safetyHint")}</Alert>
-								<Select
-									name="board"
-									label={t("docs.board")}
-									value={activeUuid}
-									onSelect={selectBoard}
-								>
-									{boards.map((board) => (
-										<option key={board.device.uuid} value={board.device.uuid}>
-											{board.device.label || board.device.uuid}
-										</option>
-									))}
-								</Select>
-								{isEasy ? null : (
-									<>
-										<Typography variant="h6">{t("gpio.live")}</Typography>
-										<Typography color="secondary">
-											{t("project.liveGpioHint")}
-										</Typography>
-										<GpioPanel
-											uuid={activeUuid}
-											connected={Boolean(activeBoard?.status)}
-											poll
-											onLivePins={(
-												pins: Record<number, 0 | 1>,
-												target?: GpioTarget,
-											) => {
-												if (target === "arduino-proxy") {
-													setArduinoLivePins(pins);
-												} else {
-													setLivePins(pins);
-												}
-											}}
-										/>
-									</>
-								)}
-								<Typography variant="subtitle1">{t("flash.title")}</Typography>
-								<FlashPanel uuid={activeUuid} project={bundle.repo} />
-								<Typography variant="subtitle1">{t("run.title")}</Typography>
-								<RunPanel uuid={activeUuid} project={bundle.repo} />
-								<VerifyPanel
+						<Alert severity="warning">{t("project.safetyHint")}</Alert>
+						<Select
+							name="board"
+							label={t("docs.board")}
+							value={activeUuid}
+							onSelect={selectBoard}
+						>
+							{boards.map((board) => (
+								<option key={board.device.uuid} value={board.device.uuid}>
+									{board.device.label || board.device.uuid}
+								</option>
+							))}
+						</Select>
+						{isEasy ? null : (
+							<ToolSection
+								title={t("project.advancedBoardTools")}
+								hint={t("project.liveGpioHint")}
+								open={openTool === "gpio"}
+								onToggle={() => toggleTool("gpio")}
+							>
+								<GpioPanel
 									uuid={activeUuid}
-									project={bundle.repo}
-									onResults={setVerifyResults}
+									connected={Boolean(activeBoard?.status)}
+									poll={openTool === "gpio"}
+									onLivePins={(
+										pins: Record<number, 0 | 1>,
+										target?: GpioTarget,
+									) => {
+										if (target === "arduino-proxy") {
+											setArduinoLivePins(pins);
+										} else {
+											setLivePins(pins);
+										}
+									}}
 								/>
-							</>
-						) : null}
+							</ToolSection>
+						)}
+						<ToolSection
+							title={t("flash.title")}
+							hint={t("project.flashHint")}
+							open={openTool === "flash"}
+							onToggle={() => toggleTool("flash")}
+						>
+							<FlashPanel uuid={activeUuid} project={bundle.repo} />
+						</ToolSection>
+						<ToolSection
+							title={t("run.title")}
+							hint={t("project.runHint")}
+							open={openTool === "run"}
+							onToggle={() => toggleTool("run")}
+						>
+							<RunPanel uuid={activeUuid} project={bundle.repo} />
+						</ToolSection>
+						<ToolSection
+							title={t("verify.title")}
+							hint={t("verify.hint")}
+							open={openTool === "verify"}
+							onToggle={() => toggleTool("verify")}
+						>
+							<VerifyPanel
+								uuid={activeUuid}
+								project={bundle.repo}
+								onResults={setVerifyResults}
+							/>
+						</ToolSection>
 					</Stack>
 				</Paper>
 			) : null}
