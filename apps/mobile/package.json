@@ -4,9 +4,10 @@
 	"version": "0.0.0",
 	"main": "expo-router/entry",
 	"scripts": {
-		"start": "expo start",
-		"android": "REACT_NATIVE_PACKAGER_HOSTNAME=\"100.96.0.3\" expo run:android --port 1111",
-		"android:connect": "adb connect",
+		"start": "bun scripts/android-dev-server.ts",
+		"android": "bun scripts/android-dev-server.ts",
+		"android:native": "bun scripts/android-dev-server.ts --run",
+		"android:connect": "bun scripts/android-dev-server.ts --connect-only",
 		"android:push": "bun scripts/android-dev-push.ts",
 		"ios": "expo run:ios",
 		"test": "bun test",
