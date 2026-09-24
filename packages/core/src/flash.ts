@@ -11,6 +11,48 @@ export type FlashPort = {
 	name?: string;
 };
 
+export type FlashTargetHint = {
+	connected?: boolean;
+	port?: string;
+	fqbn?: string;
+	baud?: number;
+};
+
+export type FlashTarget = {
+	port: string;
+	fqbn: string;
+	baud?: number;
+};
+
+export function pickFlashTarget(
+	ports: FlashPort[],
+	hint?: FlashTargetHint | null,
+): FlashTarget {
+	const connected = hint?.connected === true;
+	const hintPort = hint?.port?.trim() ?? "";
+	const hintFqbn = hint?.fqbn?.trim() ?? "";
+	const matched = connected
+		? (ports.find((item) => hintPort && item.address === hintPort) ??
+			ports.find(
+				(item) =>
+					hintFqbn &&
+					(item.fqbn === hintFqbn || item.fqbn?.startsWith(`${hintFqbn}:`)),
+			))
+		: undefined;
+	const fallback = ports.find((item) => item.fqbn?.trim()) ?? ports[0];
+	if (connected) {
+		return {
+			port: matched?.address || hintPort || fallback?.address || "",
+			fqbn: matched?.fqbn?.trim() || hintFqbn || fallback?.fqbn?.trim() || "",
+			baud: hint?.baud,
+		};
+	}
+	return {
+		port: fallback?.address ?? "",
+		fqbn: fallback?.fqbn?.trim() ?? "",
+	};
+}
+
 export type FlashPut = {
 	fqbn: string;
 	dir: string;

@@ -26,6 +26,8 @@ This is the simplest option on Windows, Linux, macOS, iPhone, and Android.
 
 Desktop may offer WiFi networks saved on that computer. Mobile remembers networks previously sent from the app, but iPhone and Android do not reveal passwords saved by the operating system.
 
+To share this phone's connection, choose **Open hotspot settings** on the mobile WiFi screen. Android opens the system hotspot panel so you can turn it on; then send that hotspot name and password to the board over Bluetooth. iPhone cannot open Personal Hotspot from an app — use **Settings → Personal Hotspot**, then return and send the details.
+
 ## Chrome or Edge
 
 Web Bluetooth works in supported versions of Chrome or Edge on desktop and Android.

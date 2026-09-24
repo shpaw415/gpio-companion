@@ -170,6 +170,9 @@ export const orders = sqliteTable(
 			.default("unfulfilled"),
 		paypalOrderId: text("paypal_order_id"),
 		paypalCaptureId: text("paypal_capture_id"),
+		idempotencyKey: text("idempotency_key"),
+		carrier: text("carrier"),
+		trackingNumber: text("tracking_number"),
 		subtotalCents: integer("subtotal_cents").notNull(),
 		shippingCents: integer("shipping_cents").notNull(),
 		taxCents: integer("tax_cents").notNull().default(0),
@@ -192,6 +195,9 @@ export const orders = sqliteTable(
 		uniqueIndex("orders_order_number_unique").on(table.orderNumber),
 		uniqueIndex("orders_paypal_order_id_unique").on(table.paypalOrderId),
 		uniqueIndex("orders_paypal_capture_id_unique").on(table.paypalCaptureId),
+		uniqueIndex("orders_idempotency_key_unique")
+			.on(table.idempotencyKey)
+			.where(sql`${table.idempotencyKey} is not null`),
 		index("orders_user_created_idx").on(table.userId, table.createdAt),
 		index("orders_status_created_idx").on(table.status, table.createdAt),
 		check(

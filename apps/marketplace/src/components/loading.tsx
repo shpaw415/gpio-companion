@@ -1,8 +1,13 @@
 import { CircularProgress } from "@shpaw415/mui-lite/Progress";
 import Typography from "@shpaw415/mui-lite/Typography";
-import { translate } from "../i18n/index.ts";
+import { detectLocale, LOCALE_STORAGE_KEY, translate } from "../i18n/index.ts";
 
 export default function Loading() {
+	const stored =
+		typeof window === "undefined"
+			? null
+			: window.localStorage.getItem(LOCALE_STORAGE_KEY);
+	const locale = detectLocale({ stored });
 	return (
 		<div
 			className="market-full-state circuit-grid"
@@ -14,10 +19,10 @@ export default function Loading() {
 				<span className="market-loader-led" />
 			</div>
 			<Typography variant="h5" component="p">
-				{translate("en", "state.loading")}
+				{translate(locale, "state.loading")}
 			</Typography>
 			<Typography color="textSecondary">
-				{translate("en", "state.loadingBody")}
+				{translate(locale, "state.loadingBody")}
 			</Typography>
 		</div>
 	);

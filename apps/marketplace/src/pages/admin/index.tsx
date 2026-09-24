@@ -10,27 +10,27 @@ export default function AdminOverviewPage() {
 		{
 			href: "/admin/products",
 			title: t("admin.products"),
-			body: "Draft, publish, archive. Bilingual content, price, SKU, image order.",
+			body: t("admin.productEditor"),
 		},
 		{
 			href: "/admin/inventory",
 			title: t("admin.inventory"),
-			body: "Stock adjustments with reasons and immutable history.",
+			body: t("admin.history"),
 		},
 		{
 			href: "/admin/orders",
 			title: t("admin.orders"),
-			body: "Payment state, processing / shipped transitions, carrier, tracking.",
+			body: t("admin.orderDetail"),
 		},
 		{
 			href: "/admin/shipping",
 			title: t("admin.shipping"),
-			body: "Active USD flat rates by country and optional region.",
+			body: t("admin.flatCents"),
 		},
 		{
 			href: "/admin/policies",
 			title: t("admin.policies"),
-			body: "Bilingual draft editing and explicit publication.",
+			body: t("admin.policyBodies"),
 		},
 	];
 	return (

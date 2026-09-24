@@ -32,6 +32,7 @@ export interface CreateOrderInput {
 		postalCode: string;
 		country: string;
 	};
+	idempotencyKey?: string | null;
 }
 
 export async function createOrder(
@@ -58,6 +59,11 @@ export async function createOrder(
 	) {
 		throw new Error("Order totals do not balance");
 	}
+	const idempotencyKey = input.idempotencyKey?.trim() || null;
+	if (idempotencyKey) {
+		const existing = await getOrderByIdempotencyKey(db, idempotencyKey);
+		if (existing) return { order: existing, items: existing.items, replayed: true as const };
+	}
 	const now = unixNow();
 	const identity = generateOrderIdentity();
 	const order = {
@@ -79,6 +85,7 @@ export async function createOrder(
 		shippingRegion: input.shippingAddress.region?.trim() || null,
 		shippingPostalCode: input.shippingAddress.postalCode.trim(),
 		shippingCountry: input.shippingAddress.country.trim().toUpperCase(),
+		idempotencyKey,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -98,7 +105,41 @@ export async function createOrder(
 		db.insert(orders).values(order),
 		db.insert(orderItems).values(itemRows),
 	]);
-	return { order, items: itemRows };
+	return { order, items: itemRows, replayed: false as const };
+}
+
+export async function getOrderByIdempotencyKey(
+	db: CommerceDatabase,
+	idempotencyKey: string,
+) {
+	const [order] = await db
+		.select()
+		.from(orders)
+		.where(eq(orders.idempotencyKey, idempotencyKey))
+		.limit(1);
+	if (!order) return null;
+	return getOrder(db, order.id);
+}
+
+export async function getOrderByPaypalId(
+	db: CommerceDatabase,
+	paypalOrderId: string,
+) {
+	const [order] = await db
+		.select()
+		.from(orders)
+		.where(eq(orders.paypalOrderId, paypalOrderId))
+		.limit(1);
+	if (!order) return null;
+	return getOrder(db, order.id);
+}
+
+export async function listOrdersForUser(db: CommerceDatabase, userId: string) {
+	return db
+		.select()
+		.from(orders)
+		.where(eq(orders.userId, userId))
+		.orderBy(desc(orders.createdAt), desc(orders.id));
 }
 
 export async function getOrder(db: CommerceDatabase, id: string) {
@@ -132,6 +173,8 @@ export async function updateOrderStates(
 		fulfillmentStatus?: FulfillmentStatus;
 		paypalOrderId?: string | null;
 		paypalCaptureId?: string | null;
+		carrier?: string | null;
+		trackingNumber?: string | null;
 	},
 ) {
 	const now = unixNow();

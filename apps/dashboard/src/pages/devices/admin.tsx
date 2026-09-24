@@ -32,6 +32,7 @@ import { TableRowsSkeleton } from "../../components/skeletons.tsx";
 import T3PairingPanel from "../../components/T3PairingPanel.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
+import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 import { unwrapAction } from "../../lib/action.ts";
@@ -69,7 +70,7 @@ export default function AdminDevicesPage() {
 	const admin = isAdmin(session.data?.role);
 	const [boards, setBoards] = useState<BoardView[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [selected, setSelected] = useState("");
+	const { uuid: selected, setUuid: setSelected } = useBoardSelection();
 	const [query, setQuery] = useState("");
 	const [page, setPage] = useState(0);
 	const [rowsPerPage, setRowsPerPage] = useState<10 | 25 | 50 | 100>(10);

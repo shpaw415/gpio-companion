@@ -40,9 +40,9 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 		loading: devicesLoading,
 		error: devicesError,
 	} = useUserBoards();
-	const { uuid: selectedBoard } = useBoardSelection();
+	const { uuid: selectedBoard, setUuid: selectBoard } = useBoardSelection();
 	const [boards, setBoards] = useState<NearbyBoard[]>([]);
-	const [uuid, setUuid] = useState("");
+	const uuid = selectedBoard;
 	const [boardId, setBoardId] = useState("auto");
 	const offline = useOfflineBleKey(uuid);
 	const [networks, setNetworks] = useState<KnownNetwork[]>([]);
@@ -56,18 +56,6 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 	const [busy, setBusy] = useState(false);
 	const scanRef = useRef(0);
 	const shown = translateError(t, error || devicesError);
-
-	useEffect(() => {
-		setUuid((current) => {
-			if (devices.some((device) => device.uuid === current)) {
-				return current;
-			}
-			if (devices.some((device) => device.uuid === selectedBoard)) {
-				return selectedBoard;
-			}
-			return devices.at(-1)?.uuid ?? "";
-		});
-	}, [devices, selectedBoard]);
 
 	useEffect(() => {
 		let unlisten: (() => void) | undefined;
@@ -213,7 +201,7 @@ export default function Wifi({ onBack }: { onBack: () => void }) {
 					name="uuid"
 					label={t("devices.pairedDevice")}
 					value={uuid}
-					onSelect={(next) => setUuid(next)}
+					onSelect={selectBoard}
 					sx={{ width: "100%" }}
 					disabled={devices.length === 0}
 				>

@@ -29,6 +29,12 @@ import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
 import { usePathname } from "../../hooks/usePathname.tsx";
+import {
+	type BoardAction,
+	type FleetBoard,
+	type SidebarEntry,
+	useWorkbench,
+} from "../../hooks/useWorkbench.tsx";
 import { isAdmin } from "../../lib/auth/role.ts";
 import {
 	deviceTabs,
@@ -36,6 +42,7 @@ import {
 	type SectionTab,
 } from "../../lib/dashboard-mode.ts";
 import { DASHBOARD_BOTTOM_NAV_ID } from "../../lib/t3-url.ts";
+import DockBody from "./DockBody.tsx";
 
 type DeckTranslate = (key: `deck.${string}`) => string;
 type FocusRegion = "primary" | "secondary";
@@ -74,6 +81,30 @@ function selectedHref(pathname: string, links: ContextLink[]): string {
 	);
 }
 
+function publicBoardName(
+	board: FleetBoard,
+	expert: boolean,
+	unnamed: string,
+): string {
+	if (board.label && board.label !== board.uuid) {
+		return board.label;
+	}
+	if (board.model) {
+		return board.model;
+	}
+	return expert ? board.uuid.slice(0, 8) : unnamed;
+}
+
+function focusPane(node: HTMLElement | null) {
+	if (!node) {
+		return;
+	}
+	const target = node.querySelector<HTMLElement>(
+		"a, button, input, select, textarea, [tabindex='0']",
+	);
+	(target ?? node).focus();
+}
+
 function readDockHeight(): number {
 	if (typeof window === "undefined") return DEFAULT_DOCK_HEIGHT;
 	const raw = window.localStorage.getItem(DOCK_STORAGE_KEY);
@@ -99,21 +130,39 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 		vars?: Record<string, string | number>,
 	) => string;
 	const session = useAuthSession();
-	const { uuid: selectedBoardUuid } = useBoardSelection();
+	const { uuid: selectedBoardUuid, setUuid: selectBoard } = useBoardSelection();
 	const mobile = useMobile();
 	const { isDark, toggleMode: toggleTheme } = useColorMode();
 	const { mode, setMode } = useDashboardMode();
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	const [query, setQuery] = useState("");
+	const [activeIndex, setActiveIndex] = useState(0);
 	const [focusRegion, setFocusRegion] = useState<FocusRegion>("primary");
-	const [dockTab, setDockTab] = useState<DockTab>("console");
 	const [dockHeight, setDockHeight] = useState(readDockHeight);
+	const workbench = useWorkbench();
+	const {
+		boards,
+		project,
+		consoleStatus,
+		requestAction,
+		dockOpen,
+		setDockOpen,
+		dockTab,
+		setDockTab,
+		workSidebar,
+		docsSidebar,
+	} = workbench;
 	const primaryRef = useRef<HTMLElement>(null);
 	const secondaryRef = useRef<HTMLElement>(null);
 	const paletteInputRef = useRef<HTMLInputElement>(null);
+	const paletteTriggerRef = useRef<HTMLButtonElement>(null);
+	const mobileDockInit = useRef(false);
 	const dragRef = useRef<{ y: number; height: number } | null>(null);
 	const section = sectionFor(pathname);
+	const selectedBoard = boards.find(
+		(board) => board.uuid === selectedBoardUuid,
+	);
 
 	const rail = [
 		{ href: "/project", label: t("deck.rail.work"), icon: <FolderIcon /> },
@@ -158,11 +207,6 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 			? t("deck.context.fleet")
 			: t("deck.context.work");
 	const activeContext = selectedHref(pathname, contextLinks);
-	const secondaryHint = pathname.startsWith("/profile")
-		? t("deck.secondary.profile")
-		: pathname.startsWith("/devices")
-			? t("deck.secondary.devices")
-			: t("deck.secondary.project");
 	const admin = isAdmin(session.data?.role);
 	const allNavLinks: ContextLink[] = [
 		...workLinks,
@@ -175,30 +219,58 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 		seenHrefs.add(item.href);
 		return true;
 	});
+	const actionsReady = Boolean(selectedBoardUuid && project);
+	function arm(action: BoardAction) {
+		if (!actionsReady) {
+			return;
+		}
+		if (
+			section === "/profile" ||
+			(action === "save" && section !== "/project")
+		) {
+			navigate("/project");
+		}
+		requestAction(action);
+		setPaletteOpen(false);
+		setQuery("");
+	}
 	const boardActions = [
 		{
 			name: tAny("project.run"),
-			hint: t("deck.secondary.project"),
-			run: () => navigate("/project"),
+			hint: actionsReady
+				? t("deck.secondary.project")
+				: t("deck.command.disabled"),
+			disabled: !actionsReady,
+			run: () => arm("run"),
 		},
 		{
 			name: tAny("flash.flash"),
-			hint: t("deck.secondary.project"),
-			run: () => navigate("/project"),
+			hint: actionsReady
+				? t("deck.secondary.project")
+				: t("deck.command.disabled"),
+			disabled: !actionsReady,
+			run: () => arm("flash"),
 		},
 		{
 			name: tAny("verify.verify"),
-			hint: t("deck.secondary.project"),
-			run: () => navigate("/project"),
+			hint: actionsReady
+				? t("deck.secondary.project")
+				: t("deck.command.disabled"),
+			disabled: !actionsReady,
+			run: () => arm("verify"),
 		},
 		{
 			name: tAny("project.saveToGithub"),
-			hint: t("deck.secondary.project"),
-			run: () => navigate("/project"),
+			hint: actionsReady
+				? t("deck.secondary.project")
+				: t("deck.command.disabled"),
+			disabled: !actionsReady,
+			run: () => arm("save"),
 		},
 		{
 			name: tAny("credits.add"),
 			hint: t("deck.secondary.profile"),
+			disabled: false,
 			run: () => navigate("/profile/credits"),
 		},
 	];
@@ -206,6 +278,7 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 		...rail.map((item) => ({
 			name: item.label,
 			hint: t("deck.command.navigate"),
+			disabled: false,
 			run: () => navigate(item.href),
 		})),
 		...paletteNav
@@ -213,22 +286,26 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 			.map((item) => ({
 				name: t(item.labelKey),
 				hint: contextTitle,
+				disabled: false,
 				run: () => navigate(item.href),
 			})),
 		...boardActions,
 		{
 			name: t("deck.command.easy"),
 			hint: t("deck.command.mode"),
+			disabled: false,
 			run: () => setMode("easy"),
 		},
 		{
 			name: t("deck.command.expert"),
 			hint: t("deck.command.mode"),
+			disabled: false,
 			run: () => setMode("expert"),
 		},
 		{
 			name: t("deck.command.theme"),
 			hint: t("deck.command.appearance"),
+			disabled: false,
 			run: toggleTheme,
 		},
 	];
@@ -260,17 +337,18 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 			if (event.key === "Escape") {
 				setPaletteOpen(false);
 				setDrawerOpen(false);
+				paletteTriggerRef.current?.focus();
 				return;
 			}
 			if ((event.metaKey || event.ctrlKey) && event.key === "1") {
 				event.preventDefault();
 				setFocusRegion("primary");
-				primaryRef.current?.focus();
+				focusPane(primaryRef.current);
 			}
 			if ((event.metaKey || event.ctrlKey) && event.key === "2") {
 				event.preventDefault();
 				setFocusRegion("secondary");
-				secondaryRef.current?.focus();
+				focusPane(secondaryRef.current);
 			}
 		};
 		window.addEventListener("keydown", onKeyDown);
@@ -303,17 +381,220 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 	}, [dockHeight]);
 
 	useEffect(() => {
-		if (mode === "easy" && dockTab === "problems") setDockTab("console");
-	}, [dockTab, mode]);
+		if (mode === "easy" && dockTab === "problems") setDockTab("flash");
+	}, [dockTab, mode, setDockTab]);
 
-	function runCommand(command: (typeof commands)[number] | undefined) {
-		if (!command) return;
+	useEffect(() => {
+		if (!mobile || mobileDockInit.current) {
+			return;
+		}
+		mobileDockInit.current = true;
+		setDockOpen(false);
+	}, [mobile, setDockOpen]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset the highlighted command when the filter or dialog changes
+	useEffect(() => {
+		setActiveIndex(0);
+	}, [query, paletteOpen]);
+
+	function runCommand(
+		command: { run: () => void; disabled?: boolean } | undefined,
+	) {
+		if (!command || command.disabled) return;
 		command.run();
 		setPaletteOpen(false);
 		setQuery("");
 	}
 
-	function beginDockDrag(event: ReactPointerEvent<HTMLDivElement>) {
+	function moveCommand(delta: number) {
+		if (!filteredCommands.length) {
+			return;
+		}
+		setActiveIndex((current) => {
+			let next = current;
+			for (let step = 0; step < filteredCommands.length; step += 1) {
+				next =
+					(next + delta + filteredCommands.length) % filteredCommands.length;
+				if (!filteredCommands[next]?.disabled) {
+					return next;
+				}
+			}
+			return current;
+		});
+	}
+
+	function trapPalette(event: React.KeyboardEvent<HTMLDivElement>) {
+		if (event.key === "ArrowDown") {
+			event.preventDefault();
+			moveCommand(1);
+			return;
+		}
+		if (event.key === "ArrowUp") {
+			event.preventDefault();
+			moveCommand(-1);
+			return;
+		}
+		if (event.key !== "Tab") {
+			return;
+		}
+		const items = [
+			...event.currentTarget.querySelectorAll<HTMLElement>(
+				"button, input, a[href]",
+			),
+		].filter((item) => !item.hasAttribute("disabled"));
+		const first = items[0];
+		const last = items[items.length - 1];
+		if (!first || !last) {
+			return;
+		}
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
+	function renderEntry(item: SidebarEntry) {
+		const className = item.active ? "is-active" : undefined;
+		if (item.href && !item.onSelect) {
+			return (
+				<a key={item.id} href={item.href} className={className}>
+					{item.label}
+				</a>
+			);
+		}
+		return (
+			<button
+				key={item.id}
+				type="button"
+				className={className}
+				onClick={() => {
+					item.onSelect?.();
+					setDrawerOpen(false);
+				}}
+			>
+				{item.label}
+			</button>
+		);
+	}
+
+	function renderContext() {
+		if (pathname.startsWith("/profile")) {
+			return contextLinks.map((item) => (
+				<a
+					key={item.href}
+					href={item.href}
+					className={activeContext === item.href ? "is-active" : undefined}
+					aria-current={activeContext === item.href ? "page" : undefined}
+				>
+					{t(item.labelKey)}
+				</a>
+			));
+		}
+		if (pathname.startsWith("/devices")) {
+			return (
+				<>
+					{docsSidebar.length ? (
+						<>
+							<span className="b6-context-label">{t("deck.sidebar.toc")}</span>
+							{docsSidebar.map((item) => renderEntry(item))}
+						</>
+					) : null}
+					<span className="b6-context-label">{t("deck.sidebar.boards")}</span>
+					{boards.length ? (
+						boards.map((board) => (
+							<button
+								key={board.uuid}
+								type="button"
+								className={
+									board.uuid === selectedBoardUuid ? "is-active" : undefined
+								}
+								onClick={() => {
+									selectBoard(board.uuid);
+									setDrawerOpen(false);
+								}}
+							>
+								{publicBoardName(
+									board,
+									mode === "expert",
+									t("deck.status.unnamed"),
+								)}
+							</button>
+						))
+					) : (
+						<span className="b6-context-label">{t("deck.status.noBoard")}</span>
+					)}
+					<span className="b6-context-label">{t("deck.sidebar.pages")}</span>
+					{contextLinks.map((item) => (
+						<a
+							key={item.href}
+							href={item.href}
+							className={
+								activeContext === item.href ? "is-active is-child" : "is-child"
+							}
+							aria-current={activeContext === item.href ? "page" : undefined}
+						>
+							{t(item.labelKey)}
+						</a>
+					))}
+				</>
+			);
+		}
+		const repos = workSidebar.filter((item) => item.id.startsWith("repo:"));
+		const files = workSidebar.filter((item) => item.id.startsWith("file:"));
+		return (
+			<>
+				<span className="b6-context-label">{t("deck.sidebar.repos")}</span>
+				{repos.length ? (
+					repos.map((item) => renderEntry(item))
+				) : (
+					<span className="b6-context-label">
+						{t("deck.sidebar.emptyWork")}
+					</span>
+				)}
+				<span className="b6-context-label">{t("deck.sidebar.files")}</span>
+				{files.map((item) =>
+					item.href ? (
+						<a key={item.id} href={item.href} className="is-child">
+							{item.label}
+						</a>
+					) : (
+						<span key={item.id} className="b6-context-label">
+							{item.label}
+						</span>
+					),
+				)}
+				<a href="/devices/docs">{t("deck.link.learn")}</a>
+			</>
+		);
+	}
+
+	function renderLiveBoard() {
+		const selected = boards.find((board) => board.uuid === selectedBoardUuid);
+		if (!selected) {
+			return <span>{t("deck.secondary.empty")}</span>;
+		}
+		const name = publicBoardName(
+			selected,
+			mode === "expert",
+			t("deck.status.unnamed"),
+		);
+		return (
+			<>
+				<span
+					className={`b6-live-status ${selected.online ? "is-online" : ""}`}
+				>
+					<i />
+					{selected.online ? t("deck.status.online") : t("deck.status.offline")}
+				</span>
+				<strong>{name}</strong>
+			</>
+		);
+	}
+
+	function beginDockDrag(event: ReactPointerEvent<HTMLButtonElement>) {
 		event.preventDefault();
 		dragRef.current = { y: event.clientY, height: dockHeight };
 	}
@@ -334,6 +615,7 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 					<span>{t("deck.brand")}</span>
 				</a>
 				<button
+					ref={paletteTriggerRef}
 					type="button"
 					className="b6-palette-trigger"
 					onClick={() => setPaletteOpen(true)}
@@ -414,20 +696,7 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 							<CloseIcon />
 						</IconButton>
 					</div>
-					<nav aria-label={t("deck.context.label")}>
-						{contextLinks.map((item) => (
-							<a
-								key={item.href}
-								href={item.href}
-								className={
-									activeContext === item.href ? "is-active" : undefined
-								}
-								aria-current={activeContext === item.href ? "page" : undefined}
-							>
-								{t(item.labelKey)}
-							</a>
-						))}
-					</nav>
+					<nav aria-label={t("deck.context.label")}>{renderContext()}</nav>
 					<div className="b6-focus-hint">{t("deck.focus.contextHint")}</div>
 				</aside>
 
@@ -451,77 +720,135 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 							onClick={() => setFocusRegion("secondary")}
 							onKeyDown={() => setFocusRegion("secondary")}
 						>
-							<strong>{t("deck.secondary.title")}</strong>
-							<span>{secondaryHint}</span>
-							<span>
-								{selectedBoardUuid
-									? tAny("deck.status.board", {
-											uuid: selectedBoardUuid.slice(0, 8),
-										})
-									: t("deck.status.noBoard")}
-							</span>
-							<a
-								className="b6-secondary-link"
-								href={section === "/profile" ? "/profile" : "/project"}
-							>
-								{tAny("project.boardTools")}
-							</a>
+							{renderLiveBoard()}
 						</aside>
 					</main>
-					<section
-						className="b6-dock"
-						style={{ height: dockHeight }}
-						aria-label={t("deck.dock.label")}
-					>
-						<div
-							className="b6-dock-resizer"
-							onPointerDown={beginDockDrag}
-							onDoubleClick={() => {
-								setDockHeight(DEFAULT_DOCK_HEIGHT);
-								window.localStorage.setItem(
-									DOCK_STORAGE_KEY,
-									String(DEFAULT_DOCK_HEIGHT),
-								);
-							}}
-							aria-hidden="true"
-						/>
-						<div className="b6-dock-tabs" role="tablist">
-							{DOCK_TABS.filter(
-								([tab]) => mode === "expert" || tab !== "problems",
-							).map(([tab, Icon]) => (
-								<button
-									key={tab}
-									type="button"
-									role="tab"
-									aria-selected={dockTab === tab}
-									className={dockTab === tab ? "is-active" : undefined}
-									onClick={() => setDockTab(tab)}
-								>
-									<Icon />
-									{t(`deck.dock.${tab}`)}
+					{section === "/profile" ? null : (
+						<section
+							className={`b6-dock ${dockOpen ? "" : "is-collapsed"}`}
+							style={{ height: dockOpen ? dockHeight : 36 }}
+							aria-label={t("deck.dock.label")}
+						>
+							<button
+								type="button"
+								role="slider"
+								className="b6-dock-resizer"
+								aria-label={t("deck.dock.resize")}
+								aria-valuemin={64}
+								aria-valuemax={480}
+								aria-valuenow={dockHeight}
+								aria-orientation="vertical"
+								onPointerDown={beginDockDrag}
+								onDoubleClick={() => {
+									setDockHeight(DEFAULT_DOCK_HEIGHT);
+									window.localStorage.setItem(
+										DOCK_STORAGE_KEY,
+										String(DEFAULT_DOCK_HEIGHT),
+									);
+								}}
+								onKeyDown={(event) => {
+									const step =
+										event.key === "ArrowUp"
+											? 24
+											: event.key === "ArrowDown"
+												? -24
+												: 0;
+									if (!step && event.key !== "Home") {
+										return;
+									}
+									event.preventDefault();
+									const next =
+										event.key === "Home"
+											? DEFAULT_DOCK_HEIGHT
+											: Math.min(480, Math.max(64, dockHeight + step));
+									setDockHeight(next);
+									window.localStorage.setItem(DOCK_STORAGE_KEY, String(next));
+								}}
+							/>
+							<div className="b6-dock-tabs" role="tablist">
+								{DOCK_TABS.filter(
+									([tab]) => mode === "expert" || tab !== "problems",
+								).map(([tab, Icon]) => (
+									<button
+										key={tab}
+										type="button"
+										role="tab"
+										aria-selected={dockOpen && dockTab === tab}
+										className={
+											dockOpen && dockTab === tab ? "is-active" : undefined
+										}
+										onClick={() => {
+											setDockTab(tab);
+											setDockOpen(true);
+										}}
+									>
+										<Icon />
+										{t(`deck.dock.${tab}`)}
+									</button>
+								))}
+								<label className="b6-dock-board">
+									<select
+										aria-label={t("deck.dock.connectBoard")}
+										value={
+											boards.some((board) => board.uuid === selectedBoardUuid)
+												? selectedBoardUuid
+												: ""
+										}
+										disabled={boards.length === 0}
+										onChange={(event) => {
+											selectBoard(event.target.value);
+											setDockTab("console");
+											setDockOpen(true);
+										}}
+									>
+										{boards.some(
+											(board) => board.uuid === selectedBoardUuid,
+										) ? null : (
+											<option value="">{t("deck.dock.connectBoard")}</option>
+										)}
+										{boards.map((board) => (
+											<option key={board.uuid} value={board.uuid}>
+												{publicBoardName(
+													board,
+													mode === "expert",
+													t("deck.status.unnamed"),
+												)}
+											</option>
+										))}
+									</select>
+								</label>
+								<button type="button" onClick={() => setDockOpen(!dockOpen)}>
+									{dockOpen ? t("deck.dock.collapse") : t("deck.dock.expand")}
 								</button>
-							))}
-						</div>
-						<div className="b6-dock-content" role="tabpanel">
-							<strong>{t(`deck.dock.${dockTab}`)}</strong>
-							<span>{t(`deck.dock.${dockTab}Hint`)}</span>
-							<span>{t("deck.dock.guidance")}</span>
-							<a
-								href={dockTab === "problems" ? "/devices/debug" : "/project"}
-							>
-								{tAny(
-									dockTab === "problems" ? "debug.title" : "project.boardTools",
-								)}
-							</a>
-						</div>
-					</section>
+							</div>
+							<div className="b6-dock-content" role="tabpanel">
+								{dockOpen ? <DockBody /> : null}
+							</div>
+						</section>
+					)}
 				</div>
 			</div>
 			<footer className="b6-statusbar">
-				<span>{t("deck.status.ready")}</span>
-				<span>{contextTitle}</span>
 				<span>
-					{mode === "easy" ? t("deck.mode.easy") : t("deck.mode.expert")}
+					{selectedBoard
+						? selectedBoard.online
+							? t("deck.status.online")
+							: t("deck.status.offline")
+						: t("deck.status.ready")}
+				</span>
+				<span>
+					{selectedBoard
+						? publicBoardName(
+								selectedBoard,
+								mode === "expert",
+								t("deck.status.unnamed"),
+							)
+						: t("deck.status.noBoard")}
+				</span>
+				<span>
+					{consoleStatus === "live"
+						? t("deck.status.consoleLive")
+						: t("deck.status.consoleDown")}
 				</span>
 				<span className="b6-statusbar-shortcuts">
 					{t("deck.status.shortcuts")}
@@ -565,6 +892,7 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 						role="dialog"
 						aria-modal="true"
 						aria-label={t("deck.command.title")}
+						onKeyDown={trapPalette}
 					>
 						<label className="b6-palette-search">
 							<SearchIcon />
@@ -576,7 +904,7 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 								onKeyDown={(event) => {
 									if (event.key === "Enter") {
 										event.preventDefault();
-										runCommand(filteredCommands[0]);
+										runCommand(filteredCommands[activeIndex]);
 									}
 								}}
 							/>
@@ -588,8 +916,10 @@ export default function DeckShell({ children }: { children: ReactNode }) {
 									<button
 										key={`${command.name}-${command.hint}`}
 										type="button"
-										className={index === 0 ? "is-top" : undefined}
+										disabled={command.disabled}
+										className={index === activeIndex ? "is-active" : undefined}
 										onClick={() => runCommand(command)}
+										onMouseEnter={() => setActiveIndex(index)}
 									>
 										<span>{command.name}</span>
 										<small>{command.hint}</small>

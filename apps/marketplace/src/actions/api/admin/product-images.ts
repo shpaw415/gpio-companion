@@ -48,7 +48,7 @@ function validateImageFile(file: File): string {
 
 export async function GET(productId: string) {
 	const ctx = getContext<Env, never, never>(arguments);
-	requireAdmin(ctx);
+	await requireAdmin(ctx);
 	return listProductImages(commerceDb(ctx), productId);
 }
 
@@ -59,7 +59,7 @@ export async function POST(
 	altFr: string,
 ) {
 	const ctx = getContext<Env, never, never>(arguments);
-	requireAdmin(ctx);
+	await requireAdmin(ctx);
 	if (!altEn.trim() || !altFr.trim()) {
 		throw new Error("Bilingual alt text is required");
 	}
@@ -83,7 +83,7 @@ export async function PATCH(
 	input: { sortOrder: number; altEn: string; altFr: string },
 ) {
 	const ctx = getContext<Env, never, never>(arguments);
-	requireAdmin(ctx);
+	await requireAdmin(ctx);
 	const db = commerceDb(ctx);
 	const current = await getProductImage(db, id);
 	if (!current) return null;
@@ -97,7 +97,7 @@ export async function PATCH(
 
 export async function DELETE(id: string) {
 	const ctx = getContext<Env, never, never>(arguments);
-	requireAdmin(ctx);
+	await requireAdmin(ctx);
 	const db = commerceDb(ctx);
 	const current = await getProductImage(db, id);
 	if (!current) return false;

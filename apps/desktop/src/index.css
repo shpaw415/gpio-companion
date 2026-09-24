@@ -202,10 +202,11 @@ body {
 .b6-stage {
 	grid-area: stage;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(180px, 22%);
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr) 28px;
 	min-height: 0;
-	gap: 1px;
-	background: rgba(var(--text-main), 0.1);
+	gap: 0;
+	background: rgb(var(--bg-main));
 }
 
 .b6-primary,
@@ -236,13 +237,18 @@ body {
 }
 
 .b6-context {
-	padding: 16px;
-	overflow: auto;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	overflow: hidden;
+	padding: 0 10px;
+	border-top: 1px solid rgba(var(--text-main), 0.1);
 }
 
 .b6-context > * {
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 0;
 }
 
 .b6-dock {
@@ -290,6 +296,52 @@ body {
 .b6-dock-tabs button.is-active {
 	border-bottom-color: rgb(var(--bg-primary));
 	color: rgb(var(--text-main));
+}
+
+.b6-dock.is-collapsed {
+	height: 36px !important;
+	min-height: 36px;
+}
+
+.b6-dock.is-collapsed .b6-dock-body,
+.b6-dock.is-collapsed .b6-dock-resizer {
+	display: none;
+}
+
+.b6-dock-board {
+	margin-left: auto;
+}
+
+.b6-dock-board select {
+	max-width: 12rem;
+	height: 26px;
+	border: 1px solid rgba(var(--text-main), 0.16);
+	border-radius: 6px;
+	background: rgb(var(--bg-main));
+	color: rgb(var(--text-main));
+	font: inherit;
+	font-size: 0.72rem;
+}
+
+.b6-dock-body {
+	height: calc(100% - 35px);
+	overflow: auto;
+	padding: 10px;
+}
+
+.b6-console-log {
+	min-height: 100%;
+	margin: 0;
+	color: rgb(var(--text-main));
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 0.75rem;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.b6-console-log.is-empty {
+	color: rgb(var(--text-secondary));
 }
 
 .b6-dock-copy {
@@ -394,7 +446,7 @@ body {
 	}
 
 	.b6-context {
-		min-height: 88px;
+		min-height: 28px;
 		border-top: 1px solid rgba(var(--text-main), 0.1);
 		border-left: 0;
 	}

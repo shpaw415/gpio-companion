@@ -10,7 +10,6 @@ import { useEffect, useState } from "react";
 import LanguageCard from "../../components/LanguageCard.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuth, useAuthSession } from "../../hooks/useAuth.ts";
-import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
 import { formatUsd } from "../../lib/credits.ts";
 import { clearOfflineKeys } from "../../lib/offline-keys.ts";
@@ -18,7 +17,6 @@ import { clearOfflineKeys } from "../../lib/offline-keys.ts";
 export default function ProfilePage() {
 	const auth = useAuth();
 	const session = useAuthSession();
-	const { isEasy, toggleMode } = useDashboardMode();
 	const t = useT();
 	const { run } = useActionError();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
@@ -87,18 +85,6 @@ export default function ProfilePage() {
 									{t("auth.signOut")}
 								</Button>
 							</Stack>
-						</Stack>
-					</Paper>
-					<Paper className="w-full p-3" elevation={1}>
-						<Stack
-							direction="row"
-							spacing={1}
-							className="flex-wrap items-center justify-between"
-						>
-							<Typography variant="subtitle1">{t("mode.title")}</Typography>
-							<Button variant="outlined" size="small" onClick={toggleMode}>
-								{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
-							</Button>
 						</Stack>
 					</Paper>
 					<Paper className="w-full p-3" elevation={1}>

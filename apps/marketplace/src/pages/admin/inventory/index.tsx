@@ -1,5 +1,6 @@
 import { GET, POST, PUT } from "@api/admin/inventory";
 import { GET as listProducts } from "@api/admin/products";
+import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Select from "@shpaw415/mui-lite/Select";
@@ -13,14 +14,19 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
 import AdminSection from "../../../components/AdminSection.tsx";
-import { useT } from "../../../hooks/useLocale.tsx";
+import { useLocale, useT } from "../../../hooks/useLocale.tsx";
+import { formatDate } from "../../../lib/format.ts";
 
-type Adjustment = Awaited<ReturnType<typeof GET>>[number];
+type InventoryPayload = Awaited<ReturnType<typeof GET>>;
+type Adjustment = InventoryPayload["adjustments"][number];
+type Level = InventoryPayload["levels"][number];
 type Product = Awaited<ReturnType<typeof listProducts>>[number];
 
 export default function AdminInventoryPage() {
 	const t = useT();
+	const { locale } = useLocale();
 	const [products, setProducts] = useState<Product[]>([]);
+	const [levels, setLevels] = useState<Level[]>([]);
 	const [history, setHistory] = useState<Adjustment[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -34,12 +40,10 @@ export default function AdminInventoryPage() {
 		setLoading(true);
 		setError(null);
 		try {
-			const [list, adjustments] = await Promise.all([
-				listProducts(),
-				GET(),
-			]);
+			const [list, stock] = await Promise.all([listProducts(), GET()]);
 			setProducts(list);
-			setHistory(adjustments);
+			setLevels(stock.levels);
+			setHistory(stock.adjustments);
 			if (!productId && list[0]) setProductId(list[0].id);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -58,8 +62,9 @@ export default function AdminInventoryPage() {
 		setError(null);
 		try {
 			await action();
-			const adjustments = await GET();
-			setHistory(adjustments);
+			const stock = await GET();
+			setLevels(stock.levels);
+			setHistory(stock.adjustments);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -67,6 +72,7 @@ export default function AdminInventoryPage() {
 		}
 	}
 
+	const level = levels.find((row) => row.productId === productId);
 	const selectedHistory = productId
 		? history.filter((row) => row.productId === productId)
 		: history;
@@ -76,10 +82,12 @@ export default function AdminInventoryPage() {
 			<Typography variant="h4" component="h1">
 				{t("admin.inventory")}
 			</Typography>
-			{error ? (
-				<Paper variant="outlined" style={{ padding: "0.8rem 1.2rem" }}>
-					<Typography color="error">{error}</Typography>
-				</Paper>
+			{error ? <Alert severity="error">{error}</Alert> : null}
+			{level ? (
+				<Typography color="textSecondary">
+					{t("admin.onHand")} {level.onHand} · {t("admin.reserved")} {level.reserved} ·{" "}
+					{t("admin.available")} {Math.max(0, level.onHand - level.reserved)}
+				</Typography>
 			) : null}
 			<Paper variant="outlined" className="market-admin-form">
 				<div className="market-form-row">
@@ -96,7 +104,7 @@ export default function AdminInventoryPage() {
 						))}
 					</Select>
 					<TextField
-						label="On-hand (configure)"
+						label={t("admin.onHand")}
 						placeholder="100"
 						value={onHand}
 						onChange={(event) => setOnHand(event.target.value)}
@@ -117,7 +125,7 @@ export default function AdminInventoryPage() {
 							);
 						}}
 					>
-						Configure stock
+						{t("admin.configureStock")}
 					</Button>
 				</div>
 				<TextField
@@ -178,14 +186,14 @@ export default function AdminInventoryPage() {
 							{selectedHistory.length === 0 ? (
 								<TableRow>
 									<TableCell colSpan={5} style={{ color: "var(--market-muted)" }}>
-										seed: no stock yet
+										{t("admin.emptyHistory")}
 									</TableCell>
 								</TableRow>
 							) : (
 								selectedHistory.map((row) => (
 									<TableRow key={row.id}>
 										<TableCell>
-											{new Date(row.createdAt * 1000).toISOString()}
+											{formatDate(row.createdAt * 1000, locale)}
 										</TableCell>
 										<TableCell>{row.productId}</TableCell>
 										<TableCell>{row.delta}</TableCell>

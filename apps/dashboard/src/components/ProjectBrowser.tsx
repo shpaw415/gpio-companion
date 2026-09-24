@@ -42,6 +42,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useT } from "../hooks/useLocale.tsx";
 import useMobile from "../hooks/useMobile.ts";
+import { useWorkbench } from "../hooks/useWorkbench.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import type { GithubRepo, ProjectBundle } from "../lib/github.ts";
 import BreadboardViewer from "./BreadboardViewer.tsx";
@@ -106,6 +107,11 @@ export default function ProjectBrowser({
 		name: string;
 	} | null>(null);
 	const mobile = useMobile();
+	const { setWorkSidebar, pendingAction, clearPending } = useWorkbench();
+	const openRepoRef = useRef<(repo: GithubRepo) => Promise<void>>(
+		async () => undefined,
+	);
+	const saveRef = useRef<() => Promise<void>>(async () => undefined);
 	const overlay = useMemo(() => {
 		if (!breadboardJson || !verifyResults?.length) {
 			return undefined;
@@ -356,6 +362,38 @@ export default function ProjectBrowser({
 			setLoadingRepo(false);
 		}
 	}
+	openRepoRef.current = openRepo;
+
+	useEffect(() => {
+		if (pendingAction !== "save" || !bundle || !uuid || saving) {
+			return;
+		}
+		clearPending();
+		void saveRef.current();
+	}, [bundle, clearPending, pendingAction, saving, uuid]);
+
+	useEffect(() => {
+		const repoEntries = filtered.slice(0, 8).map((repo) => ({
+			id: `repo:${repo.owner}/${repo.name}`,
+			label: repo.name,
+			hint: repo.owner,
+			active: bundle?.repo === repo.name && bundle.owner === repo.owner,
+			onSelect: () => {
+				void openRepoRef.current(repo);
+			},
+		}));
+		const files = bundle
+			? [...bundle.pcb, ...bundle.breadboard, ...bundle.technical].slice(0, 16)
+			: [];
+		const fileEntries = files.map((file) => ({
+			id: `file:${file.path}`,
+			label: file.name || file.path,
+			hint: "file",
+			href: file.download_url ?? undefined,
+		}));
+		setWorkSidebar([...repoEntries, ...fileEntries]);
+		return () => setWorkSidebar([]);
+	}, [bundle, filtered, setWorkSidebar]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: open last/first repo once the list is ready
 	useEffect(() => {
@@ -497,6 +535,7 @@ export default function ProjectBrowser({
 			setSaving(false);
 		}
 	}
+	saveRef.current = saveFromBoard;
 
 	function launch(task: () => Promise<void>) {
 		setSketchBusy(true);

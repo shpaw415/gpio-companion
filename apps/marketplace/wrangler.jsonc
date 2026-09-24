@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "your-project-name",
+	"name": "gpio-companion-marketplace",
 	"pages_build_output_dir": ".frame-master/build",
 	"compatibility_date": "2026-02-17",
 	"compatibility_flags": [
@@ -8,7 +8,14 @@
 	],
 	"vars": {
 		"BUN_VERSION": "1.4.2",
-		"SKIP_DEPENDENCY_INSTALL": "true"
+		"SKIP_DEPENDENCY_INSTALL": "true",
+		"PUBLIC_AUTH_CLIENT_ID": "__gpio_companion_927ffcf9",
+		"PUBLIC_AUTH_ISSUER": "https://c138e26ec90148fd88735d42f445004c-auth.webcreas.com",
+		"PUBLIC_AUTH_REDIRECT_URI": "https://marketplace.gpio-companion.com/callback",
+		"PAYPAL_ENV": "sandbox",
+		"PUBLIC_PAYPAL_CLIENT_ID": "BAABxmBqK6EERDGyRgTKlhLfu_RX3xOfuSJJj1i4QcrdUgfe4MR_LgAVC59uVJonileGPQJk0RLwkoGPbc"
+		// AUTH_SECRET Pages secret
+		// PAYPAL_CLIENT_SECRET Pages secret
 	},
 	"kv_namespaces": [
 		{

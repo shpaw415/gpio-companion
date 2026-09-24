@@ -10,6 +10,7 @@ import {
 	type BoardSketch,
 	bleFlash,
 	type FlashStatus,
+	loadArduinoProxy,
 	loadFlash,
 	loadFlashPorts,
 	loadFlashSketches,
@@ -25,6 +26,30 @@ import { consoleStatusLabel } from "../lib/i18n-labels";
 import { useT } from "../locale";
 import LiveConsole from "./LiveConsole";
 
+function pickDesktopFlashTarget(
+	ports: Array<{ address: string; fqbn?: string }>,
+	hint?: { connected?: boolean; port?: string; fqbn?: string } | null,
+) {
+	const connected = hint?.connected === true;
+	const hintPort = hint?.port?.trim() ?? "";
+	const hintFqbn = hint?.fqbn?.trim() ?? "";
+	const matched = connected
+		? (ports.find((item) => hintPort && item.address === hintPort) ??
+			ports.find((item) => hintFqbn && item.fqbn === hintFqbn))
+		: undefined;
+	const fallback = ports.find((item) => item.fqbn?.trim()) ?? ports[0];
+	if (connected) {
+		return {
+			port: matched?.address || hintPort || fallback?.address || "",
+			fqbn: matched?.fqbn?.trim() || hintFqbn || fallback?.fqbn?.trim() || "",
+		};
+	}
+	return {
+		port: fallback?.address ?? "",
+		fqbn: fallback?.fqbn?.trim() ?? "",
+	};
+}
+
 export default function FlashPanel({
 	uuid,
 	project,
@@ -37,6 +62,7 @@ export default function FlashPanel({
 	const [error, setError] = useState("");
 	const [status, setStatus] = useState<FlashStatus | null>(null);
 	const [fqbn, setFqbn] = useState("");
+	const [proxyName, setProxyName] = useState("");
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const [sketches, setSketches] = useState<BoardSketch[]>([]);
@@ -83,6 +109,36 @@ export default function FlashPanel({
 			setDir(listed[0]?.dir ?? "");
 		}
 	}, [listed, dir, legacy]);
+
+	useEffect(() => {
+		if (!uuid) {
+			setProxyName("");
+			return;
+		}
+		let cancelled = false;
+		void Promise.all([
+			loadFlashPorts(uuid).catch(() => ({ ports: [] })),
+			loadArduinoProxy(uuid).catch(() => null),
+		]).then(([listedPorts, proxy]) => {
+			if (cancelled) {
+				return;
+			}
+			setProxyName(
+				proxy?.connected ? proxy.name?.trim() || proxy.fqbn?.trim() || "" : "",
+			);
+			const target = pickDesktopFlashTarget(listedPorts.ports, proxy);
+			if (target.fqbn) {
+				setFqbn(target.fqbn);
+			}
+			if (target.port) {
+				setPort(target.port);
+			}
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid]);
+
 	const onFlash = useCallback((next: FlashStatus) => {
 		setStatus(next);
 	}, []);
@@ -107,7 +163,13 @@ export default function FlashPanel({
 			<Typography variant="body2" color="secondary">
 				{t("flash.replacesProxy")}
 			</Typography>
-			<Alert severity="info">{t("flash.selectArduinoFirst")}</Alert>
+			{proxyName ? (
+				<Alert severity="success">
+					{t("flash.firmata", { name: proxyName })}
+				</Alert>
+			) : (
+				<Alert severity="info">{t("flash.selectArduinoFirst")}</Alert>
+			)}
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
@@ -121,12 +183,18 @@ export default function FlashPanel({
 					start(async () => {
 						setStatus(await loadFlash(uuid));
 						const listed = await loadFlashPorts(uuid);
-						const first = listed.ports[0];
-						if (first?.fqbn) {
-							setFqbn(first.fqbn);
+						const proxy = await loadArduinoProxy(uuid).catch(() => null);
+						setProxyName(
+							proxy?.connected
+								? proxy.name?.trim() || proxy.fqbn?.trim() || ""
+								: "",
+						);
+						const target = pickDesktopFlashTarget(listed.ports, proxy);
+						if (target.fqbn) {
+							setFqbn(target.fqbn);
 						}
-						if (first?.address) {
-							setPort(first.address);
+						if (target.port) {
+							setPort(target.port);
 						}
 					});
 				}}

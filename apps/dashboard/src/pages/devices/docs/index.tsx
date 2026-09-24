@@ -24,6 +24,7 @@ import { useAuthSession } from "../../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../../hooks/useBoardSelection.tsx";
 import { useLocale, useT } from "../../../hooks/useLocale.tsx";
 import useMobile from "../../../hooks/useMobile.ts";
+import { useWorkbench } from "../../../hooks/useWorkbench.tsx";
 import { searchDocs } from "../../../lib/doc-search.ts";
 import {
 	DOC_HARDWARE_LABELS,
@@ -428,7 +429,7 @@ export default function DocsPage() {
 function DocReader({ doc }: { doc: DocEntry }) {
 	const t = useT();
 	const copy = docCopy(t, doc);
-	const mobile = useMobile();
+	const { setDocsSidebar } = useWorkbench();
 	const [tocQuery, setTocQuery] = useState("");
 	const sections = useMemo(
 		() => docSections(doc.content).filter((s) => s.level >= 2 && s.level <= 3),
@@ -449,6 +450,22 @@ function DocReader({ doc }: { doc: DocEntry }) {
 					id: section.id,
 					title: section.title,
 				}));
+
+	useEffect(() => {
+		setDocsSidebar(
+			toc.map((item) => ({
+				id: item.id,
+				label: item.title,
+				onSelect: () => {
+					document.getElementById(item.id)?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				},
+			})),
+		);
+		return () => setDocsSidebar([]);
+	}, [setDocsSidebar, toc]);
 
 	const searchInDoc = (
 		<TextField
@@ -483,48 +500,14 @@ function DocReader({ doc }: { doc: DocEntry }) {
 
 			<Box className="w-full max-w-xl">{searchInDoc}</Box>
 
-			{mobile ? (
-				<details className="docs-toc-details">
-					<summary>
-						{docHits.length > 0
-							? t("docs.matchingSections", { n: docHits.length })
-							: t("docs.onThisPage")}
-					</summary>
-					<Box className="mt-2">
-						<TocList items={toc} />
-					</Box>
-				</details>
-			) : null}
-
-			<Box className="grid gap-6 min-[900px]:grid-cols-[240px_minmax(0,1fr)]">
-				<Box className="hidden min-[900px]:block">
-					<Box sx={{ position: "sticky", top: 84 }}>
-						<Box sx={{ maxHeight: "70dvh", overflowY: "auto" }}>
-							<TocList items={toc} />
-						</Box>
-					</Box>
+			<Paper className="w-full p-3" elevation={1}>
+				<DocsMarkdown content={doc.content} />
+				<Box className="mt-6">
+					<Button href="/devices/docs" variant="text">
+						{t("docs.allDocumentation")}
+					</Button>
 				</Box>
-				<Paper className="w-full p-3" elevation={1}>
-					<DocsMarkdown content={doc.content} />
-					<Box className="mt-6">
-						<Button href="/devices/docs" variant="text">
-							{t("docs.allDocumentation")}
-						</Button>
-					</Box>
-				</Paper>
-			</Box>
+			</Paper>
 		</Stack>
-	);
-}
-
-function TocList({ items }: { items: Array<{ id: string; title: string }> }) {
-	return (
-		<ul className="docs-toc">
-			{items.map((item) => (
-				<li key={item.id || item.title}>
-					<a href={item.id ? `#${item.id}` : "#"}>{item.title}</a>
-				</li>
-			))}
-		</ul>
 	);
 }

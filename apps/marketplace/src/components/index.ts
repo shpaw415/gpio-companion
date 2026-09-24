@@ -6,7 +6,6 @@ export {
 export { type AdminTabItem, default as AdminTabs } from "./AdminTabs.tsx";
 export { type AppHeaderProps, default as AppHeader } from "./AppHeader.tsx";
 export { default as BrandMark } from "./BrandMark.tsx";
-export { default as CatalogTable } from "./CatalogTable.tsx";
 export { default as ColorModeButton } from "./ColorModeButton.tsx";
 export { default as EmptyState, type EmptyStateProps } from "./EmptyState.tsx";
 export { default as Footer } from "./Footer.tsx";

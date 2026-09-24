@@ -4,11 +4,17 @@ import {
 	adjustInventory,
 	configureInventory,
 	listInventoryAdjustments,
+	listInventoryLevels,
 } from "../../../lib/commerce/admin-repository.ts";
 
 export async function GET(productId?: string) {
 	const ctx = getContext<Env, never, never>(arguments);
-	return listInventoryAdjustments(commerceDb(ctx), productId || undefined);
+	const db = commerceDb(ctx);
+	const [levels, adjustments] = await Promise.all([
+		listInventoryLevels(db),
+		listInventoryAdjustments(db, productId || undefined),
+	]);
+	return { levels, adjustments };
 }
 
 export async function POST(productId: string, onHand: number) {

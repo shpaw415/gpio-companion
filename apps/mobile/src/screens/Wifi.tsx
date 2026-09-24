@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, Text, View } from "react-native";
 import { NearbyPicker } from "../components/NearbyPicker.tsx";
 import { SavedWifiPicker } from "../components/SavedWifiPicker.tsx";
 import {
@@ -24,6 +24,10 @@ import { looksLikeMac } from "../lib/ble-frame.ts";
 import { loadLocalBleId } from "../lib/ble-ids.ts";
 import { useBoardSelection } from "../lib/board-selection.tsx";
 import { useColors } from "../lib/color-mode.tsx";
+import {
+	HOTSPOT_SETTINGS_FAILED,
+	openAndroidHotspotSettings,
+} from "../lib/hotspot-settings.ts";
 import { translateError, useT } from "../lib/locale.tsx";
 import { openPairedBoard } from "../lib/paired-ble.ts";
 import { useOfflineBleKey } from "../lib/use-offline-ble-key.ts";
@@ -44,7 +48,7 @@ export default function Wifi() {
 	const colors = useColors();
 	const { uuid: selectedUuid, setUuid } = useBoardSelection();
 	const { devices, error: loadError } = useUserBoards();
-	const [uuid, setLocalUuid] = useState(selectedUuid);
+	const uuid = selectedUuid;
 	const [boardId, setBoardId] = useState("");
 	const [boards, setBoards] = useState<NearbyRadio[]>([]);
 	const [networks, setNetworks] = useState<SavedNetwork[]>([]);
@@ -60,15 +64,6 @@ export default function Wifi() {
 	const scanRef = useRef(0);
 	const savedMac = devices.find((board) => board.uuid === uuid)?.bleMac ?? "";
 	const [savedId, setSavedId] = useState("");
-
-	useEffect(() => {
-		setLocalUuid((current) => {
-			if (devices.some((board) => board.uuid === current)) {
-				return current;
-			}
-			return selectedUuid || devices[0]?.uuid || "";
-		});
-	}, [devices, selectedUuid]);
 
 	useEffect(() => {
 		void loadSavedNetworks().then(setNetworks);
@@ -138,6 +133,19 @@ export default function Wifi() {
 		if (found) {
 			setSsid(found.ssid);
 			setPsk(found.psk);
+		}
+	}
+
+	async function openHotspot() {
+		setError("");
+		if (Platform.OS === "ios") {
+			Alert.alert(t("wifi.openHotspot"), t("wifi.hotspotIosHelp"));
+			return;
+		}
+		try {
+			await openAndroidHotspotSettings((action) => Linking.sendIntent(action));
+		} catch {
+			setError(HOTSPOT_SETTINGS_FAILED);
 		}
 	}
 
@@ -214,10 +222,7 @@ export default function Wifi() {
 						return (
 							<Pressable
 								key={board.uuid}
-								onPress={() => {
-									setLocalUuid(board.uuid);
-									setUuid(board.uuid);
-								}}
+								onPress={() => setUuid(board.uuid)}
 								style={{
 									backgroundColor: colors.surface,
 									borderRadius: 12,
@@ -262,6 +267,12 @@ export default function Wifi() {
 				label={t("pair.scanNearby")}
 				disabled={scanning || busy}
 				onPress={() => void scan()}
+			/>
+			<Muted>{t("wifi.hotspotHint")}</Muted>
+			<TextButton
+				label={t("wifi.openHotspot")}
+				disabled={busy}
+				onPress={() => void openHotspot()}
 			/>
 			<SavedWifiPicker
 				networks={networks}

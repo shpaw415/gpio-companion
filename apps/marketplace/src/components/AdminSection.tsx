@@ -1,7 +1,7 @@
 import Button from "@shpaw415/mui-lite/Button";
 import { navigate } from "frame-master-plugin-apply-react/utils";
 import type { ReactNode } from "react";
-import { useAdminDemo } from "../hooks/useAdminDemo.tsx";
+import { useSession } from "../hooks/useSession.tsx";
 import { useT } from "../hooks/useLocale.tsx";
 import AdminGate from "./AdminGate.tsx";
 import AdminTabs from "./AdminTabs.tsx";
@@ -22,7 +22,7 @@ export default function AdminSection({
 	children: ReactNode;
 }) {
 	const t = useT();
-	const admin = useAdminDemo();
+	const { session, ready } = useSession();
 	const items = [
 		{ value: "products", label: t("admin.products") },
 		{ value: "inventory", label: t("admin.inventory") },
@@ -30,26 +30,10 @@ export default function AdminSection({
 		{ value: "shipping", label: t("admin.shipping") },
 		{ value: "policies", label: t("admin.policies") },
 	];
+	if (!ready) return null;
 	return (
 		<div>
-			<AdminGate
-				isAdmin={admin.isAdmin}
-				signInSlot={
-					<div>
-						<p style={{ color: "var(--market-muted)", fontSize: ".85rem" }}>
-							{t("admin.demoNote")}
-						</p>
-						<Button variant="contained" onClick={admin.enable}>
-							{t("admin.demoUnlock")}
-						</Button>
-					</div>
-				}
-			>
-				<div className="bar market-admin-bar">
-					<Button variant="text" size="small" onClick={admin.disable}>
-						{t("admin.demoLock")}
-					</Button>
-				</div>
+			<AdminGate isAdmin={session?.role === "admin"}>
 				{value === "overview" ? null : (
 					<AdminTabs
 						value={value}

@@ -40,39 +40,29 @@ export default function WifiBleForm() {
 	const supported = bluetoothSupported();
 	const [ssid, setSsid] = useState("");
 	const [psk, setPsk] = useState("");
-	const [uuid, setUuid] = useState("");
 	const [devices, setDevices] = useState<StoredPairing[]>([]);
 	const [devicesLoading, setDevicesLoading] = useState(true);
 	const [status, setStatus] = useState<Status>("idle");
 	const [message, setMessage] = useState("");
 	const [pasteText, setPasteText] = useState("");
+	const uuid = selectedUuid;
 	const offline = useOfflineBleKey(uuid);
 
 	useEffect(() => {
 		if (!session.data?.id) {
 			setDevices([]);
-			setUuid("");
 			setDevicesLoading(false);
 			return;
 		}
 		setDevicesLoading(true);
 		void run(getPairing())
 			.then((result) => {
-				const next = result?.devices ?? [];
-				setDevices(next);
-				setUuid((current) => {
-					if (current && next.some((device) => device.uuid === current)) {
-						return current;
-					}
-					return next.some((device) => device.uuid === selectedUuid)
-						? selectedUuid
-						: (next[0]?.uuid ?? "");
-				});
+				setDevices(result?.devices ?? []);
 			})
 			.finally(() => {
 				setDevicesLoading(false);
 			});
-	}, [session.data?.id, run, selectedUuid]);
+	}, [session.data?.id, run]);
 
 	if (!session.data?.id && !session.data?.email) {
 		return (
@@ -210,10 +200,7 @@ export default function WifiBleForm() {
 						<DeviceSelect
 							devices={devices}
 							value={uuid}
-							onChange={(next) => {
-								setUuid(next);
-								selectBoard(next);
-							}}
+							onChange={selectBoard}
 							disabled={busy}
 						/>
 					)}

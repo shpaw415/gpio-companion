@@ -198,8 +198,10 @@ export default function BoardCard({
 					{isEasy ? null : (
 						<CompanionInfo key={device.uuid} uuid={device.uuid} />
 					)}
-					<FlashProxyButton uuid={device.uuid} connected={online} />
-					{isEasy ? null : (
+					{selected ? (
+						<FlashProxyButton uuid={device.uuid} connected={online} />
+					) : null}
+					{isEasy || !selected ? null : (
 						<GpioPanel
 							key={`${device.uuid}-gpio`}
 							uuid={device.uuid}

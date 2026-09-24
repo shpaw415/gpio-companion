@@ -366,6 +366,20 @@ export async function adjustInventory(
 	return adjustment;
 }
 
+export async function listInventoryLevels(db: CommerceDatabase) {
+	return db
+		.select({
+			productId: inventory.productId,
+			sku: products.sku,
+			nameEn: products.nameEn,
+			onHand: inventory.onHand,
+			reserved: inventory.reserved,
+		})
+		.from(inventory)
+		.innerJoin(products, eq(products.id, inventory.productId))
+		.orderBy(asc(products.sku));
+}
+
 export async function listInventoryAdjustments(
 	db: CommerceDatabase,
 	productId?: string,

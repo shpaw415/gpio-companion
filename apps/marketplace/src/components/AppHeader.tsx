@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useCart } from "../hooks/useCart.tsx";
 import { useT } from "../hooks/useLocale.tsx";
+import { useSession } from "../hooks/useSession.tsx";
 import BrandMark from "./BrandMark.tsx";
 import ColorModeButton from "./ColorModeButton.tsx";
 import { CartIcon, CloseIcon, MenuIcon } from "./icons.tsx";
@@ -28,13 +29,16 @@ export default function AppHeader({
 }: AppHeaderProps) {
 	const t = useT();
 	const cart = useCart();
+	const { session } = useSession();
 	const [open, setOpen] = useState(false);
 	const count = cartCount ?? cart.count;
 	const links = [
 		{ href: "/", label: t("nav.home") },
 		{ href: "/kits", label: t("nav.kits") },
-		{ href: "/cart", label: t("nav.cart") },
 		{ href: "/orders", label: t("nav.orders") },
+		...(session?.role === "admin"
+			? [{ href: "/admin", label: t("nav.admin") }]
+			: []),
 	];
 
 	return (
@@ -72,6 +76,11 @@ export default function AppHeader({
 							<CartIcon />
 						</Badge>
 					</a>
+					{session?.id ? null : (
+						<Button href="/login" variant="text" size="small">
+							{t("nav.signIn")}
+						</Button>
+					)}
 					{sessionSlot}
 					{accountSlot}
 					<IconButton
@@ -97,6 +106,10 @@ export default function AppHeader({
 								{link.label}
 							</Button>
 						))}
+						<div className="market-mobile-tools">
+							<LanguageSwitcher />
+							<ColorModeButton />
+						</div>
 					</nav>
 				</Paper>
 			) : null}

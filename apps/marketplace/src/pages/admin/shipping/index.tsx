@@ -1,4 +1,5 @@
-import { DELETE, GET, POST } from "@api/admin/shipping";
+import { DELETE, GET, POST, PUT } from "@api/admin/shipping";
+import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
@@ -12,13 +13,16 @@ import TextField from "@shpaw415/mui-lite/TextField";
 import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
 import AdminSection from "../../../components/AdminSection.tsx";
-import { useT } from "../../../hooks/useLocale.tsx";
+import { useLocale, useT } from "../../../hooks/useLocale.tsx";
+import { formatCents } from "../../../lib/format.ts";
 
 type ShippingRate = Awaited<ReturnType<typeof GET>>[number];
 
 export default function AdminShippingPage() {
 	const t = useT();
+	const { locale } = useLocale();
 	const [rates, setRates] = useState<ShippingRate[]>([]);
+	const [editing, setEditing] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [country, setCountry] = useState("");
@@ -47,11 +51,14 @@ export default function AdminShippingPage() {
 		setBusy(true);
 		setError(null);
 		try {
-			await POST({
+			const input = {
 				country: country.trim(),
 				region: region.trim() || null,
 				flatCents,
-			});
+			};
+			if (editing) await PUT(editing, input);
+			else await POST(input);
+			setEditing(null);
 			setCountry("");
 			setRegion("");
 			setFlat("");
@@ -78,11 +85,7 @@ export default function AdminShippingPage() {
 			<Typography variant="h4" component="h1">
 				{t("admin.shipping")}
 			</Typography>
-			{error ? (
-				<Paper variant="outlined" style={{ padding: "0.8rem 1.2rem" }}>
-					<Typography color="error">{error}</Typography>
-				</Paper>
-			) : null}
+			{error ? <Alert severity="error">{error}</Alert> : null}
 			<Paper variant="outlined" className="market-admin-form">
 				<div className="market-form-row">
 					<TextField
@@ -105,7 +108,7 @@ export default function AdminShippingPage() {
 				/>
 				<div className="bar">
 					<Button variant="contained" disabled={busy} onClick={add}>
-						{t("admin.create")}
+						{editing ? t("admin.saveDraft") : t("admin.create")}
 					</Button>
 				</div>
 			</Paper>
@@ -129,7 +132,7 @@ export default function AdminShippingPage() {
 							{rates.length === 0 ? (
 								<TableRow>
 									<TableCell colSpan={5} style={{ color: "var(--market-muted)" }}>
-										—
+										{t("admin.emptyRates")}
 									</TableCell>
 								</TableRow>
 							) : (
@@ -137,16 +140,28 @@ export default function AdminShippingPage() {
 									<TableRow key={rate.id}>
 										<TableCell>{rate.country}</TableCell>
 										<TableCell>{rate.region ?? "—"}</TableCell>
-										<TableCell>{rate.flatCents}</TableCell>
+										<TableCell>{formatCents(rate.flatCents, "USD", locale)}</TableCell>
 										<TableCell>
 											<Chip
 												size="small"
 												color={rate.active ? "success" : undefined}
 											>
-												{rate.active ? "active" : "inactive"}
+												{rate.active ? t("admin.active") : t("admin.inactive")}
 											</Chip>
 										</TableCell>
 										<TableCell>
+											<Button
+												variant="text"
+												size="small"
+												onClick={() => {
+													setEditing(rate.id);
+													setCountry(rate.country);
+													setRegion(rate.region ?? "");
+													setFlat(String(rate.flatCents));
+												}}
+											>
+												{t("admin.edit")}
+											</Button>
 											<Button
 												variant="text"
 												size="small"

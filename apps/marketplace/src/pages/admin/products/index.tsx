@@ -2,11 +2,14 @@ import { GET, PATCH, POST, PUT } from "@api/admin/products";
 import {
 	DELETE as deleteImage,
 	GET as listImages,
+	PATCH as updateImage,
 	POST as uploadImage,
 } from "@api/admin/product-images";
+import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Select from "@shpaw415/mui-lite/Select";
 import Table, {
 	TableBody,
 	TableCell,
@@ -20,20 +23,26 @@ import AdminSection from "../../../components/AdminSection.tsx";
 import TablePaginationShell, {
 	type RowsPerPage,
 } from "../../../components/TablePaginationShell.tsx";
-import { useT } from "../../../hooks/useLocale.tsx";
+import { useLocale, useT } from "../../../hooks/useLocale.tsx";
+import { validateProductPublication } from "../../../lib/commerce/validation.ts";
+import { formatCents } from "../../../lib/format.ts";
 
 type AdminProduct = Awaited<ReturnType<typeof GET>>[number];
 type ProductImage = Awaited<ReturnType<typeof listImages>>[number];
 
 export default function AdminProductsPage() {
 	const t = useT();
+	const { locale } = useLocale();
 	const [rows, setRows] = useState<AdminProduct[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [selectedId, setSelectedId] = useState("");
 	const [nameEn, setNameEn] = useState("");
 	const [nameFr, setNameFr] = useState("");
+	const [descriptionEn, setDescriptionEn] = useState("");
+	const [descriptionFr, setDescriptionFr] = useState("");
 	const [price, setPrice] = useState("");
+	const [statusFilter, setStatusFilter] = useState("all");
 	const [saving, setSaving] = useState(false);
 	const [images, setImages] = useState<ProductImage[]>([]);
 	const [altEn, setAltEn] = useState("");
@@ -69,6 +78,8 @@ export default function AdminProductsPage() {
 		setSelectedId(item.id);
 		setNameEn(item.nameEn);
 		setNameFr(item.nameFr);
+		setDescriptionEn(item.descriptionEn);
+		setDescriptionFr(item.descriptionFr);
 		setPrice(item.priceCents === null ? "" : String(item.priceCents));
 		setError(null);
 		void loadImages(item.id);
@@ -102,24 +113,51 @@ export default function AdminProductsPage() {
 			sku: selected.sku,
 			nameEn: nameEn.trim(),
 			nameFr: nameFr.trim(),
-			descriptionEn: selected.descriptionEn,
-			descriptionFr: selected.descriptionFr,
+			descriptionEn: descriptionEn.trim(),
+			descriptionFr: descriptionFr.trim(),
 			priceCents,
 		};
 	}
 
-	const visible = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+	const filtered = rows.filter((item) =>
+		statusFilter === "all" ? true : item.status === statusFilter,
+	);
+	const visible = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+	const priceNumber = Number.parseInt(price, 10);
+	const gates = selected
+		? validateProductPublication({
+				slug: selected.slug,
+				sku: selected.sku,
+				nameEn,
+				nameFr,
+				descriptionEn,
+				descriptionFr,
+				priceCents: price.trim() === "" ? null : priceNumber,
+				imageCount: images.length,
+				inventoryConfigured: true,
+			})
+		: [];
 
 	return (
 		<AdminSection value="products">
 			<Typography variant="h4" component="h1">
 				{t("admin.products")}
 			</Typography>
-			{error ? (
-				<Paper variant="outlined" style={{ padding: "0.8rem 1.2rem" }}>
-					<Typography color="error">{error}</Typography>
-				</Paper>
-			) : null}
+			{error ? <Alert severity="error">{error}</Alert> : null}
+			<Select
+				name="product-status"
+				label={t("admin.statusLabel")}
+				value={statusFilter}
+				onSelect={(value) => {
+					setStatusFilter(value);
+					setPage(0);
+				}}
+			>
+				<option value="all">{t("admin.statusAll")}</option>
+				<option value="draft">{t("admin.statusDraft")}</option>
+				<option value="published">{t("admin.statusPublished")}</option>
+				<option value="archived">{t("admin.statusArchived")}</option>
+			</Select>
 			<Paper variant="outlined" className="market-admin-form">
 				<Typography variant="h6" component="h2">
 					{t("admin.productEditor")} — {selected?.sku ?? "—"}
@@ -136,12 +174,31 @@ export default function AdminProductsPage() {
 						onChange={(event) => setNameFr(event.target.value)}
 					/>
 				</div>
+				<TextField
+					label={t("admin.descriptionEn")}
+					multiline
+					value={descriptionEn}
+					onChange={(event) => setDescriptionEn(event.target.value)}
+				/>
+				<TextField
+					label={t("admin.descriptionFr")}
+					multiline
+					value={descriptionFr}
+					onChange={(event) => setDescriptionFr(event.target.value)}
+				/>
 				<div className="market-form-row">
 					<TextField
 						label={t("admin.priceCents")}
 						placeholder="empty — admin must set"
 						value={price}
 						onChange={(event) => setPrice(event.target.value)}
+						helpText={
+							Number.isSafeInteger(priceNumber)
+								? t("admin.usdPreview", {
+										price: formatCents(priceNumber, "USD", locale),
+									})
+								: undefined
+						}
 					/>
 					<TextField
 						label={t("admin.skuSlug")}
@@ -194,8 +251,40 @@ export default function AdminProductsPage() {
 												})
 											}
 										>
-											{t("admin.delete")}
-										</Button>
+										{t("admin.delete")}
+									</Button>
+									<Button
+										variant="text"
+										size="small"
+										onClick={() =>
+											run(async () => {
+												await updateImage(image.id, {
+													sortOrder: Math.max(0, image.sortOrder - 1),
+													altEn: image.altEn,
+													altFr: image.altFr,
+												});
+												await loadImages(selectedId);
+											})
+										}
+									>
+										{t("admin.moveUp")}
+									</Button>
+									<Button
+										variant="text"
+										size="small"
+										onClick={() =>
+											run(async () => {
+												await updateImage(image.id, {
+													sortOrder: image.sortOrder + 1,
+													altEn: image.altEn,
+													altFr: image.altFr,
+												});
+												await loadImages(selectedId);
+											})
+										}
+									>
+										{t("admin.moveDown")}
+									</Button>
 									</TableCell>
 								</TableRow>
 							))}
@@ -275,6 +364,16 @@ export default function AdminProductsPage() {
 						{t("admin.archive")}
 					</Button>
 				</div>
+				<Typography variant="subtitle2">{t("admin.gates")}</Typography>
+				{gates.length === 0 ? (
+					<Typography color="textSecondary">{t("admin.publish")}</Typography>
+				) : (
+					gates.map((gate) => (
+						<Typography key={gate} color="error">
+							{gate}
+						</Typography>
+					))
+				)}
 			</Paper>
 			<Paper variant="outlined" className="market-admin-form">
 				<Typography variant="h6" component="h2">
@@ -292,7 +391,7 @@ export default function AdminProductsPage() {
 				<Typography color="textSecondary">{t("state.loading")}</Typography>
 			) : (
 				<TablePaginationShell
-					count={rows.length}
+					count={filtered.length}
 					page={page}
 					rowsPerPage={rowsPerPage}
 					onPageChange={setPage}
@@ -325,7 +424,9 @@ export default function AdminProductsPage() {
 										</Chip>
 									</TableCell>
 									<TableCell>
-										{item.priceCents === null ? t("catalog.tbd") : item.priceCents}
+										{item.priceCents === null
+											? t("catalog.tbd")
+											: formatCents(item.priceCents, "USD", locale)}
 									</TableCell>
 									<TableCell>
 										<Button
@@ -333,7 +434,7 @@ export default function AdminProductsPage() {
 											size="small"
 											onClick={() => select(item)}
 										>
-											Edit
+											{t("admin.edit")}
 										</Button>
 									</TableCell>
 								</TableRow>
@@ -355,10 +456,13 @@ function CreateProductForm({
 	onCreated: (item: unknown) => void;
 	onError: (message: string | null) => void;
 }) {
+	const t = useT();
 	const [slug, setSlug] = useState("");
 	const [sku, setSku] = useState("");
 	const [nameEn, setNameEn] = useState("");
 	const [nameFr, setNameFr] = useState("");
+	const [descriptionEn, setDescriptionEn] = useState("");
+	const [descriptionFr, setDescriptionFr] = useState("");
 	const [busy, setBusy] = useState(false);
 
 	async function create() {
@@ -370,8 +474,8 @@ function CreateProductForm({
 				sku: sku.trim(),
 				nameEn: nameEn.trim(),
 				nameFr: nameFr.trim(),
-				descriptionEn: nameEn.trim(),
-				descriptionFr: nameFr.trim(),
+				descriptionEn: descriptionEn.trim(),
+				descriptionFr: descriptionFr.trim(),
 				priceCents: null,
 			});
 			setSlug("");
@@ -390,13 +494,13 @@ function CreateProductForm({
 		<div>
 			<div className="market-form-row">
 				<TextField
-					label="slug"
+					label={t("admin.slug")}
 					placeholder="my-kit"
 					value={slug}
 					onChange={(event) => setSlug(event.target.value)}
 				/>
 				<TextField
-					label="SKU"
+					label={t("admin.sku")}
 					placeholder="GPIO-MY-KIT"
 					value={sku}
 					onChange={(event) => setSku(event.target.value)}
@@ -404,19 +508,31 @@ function CreateProductForm({
 			</div>
 			<div className="market-form-row">
 				<TextField
-					label="Name EN"
+					label={t("admin.nameEn")}
 					value={nameEn}
 					onChange={(event) => setNameEn(event.target.value)}
 				/>
 				<TextField
-					label="Name FR"
+					label={t("admin.nameFr")}
 					value={nameFr}
 					onChange={(event) => setNameFr(event.target.value)}
 				/>
 			</div>
+			<TextField
+				label={t("admin.descriptionEn")}
+				multiline
+				value={descriptionEn}
+				onChange={(event) => setDescriptionEn(event.target.value)}
+			/>
+			<TextField
+				label={t("admin.descriptionFr")}
+				multiline
+				value={descriptionFr}
+				onChange={(event) => setDescriptionFr(event.target.value)}
+			/>
 			<div className="bar">
-				<Button variant="contained" disabled={disabled || busy} onClick={create}>
-					Create draft
+					<Button variant="contained" disabled={disabled || busy} onClick={create}>
+					{t("admin.createDraft")}
 				</Button>
 			</div>
 		</div>

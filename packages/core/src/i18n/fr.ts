@@ -87,46 +87,64 @@ export const fr = {
 			fleet: "Aller au Parc",
 			t3: "Ouvrir T3",
 			you: "Aller à Vous",
+			disabled: "Sélectionnez un projet et une carte",
 		},
 		focus: {
 			primary: "Activer l’espace de travail",
 			secondary: "Activer le contexte en direct",
-			contextHint: "Ctrl 1 contexte · Ctrl 2 espace de travail",
+			contextHint: "Ctrl 1 espace · Ctrl 2 direct",
 		},
 		secondary: {
-			title: "Contexte en direct",
-			project:
-				"Les aperçus du projet et les outils de la carte restent connectés dans l’espace de travail.",
-			devices: "Choisissez un outil ou une carte dans le Parc.",
+			title: "Carte en direct",
+			project: "État en direct de la carte sélectionnée.",
+			devices: "Choisissez une carte à inspecter.",
 			profile:
 				"Le compte, les crédits et les clés utilisent les flux sécurisés existants.",
+			pins: "{n} broches en direct",
+			empty: "Sélectionnez une carte pour voir l’état en direct.",
 		},
 		dock: {
 			label: "Dock de la carte",
 			console: "Console",
-			consoleHint:
-				"La sortie série apparaît lorsqu’un projet démarre une session hôte ou USB.",
+			consoleHint: "Sortie série de la carte sélectionnée.",
 			gpio: "GPIO",
-			gpioHint:
-				"Ouvrez les outils de la carte du Projet pour inspecter et tester la carte sélectionnée en sécurité.",
+			gpioHint: "Inspecter et piloter les broches de la carte sélectionnée.",
 			flash: "Flash",
-			flashHint:
-				"Ouvrez les outils de la carte du Projet pour choisir un croquis, un port et une cible.",
+			flashHint: "Flasher un croquis sur la carte sélectionnée.",
 			problems: "Problèmes",
-			problemsHint:
-				"Aucun problème n’est actuellement signalé par cet espace de travail.",
+			problemsHint: "Contrôles du circuit pour le projet ouvert.",
 			guidance:
-				"Ouvrez un projet et sélectionnez une carte associée. Les commandes matérielles restent dans leurs panneaux existants pour éviter les connexions en double.",
+				"Sélectionnez une carte associée. Ce dock est la connexion en direct.",
 			resize: "Redimensionner le dock ; double-cliquez pour réinitialiser",
 			grow: "Agrandir le dock",
 			shrink: "Réduire le dock",
+			collapse: "Réduire le dock",
+			expand: "Ouvrir le dock",
+			needBoard: "Sélectionnez une carte associée pour utiliser ce panneau.",
+			gpioExpert: "Le contrôle des broches est disponible en mode Expert.",
+			connectBoard: "Connecter la carte",
+			consoleEmpty: "Pas encore de sortie série.",
 		},
 		status: {
 			ready: "Prêt",
 			noBoard: "Aucune carte sélectionnée",
 			board: "Carte {uuid}",
+			named: "{name}",
+			unnamed: "Carte",
+			online: "En ligne",
+			offline: "Hors ligne",
+			consoleLive: "Console en direct",
+			consoleDown: "Console inactive",
 			context: "Actuel : {context}",
 			shortcuts: "Ctrl 1 / Ctrl 2 · Ctrl K",
+		},
+		sidebar: {
+			repos: "Projets",
+			files: "Fichiers",
+			boards: "Cartes",
+			pages: "Pages",
+			toc: "Sur cette page",
+			emptyWork: "Ouvrez un projet pour lister ses fichiers.",
 		},
 		mobile: {
 			menu: "Ouvrir la navigation",
@@ -428,6 +446,11 @@ export const fr = {
 			"Choisissez le Pi dans Appareil Bluetooth à proximité, ou laissez Détection auto et tenez-le près. Choisissez un réseau connu pour remplir le SSID et le mot de passe, ou saisissez-les manuellement.",
 		mobileHint:
 			"Choisissez le Pi dans Appareil Bluetooth à proximité, puis envoyez le nom du réseau et le mot de passe. Choisissez un réseau enregistré pour remplir les deux, ou saisissez-les manuellement.",
+		openHotspot: "Ouvrir les réglages du point d’accès",
+		hotspotHint:
+			"Pour utiliser ce téléphone comme point d’accès, ouvrez les réglages, activez-le, puis envoyez ce nom et ce mot de passe.",
+		hotspotIosHelp:
+			"iPhone n’autorise pas les applications à ouvrir le panneau Point d’accès personnel. Ouvrez Réglages → Point d’accès personnel, activez-le, puis revenez ici et envoyez le nom et le mot de passe.",
 		safariAlert:
 			"Safari sur iOS ne peut pas parler au Pi depuis cette page. Signez la commande WiFi ici, puis collez-la comme texte dans LightBlue ou nRF Connect. Une application native gpio-companion remplacera cela plus tard.",
 		pairBefore: "Associez une carte avant de signer une commande WiFi.",
@@ -859,6 +882,7 @@ export const fr = {
 		callbackFailed: "callback échoué",
 		authUnavailable: "auth indisponible",
 		couldNotOpenCredits: "impossible d’ouvrir les crédits",
+		couldNotOpenHotspot: "impossible d’ouvrir les réglages du point d’accès",
 		failedListProject: "échec de la liste du projet",
 		failedCreateProject: "échec de la création du projet",
 		failedDeleteProject: "échec de la suppression du projet",

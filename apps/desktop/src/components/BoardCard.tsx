@@ -1,5 +1,10 @@
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
+import Dialog, {
+	DialogActions,
+	DialogContent,
+	DialogTitle,
+} from "@shpaw415/mui-lite/Dialog";
 import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import TextField from "@shpaw415/mui-lite/TextField";
@@ -59,6 +64,7 @@ export default function BoardCard({
 	const [label, setLabel] = useState(device.label ?? "");
 	const [saving, setSaving] = useState(false);
 	const [open, setOpen] = useState(false);
+	const [confirmUnpair, setConfirmUnpair] = useState(false);
 	const expanded = open;
 
 	async function saveLabel() {
@@ -217,8 +223,10 @@ export default function BoardCard({
 							{isEasy ? null : (
 								<CompanionInfo key={device.uuid} uuid={device.uuid} />
 							)}
-							<FlashProxyButton uuid={device.uuid} connected={online} />
-							{isEasy ? null : (
+							{selected ? (
+								<FlashProxyButton uuid={device.uuid} connected={online} />
+							) : null}
+							{isEasy || !selected ? null : (
 								<GpioPanel
 									key={`${device.uuid}-gpio`}
 									uuid={device.uuid}
@@ -240,16 +248,7 @@ export default function BoardCard({
 										color="error"
 										variant="text"
 										size="small"
-										onClick={() => {
-											if (
-												!window.confirm(
-													`${t("devices.unpairConfirm")}\n\n${t("devices.unpairDetail")}`,
-												)
-											) {
-												return;
-											}
-											onUnpair(device.uuid);
-										}}
+										onClick={() => setConfirmUnpair(true)}
 									>
 										{t("devices.unpair")}
 									</Button>
@@ -259,6 +258,28 @@ export default function BoardCard({
 					</div>
 				) : null}
 			</Stack>
+			<Dialog open={confirmUnpair} onClose={() => setConfirmUnpair(false)}>
+				<DialogTitle>{t("devices.unpairTitle")}</DialogTitle>
+				<DialogContent>
+					<Typography>{t("devices.unpairConfirm")}</Typography>
+					<Typography color="secondary">{t("devices.unpairDetail")}</Typography>
+				</DialogContent>
+				<DialogActions>
+					<Button variant="text" onClick={() => setConfirmUnpair(false)}>
+						{t("devices.close")}
+					</Button>
+					<Button
+						color="error"
+						variant="contained"
+						onClick={() => {
+							setConfirmUnpair(false);
+							onUnpair?.(device.uuid);
+						}}
+					>
+						{t("devices.unpair")}
+					</Button>
+				</DialogActions>
+			</Dialog>
 		</Paper>
 	);
 }

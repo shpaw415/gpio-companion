@@ -9,7 +9,9 @@ import {
 	useState,
 } from "react";
 import logo from "../../../../logo/logo.png";
+import { useUserBoards } from "../hooks/useApiCache";
 import { useBoardSelection } from "../hooks/useBoardSelection";
+import { useConsoleTunnel } from "../hooks/useConsoleTunnel";
 import { useDashboardMode } from "../hooks/useDashboardMode";
 import {
 	type DeviceTabId,
@@ -17,6 +19,7 @@ import {
 	isAllowedDeviceTab,
 } from "../lib/dashboard-mode";
 import { useT } from "../locale";
+import DockBody from "./DockBody";
 
 export type DeckSection = "project" | "devices" | "profile";
 type RailPane = "work" | "fleet" | "t3" | "you";
@@ -40,6 +43,24 @@ function DeckIcon({ name }: { name: RailPane | "menu" | "search" | "theme" }) {
 			<path d={paths[name]} />
 		</svg>
 	);
+}
+
+function boardName(
+	board: {
+		device: { uuid: string; label?: string };
+		status: { model?: string } | null;
+	},
+	expert: boolean,
+	unnamed: string,
+) {
+	const label = board.device.label?.trim();
+	if (label && label !== board.device.uuid) {
+		return label;
+	}
+	if (board.status?.model) {
+		return board.status.model;
+	}
+	return expert ? board.device.uuid.slice(0, 8) : unnamed;
 }
 
 function readDockHeight() {
@@ -68,12 +89,15 @@ export default function DeckShell({
 }) {
 	const t = useT();
 	const { mode, isEasy, toggleMode } = useDashboardMode();
-	const { uuid } = useBoardSelection();
+	const { uuid, setUuid } = useBoardSelection();
+	const { boards } = useUserBoards();
+	const tunnel = useConsoleTunnel(section === "profile" ? "" : uuid);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [paletteOpen, setPaletteOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [focus, setFocus] = useState<FocusRegion>("primary");
 	const [dockTab, setDockTab] = useState<DockTab>("console");
+	const [dockOpen, setDockOpen] = useState(true);
 	const [dockHeight, setDockHeight] = useState(readDockHeight);
 	const [profileSection, setProfileSection] =
 		useState<ProfileSection>("account");
@@ -115,15 +139,24 @@ export default function DeckShell({
 		})),
 		{
 			label: t("project.run"),
-			run: () => navigateRail("work"),
+			run: () => {
+				setDockTab("console");
+				setDockOpen(true);
+			},
 		},
 		{
 			label: t("flash.flash"),
-			run: () => navigateRail("work"),
+			run: () => {
+				setDockTab("flash");
+				setDockOpen(true);
+			},
 		},
 		{
 			label: t("verify.verify"),
-			run: () => navigateRail("work"),
+			run: () => {
+				setDockTab(isEasy ? "flash" : "problems");
+				setDockOpen(true);
+			},
 		},
 		{
 			label: t("project.saveToGithub"),
@@ -172,7 +205,7 @@ export default function DeckShell({
 	}, [admin, deviceTab, mode, onDeviceTab]);
 
 	useEffect(() => {
-		if (isEasy && dockTab === "problems") setDockTab("console");
+		if (isEasy && dockTab === "problems") setDockTab("flash");
 	}, [dockTab, isEasy]);
 
 	const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -201,12 +234,7 @@ export default function DeckShell({
 			: pane === "you"
 				? t("deck.context.you")
 				: t("deck.context.fleet");
-	const contextMessage =
-		section === "project"
-			? t("deck.secondary.project")
-			: section === "profile"
-				? t("deck.secondary.profile")
-				: t("deck.secondary.devices");
+	const selected = boards.find((board) => board.device.uuid === uuid);
 
 	return (
 		<div className="b6-shell">
@@ -365,90 +393,139 @@ export default function DeckShell({
 					aria-label={t("deck.focus.secondary")}
 					onFocus={() => setFocus("secondary")}
 				>
-					<Typography variant="overline">
-						{t("deck.secondary.title")}
+					<Typography variant="caption" color="secondary">
+						{selected
+							? selected.status
+								? t("deck.status.online")
+								: t("deck.status.offline")
+							: t("deck.secondary.empty")}
 					</Typography>
-					<Typography color="secondary" variant="body2">
-						{contextMessage}
+					<Typography variant="body2" noWrap>
+						{selected
+							? boardName(selected, !isEasy, t("deck.status.unnamed"))
+							: ""}
 					</Typography>
-					<Typography color="secondary" variant="body2">
-						{uuid
-							? t("deck.status.board", { uuid: uuid.slice(0, 8) })
-							: t("deck.status.noBoard")}
-					</Typography>
-					<Button
-						size="small"
-						variant="text"
-						onClick={() =>
-							section === "profile"
-								? onNavigate("profile")
-								: onNavigate("project")
-						}
-					>
-						{t("project.boardTools")}
-					</Button>
 				</aside>
 			</main>
 
-			<section className="b6-dock" style={{ height: dockHeight }}>
-				<button
-					type="button"
-					className="b6-dock-resizer"
-					aria-label={t("deck.dock.resize")}
-					onPointerDown={startResize}
-					onDoubleClick={() => {
-						setDockHeight(150);
-						localStorage.setItem("b6-dockH", "150");
-					}}
-				/>
-				<div className="b6-dock-tabs">
-					{(
-						[
-							"console",
-							"gpio",
-							"flash",
-							...(isEasy ? [] : ["problems"]),
-						] as DockTab[]
-					).map((item) => (
-						<button
-							type="button"
-							key={item}
-							className={dockTab === item ? "is-active" : ""}
-							onClick={() => setDockTab(item)}
-						>
-							{t(`deck.dock.${item}`)}
-						</button>
-					))}
-				</div>
-				<div className="b6-dock-copy">
-					<strong>{t(`deck.dock.${dockTab}`)}</strong>
-					<span>{t("deck.dock.guidance")}</span>
-					<Button
-						size="small"
-						variant="text"
-						onClick={() => {
-							if (dockTab === "problems") {
-								onNavigate("devices");
-								onDeviceTab("debug");
-							} else {
-								onNavigate("project");
-							}
+			{section === "profile" ? null : (
+				<section
+					className={`b6-dock ${dockOpen ? "" : "is-collapsed"}`}
+					style={{ height: dockOpen ? dockHeight : 36 }}
+				>
+					<button
+						type="button"
+						role="slider"
+						className="b6-dock-resizer"
+						aria-label={t("deck.dock.resize")}
+						aria-valuemin={64}
+						aria-valuemax={480}
+						aria-valuenow={dockHeight}
+						aria-orientation="vertical"
+						onPointerDown={startResize}
+						onDoubleClick={() => {
+							setDockHeight(150);
+							localStorage.setItem("b6-dockH", "150");
 						}}
-					>
-						{dockTab === "problems"
-							? t("debug.title")
-							: t("project.boardTools")}
-					</Button>
-				</div>
-			</section>
+						onKeyDown={(event) => {
+							const step =
+								event.key === "ArrowUp"
+									? 24
+									: event.key === "ArrowDown"
+										? -24
+										: 0;
+							if (!step && event.key !== "Home") {
+								return;
+							}
+							event.preventDefault();
+							const next =
+								event.key === "Home"
+									? 150
+									: Math.min(480, Math.max(64, dockHeight + step));
+							setDockHeight(next);
+							localStorage.setItem("b6-dockH", String(next));
+						}}
+					/>
+					<div className="b6-dock-tabs">
+						{(
+							[
+								"console",
+								"gpio",
+								"flash",
+								...(isEasy ? [] : ["problems"]),
+							] as DockTab[]
+						).map((item) => (
+							<button
+								type="button"
+								key={item}
+								className={dockOpen && dockTab === item ? "is-active" : ""}
+								onClick={() => {
+									setDockTab(item);
+									setDockOpen(true);
+								}}
+							>
+								{t(`deck.dock.${item}`)}
+							</button>
+						))}
+						<label className="b6-dock-board">
+							<select
+								aria-label={t("deck.dock.connectBoard")}
+								value={
+									boards.some((board) => board.device.uuid === uuid)
+										? uuid
+										: ""
+								}
+								disabled={boards.length === 0}
+								onChange={(event) => {
+									setUuid(event.target.value);
+									setDockTab("console");
+									setDockOpen(true);
+								}}
+							>
+								{boards.some((board) => board.device.uuid === uuid) ? null : (
+									<option value="">{t("deck.dock.connectBoard")}</option>
+								)}
+								{boards.map((board) => (
+									<option key={board.device.uuid} value={board.device.uuid}>
+										{boardName(board, !isEasy, t("deck.status.unnamed"))}
+									</option>
+								))}
+							</select>
+						</label>
+						<button type="button" onClick={() => setDockOpen(!dockOpen)}>
+							{dockOpen ? t("deck.dock.collapse") : t("deck.dock.expand")}
+						</button>
+					</div>
+					<div className="b6-dock-body">
+						{dockOpen ? (
+							<DockBody
+								tab={dockTab}
+								uuid={uuid}
+								log={tunnel.snapshot.host.log}
+								status={tunnel.status}
+							/>
+						) : null}
+					</div>
+				</section>
+			)}
 			<footer className="b6-status">
-				<span>{t("deck.status.ready")}</span>
 				<span>
-					{uuid
-						? t("deck.status.board", { uuid: uuid.slice(0, 8) })
+					{selected
+						? selected.status
+							? t("deck.status.online")
+							: t("deck.status.offline")
+						: t("deck.status.ready")}
+				</span>
+				<span>
+					{selected
+						? boardName(selected, !isEasy, t("deck.status.unnamed"))
 						: t("deck.status.noBoard")}
 				</span>
-				<span>{isEasy ? t("mode.easy") : t("mode.expert")}</span>
+				<span>
+					{tunnel.status === "live"
+						? t("deck.status.consoleLive")
+						: t("deck.status.consoleDown")}
+				</span>
 			</footer>
 
 			{paletteOpen ? (

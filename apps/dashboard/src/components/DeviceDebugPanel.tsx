@@ -17,6 +17,7 @@ import {
 } from "gpio-companion";
 import { translateError } from "gpio-companion/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { useT } from "../hooks/useLocale.tsx";
 import { type ActionResult, unwrapAction } from "../lib/action.ts";
 import BleHealthRunner from "./BleHealthRunner.tsx";
@@ -47,7 +48,7 @@ export default function DeviceDebugPanel({
 	startUpdate: (uuid: string) => Promise<ActionResult<{ started: boolean }>>;
 }) {
 	const t = useT();
-	const [uuid, setUuid] = useState(devices[0]?.uuid ?? "");
+	const { uuid, setUuid } = useBoardSelection();
 	const [connection, setConnection] = useState<Connection>("idle");
 	const [error, setError] = useState("");
 	const [filter, setFilter] = useState<Filter>("all");
@@ -64,12 +65,6 @@ export default function DeviceDebugPanel({
 	const updateLockRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const selected = devices.find((device) => device.uuid === uuid);
 	const maintenance = selected?.maintenance ?? null;
-
-	useEffect(() => {
-		if (!uuid && devices[0]) {
-			setUuid(devices[0].uuid);
-		}
-	}, [devices, uuid]);
 
 	useEffect(() => {
 		return () => {

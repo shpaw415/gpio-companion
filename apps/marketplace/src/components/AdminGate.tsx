@@ -30,7 +30,7 @@ export default function AdminGate({
 				<p>{t("admin.restrictedBody")}</p>
 				{signInSlot ?? (
 					<Button href={loginHref} variant="contained">
-						{t("admin.restrictedTitle")}
+						{t("admin.signIn")}
 					</Button>
 				)}
 			</Alert>

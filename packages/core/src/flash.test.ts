@@ -6,6 +6,7 @@ import {
 	isFlashPath,
 	parseArduinoBoardList,
 	parseFlashPut,
+	pickFlashTarget,
 } from "./flash.ts";
 
 describe("parseFlashPut", () => {
@@ -39,6 +40,43 @@ describe("parseFlashPut", () => {
 
 	test("rejects empty fqbn", () => {
 		expect(() => parseFlashPut({ dir: "/tmp/sketch" })).toThrow("fqbn");
+	});
+});
+
+describe("pickFlashTarget", () => {
+	const ports = [
+		{
+			address: "/dev/ttyUSB0",
+			fqbn: "arduino:avr:uno",
+			name: "Arduino Uno",
+		},
+		{
+			address: "/dev/ttyACM0",
+			fqbn: "arduino:avr:nano",
+			name: "Arduino Nano",
+		},
+	];
+
+	test("uses the connected proxy port and fqbn", () => {
+		expect(
+			pickFlashTarget(ports, {
+				connected: true,
+				port: "/dev/ttyACM0",
+				fqbn: "arduino:avr:nano",
+				baud: 57600,
+			}),
+		).toEqual({
+			port: "/dev/ttyACM0",
+			fqbn: "arduino:avr:nano",
+			baud: 57600,
+		});
+	});
+
+	test("falls back to the first detected port when nothing is connected", () => {
+		expect(pickFlashTarget(ports, { connected: false })).toEqual({
+			port: "/dev/ttyUSB0",
+			fqbn: "arduino:avr:uno",
+		});
 	});
 });
 

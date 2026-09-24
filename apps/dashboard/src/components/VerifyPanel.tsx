@@ -19,6 +19,7 @@ import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
+import { useArmedAction } from "../hooks/useWorkbench.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
 import {
@@ -90,6 +91,13 @@ export default function VerifyPanel({
 	}
 
 	const canStart = Boolean(project);
+
+	useArmedAction("verify", Boolean(uuid) && canStart && !busy, () => {
+		start(async () => {
+			unwrapAction(await startVerify({ uuid, repo: project?.trim() ?? "" }));
+			applyStatus(unwrapAction(await loadVerify(uuid)));
+		});
+	});
 
 	return (
 		<Stack spacing={1}>

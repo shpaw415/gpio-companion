@@ -24,6 +24,7 @@ import { useConsoleTunnel } from "../hooks/useConsoleTunnel.ts";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
+import { useArmedAction, useWorkbench } from "../hooks/useWorkbench.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
 import {
@@ -37,9 +38,11 @@ import LiveConsole from "./LiveConsole.tsx";
 export default function RunPanel({
 	uuid,
 	project,
+	watchConsole = true,
 }: {
 	uuid: string;
 	project?: string;
+	watchConsole?: boolean;
 }) {
 	const t = useT();
 	const [busy, setBusy] = useState(false);
@@ -124,11 +127,27 @@ export default function RunPanel({
 		setStatus(next);
 	}, []);
 	useDeviceHub(uuid, { onRun });
-	const console = useConsoleTunnel(uuid, setError);
+	const console = useConsoleTunnel(watchConsole ? uuid : "", setError);
 
 	const last = status?.last;
 	const log = console.snapshot.host.log || status?.log || last?.log || "";
 	const canStart = Boolean(dir.trim()) && (legacy || Boolean(project));
+	const { setConsoleStatus } = useWorkbench();
+
+	useEffect(() => {
+		if (!watchConsole) {
+			return;
+		}
+		setConsoleStatus(console.status);
+		return () => setConsoleStatus("idle");
+	}, [console.status, setConsoleStatus, watchConsole]);
+
+	useArmedAction("run", Boolean(uuid) && canStart && !busy, () => {
+		start(async () => {
+			unwrapAction(await startRun({ uuid, dir: dir.trim() }));
+			setStatus(unwrapAction(await loadRun(uuid)));
+		});
+	});
 
 	return (
 		<Stack spacing={1}>

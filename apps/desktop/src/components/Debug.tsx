@@ -72,15 +72,14 @@ function pickDebugUuid(
 export default function Debug() {
 	const t = useT();
 	const query = useCachedQuery(CACHE_KEYS.debugBoards, listDebugBoards);
-	const { uuid: preferredUuid } = useBoardSelection();
-	const [uuidState, setUuidState] = useState("");
+	const { uuid: preferredUuid, setUuid } = useBoardSelection();
 	const boards = useMemo(() => {
 		const list = query.data?.devices ?? [];
 		return [...list].sort(
 			(left, right) => Number(Boolean(right.live)) - Number(Boolean(left.live)),
 		);
 	}, [query.data?.devices]);
-	const uuid = pickDebugUuid(boards, uuidState, preferredUuid);
+	const uuid = pickDebugUuid(boards, preferredUuid, preferredUuid);
 	const selected = boards.find((board) => board.uuid === uuid);
 	const [lines, setLines] = useState<LogLine[]>([]);
 	const [error, setError] = useState("");
@@ -148,7 +147,7 @@ export default function Debug() {
 			return;
 		}
 		resetStream();
-		setUuidState(next);
+		setUuid(next);
 	}
 
 	async function copyLive() {

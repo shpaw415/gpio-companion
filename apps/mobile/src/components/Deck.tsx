@@ -23,9 +23,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	type ArduinoProxyStatus,
 	type BoardSketch,
+	type BoardView,
 	type FlashPort,
 	type FlashStatus,
 	type GpioSnapshot,
+	deviceDisplayName,
+	listDeviceStatus,
 	loadArduinoProxy,
 	loadFlash,
 	loadFlashPorts,
@@ -52,6 +55,30 @@ const DOCK_STORAGE_KEY = "b6-dockH";
 const DOCK_COLLAPSED_KEY = "b6-dockCollapsed";
 const PROJECT_STORAGE_KEY = "gpio-companion-selected-project";
 const PROXY_DEFAULT_FQBN = "arduino:avr:uno";
+
+function pickMobileFlashTarget(
+	ports: FlashPort[],
+	hint?: { connected?: boolean; port?: string; fqbn?: string } | null,
+) {
+	const connected = hint?.connected === true;
+	const hintPort = hint?.port?.trim() ?? "";
+	const hintFqbn = hint?.fqbn?.trim() ?? "";
+	const matched = connected
+		? (ports.find((item) => hintPort && item.address === hintPort) ??
+			ports.find((item) => hintFqbn && item.fqbn === hintFqbn))
+		: undefined;
+	const fallback = ports.find((item) => item.fqbn?.trim()) ?? ports[0];
+	if (connected) {
+		return {
+			port: matched?.address || hintPort || fallback?.address || "",
+			fqbn: matched?.fqbn?.trim() || hintFqbn || fallback?.fqbn?.trim() || "",
+		};
+	}
+	return {
+		port: fallback?.address ?? "",
+		fqbn: fallback?.fqbn?.trim() ?? "",
+	};
+}
 const DOCK_MIN = 64;
 const DOCK_MAX = 480;
 const DOCK_DEFAULT = 150;
@@ -304,7 +331,7 @@ export default function Deck({ children }: { children: ReactNode }) {
 				</Text>
 			</View>
 			<View style={{ flex: 1 }}>{children}</View>
-			<DeckDock isEasy={isEasy} />
+			{pathname.includes("profile") ? null : <DeckDock isEasy={isEasy} />}
 			<BottomNav
 				active={
 					pathname.includes("project")
@@ -499,13 +526,15 @@ function CommandRow({
 
 type DockTab = "console" | "gpio" | "flash" | "problems";
 
-function DockStatusRow({ uuid8, status }: { uuid8: string; status: string }) {
+function DockStatusRow({ name, status }: { name: string; status: string }) {
 	const colors = useColorMode().colors;
-	const t = useDeckT();
 	return (
 		<View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-			<Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>
-				{t("deck.boardLine", { uuid: uuid8 })}
+			<Text
+				style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}
+				numberOfLines={1}
+			>
+				{name}
 			</Text>
 			<Text style={{ color: colors.muted, fontSize: 11 }}>{status}</Text>
 		</View>
@@ -516,12 +545,12 @@ function DockConsole({
 	status,
 	hostLog,
 	usbLog,
-	uuid8,
+	name,
 }: {
 	status: "idle" | "connecting" | "live" | "reconnecting";
 	hostLog: string;
 	usbLog: string;
-	uuid8: string;
+	name: string;
 }) {
 	const colors = useColorMode().colors;
 	const tCore = useT();
@@ -535,7 +564,7 @@ function DockConsole({
 	const usbTail = usbLog.length > 800 ? usbLog.slice(-800) : usbLog;
 	return (
 		<View style={{ flex: 1 }}>
-			<DockStatusRow uuid8={uuid8} status={statusLabel} />
+			<DockStatusRow name={name} status={statusLabel} />
 			<ScrollView nestedScrollEnabled style={{ flex: 1, marginTop: 4 }}>
 				{hostTail ? (
 					<Text
@@ -577,13 +606,13 @@ function DockGpio({
 	header,
 	proxy,
 	proxyStatus,
-	uuid8,
+	name,
 }: {
 	status: "idle" | "connecting" | "live" | "reconnecting";
 	header: GpioSnapshot | null;
 	proxy: GpioSnapshot | null;
 	proxyStatus: ArduinoProxyStatus | null;
-	uuid8: string;
+	name: string;
 }) {
 	const colors = useColorMode().colors;
 	const tCore = useT();
@@ -602,7 +631,7 @@ function DockGpio({
 	const showProxy = Boolean(proxyStatus?.connected || proxy);
 	return (
 		<View style={{ flex: 1 }}>
-			<DockStatusRow uuid8={uuid8} status={statusLabel} />
+			<DockStatusRow name={name} status={statusLabel} />
 			{header ? (
 				<GpioSummaryLine
 					snapshot={header}
@@ -659,7 +688,7 @@ function GpioSummaryLine({
 function DockFlash({
 	status,
 	proxyStatus,
-	uuid8,
+	name,
 	projectRepo,
 	sketches,
 	busy,
@@ -669,7 +698,7 @@ function DockFlash({
 }: {
 	status: FlashStatus | null;
 	proxyStatus: ArduinoProxyStatus | null;
-	uuid8: string;
+	name: string;
 	projectRepo: string;
 	sketches: BoardSketch[];
 	busy: boolean;
@@ -694,7 +723,7 @@ function DockFlash({
 				: tCore("flash.thenFlash");
 	return (
 		<View style={{ flex: 1 }}>
-			<DockStatusRow uuid8={uuid8} status={stateLabel} />
+			<DockStatusRow name={name} status={stateLabel} />
 			<ScrollView nestedScrollEnabled style={{ flex: 1, marginTop: 4 }}>
 				<Text style={{ color: colors.text, fontSize: 12, fontWeight: "700" }}>
 					{tCore("flash.proxyTitle")}
@@ -786,7 +815,9 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 	const t = useDeckT();
 	const tCore = useT();
 	const router = useRouter();
-	const { uuid } = useBoardSelection();
+	const { uuid, setUuid } = useBoardSelection();
+	const [pairedBoards, setPairedBoards] = useState<BoardView[]>([]);
+	const [pickerOpen, setPickerOpen] = useState(false);
 	const auth = useAuth();
 	const [height, setHeight] = useState(DOCK_DEFAULT);
 	const [tab, setTab] = useState<DockTab>("console");
@@ -908,9 +939,8 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 		(dir: string) => {
 			const token = auth.token;
 			const selected = uuid.trim();
-			const fqbn =
-				ports.find((port) => port.fqbn?.trim())?.fqbn?.trim() ?? "";
-			if (!token || !selected || !fqbn) {
+			const target = pickMobileFlashTarget(ports, proxyStatus);
+			if (!token || !selected || !target.fqbn) {
 				setFlashError(tCore("flash.selectArduinoFirst"));
 				return;
 			}
@@ -918,9 +948,9 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 			setFlashError("");
 			void startFlash(token, {
 				uuid: selected,
-				fqbn,
+				fqbn: target.fqbn,
 				dir,
-				port: ports[0]?.address || undefined,
+				port: target.port || undefined,
 			})
 				.then(() => undefined)
 				.catch((caught) => {
@@ -930,7 +960,7 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 				})
 				.finally(() => setFlashBusy(false));
 		},
-		[auth.token, uuid, ports, tCore],
+		[auth.token, uuid, ports, proxyStatus, tCore],
 	);
 
 	const flashProxyFirmware = useCallback(() => {
@@ -939,15 +969,14 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 		if (!token || !selected) {
 			return;
 		}
-		const fqbn =
-			ports.find((port) => port.fqbn?.trim())?.fqbn?.trim() ??
-			PROXY_DEFAULT_FQBN;
+		const target = pickMobileFlashTarget(ports, proxyStatus);
+		const fqbn = target.fqbn || PROXY_DEFAULT_FQBN;
 		setProxyBusy(true);
 		setFlashError("");
 		void startFlashProxy(token, {
 			uuid: selected,
 			fqbn,
-			port: ports[0]?.address || undefined,
+			port: target.port || ports[0]?.address || undefined,
 		})
 			.then(() => undefined)
 			.catch((caught) => {
@@ -956,7 +985,7 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 				);
 			})
 			.finally(() => setProxyBusy(false));
-	}, [auth.token, uuid, ports]);
+	}, [auth.token, uuid, ports, proxyStatus]);
 
 	useEffect(() => {
 		void storageGet(DOCK_STORAGE_KEY).then((stored) => {
@@ -976,6 +1005,17 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 	useEffect(() => {
 		if (isEasy && tab === "problems") setTab("console");
 	}, [isEasy, tab]);
+
+	useEffect(() => {
+		if (!auth.token) {
+			setPairedBoards([]);
+			return;
+		}
+		void listDeviceStatus(auth.token).then(
+			(result) => setPairedBoards(result.devices),
+			() => undefined,
+		);
+	}, [auth.token, uuid]);
 
 	const updateHeight = useCallback((next: number) => {
 		const value = Math.max(DOCK_MIN, Math.min(DOCK_MAX, Math.round(next)));
@@ -1032,6 +1072,18 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 		? ["console", "gpio", "flash"]
 		: ["console", "gpio", "flash", "problems"];
 	const helpKey = `deck.${tab}Help` as DeckKey;
+	const currentBoard = pairedBoards.find((board) => board.device.uuid === uuid);
+	const boardLabel = currentBoard
+		? isEasy
+			? deviceDisplayName(currentBoard.device) === currentBoard.device.uuid
+				? tCore("deck.status.unnamed")
+				: deviceDisplayName(currentBoard.device)
+			: deviceDisplayName(currentBoard.device)
+		: uuid.trim()
+			? isEasy
+				? tCore("deck.status.unnamed")
+				: uuid.trim().slice(0, 8)
+			: tCore("deck.status.noBoard");
 
 	return (
 		<View
@@ -1095,6 +1147,19 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 					</Pressable>
 				))}
 				<Pressable
+					onPress={() => setPickerOpen(true)}
+					accessibilityRole="button"
+					accessibilityLabel={tCore("deck.dock.connectBoard")}
+					style={{ justifyContent: "center", paddingHorizontal: 8 }}
+				>
+					<Text
+						numberOfLines={1}
+						style={{ color: colors.primary, fontSize: 12, fontWeight: "700", maxWidth: 110 }}
+					>
+						{boardLabel}
+					</Text>
+				</Pressable>
+				<Pressable
 					onPress={() => setDockCollapsed(!collapsed)}
 					accessibilityRole="button"
 					accessibilityLabel={t(collapsed ? "deck.expandDock" : "deck.collapseDock")}
@@ -1130,7 +1195,7 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 							status={serial.status}
 							hostLog={serial.snapshot.host.log}
 							usbLog={serial.snapshot.usb.log}
-							uuid8={uuid.trim().slice(0, 8)}
+							name={boardLabel}
 						/>
 					) : tab === "gpio" ? (
 						<DockGpio
@@ -1138,13 +1203,13 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 							header={gpioHeader}
 							proxy={gpioProxy}
 							proxyStatus={proxyStatus}
-							uuid8={uuid.trim().slice(0, 8)}
+							name={boardLabel}
 						/>
 					) : (
 						<DockFlash
 							status={flashStatus}
 							proxyStatus={proxyStatus}
-							uuid8={uuid.trim().slice(0, 8)}
+							name={boardLabel}
 							projectRepo={projectRepo}
 							sketches={sketches}
 							busy={flashBusy || proxyBusy || Boolean(flashStatus?.running)}
@@ -1155,6 +1220,47 @@ function DeckDock({ isEasy }: { isEasy: boolean }) {
 					)}
 				</View>
 			) : null}
+			<Modal visible={pickerOpen} transparent animationType="fade">
+				<Pressable
+					style={{
+						flex: 1,
+						justifyContent: "flex-end",
+						backgroundColor: "rgba(0,0,0,0.4)",
+					}}
+					onPress={() => setPickerOpen(false)}
+				>
+					<View
+						style={{
+							backgroundColor: colors.surface,
+							padding: 16,
+							gap: 8,
+						}}
+					>
+						<Text style={{ color: colors.text, fontWeight: "700" }}>
+							{tCore("deck.dock.connectBoard")}
+						</Text>
+						{pairedBoards.map((board) => (
+							<Pressable
+								key={board.device.uuid}
+								onPress={() => {
+									setUuid(board.device.uuid);
+									setTab("console");
+									setDockCollapsed(false);
+									setPickerOpen(false);
+								}}
+								style={{ paddingVertical: 10 }}
+							>
+								<Text style={{ color: colors.text }}>
+									{isEasy &&
+									deviceDisplayName(board.device) === board.device.uuid
+										? tCore("deck.status.unnamed")
+										: deviceDisplayName(board.device)}
+								</Text>
+							</Pressable>
+						))}
+					</View>
+				</Pressable>
+			</Modal>
 		</View>
 	);
 }

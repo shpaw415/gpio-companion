@@ -26,6 +26,8 @@ C’est l’option la plus simple sur Windows, Linux, macOS, iPhone et Android.
 
 L’application de bureau peut proposer les réseaux enregistrés sur l’ordinateur. L’application mobile mémorise les réseaux déjà envoyés, mais iPhone et Android ne donnent pas accès aux mots de passe enregistrés par le système.
 
+Pour partager la connexion de ce téléphone, choisissez **Ouvrir les réglages du point d’accès** sur l’écran WiFi mobile. Android ouvre le panneau système pour que vous l’activiez vous-même, puis envoyez ce nom et ce mot de passe à la carte en Bluetooth. iPhone ne peut pas ouvrir Point d’accès personnel depuis une application : utilisez **Réglages → Point d’accès personnel**, puis revenez envoyer les informations.
+
 ## Chrome ou Edge
 
 Web Bluetooth fonctionne dans les versions compatibles de Chrome ou Edge sur ordinateur et Android.

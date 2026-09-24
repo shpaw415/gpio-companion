@@ -19,6 +19,7 @@ const ERROR_KEYS = {
 	"callback failed": "errors.callbackFailed",
 	"auth unavailable": "errors.authUnavailable",
 	"could not open credits": "errors.couldNotOpenCredits",
+	"could not open hotspot settings": "errors.couldNotOpenHotspot",
 	"failed to list project": "errors.failedListProject",
 	"failed to create project": "errors.failedCreateProject",
 	"failed to delete project": "errors.failedDeleteProject",

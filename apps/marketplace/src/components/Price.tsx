@@ -11,7 +11,7 @@ export type PriceProps = {
 
 export default function Price({
 	amount,
-	currency = "EUR",
+	currency = "USD",
 	compareAt,
 	className,
 }: PriceProps) {

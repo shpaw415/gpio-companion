@@ -379,6 +379,9 @@ export {
 	isFlashPath,
 	parseArduinoBoardList,
 	parseFlashPut,
+	pickFlashTarget,
+	type FlashTarget,
+	type FlashTargetHint,
 } from "./flash.ts";
 export {
 	createGithubAppJwt,

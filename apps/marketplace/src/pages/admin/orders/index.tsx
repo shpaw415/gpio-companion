@@ -1,7 +1,10 @@
 import { GET, PATCH } from "@api/admin/orders";
+import Alert from "@shpaw415/mui-lite/Alert";
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
+import Select from "@shpaw415/mui-lite/Select";
+import TextField from "@shpaw415/mui-lite/TextField";
 import Table, {
 	TableBody,
 	TableCell,
@@ -14,17 +17,23 @@ import AdminSection from "../../../components/AdminSection.tsx";
 import TablePaginationShell, {
 	type RowsPerPage,
 } from "../../../components/TablePaginationShell.tsx";
-import { useT } from "../../../hooks/useLocale.tsx";
+import { useLocale, useT } from "../../../hooks/useLocale.tsx";
+import { formatCents } from "../../../lib/format.ts";
 import type { FulfillmentStatus } from "../../../lib/db/schema.ts";
 
 type AdminOrder = Awaited<ReturnType<typeof GET>>[number];
 
 export default function AdminOrdersPage() {
 	const t = useT();
+	const { locale } = useLocale();
 	const [rows, setRows] = useState<AdminOrder[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [filter, setFilter] = useState("");
+	const [payment, setPayment] = useState("all");
+	const [detailId, setDetailId] = useState("");
+	const [carrier, setCarrier] = useState("");
+	const [tracking, setTracking] = useState("");
 	const [page, setPage] = useState(0);
 	const [rowsPerPage, setRowsPerPage] = useState<RowsPerPage>(10);
 
@@ -57,6 +66,7 @@ export default function AdminOrdersPage() {
 	const q = filter.trim().toLowerCase();
 	const filtered = rows.filter((order) => {
 		if (!q) return true;
+		if (payment !== "all" && order.paymentStatus !== payment) return false;
 		return `${order.id} ${order.orderNumber} ${order.email}`
 			.toLowerCase()
 			.includes(q);
@@ -71,22 +81,31 @@ export default function AdminOrdersPage() {
 			<Typography variant="h4" component="h1">
 				{t("admin.orders")}
 			</Typography>
-			{error ? (
-				<Paper variant="outlined" style={{ padding: "0.8rem 1.2rem" }}>
-					<Typography color="error">{error}</Typography>
-				</Paper>
-			) : null}
-			<div className="bar market-catalog-toolbar">
-				<input
-					className="market-catalog-search"
-					placeholder={t("admin.filterPlaceholder")}
-					aria-label={t("admin.filterPlaceholder")}
+			{error ? <Alert severity="error">{error}</Alert> : null}
+			<div className="market-form-row">
+				<TextField
+					label={t("admin.filterPlaceholder")}
 					value={filter}
 					onChange={(event) => {
 						setFilter(event.target.value);
 						setPage(0);
 					}}
 				/>
+				<Select
+					name="payment-filter"
+					label={t("admin.paymentFilter")}
+					value={payment}
+					onSelect={(value) => {
+						setPayment(value);
+						setPage(0);
+					}}
+				>
+					<option value="all">{t("admin.allStates")}</option>
+					<option value="pending">pending</option>
+					<option value="captured">captured</option>
+					<option value="failed">failed</option>
+					<option value="refunded">refunded</option>
+				</Select>
 			</div>
 			{loading ? (
 				<Typography color="textSecondary">{t("state.loading")}</Typography>
@@ -130,7 +149,7 @@ export default function AdminOrdersPage() {
 										</TableCell>
 										<TableCell>{order.paymentStatus}</TableCell>
 										<TableCell>
-											{(order.totalCents / 100).toFixed(2)} {order.currency}
+											{formatCents(order.totalCents, order.currency, locale)}
 										</TableCell>
 										<TableCell>
 											<Chip size="small">{order.fulfillmentStatus}</Chip>
@@ -142,7 +161,7 @@ export default function AdminOrdersPage() {
 													size="small"
 													onClick={() => transition(order.id, "processing")}
 												>
-													processing →
+													{t("admin.processing")}
 												</Button>
 											) : order.fulfillmentStatus === "processing" ? (
 												<Button
@@ -150,9 +169,20 @@ export default function AdminOrdersPage() {
 													size="small"
 													onClick={() => transition(order.id, "shipped")}
 												>
-													shipped →
+													{t("admin.shipped")}
 												</Button>
 											) : null}
+											<Button
+												variant="text"
+												size="small"
+												onClick={() => {
+													setDetailId(order.id);
+													setCarrier(order.carrier ?? "");
+													setTracking(order.trackingNumber ?? "");
+												}}
+											>
+												{t("admin.orderDetail")}
+											</Button>
 										</TableCell>
 									</TableRow>
 								))
@@ -161,6 +191,35 @@ export default function AdminOrdersPage() {
 					</Table>
 				</TablePaginationShell>
 			)}
+			{detailId ? (
+				<Paper variant="outlined" className="market-admin-form">
+					<Typography variant="h6">{t("admin.orderDetail")}</Typography>
+					<TextField
+						label={t("admin.carrier")}
+						value={carrier}
+						onChange={(event) => setCarrier(event.target.value)}
+					/>
+					<TextField
+						label={t("admin.trackingNumber")}
+						value={tracking}
+						onChange={(event) => setTracking(event.target.value)}
+					/>
+					<Button
+						variant="contained"
+						onClick={() =>
+							void PATCH(detailId, {
+								carrier: carrier.trim() || null,
+								trackingNumber: tracking.trim() || null,
+								...(tracking.trim()
+									? { fulfillmentStatus: "shipped" as const }
+									: {}),
+							}).then(() => reload())
+						}
+					>
+						{t("admin.saveTracking")}
+					</Button>
+				</Paper>
+			) : null}
 		</AdminSection>
 	);
 }

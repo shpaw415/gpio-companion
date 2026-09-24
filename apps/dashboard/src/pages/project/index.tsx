@@ -1,11 +1,6 @@
 import { GET as getDevice } from "@api/device";
 import { GET as getPairing } from "@api/pair";
-import DeviceSelect from "@components/DeviceSelect";
-import FlashPanel from "@components/FlashPanel";
-import GpioPanel from "@components/GpioPanel";
 import ProjectBrowser from "@components/ProjectBrowser";
-import RunPanel from "@components/RunPanel";
-import VerifyPanel from "@components/VerifyPanel";
 import Alert from "@shpaw415/mui-lite/Alert";
 import Box from "@shpaw415/mui-lite/Box";
 import Button from "@shpaw415/mui-lite/Button";
@@ -13,16 +8,15 @@ import Paper from "@shpaw415/mui-lite/Paper";
 import Stack from "@shpaw415/mui-lite/Stack";
 import Stepper, { Step, StepLabel } from "@shpaw415/mui-lite/Stepper";
 import Typography from "@shpaw415/mui-lite/Typography";
-import type { CircuitVerifyItem, GpioTarget } from "gpio-companion";
 import { useEffect, useRef, useState } from "react";
 import type { DeviceStatus } from "../../components/DeviceBoardCard.tsx";
 import { LinesSkeleton } from "../../components/skeletons.tsx";
 import { useActionError } from "../../hooks/useActionError.tsx";
 import { useAuthSession } from "../../hooks/useAuth.ts";
 import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
-import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
+import { useWorkbench } from "../../hooks/useWorkbench.tsx";
 import type { StoredPairing } from "../../lib/pairing-store.ts";
 
 function needsWifi(status: DeviceStatus | null | undefined): boolean {
@@ -34,8 +28,14 @@ export default function ProjectPage() {
 	const session = useAuthSession();
 	const { run } = useActionError();
 	const t = useT();
-	const { isEasy } = useDashboardMode();
 	const mobile = useMobile();
+	const {
+		livePins,
+		arduinoLivePins,
+		verifyResults,
+		setProject,
+		refreshBoards,
+	} = useWorkbench();
 	const steps = [
 		t("project.stepSignIn"),
 		t("project.stepPair"),
@@ -72,13 +72,6 @@ export default function ProjectPage() {
 	);
 	const [githubReady, setGithubReady] = useState(false);
 	const [pairingLoading, setPairingLoading] = useState(true);
-	const [livePins, setLivePins] = useState<Record<number, 0 | 1>>({});
-	const [arduinoLivePins, setArduinoLivePins] = useState<Record<number, 0 | 1>>(
-		{},
-	);
-	const [verifyResults, setVerifyResults] = useState<CircuitVerifyItem[]>([]);
-	const [project, setProject] = useState("");
-	const [boardToolsOpen, setBoardToolsOpen] = useState(false);
 	const selectedUuidRef = useRef(selectedUuid);
 	selectedUuidRef.current = selectedUuid;
 
@@ -118,23 +111,16 @@ export default function ProjectPage() {
 			})
 			.finally(() => {
 				setPairingLoading(false);
+				refreshBoards();
 			});
-	}, [session.data?.id, run, selectBoard]);
+	}, [session.data?.id, run, selectBoard, refreshBoards]);
 
 	const step = !loggedIn ? 0 : !paired ? 1 : !githubReady ? 2 : 3;
 	const next = nextFor[step] ?? undefined;
 	const activeUuid = selectedUuid || devices[0]?.uuid || "";
-	const activeDevice = devices.find((device) => device.uuid === activeUuid);
 	const activeStatus = statuses[activeUuid];
 	const codeReady = Boolean(activeStatus?.t3?.paired && activeStatus);
 	const wifiHint = paired && needsWifi(statuses[activeUuid]);
-	const hasProject = Boolean(project);
-
-	useEffect(() => {
-		if (!hasProject) {
-			setBoardToolsOpen(false);
-		}
-	}, [hasProject]);
 
 	return (
 		<Stack spacing={1.5} className="project-workbench">
@@ -217,78 +203,6 @@ export default function ProjectPage() {
 					boardModel={statuses[activeUuid]?.model}
 				/>
 			</div>
-
-			{paired && hasProject && activeUuid ? (
-				<Paper
-					className="workbench-control-rail min-w-0 overflow-x-hidden p-3"
-					elevation={0}
-				>
-					<Stack spacing={1.5} className="min-w-0">
-						<Stack
-							direction={mobile ? "column" : "row"}
-							spacing={1}
-							className="min-[900px]:items-center min-[900px]:justify-between"
-						>
-							<Typography variant="subtitle1">
-								{t("project.boardTools")}
-							</Typography>
-							<Typography color="secondary" variant="body2">
-								{t("project.selectedBoardContext", {
-									board:
-										activeDevice?.label ||
-										activeStatus?.model ||
-										activeUuid.slice(0, 8),
-								})}
-							</Typography>
-							<Button
-								variant="outlined"
-								size="small"
-								onClick={() => setBoardToolsOpen((open) => !open)}
-								className={mobile ? "w-full" : undefined}
-							>
-								{boardToolsOpen ? t("project.hide") : t("project.show")}
-							</Button>
-						</Stack>
-						{boardToolsOpen ? (
-							<>
-								<Alert severity="warning">{t("project.safetyHint")}</Alert>
-								<DeviceSelect
-									devices={devices}
-									value={activeUuid}
-									onChange={selectBoard}
-								/>
-								{pairingLoading ? (
-									<LinesSkeleton lines={3} />
-								) : isEasy ? null : (
-									<GpioPanel
-										key={activeUuid}
-										uuid={activeUuid}
-										poll
-										connected={Boolean(statuses[activeUuid])}
-										onLivePins={(
-											pins: Record<number, 0 | 1>,
-											target?: GpioTarget,
-										) => {
-											if (target === "arduino-proxy") {
-												setArduinoLivePins(pins);
-											} else {
-												setLivePins(pins);
-											}
-										}}
-									/>
-								)}
-								<FlashPanel uuid={activeUuid} project={project} />
-								<RunPanel uuid={activeUuid} project={project} />
-								<VerifyPanel
-									uuid={activeUuid}
-									project={project}
-									onResults={setVerifyResults}
-								/>
-							</>
-						) : null}
-					</Stack>
-				</Paper>
-			) : null}
 		</Stack>
 	);
 }

@@ -7,7 +7,6 @@ import { translateError } from "gpio-companion-i18n";
 import { useState } from "react";
 import { DASHBOARD_URL, getCredits, openExternal, type Session } from "../api";
 import { CACHE_KEYS, useCachedQuery } from "../hooks/useApiCache";
-import { useDashboardMode } from "../hooks/useDashboardMode";
 import { useT } from "../locale";
 import DebugLog from "./DebugLog";
 import Keys from "./Keys";
@@ -23,7 +22,6 @@ export default function Profile({
 }) {
 	const creditsQuery = useCachedQuery(CACHE_KEYS.credits, getCredits);
 	const credits = creditsQuery.data ?? null;
-	const { isEasy, toggleMode } = useDashboardMode();
 	const t = useT();
 	const [error, setError] = useState("");
 	const loading = creditsQuery.loading;
@@ -58,18 +56,6 @@ export default function Profile({
 						onClick={onSignOut}
 					>
 						{t("auth.signOut")}
-					</Button>
-				</Stack>
-			</Paper>
-			<Paper sx={{ p: 1.5 }} elevation={1}>
-				<Stack
-					direction="row"
-					spacing={1}
-					sx={{ alignItems: "center", justifyContent: "space-between" }}
-				>
-					<Typography variant="subtitle1">{t("mode.title")}</Typography>
-					<Button variant="outlined" size="small" onClick={toggleMode}>
-						{isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
 					</Button>
 				</Stack>
 			</Paper>

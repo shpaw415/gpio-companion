@@ -12,6 +12,7 @@ import {
 import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionError } from "../hooks/useActionError.tsx";
+import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useT } from "../hooks/useLocale.tsx";
 import { unwrapAction } from "../lib/action.ts";
@@ -29,7 +30,6 @@ export type T3StatusSeed = {
 
 export default function T3PairingPanel({
 	devices,
-	uuid,
 	autoStart = false,
 	initialStatus,
 	skipFetch = false,
@@ -42,7 +42,8 @@ export default function T3PairingPanel({
 }) {
 	const { run } = useActionError();
 	const t = useT();
-	const [selected, setSelected] = useState(uuid || devices[0]?.uuid || "");
+	const { uuid: selectedUuid, setUuid } = useBoardSelection();
+	const selected = selectedUuid;
 	const [pairingUrl, setPairingUrl] = useState(initialStatus?.pairingUrl ?? "");
 	const [pairingToken, setPairingToken] = useState(
 		tokenFrom(initialStatus?.pairingUrl, initialStatus?.pairingToken),
@@ -58,19 +59,6 @@ export default function T3PairingPanel({
 		initialStatus?.pairingToken,
 	);
 	const seedReady = Boolean(initialStatus?.paired);
-
-	useEffect(() => {
-		if (uuid) {
-			setSelected(uuid);
-			return;
-		}
-		setSelected((current) => {
-			if (current && devices.some((device) => device.uuid === current)) {
-				return current;
-			}
-			return devices[0]?.uuid ?? "";
-		});
-	}, [uuid, devices]);
 
 	const startPairing = useCallback(
 		async (boardUuid: string) => {
@@ -167,11 +155,11 @@ export default function T3PairingPanel({
 			<Typography variant="body2" color="secondary">
 				{t("t3.pairingHint")}
 			</Typography>
-			{!uuid && devices.length > 1 ? (
+			{devices.length > 1 ? (
 				<DeviceSelect
 					devices={devices}
 					value={selected}
-					onChange={setSelected}
+					onChange={setUuid}
 					label={t("t3.device")}
 					disabled={busy}
 				/>

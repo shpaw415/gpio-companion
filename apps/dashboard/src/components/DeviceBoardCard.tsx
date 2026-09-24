@@ -5,6 +5,7 @@ import Stack from "@shpaw415/mui-lite/Stack";
 import Typography from "@shpaw415/mui-lite/Typography";
 import type { NetworkStatus } from "gpio-companion";
 import { useState } from "react";
+import { useBoardSelection } from "../hooks/useBoardSelection.tsx";
 import { useDashboardMode } from "../hooks/useDashboardMode.tsx";
 import { useT } from "../hooks/useLocale.tsx";
 import type { ActionResult } from "../lib/action.ts";
@@ -57,6 +58,8 @@ export default function DeviceBoardCard({
 	loadInfo?: (uuid: string) => Promise<ActionResult<{ info: unknown }>>;
 }) {
 	const { isEasy } = useDashboardMode();
+	const { uuid: selectedUuid } = useBoardSelection();
+	const live = Boolean(selected) || device.uuid === selectedUuid;
 	const t = useT();
 	const [open, setOpen] = useState(Boolean(t3AutoStart));
 	const expanded = Boolean(t3AutoStart) || open;
@@ -194,25 +197,33 @@ export default function DeviceBoardCard({
 									</>
 								) : null}
 							</Stack>
-							{showCodePair ? (
+							{showCodePair && live ? (
 								<T3PairingPanel
 									devices={[device]}
-									uuid={device.uuid}
+									uuid={selectedUuid || device.uuid}
 									initialStatus={status?.t3}
 									skipFetch={!t3AutoStart}
 									autoStart={t3AutoStart}
 								/>
 							) : null}
-							{!isEasy && loadInfo ? (
+							{!isEasy && loadInfo && live ? (
 								<DeviceCompanionInfo
 									key={device.uuid}
-									uuid={device.uuid}
+									uuid={selectedUuid || device.uuid}
 									loadInfo={loadInfo}
 								/>
 							) : null}
-							<FlashProxyButton uuid={device.uuid} connected={online} />
-							{isEasy ? null : (
-								<GpioPanel uuid={device.uuid} connected={online} />
+							{live ? (
+								<FlashProxyButton
+									uuid={selectedUuid || device.uuid}
+									connected={online}
+								/>
+							) : null}
+							{isEasy || !live ? null : (
+								<GpioPanel
+									uuid={selectedUuid || device.uuid}
+									connected={online}
+								/>
 							)}
 							<Stack direction="row" spacing={1} className="flex-wrap">
 								{isEasy ? (

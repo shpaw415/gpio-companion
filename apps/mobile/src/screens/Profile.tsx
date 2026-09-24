@@ -15,7 +15,6 @@ import { getCredits } from "../lib/api.ts";
 import { CACHE_KEYS, useCachedQuery } from "../lib/api-cache.tsx";
 import { useAuth } from "../lib/auth.tsx";
 import { dashboardUrl } from "../lib/config.ts";
-import { useDashboardMode } from "../lib/dashboard-mode.tsx";
 import { translateError, useT } from "../lib/locale.tsx";
 import Keys from "./Keys.tsx";
 
@@ -29,7 +28,6 @@ export default function Profile() {
 		return getCredits(token);
 	});
 	const credits = creditsQuery.data ?? null;
-	const { isEasy, toggleMode } = useDashboardMode();
 	const t = useT();
 	const [error, setError] = useState("");
 
@@ -51,14 +49,6 @@ export default function Profile() {
 				<TextButton
 					label={t("auth.signOut")}
 					onPress={() => void auth.logout()}
-				/>
-			</Paper>
-			<Paper>
-				<Body>{t("mode.title")}</Body>
-				<Muted>{t("mode.hint")}</Muted>
-				<TextButton
-					label={isEasy ? t("mode.usingEasy") : t("mode.usingExpert")}
-					onPress={toggleMode}
 				/>
 			</Paper>
 			<Keys />

@@ -318,7 +318,7 @@ textarea:focus {
 .market-admin-gate { max-width: 720px; margin: 3rem auto; }
 .market-admin-gate p { margin: 0 0 1rem; }
 .market-admin-tabs { margin-bottom: 1.5rem; border-bottom: 1px solid var(--market-line); }
-.market-table-shell { overflow: hidden; border-color: var(--market-line) !important; border-radius: 20px 6px 20px 6px !important; background: var(--market-surface) !important; }
+.market-table-shell { overflow-x: auto; border-color: var(--market-line) !important; border-radius: 20px 6px 20px 6px !important; background: var(--market-surface) !important; }
 .market-table-shell table { min-width: 680px; }
 
 .market-dense-tabs {
@@ -485,7 +485,7 @@ textarea:focus {
 
 @media (max-width: 860px) {
 	.market-header-inner { width: min(100% - 1rem, 1240px); min-height: 64px !important; gap: 0.5rem; }
-	.market-wordmark small, .market-desktop-nav, .market-header-actions > .market-language-compact, .market-header-actions > button:not(.market-menu-button) { display: none !important; }
+	.market-wordmark small, .market-desktop-nav { display: none !important; }
 	.market-wordmark { margin-right: auto; }
 	.market-menu-button { display: inline-flex !important; }
 	.market-mobile-nav { display: block; padding: 0.65rem 1rem 1rem; background: var(--market-surface) !important; }
@@ -523,6 +523,23 @@ textarea:focus {
 /* mui-lite filled warning Chips inherit text-main (white in dark mode) on an
    orange background, which fails contrast. Warning fill always uses dark ink,
    matching MUI's warning contrastText. */
+.market-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.market-points { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem; margin: 1rem 0 1.5rem; }
+.market-point { padding: 1rem; }
+.market-kit-detail { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 1rem; }
+.market-kit-visual img, .market-kit-visual .kit-illustration { width: 100%; border-radius: 16px; }
+.market-kit-copy { display: flex; flex-direction: column; gap: 0.7rem; padding: 1.2rem; }
+.market-cart-list { display: flex; flex-direction: column; gap: 0.7rem; }
+.market-cart-row { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.9rem 1rem; }
+.market-cookie-banner { position: fixed; z-index: 40; right: 1rem; bottom: 1rem; left: 1rem; max-width: 640px; margin-inline: auto; }
+.market-policy { padding: 1.4rem; display: flex; flex-direction: column; gap: 0.8rem; }
+.market-policy-body { white-space: pre-wrap; }
+.market-auth-card { max-width: 420px; margin: 2rem auto; padding: 1.4rem; display: flex; flex-direction: column; gap: 0.8rem; }
+.market-mobile-tools { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
+@media (max-width: 860px) {
+	.market-kit-detail, .market-cart-row { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; }
+}
+
 .MUI_Chip_Root._warning._filled {
 	color: #201500;
 }

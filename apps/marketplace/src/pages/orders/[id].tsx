@@ -1,62 +1,72 @@
-"use dynamic";
-
 import Button from "@shpaw415/mui-lite/Button";
 import Chip from "@shpaw415/mui-lite/Chip";
 import Paper from "@shpaw415/mui-lite/Paper";
-import Table, {
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-} from "@shpaw415/mui-lite/Table";
+import Skeleton from "@shpaw415/mui-lite/Skeleton";
+import Table, { TableBody, TableCell, TableHead, TableRow } from "@shpaw415/mui-lite/Table";
 import Typography from "@shpaw415/mui-lite/Typography";
-import EmptyState from "../../components/EmptyState.tsx";
-import { useT } from "../../hooks/useLocale.tsx";
+import { ThrowNotFound } from "frame-master-plugin-apply-react/utils";
+import { useEffect, useState } from "react";
+import { GET } from "../../actions/api/order.ts";
+import { useLocale, useT } from "../../hooks/useLocale.tsx";
 import { usePath } from "../../hooks/usePath.ts";
+import { formatCents } from "../../lib/format.ts";
 
-function orderIdFromPath(pathname: string): string {
+function idFromPath(pathname: string): string {
 	const segments = pathname.split("/").filter(Boolean);
 	return segments[segments.length - 1] ?? "";
 }
 
 export default function OrderDetailPage() {
 	const t = useT();
-	const pathname = usePath() ?? "";
-	const id = orderIdFromPath(pathname);
+	const { locale } = useLocale();
+	const id = idFromPath(usePath() ?? "");
+	const [order, setOrder] = useState<Awaited<ReturnType<typeof GET>> | undefined>(undefined);
 
-	if (!id) {
-		return (
-			<EmptyState
-				title={t("orders.emptyTitle")}
-				description={t("orders.emptyBody")}
-				actionLabel={t("orders.backToOrders")}
-				actionHref="/orders"
-			/>
-		);
+	useEffect(() => {
+		if (!id) return;
+		GET(id)
+			.then(setOrder)
+			.catch(() => setOrder(null));
+	}, [id]);
+
+	if (order === undefined) return <Skeleton variant="rounded" height={240} />;
+	if (!order || Array.isArray(order)) {
+		ThrowNotFound();
+		return null;
 	}
-
 	return (
 		<div>
 			<Typography variant="h4" component="h1">
-				{t("orders.detailTitle", { id })}
+				{t("orders.detailTitle", { id: order.orderNumber })}
 			</Typography>
 			<Typography color="textSecondary">{t("orders.detailNote")}</Typography>
 			<Paper variant="outlined" className="market-totals">
 				<div className="row">
 					<span>{t("orders.payment")}</span>
-					<Chip size="small">—</Chip>
+					<Chip size="small">{order.paymentStatus}</Chip>
 				</div>
 				<div className="row">
 					<span>{t("orders.fulfillment")}</span>
-					<Chip size="small">—</Chip>
+					<Chip size="small">{order.fulfillmentStatus}</Chip>
+				</div>
+				<div className="row">
+					<span>{t("orders.carrier")}</span>
+					<span>{order.carrier ?? t("catalog.tbd")}</span>
 				</div>
 				<div className="row">
 					<span>{t("orders.tracking")}</span>
-					<span>—</span>
+					<span>{order.trackingNumber ?? t("catalog.tbd")}</span>
+				</div>
+				<div className="row">
+					<span>{t("orders.address")}</span>
+					<span>
+						{order.shippingName}, {order.shippingLine1}, {order.shippingCity}{" "}
+						{order.shippingPostalCode} {order.shippingCountry}
+					</span>
 				</div>
 				<div className="row grand">
 					<span>{t("orders.total")}</span>
-					<span>—</span>
+					<span>{formatCents(order.totalCents, order.currency, locale)}</span>
 				</div>
 			</Paper>
 			<Paper variant="outlined" className="market-table-shell">
@@ -69,19 +79,19 @@ export default function OrderDetailPage() {
 						</TableRow>
 					</TableHead>
 					<TableBody>
-						<TableRow>
-							<TableCell colSpan={3} style={{ color: "var(--market-muted)" }}>
-								{t("orders.detailNote")}
-							</TableCell>
-						</TableRow>
+						{order.items.map((item) => (
+							<TableRow key={item.id}>
+								<TableCell>{locale === "fr" ? item.nameFr : item.nameEn}</TableCell>
+								<TableCell>{item.quantity}</TableCell>
+								<TableCell>{formatCents(item.lineTotalCents, "USD", locale)}</TableCell>
+							</TableRow>
+						))}
 					</TableBody>
 				</Table>
 			</Paper>
-			<div className="bar">
-				<Button variant="text" href="/orders">
-					{t("orders.backToOrders")}
-				</Button>
-			</div>
+			<Button href="/orders" variant="text">
+				{t("orders.backToOrders")}
+			</Button>
 		</div>
 	);
 }

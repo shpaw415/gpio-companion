@@ -1,3 +1,4 @@
+import { GET as loadArduinoProxy } from "@api/arduino-proxy";
 import { POST as startUsbConsole } from "@api/console";
 import { POST as signFlash } from "@api/device/flash";
 import { GET as loadFlash, POST as startFlash } from "@api/flash";
@@ -21,6 +22,7 @@ import {
 	type FlashPort,
 	type FlashStatus,
 	parseFlashPut,
+	pickFlashTarget,
 } from "gpio-companion";
 import { translateError } from "gpio-companion/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -28,6 +30,7 @@ import { useConsoleTunnel } from "../hooks/useConsoleTunnel.ts";
 import { useDeviceHub } from "../hooks/useDeviceHub.ts";
 import { useT } from "../hooks/useLocale.tsx";
 import { useOfflineBleKey } from "../hooks/useOfflineBleKey.ts";
+import { useArmedAction, useWorkbench } from "../hooks/useWorkbench.tsx";
 import { unwrapAction } from "../lib/action.ts";
 import { withOfflineSign } from "../lib/offline-ble.ts";
 import {
@@ -54,6 +57,7 @@ export default function FlashPanel({
 	const [dir, setDir] = useState("");
 	const [port, setPort] = useState("");
 	const [baud, setBaud] = useState(String(CONSOLE_DEFAULT_BAUD));
+	const [proxyName, setProxyName] = useState("");
 	const [sketches, setSketches] = useState<BoardSketch[]>([]);
 	const [legacy, setLegacy] = useState(false);
 	const [pasteText, setPasteText] = useState("");
@@ -100,6 +104,47 @@ export default function FlashPanel({
 		}
 	}, [listed, dir, legacy]);
 
+	useEffect(() => {
+		if (!uuid) {
+			setPorts([]);
+			setProxyName("");
+			return;
+		}
+		let cancelled = false;
+		void Promise.all([
+			loadFlashPorts(uuid)
+				.then((result) => unwrapAction(result).ports)
+				.catch(() => [] as FlashPort[]),
+			loadArduinoProxy(uuid)
+				.then((result) => unwrapAction(result))
+				.catch(() => null),
+		]).then(([listedPorts, proxy]) => {
+			if (cancelled) {
+				return;
+			}
+			setPorts(listedPorts);
+			setProxyName(
+				proxy?.connected ? proxy.name?.trim() || proxy.fqbn?.trim() || "" : "",
+			);
+			const target = pickFlashTarget(listedPorts, proxy);
+			if (target.fqbn) {
+				setFqbn(target.fqbn);
+			}
+			if (target.port) {
+				setPort(target.port);
+			}
+			if (
+				target.baud &&
+				(CONSOLE_BAUDS as readonly number[]).includes(target.baud)
+			) {
+				setBaud(String(target.baud));
+			}
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid]);
+
 	function start(task: () => Promise<void>) {
 		setBusy(true);
 		setError("");
@@ -128,6 +173,26 @@ export default function FlashPanel({
 	const last = status?.last;
 	const canFlash =
 		Boolean(fqbn.trim()) && Boolean(dir.trim()) && (legacy || Boolean(project));
+	const { setConsoleStatus } = useWorkbench();
+
+	useEffect(() => {
+		setConsoleStatus(serial.status);
+		return () => setConsoleStatus("idle");
+	}, [serial.status, setConsoleStatus]);
+
+	useArmedAction("flash", Boolean(uuid) && canFlash && !busy, () => {
+		start(async () => {
+			unwrapAction(
+				await startFlash({
+					uuid,
+					fqbn: fqbn.trim(),
+					dir: dir.trim(),
+					port: port.trim() || undefined,
+				}),
+			);
+			setStatus(unwrapAction(await loadFlash(uuid)));
+		});
+	});
 
 	return (
 		<Stack spacing={1}>
@@ -135,7 +200,13 @@ export default function FlashPanel({
 			<Typography variant="body2" color="secondary">
 				{t("flash.replacesProxy")}
 			</Typography>
-			<Alert severity="info">{t("flash.selectArduinoFirst")}</Alert>
+			{proxyName ? (
+				<Alert severity="success">
+					{t("flash.firmata", { name: proxyName })}
+				</Alert>
+			) : (
+				<Alert severity="info">{t("flash.selectArduinoFirst")}</Alert>
+			)}
 			{uuid ? (
 				<Typography variant="body2" color="secondary">
 					{offline.label}
@@ -152,12 +223,20 @@ export default function FlashPanel({
 							setStatus(unwrapAction(await loadFlash(uuid)));
 							const listed = unwrapAction(await loadFlashPorts(uuid));
 							setPorts(listed.ports);
-							const first = listed.ports[0];
-							if (first?.fqbn) {
-								setFqbn(first.fqbn);
+							const proxy = await loadArduinoProxy(uuid)
+								.then((result) => unwrapAction(result))
+								.catch(() => null);
+							setProxyName(
+								proxy?.connected
+									? proxy.name?.trim() || proxy.fqbn?.trim() || ""
+									: "",
+							);
+							const target = pickFlashTarget(listed.ports, proxy);
+							if (target.fqbn) {
+								setFqbn(target.fqbn);
 							}
-							if (first?.address) {
-								setPort(first.address);
+							if (target.port) {
+								setPort(target.port);
 							}
 						});
 					}}

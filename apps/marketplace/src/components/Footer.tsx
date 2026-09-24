@@ -16,10 +16,11 @@ export default function Footer() {
 					<Typography variant="overline">{t("footer.shop")}</Typography>
 					<a href="/kits">{t("footer.kits")}</a>
 					<a href="/orders">{t("footer.orders")}</a>
+					<a href="/cart">{t("nav.cart")}</a>
 				</div>
 				<div>
 					<Typography variant="overline">{t("footer.support")}</Typography>
-					<a href="/shipping">{t("footer.shipping")}</a>
+					<a href="/policies">{t("footer.policies")}</a>
 					<a href="/contact">{t("footer.contact")}</a>
 				</div>
 			</div>

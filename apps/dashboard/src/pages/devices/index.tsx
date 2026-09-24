@@ -10,6 +10,7 @@ import Dialog, {
 	DialogTitle,
 } from "@shpaw415/mui-lite/Dialog";
 import Stack from "@shpaw415/mui-lite/Stack";
+import Typography from "@shpaw415/mui-lite/Typography";
 import { useCallback, useEffect, useState } from "react";
 import DeviceBoardCard, {
 	type BoardView,
@@ -23,6 +24,7 @@ import { useBoardSelection } from "../../hooks/useBoardSelection.tsx";
 import { useDashboardMode } from "../../hooks/useDashboardMode.tsx";
 import { useT } from "../../hooks/useLocale.tsx";
 import useMobile from "../../hooks/useMobile.ts";
+import { useWorkbench } from "../../hooks/useWorkbench.tsx";
 
 export default function DevicesPage() {
 	const session = useAuthSession();
@@ -30,6 +32,7 @@ export default function DevicesPage() {
 	const { isEasy } = useDashboardMode();
 	const t = useT();
 	const mobile = useMobile();
+	const { refreshBoards } = useWorkbench();
 	const { uuid: selectedUuid, setUuid: selectBoard } = useBoardSelection();
 	const loggedIn = Boolean(session.data?.id || session.data?.email);
 	const [boards, setBoards] = useState<BoardView[]>([]);
@@ -38,6 +41,7 @@ export default function DevicesPage() {
 	const [pendingCount, setPendingCount] = useState(0);
 	const [t3AutoStartUuid, setT3AutoStartUuid] = useState("");
 	const [unpairing, setUnpairing] = useState("");
+	const [confirmUuid, setConfirmUuid] = useState("");
 
 	const refresh = useCallback(async () => {
 		if (!session.data?.id) {
@@ -72,7 +76,8 @@ export default function DevicesPage() {
 			setPendingCount(0);
 		}
 		setLoading(false);
-	}, [session.data?.id, run, isEasy]);
+		refreshBoards();
+	}, [session.data?.id, run, isEasy, refreshBoards]);
 
 	useEffect(() => {
 		void refresh();
@@ -160,24 +165,7 @@ export default function DevicesPage() {
 						);
 					}}
 					onUnpair={(uuid) => {
-						if (
-							!window.confirm(
-								`${t("devices.unpairConfirm")}\n\n${t("devices.unpairDetail")}`,
-							)
-						) {
-							return;
-						}
-						setUnpairing(uuid);
-						void run(unpairDevice(uuid)).then((result) => {
-							setUnpairing("");
-							if (!result) {
-								return;
-							}
-							if (t3AutoStartUuid === uuid) {
-								setT3AutoStartUuid("");
-							}
-							void refresh();
-						});
+						setConfirmUuid(uuid);
 					}}
 				/>
 			))}
@@ -210,6 +198,65 @@ export default function DevicesPage() {
 						onClick={() => setDialogOpen(false)}
 					>
 						{t("devices.close")}
+					</Button>
+				</DialogActions>
+			</Dialog>
+			<Dialog
+				open={Boolean(confirmUuid)}
+				onClose={() => {
+					if (!unpairing) {
+						setConfirmUuid("");
+					}
+				}}
+				fullWidth
+				fullScreen={mobile}
+				scroll="paper"
+				sx={{ zIndex: 1300 }}
+				slotProps={{ paper: { className: "max-w-xl w-full" } }}
+			>
+				<DialogTitle>{t("devices.unpairTitle")}</DialogTitle>
+				<DialogContent>
+					<Stack spacing={1}>
+						<Alert severity="warning">{t("devices.unpairConfirm")}</Alert>
+						<Typography color="secondary">
+							{t("devices.unpairDetail")}
+						</Typography>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button
+						type="button"
+						variant="text"
+						disabled={Boolean(unpairing)}
+						onClick={() => setConfirmUuid("")}
+					>
+						{t("devices.close")}
+					</Button>
+					<Button
+						type="button"
+						variant="contained"
+						color="error"
+						disabled={Boolean(unpairing)}
+						onClick={() => {
+							const uuid = confirmUuid;
+							if (!uuid) {
+								return;
+							}
+							setUnpairing(uuid);
+							void run(unpairDevice(uuid)).then((result) => {
+								setUnpairing("");
+								setConfirmUuid("");
+								if (!result) {
+									return;
+								}
+								if (t3AutoStartUuid === uuid) {
+									setT3AutoStartUuid("");
+								}
+								void refresh();
+							});
+						}}
+					>
+						{t("devices.unpair")}
 					</Button>
 				</DialogActions>
 			</Dialog>

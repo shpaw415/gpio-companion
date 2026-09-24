@@ -21,6 +21,8 @@ export async function PATCH(
 		status?: OrderStatus;
 		paymentStatus?: PaymentStatus;
 		fulfillmentStatus?: FulfillmentStatus;
+		carrier?: string | null;
+		trackingNumber?: string | null;
 	},
 ) {
 	const ctx = getContext<Env, never, never>(arguments);
